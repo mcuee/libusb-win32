@@ -26,12 +26,12 @@ static struct {
   int is_used[LIBUSB_MAX_NUMBER_OF_DEVICES];
 } device_ids;
 
-static NTSTATUS __stdcall on_usbd_complete(DEVICE_OBJECT *device_object, 
+static NTSTATUS DDKAPI on_usbd_complete(DEVICE_OBJECT *device_object, 
                                            IRP *irp, 
                                            void *context);
 
-NTSTATUS __stdcall DriverEntry(DRIVER_OBJECT *driver_object,
-                               UNICODE_STRING *registry_path)
+NTSTATUS DDKAPI DriverEntry(DRIVER_OBJECT *driver_object,
+                            UNICODE_STRING *registry_path)
 {
   PDRIVER_DISPATCH *dispatch_function = 
     (PDRIVER_DISPATCH *)driver_object->MajorFunction;
@@ -57,8 +57,8 @@ NTSTATUS __stdcall DriverEntry(DRIVER_OBJECT *driver_object,
   return STATUS_SUCCESS;
 }
 
-NTSTATUS __stdcall add_device(DRIVER_OBJECT *driver_object, 
-                              DEVICE_OBJECT *physical_device_object)
+NTSTATUS DDKAPI add_device(DRIVER_OBJECT *driver_object, 
+                           DEVICE_OBJECT *physical_device_object)
 {
   NTSTATUS status;
   DEVICE_OBJECT *device_object;
@@ -106,16 +106,11 @@ NTSTATUS __stdcall add_device(DRIVER_OBJECT *driver_object,
 
   device_object->Flags &= ~DO_DEVICE_INITIALIZING;
   
-  if(is_device_visible(device_extension))
-    {
-      return control_object_create(device_extension);
-    }
-
   return status;
 }
 
 
-VOID __stdcall unload(DRIVER_OBJECT *driver_object)
+VOID DDKAPI unload(DRIVER_OBJECT *driver_object)
 {
   debug_printf(LIBUSB_DEBUG_MSG, "unload(): unloading driver");
 }
@@ -485,7 +480,7 @@ void release_device_id(libusb_device_extension *device_extension)
 }
 
 
-static NTSTATUS __stdcall on_usbd_complete(DEVICE_OBJECT *device_object, 
+static NTSTATUS DDKAPI on_usbd_complete(DEVICE_OBJECT *device_object, 
                                            IRP *irp, void *context)
 {
   KeSetEvent((KEVENT *) context, IO_NO_INCREMENT, FALSE);

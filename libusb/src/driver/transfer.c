@@ -29,9 +29,9 @@ typedef struct {
 } Context;
 
 
-NTSTATUS __stdcall transfer_complete(DEVICE_OBJECT *device_object, 
+NTSTATUS DDKAPI transfer_complete(DEVICE_OBJECT *device_object, 
                                      IRP *irp, void *context);
-void __stdcall transfer_cancel(DEVICE_OBJECT *device_object, IRP *irp);
+void DDKAPI transfer_cancel(DEVICE_OBJECT *device_object, IRP *irp);
 
 static URB *create_urb(libusb_device_extension *device_extension,
                        int direction, int urb_function, int endpoint, 
@@ -155,7 +155,7 @@ NTSTATUS transfer(IRP *irp, libusb_device_extension *device_extension,
 }
 
 
-NTSTATUS __stdcall transfer_complete(DEVICE_OBJECT *device_object, IRP *irp, 
+NTSTATUS DDKAPI transfer_complete(DEVICE_OBJECT *device_object, IRP *irp, 
                                      void *context)
 {
   Context *c = (Context *)context;
@@ -213,7 +213,7 @@ NTSTATUS __stdcall transfer_complete(DEVICE_OBJECT *device_object, IRP *irp,
 }
 
 
-void __stdcall transfer_cancel(DEVICE_OBJECT *device_object, IRP *irp)
+void DDKAPI transfer_cancel(DEVICE_OBJECT *device_object, IRP *irp)
 {
   Context *c = (Context *)irp->Tail.Overlay.DriverContext[0];
   libusb_remove_lock_t *lock = c->remove_lock;

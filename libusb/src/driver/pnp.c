@@ -19,19 +19,17 @@
 
 #include "libusb_driver.h"
 
-static NTSTATUS __stdcall 
+static NTSTATUS DDKAPI 
 on_start_complete(DEVICE_OBJECT *device_object, IRP *irp, 
                   void *context);
 
-static NTSTATUS __stdcall
+static NTSTATUS DDKAPI
 on_device_usage_notification_complete(DEVICE_OBJECT *device_object,
-                                      IRP *irp,
-                                      void *context);
+                                      IRP *irp, void *context);
 
-static NTSTATUS __stdcall 
+static NTSTATUS DDKAPI 
 on_query_capabilities_complete(DEVICE_OBJECT *device_object,
-                               IRP *irp,
-                               void *context);
+                               IRP *irp, void *context);
 
 NTSTATUS dispatch_pnp(libusb_device_extension *device_extension, IRP *irp)
 {
@@ -71,10 +69,7 @@ NTSTATUS dispatch_pnp(libusb_device_extension *device_extension, IRP *irp)
       IoCopyCurrentIrpStackLocationToNext(irp);
       IoSetCompletionRoutine(irp, on_start_complete, NULL, TRUE, TRUE, TRUE);
 
-      remove_lock_release(&device_extension->remove_lock);
-      status = IoCallDriver(device_extension->next_stack_device, irp);
-
-      return status;
+      return IoCallDriver(device_extension->next_stack_device, irp);
 
     case IRP_MN_STOP_DEVICE:
       device_extension->is_started = 0;
@@ -85,8 +80,8 @@ NTSTATUS dispatch_pnp(libusb_device_extension *device_extension, IRP *irp)
       debug_printf(LIBUSB_DEBUG_MSG, "dispatch_pnp(): "
                    "IRP_MN_DEVICE_USAGE_NOTIFICATION");
 
-      if((device_extension->self->AttachedDevice == NULL) ||
-         (device_extension->self->AttachedDevice->Flags & DO_POWER_PAGABLE))
+      if(!device_extension->self->AttachedDevice
+         || (device_extension->self->AttachedDevice->Flags & DO_POWER_PAGABLE))
         {
           device_extension->self->Flags |= DO_POWER_PAGABLE;
         }
@@ -94,27 +89,24 @@ NTSTATUS dispatch_pnp(libusb_device_extension *device_extension, IRP *irp)
       IoCopyCurrentIrpStackLocationToNext(irp);
       IoSetCompletionRoutine(irp, on_device_usage_notification_complete,
                              NULL, TRUE, TRUE, TRUE);
-      remove_lock_release(&device_extension->remove_lock);
       return IoCallDriver(device_extension->next_stack_device, irp);
 
     case IRP_MN_QUERY_CAPABILITIES: 
       debug_printf(LIBUSB_DEBUG_MSG, "dispatch_pnp(): "
                    "IRP_MN_QUERY_CAPABILITIES");
 
-      stack_location->Parameters.DeviceCapabilities.Capabilities
-        ->SurpriseRemovalOK = TRUE;
-      
+      if(!device_extension->self->AttachedDevice)
+        {
+          stack_location->Parameters.DeviceCapabilities.Capabilities
+            ->SurpriseRemovalOK = TRUE;
+        }
+
       IoCopyCurrentIrpStackLocationToNext(irp);
       
       IoSetCompletionRoutine(irp, on_query_capabilities_complete, NULL,
                              TRUE, TRUE, TRUE);
       
-      status = IoCallDriver(device_extension->next_stack_device, irp);
-      
-      remove_lock_release(&device_extension->remove_lock);
-      return status;
-      
-      break;
+      return IoCallDriver(device_extension->next_stack_device, irp);
 
     default:
       status = irp->IoStatus.Status;
@@ -126,7 +118,7 @@ NTSTATUS dispatch_pnp(libusb_device_extension *device_extension, IRP *irp)
   return IoCallDriver(device_extension->next_stack_device, irp);
 }
 
-static NTSTATUS __stdcall 
+static NTSTATUS DDKAPI 
 on_start_complete(DEVICE_OBJECT *device_object, IRP *irp, void *context)
 {
   libusb_device_extension *device_extension
@@ -137,22 +129,31 @@ on_start_complete(DEVICE_OBJECT *device_object, IRP *irp, void *context)
       IoMarkIrpPending(irp);
     }
   
-  if(NT_SUCCESS(irp->IoStatus.Status)
-     && (device_extension->next_stack_device->Characteristics 
-         & FILE_REMOVABLE_MEDIA)) 
+  if(device_extension->next_stack_device->Characteristics 
+     & FILE_REMOVABLE_MEDIA) 
     {
       device_object->Characteristics |= FILE_REMOVABLE_MEDIA;
     }
   
-  device_extension->is_started = 1;
+  if(NT_SUCCESS(irp->IoStatus.Status))
+    {
+      if(is_device_visible(device_extension))
+        {
+          if(NT_SUCCESS(control_object_create(device_extension)))
+            {
+              device_extension->is_started = 1;
+            }   
+        }
+    }
 
+  remove_lock_release(&device_extension->remove_lock);
+  
   return STATUS_SUCCESS;
 }
 
-static NTSTATUS __stdcall 
+static NTSTATUS DDKAPI 
 on_device_usage_notification_complete(DEVICE_OBJECT *device_object,
-                                      IRP *irp,
-                                      void *context)
+                                      IRP *irp, void *context)
 {
   libusb_device_extension *device_extension
     = (libusb_device_extension *)device_object->DeviceExtension;
@@ -167,20 +168,31 @@ on_device_usage_notification_complete(DEVICE_OBJECT *device_object,
       device_object->Flags &= ~DO_POWER_PAGABLE;
     }
 
+  remove_lock_release(&device_extension->remove_lock);
+
   return STATUS_SUCCESS;
 }
 
-static NTSTATUS __stdcall 
+static NTSTATUS DDKAPI 
 on_query_capabilities_complete(DEVICE_OBJECT *device_object,
                                IRP *irp, void *context)
 {
+  libusb_device_extension *device_extension
+    = (libusb_device_extension *)device_object->DeviceExtension;
+
   if(irp->PendingReturned)
     {
       IoMarkIrpPending(irp);
     }
 
-  IoGetCurrentIrpStackLocation(irp)->Parameters.DeviceCapabilities.Capabilities
-    ->SurpriseRemovalOK = TRUE;
+  if(!device_extension->self->AttachedDevice)
+    {
+      IoGetCurrentIrpStackLocation(irp)
+        ->Parameters.DeviceCapabilities.Capabilities
+        ->SurpriseRemovalOK = TRUE;
+    }
+
+  remove_lock_release(&device_extension->remove_lock);
 
   return STATUS_SUCCESS;
 }

@@ -19,7 +19,6 @@
 
 #include <windows.h>
 #include <setupapi.h>
-#include <ddk/newdev.h>
 #include <stdio.h>
 #include <ddk/cfgmgr32.h>
 #include <regstr.h>
@@ -32,20 +31,20 @@
 
 #define LIBUSB_DRIVER_PATH "system32\\drivers\\libusb0.sys"
 
-void CALLBACK usb_create_kernel_service_rundll(HWND wnd, HINSTANCE instance,
-                                               LPSTR cmd_line, int cmd_show);
-void CALLBACK usb_remove_kernel_service_rundll(HWND wnd, HINSTANCE instance,
-                                               LPSTR cmd_line, int cmd_show);
-
+void CALLBACK usb_create_service_rundll(HWND wnd, HINSTANCE instance,
+                                        LPSTR cmd_line, int cmd_show);
+void CALLBACK usb_delete_service_rundll(HWND wnd, HINSTANCE instance,
+                                        LPSTR cmd_line, int cmd_show);
 void CALLBACK usb_install_driver_rundll(HWND wnd, HINSTANCE instance,
                                         LPSTR cmd_line, int cmd_show);
 
 
-void CALLBACK usb_create_kernel_service_rundll(HWND wnd, HINSTANCE instance,
-                                               LPSTR cmd_line, int cmd_show)
+void CALLBACK usb_create_service_rundll(HWND wnd, HINSTANCE instance,
+                                        LPSTR cmd_line, int cmd_show)
 {
   char display_name[MAX_PATH];
-  
+  HKEY reg_key = NULL;
+
   memset(display_name, 0, sizeof(display_name));
 
   /* stop all libusb devices */
@@ -53,57 +52,99 @@ void CALLBACK usb_create_kernel_service_rundll(HWND wnd, HINSTANCE instance,
 
   /* the old driver is unloaded now */ 
 
-  /* create the Display Name */
-  snprintf(display_name, sizeof(display_name) - 1,
-           "LibUsb-Win32 - Kernel Driver, Version %d.%d.%d.%d", 
-           VERSION_MAJOR, VERSION_MINOR, VERSION_MICRO, VERSION_NANO);
-
-  /* create the kernel service */
-  usb_create_service(LIBUSB_DRIVER_NAME, display_name, LIBUSB_DRIVER_PATH,
-                     SERVICE_KERNEL_DRIVER, SERVICE_DEMAND_START);
-     
+  if(usb_registry_is_nt())
+    {
+      /* create the Display Name */
+      snprintf(display_name, sizeof(display_name) - 1,
+               "LibUsb-Win32 - Kernel Driver, Version %d.%d.%d.%d", 
+               VERSION_MAJOR, VERSION_MINOR, VERSION_MICRO, VERSION_NANO);
+      
+      /* create the kernel service */
+      usb_create_service(LIBUSB_DRIVER_NAME_NT, display_name, 
+                         LIBUSB_DRIVER_PATH,
+                         SERVICE_KERNEL_DRIVER, SERVICE_DEMAND_START);
+    }
+  
   /* restart libusb devices */
   usb_registry_start_libusb_devices(); 
   /* insert filter drivers */
   usb_registry_start_filter();
 
-  /* register libusb's DLL as a device co-installer */
-
-  /* USB class */
-  usb_registry_insert_co_installer("{36FC9E60-C465-11CF-8056-444553540000}");
-  /* Net class */
-  usb_registry_insert_co_installer("{4D36E972-E325-11CE-BFC1-08002BE10318}");
-  /* Image class */
-  usb_registry_insert_co_installer("{6BDD1FC6-810F-11D0-BEC7-08002BE2092F}");
-  /* HID class */
-  usb_registry_insert_co_installer("{745A17A0-74D3-11D0-B6FE-00A0C90F57DA}");
-  /* Media class */
-  usb_registry_insert_co_installer("{4D36E96C-E325-11CE-BFC1-08002BE10318}");
-  /* Modem class */
-  usb_registry_insert_co_installer("{4D36E96D-E325-11CE-BFC1-08002BE10318}");
-  /* SmartCardReader class */
-  usb_registry_insert_co_installer("{50DD5230-BA8A-11D1-BF5D-0000F805F530}");
+  if(usb_registry_is_nt())
+    {
+      snprintf(display_name, sizeof(display_name) - 1,
+               "LibUsb-Win32 - Daemon, Version %d.%d.%d.%d", 
+               VERSION_MAJOR, VERSION_MINOR, VERSION_MICRO, VERSION_NANO);
+      
+      /* create the system service */
+      usb_create_service(LIBUSB_SERVICE_NAME, display_name,
+                         LIBUSB_SERVICE_PATH, 
+                         SERVICE_WIN32_OWN_PROCESS,
+                         SERVICE_AUTO_START); 
+      /* start the system service */
+      usb_start_service(LIBUSB_SERVICE_NAME);
+    }
+  else
+    {
+      if(RegOpenKeyEx(HKEY_LOCAL_MACHINE,
+                      "Software\\Microsoft\\Windows\\CurrentVersion"
+                      "\\RunServices",
+                      0, KEY_ALL_ACCESS, &reg_key)
+         == ERROR_SUCCESS)
+        {
+          if(RegSetValueEx(reg_key, "LibUsb-Win32 Daemon", 0, REG_SZ, 
+                           "libusbd-9x.exe", 
+                           usb_registry_mz_string_size("libusbd-9x.exe")) 
+             != ERROR_SUCCESS)
+            {
+              usb_debug_error("usb_create_service_rundll(): installing "
+                              "service failed");
+            }
+          else
+            {
+              if(WinExec("libusbd-9x.exe", FALSE) < 31)
+                {
+                  usb_debug_error("usb_create_service_rundll(): starting "
+                                  "deamon failed\n");
+                }
+            }
+          RegCloseKey(reg_key);
+        }
+    }
 }
 
-void CALLBACK usb_remove_kernel_service_rundll(HWND wnd, HINSTANCE instance,
-                                               LPSTR cmd_line, int cmd_show)
+void CALLBACK usb_delete_service_rundll(HWND wnd, HINSTANCE instance,
+                                        LPSTR cmd_line, int cmd_show)
 {
-  /* unregister the device co-installer */
+  HANDLE win; 
+  HKEY reg_key = NULL;
 
-  /* USB class */
-  usb_registry_remove_co_installer("{36FC9E60-C465-11CF-8056-444553540000}");
-  /* Net class */
-  usb_registry_remove_co_installer("{4D36E972-E325-11CE-BFC1-08002BE10318}");
-  /* Image class */
-  usb_registry_remove_co_installer("{6BDD1FC6-810F-11D0-BEC7-08002BE2092F}");
-  /* HID class */
-  usb_registry_remove_co_installer("{745A17A0-74D3-11D0-B6FE-00A0C90F57DA}");
-  /* Media class */
-  usb_registry_remove_co_installer("{4D36E96C-E325-11CE-BFC1-08002BE10318}");
-  /* Modem class */
-  usb_registry_remove_co_installer("{4D36E96D-E325-11CE-BFC1-08002BE10318}");
-  /* SmartCardReader class */
-  usb_registry_remove_co_installer("{50DD5230-BA8A-11D1-BF5D-0000F805F530}");
+  if(usb_registry_is_nt())
+    {
+      usb_stop_service(LIBUSB_SERVICE_NAME); 
+      usb_delete_service(LIBUSB_SERVICE_NAME);
+    }
+  else
+    {
+      do {
+        win = FindWindow("LIBUSB_SERVICE_WINDOW_CLASS", NULL);
+        if(win != INVALID_HANDLE_VALUE)
+          {
+            PostMessage(win, WM_DESTROY, 0, 0);
+            Sleep(500);
+          }
+      } while(win);
+
+      if(RegOpenKeyEx(HKEY_LOCAL_MACHINE,
+                      "Software\\Microsoft\\Windows\\CurrentVersion"
+                      "\\RunServices",
+                      0, KEY_ALL_ACCESS, &reg_key)
+         == ERROR_SUCCESS)
+        {
+          RegDeleteValue(reg_key, "LibUsb-Win32 Daemon");
+          RegCloseKey(reg_key);
+        }
+    } 
 
   /* remove filter drivers */
   usb_registry_stop_filter(); 
@@ -123,7 +164,32 @@ void CALLBACK usb_install_driver_rundll(HWND wnd, HINSTANCE instance,
   char tmp_id[MAX_PATH];
   char *p;
   int dev_index;
+  HANDLE newdev_dll = NULL;
   
+  typedef BOOL WINAPI 
+    (* update_driver_for_plug_and_play_devices_t)(HWND, LPCSTR, LPCSTR, DWORD,
+                                                  PBOOL);
+
+  update_driver_for_plug_and_play_devices_t UpdateDriverForPlugAndPlayDevices;
+
+  newdev_dll = LoadLibrary("newdev.dll.dll");
+
+  if(!newdev_dll)
+    {
+      usb_debug_error("usb_install_driver(): loading newdev.dll failed\n");
+      return;
+    }
+  
+  UpdateDriverForPlugAndPlayDevices =  
+    (update_driver_for_plug_and_play_devices_t) 
+    GetProcAddress(newdev_dll, "UpdateDriverForPlugAndPlayDevicesA");
+
+  if(!UpdateDriverForPlugAndPlayDevices)
+    {
+      return;
+    }
+
+
   dev_info_data.cbSize = sizeof(SP_DEVINFO_DATA);
 
 
@@ -145,8 +211,8 @@ void CALLBACK usb_install_driver_rundll(HWND wnd, HINSTANCE instance,
       return;
     }
 
-  /* find the .inf file's device description section marked "libusb-win32" */
-  if(!SetupFindFirstLine(inf_handle, "libusb-win32", NULL, &inf_context))
+  /* find the .inf file's device description section marked "Devices" */
+  if(!SetupFindFirstLine(inf_handle, "Devices", NULL, &inf_context))
     {
       usb_debug_error("usb_install_driver(): .inf file %s does not contain "
                       "any device descriptions\n", cmd_line);
@@ -267,26 +333,3 @@ void CALLBACK usb_install_driver_rundll(HWND wnd, HINSTANCE instance,
 
   return;
 }
-
-HRESULT WINAPI usb_coinstaller(DI_FUNCTION install_function,
-                               HDEVINFO dev_info,
-                               SP_DEVINFO_DATA *dev_info_data,
-                               COINSTALLER_CONTEXT_DATA *context)
-{
-  switch(install_function)
-    {
-      /* case DIF_PROPERTYCHANGE: */
-    case DIF_INSTALLDEVICE: 
-
-      /* connect the kernel driver to this device */
-      usb_registry_insert_filter(dev_info, dev_info_data,
-                                 LIBUSB_DRIVER_NAME);
-      break;        
-    
-    default:
-      ;
-    }
-    
-  return NO_ERROR;    
-}
-

@@ -1,3 +1,5 @@
+
+
 /* LIBUSB-WIN32, Generic Windows USB Driver
  * Copyright (C) 2002-2004 Stephan Meyer, <ste_meyer@web.de>
  *
@@ -25,8 +27,8 @@
 #include <setupapi.h>
 
 
-#define LIBUSB_DRIVER_NAME "libusb0"
-#define LIBUSB_COINSTALLER_ENTRY "libusb0,usb_coinstaller"
+#define LIBUSB_DRIVER_NAME_NT "libusb0"
+#define LIBUSB_DRIVER_NAME_9X "libusb0.sys"
 
 typedef int bool_t;
 
@@ -37,7 +39,10 @@ typedef int bool_t;
 #define TRUE (!(FALSE)) 
 #endif
 
+#define REGISTRY_BUF_SIZE 512
 
+
+bool_t usb_registry_is_nt(void);
 
 
 bool_t usb_registry_get_property(DWORD which, HDEVINFO dev_info, 
@@ -78,8 +83,6 @@ char *usb_registry_mz_string_find(char *src, char *str);
 char *usb_registry_mz_string_find_sub(char *src, char *str);
 bool_t usb_registry_mz_string_insert(char *src, char *str);
 bool_t usb_registry_mz_string_remove(char *src, char *str);
-
-bool_t usb_registry_insert_co_installer(char *guid);
-bool_t usb_registry_remove_co_installer(char *guid);
+void usb_registry_mz_string_lower(char *src);
 
 #endif

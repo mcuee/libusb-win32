@@ -46,7 +46,7 @@ HKR,,Icon,,"-20"
 
 [Strings]
 libusb-win32 = "http://libusb-win32.sourceforge.net"
-class_display_name = "LibUSB-Win32 Devices test"
+class_display_name = "LibUSB-Win32 Devices"
 
 ;------------------------------------------------------------------------------
 ; Device descriptions, modify this section to match your device(s)
@@ -76,24 +76,11 @@ class_display_name = "LibUSB-Win32 Devices test"
 ;"LibUsb-Win32 Sample Device, Version @INF_VERSION@"=LIBUSB_DEV, USB\CLASS_00&SUBCLASS_00&PROT_00
 
 ;------------------------------------------------------------------------------
-; Cypress EzUSB 2131 controller 
+; Cypress EzUSB 2131 controller (delete these entries, they're just included
+; to test the driver)
 ;------------------------------------------------------------------------------
 "Cypress EzUSB 2131, Version @INF_VERSION@"=LIBUSB_DEV, USB\VID_0547&PID_2131
 "LibUsb-Win32 Test Device, Version @INF_VERSION@"=LIBUSB_DEV, USB\VID_1234&PID_5678 
-
-;------------------------------------------------------------------------------
-; Dakota Digital Camera
-;------------------------------------------------------------------------------
-;"Dakota Digital Camera, ISO Interface, Version @INF_VERSION@"=LIBUSB_DEV, USB\VID_04FC&PID_FFFF&MI_00
-;"Dakota Digital Camera, Bulk Interface, Version @INF_VERSION@"=LIBUSB_DEV, USB\VID_04FC&PID_FFFF&MI_01
-
-"Dakota Digital Camera, Version @INF_VERSION@"=LIBUSB_DEV, USB\VID_04FC&PID_FFFF
-
-;------------------------------------------------------------------------------
-; Walgreens Digital Camera
-;------------------------------------------------------------------------------
-"Walgreens Single-Use Camera, Version @INF_VERSION@"=LIBUSB_DEV, USB\VID_0461&PID_0819&MI_00
-"Walgreens Single-Use Camera, Version @INF_VERSION@"=LIBUSB_DEV, USB\VID_0461&PID_0819&MI_01
 
 
 ;------------------------------------------------------------------------------
@@ -134,12 +121,21 @@ AddReg    = LIBUSB_DEV.AddReg
 [LIBUSB_DEV.NT]
 CopyFiles = LIBUSB.Files.Sys, LIBUSB.Files.Dll
 
+[LIBUSB_DEV.HW]
+DelReg = LIBUSB_DEV.DelReg.HW
+
+[LIBUSB_DEV.NT.HW]
+DelReg = LIBUSB_DEV.DelReg.HW
+
 [LIBUSB_DEV.NT.Services]
 AddService = libusb0, 0x00000002, LIBUSB.AddService
 
 [LIBUSB_DEV.AddReg]
 HKR,,DevLoader,,*ntkern
 HKR,,NTMPDriver,,libusb0.sys
+
+[LIBUSB_DEV.DelReg.HW]
+HKR,,"LowerFilters"
 
 
 ;------------------------------------------------------------------------------
