@@ -46,7 +46,7 @@ NTSTATUS set_configuration(libusb_device_extension *device_extension,
 
   if(!configuration)
     {
-      urb.UrbHeader.Function =  URB_FUNCTION_SELECT_CONFIGURATION;
+      urb.UrbHeader.Function = URB_FUNCTION_SELECT_CONFIGURATION;
       urb.UrbHeader.Length = sizeof(struct _URB_SELECT_CONFIGURATION);
 
       status = call_usbd(device_extension, &urb, 
@@ -65,7 +65,6 @@ NTSTATUS set_configuration(libusb_device_extension *device_extension,
      
       device_extension->configuration = configuration;
 
-      release_all_interfaces(device_extension);
       clear_pipe_info(device_extension);
 
       return status;
@@ -220,7 +219,6 @@ NTSTATUS set_configuration(libusb_device_extension *device_extension,
   
   device_extension->configuration = configuration;
 
-  release_all_interfaces(device_extension);
   clear_pipe_info(device_extension);
 
   for(i = 0; i < configuration_descriptor->bNumInterfaces; i++)

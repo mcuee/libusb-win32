@@ -51,7 +51,7 @@ NTSTATUS DDKAPI dispatch(DEVICE_OBJECT *device_object, IRP *irp)
     case IRP_MJ_CLOSE:
       if(is_irp_for_us(device_extension, irp))
         {
-          if(!InterlockedIncrement(&device_extension->ref_count))
+          if(!InterlockedDecrement(&device_extension->ref_count))
             {
               release_all_interfaces(device_extension);
             }
@@ -60,6 +60,7 @@ NTSTATUS DDKAPI dispatch(DEVICE_OBJECT *device_object, IRP *irp)
       break;
 
     case IRP_MJ_CLEANUP:
+
       if(is_irp_for_us(device_extension, irp))
         {
           return complete_irp(irp, STATUS_SUCCESS, 0);
