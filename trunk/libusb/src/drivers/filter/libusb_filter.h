@@ -34,12 +34,12 @@
 #define USB_RECIP_OTHER			0x03
 
 
-#define LIBUSB_NT_DEVICE_NAME L"\\Device\\libusb"
-#define LIBUSB_SYMBOLIC_LINK_NAME L"\\DosDevices\\libusb-"
+#define LIBUSB_NT_DEVICE_NAME L"\\Device\\libusb0"
+#define LIBUSB_SYMBOLIC_LINK_NAME L"\\DosDevices\\libusb0-"
 
 #define LIBUSB_MAX_NUMBER_OF_ENDPOINTS  32
 #define LIBUSB_MAX_NUMBER_OF_INTERFACES 32
-#define LIBUSB_MAX_NUMBER_OF_DEVICES    256
+#define LIBUSB_MAX_NUMBER_OF_DEVICES    1024
 
 #define LIBUSB_DEFAULT_TIMEOUT  5000   
 
@@ -72,7 +72,6 @@ typedef struct
   DEVICE_OBJECT *control_device_object;
   DEVICE_OBJECT *main_device_object;
   DRIVER_OBJECT *driver_object;
-
   libusb_remove_lock remove_lock; 
   USBD_CONFIGURATION_HANDLE configuration_handle;
   int current_configuration;
@@ -89,12 +88,8 @@ NTSTATUS dispatch(DEVICE_OBJECT *device_object, IRP *irp);
 NTSTATUS dispatch_control(DEVICE_OBJECT *device_object, IRP *irp);
 NTSTATUS dispatch_pnp(libusb_device_extension *device_extension, IRP *irp);
 NTSTATUS  dispatch_ioctl(libusb_device_extension *device_extension, IRP *irp);
-NTSTATUS pass_irp_down(libusb_device_extension *device_extension, IRP *irp);
 NTSTATUS  complete_irp(IRP *irp, NTSTATUS status, ULONG info);
-NTSTATUS  on_io_completion(DEVICE_OBJECT *device_object, IRP *irp, 
-			   void *event);
-NTSTATUS on_start_completion(DEVICE_OBJECT *device_object, 
-			     IRP *irp, void *none);
+
 NTSTATUS call_usbd(libusb_device_extension *device_extension, void *urb,
 		   ULONG control_code, int timeout);
 
@@ -104,13 +99,13 @@ int update_pipe_info(libusb_device_extension *device_extension,
 		     int interface,
 		     USBD_INTERFACE_INFORMATION *interface_info);
 
-NTSTATUS create_control_object(libusb_device_extension *device_extension);
-void delete_control_object(libusb_device_extension *device_extension);
+NTSTATUS control_object_create(libusb_device_extension *device_extension);
+void control_object_delete(libusb_device_extension *device_extension);
 
-void initialize_remove_lock(libusb_remove_lock *remove_lock);
-NTSTATUS acquire_remove_lock(libusb_remove_lock *remove_lock);
-void release_remove_lock(libusb_remove_lock *remove_lock);
-void release_remove_lock_and_wait(libusb_remove_lock *remove_lock);
+void remove_lock_initialize(libusb_remove_lock *remove_lock);
+NTSTATUS remove_lock_acquire(libusb_remove_lock *remove_lock);
+void remove_lock_release(libusb_remove_lock *remove_lock);
+void remove_lock_release_and_wait(libusb_remove_lock *remove_lock);
 
 int get_device_id(libusb_device_extension *device_extension);
 void release_device_id(libusb_device_extension *device_extension);
@@ -137,9 +132,9 @@ NTSTATUS set_descriptor(libusb_device_extension *device_extension,
 NTSTATUS get_descriptor(libusb_device_extension *device_extension,
 			void *buffer,  MDL *mdl_buffer,int size, int type, 
 			int index, int language_id, int *sent, int timeout);
-NTSTATUS bulk_transfer(libusb_device_extension *device_extension,
+NTSTATUS bulk_transfer(IRP *irp, libusb_device_extension *device_extension,
 		       int endpoint, MDL *buffer,
-		       int size, int direction, int *sent, int timeout);
+		       int size, int direction);
 NTSTATUS vendor_request(libusb_device_extension *device_extension,
 			int request, int value, int index,
 			MDL *buffer, int size, int direction,

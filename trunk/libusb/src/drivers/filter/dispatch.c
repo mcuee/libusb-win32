@@ -24,7 +24,6 @@ NTSTATUS __stdcall dispatch(DEVICE_OBJECT *device_object, IRP *irp)
   NTSTATUS status = STATUS_SUCCESS;
   libusb_device_extension *device_extension = 
     (libusb_device_extension *)device_object->DeviceExtension;
-  IO_STACK_LOCATION *stack_location = IoGetCurrentIrpStackLocation(irp);
 
 
   if(!device_extension->control_device_object)
@@ -32,7 +31,7 @@ NTSTATUS __stdcall dispatch(DEVICE_OBJECT *device_object, IRP *irp)
       return dispatch_control(device_object, irp);
     }
 
-  switch(stack_location->MajorFunction) 
+  switch(IoGetCurrentIrpStackLocation(irp)->MajorFunction) 
     {
       
     case IRP_MJ_PNP:
@@ -47,15 +46,10 @@ NTSTATUS __stdcall dispatch(DEVICE_OBJECT *device_object, IRP *irp)
       IoSkipCurrentIrpStackLocation(irp);
       return PoCallDriver(device_extension->next_stack_device, irp);
       
-    case IRP_MJ_CREATE:
-
-      status = complete_irp(irp, STATUS_SUCCESS, 0);
-
-      break;
-      
+    case IRP_MJ_CREATE:      
     case IRP_MJ_CLOSE:
 
-      complete_irp(irp, STATUS_SUCCESS,0);
+      status = complete_irp(irp, STATUS_SUCCESS,0);
 
       break;
       
@@ -80,15 +74,18 @@ NTSTATUS dispatch_control(DEVICE_OBJECT *device_object, IRP *irp)
   NTSTATUS status = STATUS_SUCCESS;
   libusb_device_extension *device_extension = 
     (libusb_device_extension *)device_object->DeviceExtension;
-  IO_STACK_LOCATION *stack_location = IoGetCurrentIrpStackLocation(irp);
 
-  if(stack_location->MajorFunction == IRP_MJ_DEVICE_CONTROL) 
+  if(IoGetCurrentIrpStackLocation(irp)->MajorFunction 
+     == IRP_MJ_DEVICE_CONTROL) 
     {
-      status = dispatch(device_extension->main_device_object, irp);
+      if(device_extension->main_device_object)
+	status = dispatch(device_extension->main_device_object, irp);
+      else
+	status = complete_irp(irp, STATUS_DELETE_PENDING, 0);
     }
   else 
     {
-      complete_irp(irp, status, 0);
+      status = complete_irp(irp, status, 0);
     }
   return status;
 }

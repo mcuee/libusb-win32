@@ -17,10 +17,11 @@
  */
 
 
-#ifndef __DRIVER_API_H__
-#define __DRIVER_API_H__
+#ifndef __FILTER_API_H__
+#define __FILTER_API_H__
 
-#define MAX_READ_WRITE 64000
+#define MAX_READ_WRITE (1024 * 64)
+
 
 #define LIBUSB_IOCTL_SET_CONFIGURATION CTL_CODE(FILE_DEVICE_UNKNOWN,\
 0x801, METHOD_BUFFERED, FILE_ANY_ACCESS)
@@ -74,71 +75,49 @@
 #include <pshpack1.h> 
 
 
-typedef struct
-{
-  int endpoint;
-  unsigned int len;
+typedef struct {
   int timeout;
-  void *data;
-} usb_bulk_transfer;
-
-typedef struct
-{
-  int request;
-  int value;
-  int index;
-  int timeout;
-} usb_vendor_request;
-
-typedef struct
-{
-  int configuration;
-  int timeout;
-} usb_configuration_request;
-
-typedef struct
-{
-  int interface;
-  int altsetting;
-  int timeout;
-} usb_interface_request;
-
-typedef struct
-{
-  int recipient;
-  int feature;
-  int index;
-  int timeout;
-} usb_feature_request;
-
-typedef struct
-{
-  int recipient;
-  int index;
-  int status;
-  int timeout;
-} usb_status_request;
-
-typedef struct
-{
-  int type;
-  int index;
-  int language_id;
-  int timeout;
-} usb_descriptor_request;
-
-typedef struct
-{
-  int endpoint;
-  int timeout;
-} usb_pipe_request;
-
-typedef struct
-{
-  int timeout;
-} usb_device_request;
-
-
+  union {
+    struct
+    {
+      int configuration;
+    } configuration;
+    struct
+    {
+      int interface;
+      int altsetting;
+    } interface;
+    struct
+    {
+      int endpoint;
+    } endpoint;    
+    struct
+    {
+      int request;
+      int value;
+      int index;
+    } vendor;
+    struct
+    {
+      int recipient;
+      int feature;
+      int index;
+    } feature;
+    struct
+    {
+      int recipient;
+      int index;
+      int status;
+    } status;
+    struct
+    {
+      int type;
+      int index;
+      int language_id;
+    } descriptor;    
+  };
+} libusb_request;
+    
 #include <poppack.h>
 
 #endif

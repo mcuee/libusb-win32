@@ -1,9 +1,16 @@
 [Version]
 Signature="$Chicago$"
 Class=USB
+ClassGUID={36FC9E60-C465-11CF-8056-444553540000}
 provider=%libusb-win32%
-LayoutFile=layout.inf
 DriverVer=@INF_VERSION@
+
+[SourceDisksNames]
+0 = "Libusb-Win32 Stub Driver Installation Disk",,
+
+[SourceDisksFiles]
+libusbst.sys = 0,, 
+libusb0.dll = 0,, 
 
 [Manufacturer]
 %libusb-win32%=libusb-win32
@@ -16,24 +23,20 @@ HKR,,NoSetupUI,,1
 
 [DestinationDirs]
 LIBUSB_STUB.Files.Sys = 10,System32\Drivers
-LIBUSB_STUB.Files.Inf = 10,Inf
 LIBUSB_STUB.Files.Dll = 10,System32
 
 [LIBUSB_STUB.Files.Sys]
 libusbst.sys
 
-[LIBUSB_STUB.Files.Inf]
-libusb_sa.inf
-
 [LIBUSB_STUB.Files.Dll]
 libusb0.dll
 
 [LIBUSB_STUB.Dev]
-CopyFiles=LIBUSB_STUB.Files.Sys, LIBUSB_STUB.Files.Inf, LIBUSB_STUB.Files.Dll
+CopyFiles=LIBUSB_STUB.Files.Sys, LIBUSB_STUB.Files.Dll
 AddReg=LIBUSB_STUB.AddReg
 
 [LIBUSB_STUB.Dev.NT]
-CopyFiles=LIBUSB_STUB.Files.Sys, LIBUSB_STUB.Files.Inf, LIBUSB_STUB.Files.Dll
+CopyFiles=LIBUSB_STUB.Files.Sys, LIBUSB_STUB.Files.Dll
 AddReg=LIBUSB_STUB.AddReg
 
 [LIBUSB_STUB.Dev.NT.Services]

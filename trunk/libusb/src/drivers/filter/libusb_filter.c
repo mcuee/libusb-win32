@@ -73,9 +73,8 @@ NTSTATUS __stdcall add_device(DRIVER_OBJECT *driver_object,
   device_extension->physical_device_object = physical_device_object;
   device_extension->next_stack_device = NULL;
   device_extension->control_device_object = NULL;
-  device_extension->main_device_object = NULL;
+  device_extension->main_device_object = device_object;
   device_extension->driver_object = driver_object;
-
   device_extension->configuration_handle = NULL;
   device_extension->current_configuration = 0;
 
@@ -92,33 +91,19 @@ NTSTATUS __stdcall add_device(DRIVER_OBJECT *driver_object,
   device_extension->next_stack_device = 
     IoAttachDeviceToDeviceStack(device_object, physical_device_object);
   
-  initialize_remove_lock(&device_extension->remove_lock);
+  remove_lock_initialize(&device_extension->remove_lock);
 
   
   device_object->Flags |= DO_DIRECT_IO | DO_POWER_PAGABLE;
   device_object->Flags &= ~DO_DEVICE_INITIALIZING;
 
-  status = create_control_object(device_extension);
-
-  return STATUS_SUCCESS;
+  return control_object_create(device_extension);
 }
 
 
 VOID __stdcall unload(DRIVER_OBJECT *driver_object)
 {
 
-}
-
-NTSTATUS pass_irp_down(libusb_device_extension *device_extension, IRP *irp)
-{
-  NTSTATUS status = STATUS_SUCCESS;
-
-  IoCopyCurrentIrpStackLocationToNext(irp);
-  status = IoCallDriver(device_extension->next_stack_device, irp);
-  
-  irp->IoStatus.Status = status;
-  
-  return status;
 }
 
 
@@ -129,14 +114,6 @@ NTSTATUS complete_irp(IRP *irp, NTSTATUS status, ULONG info)
   IoCompleteRequest(irp, IO_NO_INCREMENT);
   
   return status;
-}
-
-
-NTSTATUS on_io_completion(DEVICE_OBJECT *device_object, 
-			  IRP *irp, void *event)
-{
-  KeSetEvent((KEVENT *)event, IO_NO_INCREMENT, FALSE);
-  return STATUS_MORE_PROCESSING_REQUIRED;
 }
 
 
@@ -160,8 +137,6 @@ NTSTATUS call_usbd(libusb_device_extension *device_extension, void *urb,
   next_irp_stack->Parameters.Others.Argument1 = urb;
   next_irp_stack->Parameters.Others.Argument2 = NULL;
 
-  IoSetCompletionRoutine(irp, (PIO_COMPLETION_ROUTINE)on_io_completion, 
- 			 (void *)&event, TRUE, TRUE, TRUE); 
 
   status = IoCallDriver(device_extension->next_stack_device, irp);
   
@@ -171,22 +146,26 @@ NTSTATUS call_usbd(libusb_device_extension *device_extension, void *urb,
       LARGE_INTEGER m_timeout;
       m_timeout.QuadPart = -(timeout * 10000);
       
-      if(KeWaitForSingleObject(&event, Executive, KernelMode,
-			       FALSE, &m_timeout) == STATUS_TIMEOUT)
+      if(timeout)
+	{
+	  status = KeWaitForSingleObject(&event, Executive, KernelMode,
+					 FALSE, &m_timeout);
+	}
+      else
+	{
+	  status = KeWaitForSingleObject(&event, Executive, KernelMode,
+					 FALSE, NULL);
+	}
+
+      if(status == STATUS_TIMEOUT)
 	{
 	  KdPrint(("LIBUSB_FILTER - call_usbd(): request timed out\n"));
-	  
 	  IoCancelIrp(irp);
-	  KeWaitForSingleObject(&event, Executive, KernelMode, 
+	  KeWaitForSingleObject(&event, Executive, KernelMode,
 				FALSE, NULL);
 	}
+      status = io_status.Status;
     }
-
-  KeClearEvent(&event);
-  IoCompleteRequest(irp, IO_NO_INCREMENT);
-  KeWaitForSingleObject(&event, Executive, KernelMode, FALSE, NULL); 
-   
-  status = io_status.Status;
 
   return status;
 }
@@ -256,7 +235,7 @@ int update_pipe_info(libusb_device_extension *device_extension, int interface,
 }
 
 
-NTSTATUS create_control_object(libusb_device_extension *device_extension)
+NTSTATUS control_object_create(libusb_device_extension *device_extension)
 {
   NTSTATUS status = STATUS_SUCCESS;
   UNICODE_STRING nt_device_name;
@@ -298,11 +277,9 @@ NTSTATUS create_control_object(libusb_device_extension *device_extension)
       KdPrint(("LIBUSB_FILTER - create_control_object(): creating device"
 	       " %d failed\n", device_extension->device_id));
       device_extension->control_device_object = NULL;
-
       return status;
     }
 
-  
   my_device_extension = (libusb_device_extension *)device_extension
     ->control_device_object->DeviceExtension;
 
@@ -311,7 +288,7 @@ NTSTATUS create_control_object(libusb_device_extension *device_extension)
 
   if(!NT_SUCCESS(status))
     {
-      KdPrint(("LIBUSB_FILTER - create_control_object(): creating symbolic "
+      KdPrint(("LIBUSB_FILTER - control_object_create(): creating symbolic "
 	       "link failed\n"));
       IoDeleteDevice(device_extension->control_device_object);
       device_extension->control_device_object = NULL;
@@ -330,15 +307,17 @@ NTSTATUS create_control_object(libusb_device_extension *device_extension)
   return status;
 }
 
-void delete_control_object(libusb_device_extension *device_extension)
+void control_object_delete(libusb_device_extension *device_extension)
 {
   UNICODE_STRING symbolic_link_name;
   WCHAR tmp_name[64];
  
+  libusb_device_extension *control_extension= (libusb_device_extension *)
+    device_extension->control_device_object->DeviceExtension;
 
   if(device_extension->control_device_object)
     {
-      KdPrint(("LIBUSB_FILTER - delete_control_object(): deleting device"
+      KdPrint(("LIBUSB_FILTER - control_object_delete(): deleting device"
 	       " %d\n",device_extension->device_id));
       
       _snwprintf(tmp_name, sizeof(tmp_name)/sizeof(WCHAR), L"%s%04d", 
@@ -347,15 +326,19 @@ void delete_control_object(libusb_device_extension *device_extension)
       
       RtlInitUnicodeString(&symbolic_link_name, tmp_name);
       
-      IoDeleteSymbolicLink(&symbolic_link_name);
+      control_extension->main_device_object = NULL;
+
+      if(!NT_SUCCESS(IoDeleteSymbolicLink(&symbolic_link_name)))
+	KdPrint(("LIBUSB_FILTER - control_object_delete(): "
+		 "IoDeleteSymbolicLink() failed\n"));
       
       IoDeleteDevice(device_extension->control_device_object);
       release_device_id(device_extension);
+      device_extension->control_device_object = NULL;
     }
 }
 
-
-void initialize_remove_lock(libusb_remove_lock *remove_lock)
+void remove_lock_initialize(libusb_remove_lock *remove_lock)
 {
   KeInitializeEvent(&remove_lock->event, NotificationEvent, FALSE);
   remove_lock->usage_count = 1;
@@ -363,9 +346,9 @@ void initialize_remove_lock(libusb_remove_lock *remove_lock)
 }
 
 
-NTSTATUS acquire_remove_lock(libusb_remove_lock *remove_lock)
+NTSTATUS remove_lock_acquire(libusb_remove_lock *remove_lock)
 {
-  long usage_count = InterlockedIncrement(&remove_lock->usage_count);
+  InterlockedIncrement(&remove_lock->usage_count);
 
   if(remove_lock->remove_pending)
     {
@@ -379,7 +362,7 @@ NTSTATUS acquire_remove_lock(libusb_remove_lock *remove_lock)
 }
 
 
-void release_remove_lock(libusb_remove_lock *remove_lock)
+void remove_lock_release(libusb_remove_lock *remove_lock)
 {
   if(InterlockedDecrement(&remove_lock->usage_count) == 0)
     {
@@ -388,14 +371,15 @@ void release_remove_lock(libusb_remove_lock *remove_lock)
 }
 
 
-void release_remove_lock_and_wait(libusb_remove_lock *remove_lock)
+void remove_lock_release_and_wait(libusb_remove_lock *remove_lock)
 {
   remove_lock->remove_pending = TRUE;
-  release_remove_lock(remove_lock);
-  release_remove_lock(remove_lock);
+  remove_lock_release(remove_lock);
+  remove_lock_release(remove_lock);
   KeWaitForSingleObject(&remove_lock->event, Executive, KernelMode,
 			FALSE, NULL);
 }
+
 
 int get_device_id(libusb_device_extension *device_extension)
 {

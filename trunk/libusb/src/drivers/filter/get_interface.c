@@ -22,7 +22,7 @@
 
 
 NTSTATUS get_interface(libusb_device_extension *device_extension,
-			    int interface, int *altsetting, int timeout)
+		       int interface, int *altsetting, int timeout)
 {
   NTSTATUS m_status = STATUS_SUCCESS;
   URB urb;
@@ -40,19 +40,18 @@ NTSTATUS get_interface(libusb_device_extension *device_extension,
   urb.UrbHeader.Length = 
     sizeof(struct _URB_CONTROL_GET_INTERFACE_REQUEST);
   urb.UrbControlGetInterfaceRequest.TransferBufferLength = 1;
-  urb.UrbControlGetInterfaceRequest.TransferBuffer = (void *)&tmp;
+  urb.UrbControlGetInterfaceRequest.TransferBuffer = &tmp;
   urb.UrbControlGetInterfaceRequest.TransferBufferMDL = NULL;
   urb.UrbControlGetInterfaceRequest.UrbLink = NULL;
   urb.UrbControlGetInterfaceRequest.Interface = (USHORT)interface;
   
-  m_status = call_usbd(device_extension, (void *)&urb, 
+  m_status = call_usbd(device_extension, &urb, 
 		       IOCTL_INTERNAL_USB_SUBMIT_URB, timeout);
   
   if(!NT_SUCCESS(m_status) || !USBD_SUCCESS(urb.UrbHeader.Status))
     {
       KdPrint(("LIBUSB_FILTER - get_interface(): getting interface failed "
-	       "%x %x\n",
-	       m_status, urb.UrbHeader.Status));
+	       "%x %x\n", m_status, urb.UrbHeader.Status));
       return STATUS_UNSUCCESSFUL;
     }
   

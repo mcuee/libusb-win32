@@ -61,12 +61,10 @@ int main(void)
   struct usb_bus *bus;
   struct usb_device *dev;
 
-  //  	  reg_install_driver();
-
   usb_init();
-
   usb_find_busses();
   usb_find_devices();
+
 
   printf("bus/device  idVendor/idProduct\n");
   for (bus = usb_busses; bus; bus = bus->next) {
@@ -117,7 +115,7 @@ int main(void)
         print_configuration(&dev->config[i]);
     }
   }
-  //	  reg_uninstall_driver();
+
   return 0;
 }
 

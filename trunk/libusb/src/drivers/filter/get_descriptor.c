@@ -42,7 +42,7 @@ NTSTATUS get_descriptor(libusb_device_extension *device_extension,
 			       (UCHAR)type, (UCHAR)index, (USHORT)language_id,
 			       buffer, mdl_buffer, size, NULL);
 
-  m_status = call_usbd(device_extension, (void *)&urb,
+  m_status = call_usbd(device_extension, &urb,
 		       IOCTL_INTERNAL_USB_SUBMIT_URB, timeout);
 
       
