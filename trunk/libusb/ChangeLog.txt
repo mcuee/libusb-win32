@@ -13,9 +13,17 @@ Version 0.1.8.1:
 	- Installer: fixed minor bug. Improved speed.
 	- Driver: improved hotplug behavior.
 	- Driver: improved usb_reset().
-	- Driver: added device interface. This can be used for PNP 
-	  notications. The GUID is {798DC6FE-4216-48e2-A851-D67957A05C3A} 
 	- DLL: fixed bug in initialization code.
+	- Driver: fixed a bug in the timeout code
+	- Driver: fixed a bug in the PNP code that caused the driver to lock up
+          if the driver processes IOCTLs while it has not been started
+          completely.
+	- Driver/DLL: Added some asynchronous and isochronous code. 
+	  This code is PRELIMINARY and the API might change in the future 
+	  since the main libusb developers haven't developed fixed 
+	  isochronous and asynchronous APIs yet!
+	- Driver: merged the filter and the device driver into a single one.
+	- Driver: fixed a bug in the interrupt and bulk code. 
 
 Version 0.1.8.0:
 	

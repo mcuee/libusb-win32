@@ -74,7 +74,7 @@ install_start:
   	SetOutPath $SYSDIR
   	File "libusb0.dll"
   	SetOutPath $WINDIR\system32\drivers
-  	File "libusbfl.sys"
+  	File "libusb0.sys"
 
    	DeleteRegKey HKLM "Software\LibUsb-Win32"
 
@@ -94,22 +94,8 @@ install_start:
 	File "libusbd-nt.exe"
 	SetOutPath $INSTDIR\bin
 
-	ReadRegStr $R0 HKLM "System\CurrentControlSet\Control\Class\{36FC9E60-C465-11CF-8056-444553540000}" "LowerFilters"
-   	StrCmp $R0 "" +3 0
-	SetRebootFlag true
-	DeleteRegValue HKLM "System\CurrentControlSet\Control\Class\{36FC9E60-C465-11CF-8056-444553540000}" "LowerFilters"
-
-	DetailPrint "Stopping kernel service ..."
-	nsExec::ExecToLog "$INSTDIR\bin\libusbis.exe --stop-kernel-service-full"
-
-	DetailPrint "Creating kernel service ..."
-	nsExec::ExecToLog "$INSTDIR\bin\libusbis.exe --create-kernel-service"
-
-	DetailPrint "Creating system service ..."
-	nsExec::ExecToLog "$INSTDIR\bin\libusbis.exe --create-system-service"  
-
-	DetailPrint "Starting system service (this can take several seconds) ..."
-	nsExec::ExecToLog "$INSTDIR\bin\libusbis.exe --start-system-service"
+	DetailPrint "Creating service (this may take a few seconds) ..."
+	nsExec::ExecToLog "$INSTDIR\bin\libusbis.exe --create-service"
 
 	Goto done
 
@@ -117,18 +103,12 @@ install_start:
 	SetOutPath $SYSDIR
 	File "libusbd-9x.exe"
 
-	ReadRegStr $R0 HKLM "System\CurrentControlSet\Services\Class\USB" "LowerFilters"
-   	StrCmp $R0 "" +3 0
-	SetRebootFlag true
-	DeleteRegValue HKLM "System\CurrentControlSet\Services\Class\USB" "LowerFilters"
+	DetailPrint "Creating service (this may take a few seconds) ..."
+	nsExec::ExecToLog "$INSTDIR\bin\libusbis.exe --create-service"
 
-	DetailPrint "Stopping kernel service ..."
-	nsExec::ExecToLog "$INSTDIR\bin\libusbis.exe --stop-kernel-service-full"
-
-	DetailPrint "Creating system service ..."
 	WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\RunServices" "LibUsb-Win32 Daemon, Version ${VERSION}" "$SYSDIR\libusbd-9x.exe" 
 
-	DetailPrint "Starting system service (this can take several seconds) ..."
+	DetailPrint "Starting service (this may take a few seconds) ..."
 	Exec "libusbd-9x.exe"
 
   done:
@@ -169,14 +149,8 @@ Section "Uninstall"
   winnt:
 	SetOutPath $INSTDIR\bin
 
-	DetailPrint "Stopping system service ..."
-	nsExec::ExecToLog "$INSTDIR\bin\libusbis.exe --stop-system-service"
-
-	DetailPrint "Deleting system service ..."
-	nsExec::ExecToLog "$INSTDIR\bin\libusbis.exe --delete-system-service"
-
-	DetailPrint "Stopping kernel service ..."
-	nsExec::ExecToLog "$INSTDIR\bin\libusbis.exe --stop-kernel-service"
+	DetailPrint "Deleteting service (this may take a few seconds) ..."
+	nsExec::ExecToLog "$INSTDIR\bin\libusbis.exe --delete-service"
 
 	Delete $SYSDIR\libusbd-nt.exe
 
@@ -185,14 +159,11 @@ Section "Uninstall"
 
 	SetOutPath $INSTDIR\bin
 
-	DetailPrint "Stopping system service ..."
-	nsExec::ExecToLog "$INSTDIR\bin\libusbis.exe --stop-system-service"
+	DetailPrint "Deleteting service (this may take a few seconds) ..."
+	nsExec::ExecToLog "$INSTDIR\bin\libusbis.exe --delete-service"
 
-	DetailPrint "Deleting system service ..."
 	DeleteRegValue HKLM "Software\Microsoft\Windows\CurrentVersion\RunServices" "LibUsb-Win32 - Daemon, Version ${VERSION}"
 
-	DetailPrint "Stopping kernel service ..."
-	nsExec::ExecToLog "$INSTDIR\bin\libusbis.exe --stop-kernel-service"
 
 	Delete $SYSDIR\libusbd-9x.exe
 done:

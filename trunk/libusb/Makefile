@@ -25,7 +25,7 @@ DATE = $(shell date +"%Y%m%d")
 TARGET = libusb
 DLL_TARGET = $(TARGET)$(VERSION_MAJOR)
 LIB_TARGET = $(TARGET)
-DRIVER_TARGETS = $(TARGET)fl.sys $(TARGET)st.sys
+DRIVER_TARGET = $(TARGET)0.sys
 INSTALLER_TARGET = libusb-win32-filter-bin-$(VERSION).exe
 
 INSTALL_DIR = /usr
@@ -39,21 +39,21 @@ DIST_SOURCE_FILES = ./src
 DIST_MISC_FILES = COPYING_LGPL.txt COPYING_GPL.txt AUTHORS.txt ChangeLog.txt 
 
 SRC_DIR = ./src
-FILTER_SRC_DIR = $(SRC_DIR)/drivers/filter
-STUB_SRC_DIR = $(SRC_DIR)/drivers/stub
+DRIVER_SRC_DIR = $(SRC_DIR)/driver
 
-VPATH = .:./src:./src/drivers/filter:./src/drivers/stub:./tests:./src/service
+VPATH = .:./src:./src/driver:./tests:./src/service
 
-INCLUDES = -I./src -I./src/drivers/filter -I./src/service
+INCLUDES = -I./src -I./src/driver -I./src/service
 
-CFLAGS = -O2 -s -mno-cygwin
+CFLAGS = -O2 -s -mwindows -mno-cygwin
 
 CPPFLAGS = -DVERSION_MAJOR=$(VERSION_MAJOR) \
 	-DVERSION_MINOR=$(VERSION_MINOR) \
 	-DVERSION_MICRO=$(VERSION_MICRO) \
 	-DVERSION_NANO=$(VERSION_NANO)
 
-LDFLAGS = -s -shared -Wl,--output-def,$(DLL_TARGET).def  -mno-cygwin
+LDFLAGS = -s -shared -mno-cygwin -Wl,--output-def,$(DLL_TARGET).def \
+	-Wl,--out-implib,$(LIB_TARGET).a
 
 
 TEST_FILES = testlibusb.exe testlibusb-win.exe
@@ -65,12 +65,12 @@ endif
 
 .PHONY: all
 all: $(DLL_TARGET).dll $(TEST_FILES) libusbd-nt.exe \
-	libusbd-9x.exe libusbis.exe $(DRIVER_TARGETS) \
+	libusbd-9x.exe libusbis.exe $(DRIVER_TARGET) \
 	$(TARGET).inf README.txt
 	unix2dos *.txt *.inf
 
-$(DLL_TARGET).dll: filter_api.h $(OBJECTS)
-	$(CC) -o $@ $(OBJECTS) $(LDFLAGS) -Wl,--out-implib,$(LIB_TARGET).a
+$(DLL_TARGET).dll: driver_api.h $(OBJECTS)
+	$(CC) -o $@ $(OBJECTS) $(LDFLAGS) 
 
 %.o: %.c
 	$(CC) -c $< -o $@ $(CFLAGS) -Wall $(CPPFLAGS) $(INCLUDES) 
@@ -79,15 +79,15 @@ testlibusb.exe: testlibusb.o
 	$(CC) $(CFLAGS) -o $@ -I./src  $^ -lusb -L.
 
 testlibusb-win.exe: testlibusb_win.o
-	$(CC) $(CFLAGS) -mwindows -o $@ -I./src  $^ -lusb -lgdi32 -luser32 -L.
+	$(CC) $(CFLAGS) -o $@ -I./src  $^ -lusb -lgdi32 -luser32 -L.
 
 libusbd-nt.exe: service_nt.o service.o registry.o resource.o win_debug.o
-	$(CC) $(CPPFLAGS) -mwindows -Wall $(CFLAGS) -o $@ $^ -lsetupapi
+	$(CC) $(CPPFLAGS) -Wall $(CFLAGS) -o $@ $^ -lsetupapi
 
 libusbd-9x.exe: service_9x.o service.o registry.o resource.o win_debug.o
-	$(CC) $(CPPFLAGS) -mwindows -Wall $(CFLAGS) -o $@ $^ -lsetupapi
+	$(CC) $(CPPFLAGS) -Wall $(CFLAGS) -o $@ $^ -lsetupapi
 
-libusbis.exe: nsis.o service.o registry.o resource.o win_debug.o
+libusbis.exe: libusbis.o service.o registry.o resource.o win_debug.o
 	$(CC) $(CPPFLAGS) -Wall $(CFLAGS) -o $@ $^ -lsetupapi
 
 README.txt: README.in
@@ -111,12 +111,12 @@ README.txt: README.in
 %.inf: %.inf.in
 	sed -e 's/@INF_VERSION@/$(INF_VERSION)/' $< > $@
 
-$(TARGET)fl.sys: $(TARGET)_stub.rc $(TARGET)_filter.rc filter_api.h
-	$(MAKE) --win32 build_drivers
+$(DRIVER_TARGET): $(TARGET)_driver.rc driver_api.h
+	$(MAKE) --win32 build_driver
 
-.PHONY: build_drivers
-build_drivers:
-	call build_drivers.bat $(DDK_ROOT_PATH)
+.PHONY: build_driver
+build_driver:
+	call build_driver.bat $(DDK_ROOT_PATH)
 
 .PHONY: bcc_implib
 bcc_lib:
@@ -137,7 +137,7 @@ bin_dist: all
 	$(INSTALL) $(TEST_FILES) $(BIN_DIST_DIR)/bin
 	$(INSTALL) *.manifest $(BIN_DIST_DIR)/bin
 
-	$(INSTALL) $(DRIVER_TARGETS) $(BIN_DIST_DIR)/bin
+	$(INSTALL) $(DRIVER_TARGET) $(BIN_DIST_DIR)/bin
 	$(INSTALL) $(TARGET).inf $(BIN_DIST_DIR)/bin
 	$(INSTALL) $(TARGET)is.exe $(BIN_DIST_DIR)/bin
 	$(INSTALL) $(DLL_TARGET).dll $(BIN_DIST_DIR)/bin
@@ -155,8 +155,7 @@ bin_dist: all
 src_dist:
 	$(INSTALL) -d $(SRC_DIST_DIR)/src
 	$(INSTALL) -d $(SRC_DIST_DIR)/src/service
-	$(INSTALL) -d $(SRC_DIST_DIR)/src/drivers/stub
-	$(INSTALL) -d $(SRC_DIST_DIR)/src/drivers/filter
+	$(INSTALL) -d $(SRC_DIST_DIR)/src/driver
 	$(INSTALL) -d $(SRC_DIST_DIR)/tests
 
 	$(INSTALL) $(SRC_DIR)/*.c $(SRC_DIST_DIR)/src
@@ -167,19 +166,12 @@ src_dist:
 	$(INSTALL) $(SRC_DIR)/service/*.c $(SRC_DIST_DIR)/src/service
 	$(INSTALL) $(SRC_DIR)/service/*.h $(SRC_DIST_DIR)/src/service
 
-	$(INSTALL) $(SRC_DIR)/drivers/dirs $(SRC_DIST_DIR)/src/drivers
-	$(INSTALL) $(SRC_DIR)/drivers/usbd.lib $(SRC_DIST_DIR)/src/drivers
-
-	$(INSTALL) $(STUB_SRC_DIR)/*.c $(SRC_DIST_DIR)/src/drivers/stub
-	$(INSTALL) $(STUB_SRC_DIR)/*.in $(SRC_DIST_DIR)/src/drivers/stub
-	$(INSTALL) $(STUB_SRC_DIR)/sources $(SRC_DIST_DIR)/src/drivers/stub
-	$(INSTALL) $(STUB_SRC_DIR)/makefile $(SRC_DIST_DIR)/src/drivers/stub
-
-	$(INSTALL) $(FILTER_SRC_DIR)/*.h $(SRC_DIST_DIR)/src/drivers/filter
-	$(INSTALL) $(FILTER_SRC_DIR)/*.c $(SRC_DIST_DIR)/src/drivers/filter
-	$(INSTALL) $(FILTER_SRC_DIR)/*.in $(SRC_DIST_DIR)/src/drivers/filter
-	$(INSTALL) $(FILTER_SRC_DIR)/sources $(SRC_DIST_DIR)/src/drivers/filter
-	$(INSTALL) $(FILTER_SRC_DIR)/makefile $(SRC_DIST_DIR)/src/drivers/filter
+	$(INSTALL) $(DRIVER_SRC_DIR)/usbd.lib $(SRC_DIST_DIR)/src/driver
+	$(INSTALL) $(DRIVER_SRC_DIR)/*.h $(SRC_DIST_DIR)/src/driver
+	$(INSTALL) $(DRIVER_SRC_DIR)/*.c $(SRC_DIST_DIR)/src/driver
+	$(INSTALL) $(DRIVER_SRC_DIR)/*.in $(SRC_DIST_DIR)/src/driver
+	$(INSTALL) $(DRIVER_SRC_DIR)/sources $(SRC_DIST_DIR)/src/driver
+	$(INSTALL) $(DRIVER_SRC_DIR)/makefile $(SRC_DIST_DIR)/src/driver
 
 	$(INSTALL) $(DIST_MISC_FILES) *.in Makefile *.bat *.sh *.manifest \
 		license_nsis.txt $(SRC_DIST_DIR)
@@ -207,13 +199,10 @@ clean:
 	$(RM) *.o *.dll *.a *.def *.exp *.lib *.exe *.tar.gz *.inf *~ *.nsi
 	$(RM) ./src/*~ *.sys *.log
 	$(RM) $(SRC_DIR)/*.rc
-	$(RM) $(SRC_DIR)/drivers/*.log $(SRC_DIR)/drivers/i386
-	$(RM) $(FILTER_SRC_DIR)/*~ $(FILTER_SRC_DIR)/*.rc
-	$(RM) $(FILTER_SRC_DIR)/*.log
-	$(RM) $(FILTER_SRC_DIR)/*_wxp_x86
-	$(RM) $(FILTER_SRC_DIR)/filter_api.h
-	$(RM) $(STUB_SRC_DIR)/*~ $(STUB_SRC_DIR)/*.rc 
-	$(RM) $(STUB_SRC_DIR)/*.log
-	$(RM) $(STUB_SRC_DIR)/*_wxp_x86 
+	$(RM) $(SRC_DIR)/drivers/*.log $(SRC_DIR)/driver/i386
+	$(RM) $(DRIVER_SRC_DIR)/*~ $(DRIVER_SRC_DIR)/*.rc
+	$(RM) $(DRIVER_SRC_DIR)/*.log
+	$(RM) $(DRIVER_SRC_DIR)/*_wxp_x86
+	$(RM) $(DRIVER_SRC_DIR)/driver_api.h
 	$(RM) README.txt
 

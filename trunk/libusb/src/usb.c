@@ -163,14 +163,14 @@ int usb_find_devices(void)
   return changes;
 }
 
-void usb_set_debug(int level)
-{
-  if (usb_debug || level)
-    fprintf(stderr, "usb_set_debug: Setting debugging level to %d (%s)\n",
-	level, level ? "on" : "off");
+/* void usb_set_debug(int level) */
+/* { */
+/*   if (usb_debug || level) */
+/*     fprintf(stderr, "usb_set_debug: Setting debugging level to %d (%s)\n", */
+/* 	level, level ? "on" : "off"); */
 
-  usb_debug = level;
-}
+/*   usb_debug = level; */
+/* } */
 
 void usb_init(void)
 {
