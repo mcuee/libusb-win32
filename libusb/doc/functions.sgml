@@ -232,6 +232,28 @@
           <title>Must be called!</title>
           <para><function>usb_claim_interface</function> <emphasis>must</emphasis> be called before you perform any operations related to this interface (like <xref linkend="function.usbsetaltinterface">, <xref linkend="function.usbbulkwrite">, etc).</para>
         </important>
+
+        <table>
+          <title>Return Codes</title>
+          <tgroup cols="2">
+            <thead>
+              <row>
+                <entry>code</entry>
+                <entry>description</entry>
+              </row>
+            </thead>
+            <tbody>
+              <row>
+                <entry>-EBUSY</entry>
+                <entry>Interface is not available to be claimed</entry>
+              </row>
+              <row>
+                <entry>-ENOMEM</entry>
+                <entry>Insufficient memory</entry>
+              </row>
+            </tbody>
+          </tgroup>
+        </table>
       </refsect1>
     </refentry>
 
@@ -324,6 +346,50 @@
         <para><function>usb_get_string_simple</function> is a wrapper around <function>usb_get_string</function> that retrieves the string description specified by index in the first language for the descriptor and converts it into C style ASCII. Returns number of bytes returned in <varname>buf</varname> or &lt; 0 on error.</para>
       </refsect1>
     </refentry>
+
+    <refentry id="function.usbgetdescriptor">
+      <refnamediv>
+        <refname>usb_get_descriptor</refname>
+        <refpurpose>Retrieves a descriptor from a device's default control pipe</refpurpose>
+      </refnamediv>
+      <refsect1>
+        <title>Description</title>
+        <funcsynopsis>
+          <funcprototype>
+            <funcdef>int <function>usb_get_descriptor</function></funcdef>
+            <paramdef>usb_dev_handle *<parameter>dev</parameter></paramdef>
+            <paramdef>unsigned char <parameter>type</parameter></paramdef>
+            <paramdef>unsigned char <parameter>index</parameter></paramdef>
+            <paramdef>void *<parameter>buf</parameter></paramdef>
+            <paramdef>int <parameter>size</parameter></paramdef>
+          </funcprototype>
+        </funcsynopsis>
+        <para><function>usb_get_descriptor</function> retrieves a descriptor from the device identified by the <varname>type</varname> and <varname>index</varname> of the descriptor from the default control pipe. Returns number of bytes read for the descriptor or &lt; 0 on error.</para>
+        <para>See <xref linkend="function.usbgetdescriptorbyendpoint"> for a function that allows the control endpoint to be specified.</para>
+      </refsect1>
+    </refentry>
+
+    <refentry id="function.usbgetdescriptorbyendpoint">
+      <refnamediv>
+        <refname>usb_get_descriptor_by_endpoint</refname>
+        <refpurpose>Retrieves a descriptor from a device</refpurpose>
+      </refnamediv>
+      <refsect1>
+        <title>Description</title>
+        <funcsynopsis>
+          <funcprototype>
+            <funcdef>int <function>usb_get_descriptor_by_endpoint</function></funcdef>
+            <paramdef>usb_dev_handle *<parameter>dev</parameter></paramdef>
+            <paramdef>int <parameter>ep</parameter></paramdef>
+            <paramdef>unsigned char <parameter>type</parameter></paramdef>
+            <paramdef>unsigned char <parameter>index</parameter></paramdef>
+            <paramdef>void *<parameter>buf</parameter></paramdef>
+            <paramdef>int <parameter>size</parameter></paramdef>
+          </funcprototype>
+        </funcsynopsis>
+        <para><function>usb_get_descriptor_by_endpoint</function> retrieves a descriptor from the device identified by the <varname>type</varname> and <varname>index</varname> of the descriptor from the control pipe identified by <varname>ep</varname>. Returns number of bytes read for the descriptor or &lt; 0 on error.</para>
+      </refsect1>
+    </refentry>
   </reference>
 
   <reference id="ref.bulk">
@@ -375,6 +441,55 @@
     </refentry>
   </reference>
 
+  <reference id="ref.interrupt">
+    <title>Interrupt Transfers</title>
+    <partintro>
+      <para>This group of functions allow applications to send and receive data via interrupt pipes.</para>
+    </partintro>
+
+    <refentry id="function.usbinterruptwrite">
+      <refnamediv>
+        <refname>usb_interrupt_write</refname>
+        <refpurpose>Write data to an interrupt endpoint</refpurpose>
+      </refnamediv>
+      <refsect1>
+        <title>Description</title>
+        <funcsynopsis>
+          <funcprototype>
+            <funcdef>int <function>usb_interrupt_write</function></funcdef>
+            <paramdef>usb_dev_handle *<parameter>dev</parameter></paramdef>
+            <paramdef>int <parameter>ep</parameter></paramdef>
+            <paramdef>char *<parameter>bytes</parameter></paramdef>
+            <paramdef>int <parameter>size</parameter></paramdef>
+            <paramdef>int <parameter>timeout</parameter></paramdef>
+          </funcprototype>
+        </funcsynopsis>
+        <para><function>usb_interrupt_write</function> performs an interrupt write request to the endpoint specified by <varname>ep</varname>. Returns number of bytes written on success or &lt; 0 on error.</para>
+      </refsect1>
+    </refentry>
+
+    <refentry id="function.usbinterruptread">
+      <refnamediv>
+        <refname>usb_interrupt_read</refname>
+        <refpurpose>Read data from a interrupt endpoint</refpurpose>
+      </refnamediv>
+      <refsect1>
+        <title>Description</title>
+        <funcsynopsis>
+          <funcprototype>
+            <funcdef>int <function>usb_interrupt_read</function></funcdef>
+            <paramdef>usb_dev_handle *<parameter>dev</parameter></paramdef>
+            <paramdef>int <parameter>ep</parameter></paramdef>
+            <paramdef>char *<parameter>bytes</parameter></paramdef>
+            <paramdef>int <parameter>size</parameter></paramdef>
+            <paramdef>int <parameter>timeout</parameter></paramdef>
+          </funcprototype>
+        </funcsynopsis>
+        <para><function>usb_interrupt_read</function> performs a interrupt read request to the endpoint specified by <varname>ep</varname>. Returns number of bytes read on success or &lt; 0 on error.</para>
+      </refsect1>
+    </refentry>
+  </reference>
+
   <reference id="ref.nonportable">
     <title>Non Portable</title>
     <partintro>
@@ -399,6 +514,25 @@
           </funcprototype>
         </funcsynopsis>
         <para>This function will obtain the name of the driver bound to the interface specified by the parameter <parameter>interface</parameter> and place it into the buffer named <parameter>name</parameter> limited to <parameter>namelen</parameter> characters. Returns 0 on success or &lt; 0 on error.</para>
+        <para>Implemented on Linux only.</para>
+      </refsect1>
+    </refentry>
+
+    <refentry id="function.usbdetachkerneldrivernp">
+      <refnamediv>
+        <refname>usb_detach_kernel_driver_np</refname>
+        <refpurpose>Detach kernel driver from interface</refpurpose>
+      </refnamediv>
+      <refsect1>
+        <title>Description</title>
+        <funcsynopsis>
+          <funcprototype>
+            <funcdef>int <function>usb_detach_kernel_driver_np</function></funcdef>
+            <paramdef>usb_dev_handle *<parameter>dev</parameter></paramdef>
+            <paramdef>int <parameter>interface</parameter></paramdef>
+          </funcprototype>
+        </funcsynopsis>
+        <para>This function will detach a kernel driver from the interface specified by parameter <parameter>interface</parameter>. Applications using libusb can then try claiming the interface. Returns 0 on success or &lt; 0 on error.</para>
         <para>Implemented on Linux only.</para>
       </refsect1>
     </refentry>

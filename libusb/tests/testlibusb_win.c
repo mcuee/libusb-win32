@@ -20,16 +20,12 @@
 
 #define WINVER 0x0500
 #include <windows.h>
+#include <dbt.h>
 #include <stdio.h>
 #include <initguid.h>
 
 #include "usb.h"
 
-enum {
-  ID_EXIT = 100,
-  ID_REFRESH,
-  ID_EDIT
-};
 
 #define LIBUSB_WINDOW_CLASS "LIBUSB_WINDOW_CLASS"
 #define LIBUSB_BUTTON_HEIGHT 30
@@ -44,24 +40,11 @@ DEFINE_GUID(GUID_DEVINTERFACE_USB_DEVICE, 0xA5DCBF10L, 0x6530, 0x11D2, \
 
 #define EDIT_BUF_INCREMENT 1024
 
-typedef struct _DEV_BROADCAST_DEVICEINTERFACE_A {
-    DWORD       dbcc_size;
-    DWORD       dbcc_devicetype;
-    DWORD       dbcc_reserved;
-    GUID        dbcc_classguid;
-    char        dbcc_name[1];
-} DEV_BROADCAST_DEVICEINTERFACE_A, *PDEV_BROADCAST_DEVICEINTERFACE_A;
-
-#define DBT_DEVTYP_DEVICEINTERFACE      0x00000005
-#define DBT_DEVICEARRIVAL               0x8000
-#define DBT_DEVICEREMOVECOMPLETE        0x8004
-
-typedef struct _DEV_BROADCAST_HDR {
-    DWORD       dbch_size;
-    DWORD       dbch_devicetype;
-    DWORD       dbch_reserved;
-} DEV_BROADCAST_HDR;
-
+enum {
+  ID_EXIT = 100,
+  ID_REFRESH,
+  ID_EDIT
+};
 
 static char *edit_buffer = NULL;
 static int edit_buffer_size = 0;
@@ -96,7 +79,7 @@ int APIENTRY WinMain(HINSTANCE instance, HINSTANCE prev_instance,
 {
   MSG msg;
   WNDCLASSEX win_class;
-  DEV_BROADCAST_DEVICEINTERFACE_A dev_if;
+  DEV_BROADCAST_DEVICEINTERFACE dev_if;
 
   LoadLibrary("comctl32.dll");
 
@@ -193,8 +176,11 @@ LRESULT CALLBACK win_proc(HWND win, UINT message, WPARAM w_param,
   switch(message) 
     {
     case WM_DESTROY:
-      /* UnregisterDeviceNotification(notification_handle_hub); */
-      /* UnregisterDeviceNotification(notification_handle_dev); */
+      if(notification_handle_hub)
+	UnregisterDeviceNotification(notification_handle_hub);
+      if(notification_handle_dev)
+	UnregisterDeviceNotification(notification_handle_dev);
+
       PostQuitMessage(0);
       break;
     case WM_SIZE:

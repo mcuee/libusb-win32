@@ -334,16 +334,21 @@ extern "C" {
   struct usb_device *usb_device(usb_dev_handle *dev);
   struct usb_bus *usb_get_busses(void);
 
+
   /* Windows specific functions */
+
   const struct usb_version *usb_get_version(void);
 
+  int usb_isochronous_setup_async(usb_dev_handle *dev, void **context,
+				  unsigned char ep, int pktsize);
+  int usb_bulk_setup_async(usb_dev_handle *dev, void **context,
+			   unsigned char ep);
+  int usb_interrupt_setup_async(usb_dev_handle *dev, void **context,
+				unsigned char ep);
 
-  int usb_isochronous_setup(void **context, unsigned char ep,
-			    int pktsize, char *bytes, int size);
-  int usb_isochronous_read(usb_dev_handle *dev, void *context);
-  int usb_isochronous_write(usb_dev_handle *dev, void *context);
-  int usb_isochronous_reap(usb_dev_handle *dev, void *context, int timeout);
-  int usb_isochronous_free(void **context);
+  int usb_submit_async(void *context, char *bytes, int size);
+  int usb_reap_async(void *context, int timeout);
+  int usb_free_async(void **context);
 
 
 #ifdef __cplusplus
