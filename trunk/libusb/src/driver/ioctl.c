@@ -51,13 +51,6 @@ NTSTATUS dispatch_ioctl(libusb_device_extension *device_extension, IRP *irp)
       return status;
     }
 
-  if(!device_extension->is_started)
-    {
-      status = complete_irp(irp, STATUS_INVALID_DEVICE_STATE, 0);
-      remove_lock_release(&device_extension->remove_lock);
-      return status;
-    }
-
   if(!request || input_buffer_length < sizeof(libusb_request))
     { 
       DEBUG_ERROR("dispatch_ioctl(): invalid input or output buffer\n");
