@@ -94,8 +94,8 @@ NTSTATUS dispatch_control(DEVICE_OBJECT *device_object, IRP *irp)
 	{
 	  if(!device_extension->main_device_object)
 	    {
-	      debug_printf(DEBUG_MSG, "dispatch_control(): releasing device "
-			   "id %d", device_extension->device_id);
+	      debug_printf(LIBUSB_DEBUG_MSG, "dispatch_control(): releasing "
+			   "device id %d", device_extension->device_id);
 	      release_device_id(device_extension);
 	    }
 	}
@@ -104,10 +104,8 @@ NTSTATUS dispatch_control(DEVICE_OBJECT *device_object, IRP *irp)
     case IRP_MJ_CLEANUP:
       status = STATUS_SUCCESS;
       break;
-
     default:
-      debug_printf(DEBUG_MSG, "dispatch_control(): device %d: other IRP",
-		   device_extension->device_id);
+      ;
     }
 
   return complete_irp(irp, status, 0);

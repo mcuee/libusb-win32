@@ -29,11 +29,12 @@ NTSTATUS get_descriptor(libusb_device_extension *device_extension,
   URB urb;
 
   debug_print_nl();
-  debug_printf(DEBUG_MSG, "get_descriptor(): buffer size %d", size);
-  debug_printf(DEBUG_MSG, "get_descriptor(): type %04d", type);
-  debug_printf(DEBUG_MSG, "get_descriptor(): index %04d", index);
-  debug_printf(DEBUG_MSG, "get_descriptor(): language id %04d",language_id);
-  debug_printf(DEBUG_MSG, "get_descriptor(): timeout %d", timeout);
+  debug_printf(LIBUSB_DEBUG_MSG, "get_descriptor(): buffer size %d", size);
+  debug_printf(LIBUSB_DEBUG_MSG, "get_descriptor(): type %04d", type);
+  debug_printf(LIBUSB_DEBUG_MSG, "get_descriptor(): index %04d", index);
+  debug_printf(LIBUSB_DEBUG_MSG, "get_descriptor(): language id %04d",
+	       language_id);
+  debug_printf(LIBUSB_DEBUG_MSG, "get_descriptor(): timeout %d", timeout);
   
 
   UsbBuildGetDescriptorRequest(&urb, 
@@ -42,13 +43,13 @@ NTSTATUS get_descriptor(libusb_device_extension *device_extension,
 			       buffer, NULL, size, NULL);
   
   status = call_usbd(device_extension, &urb,
-		       IOCTL_INTERNAL_USB_SUBMIT_URB, timeout);
+		     IOCTL_INTERNAL_USB_SUBMIT_URB, timeout);
 
       
   if(!NT_SUCCESS(status) || !USBD_SUCCESS(urb.UrbHeader.Status))
     {
-      debug_printf(DEBUG_ERR, "get_descriptor(): getting descriptor failed: "
-		   "status: 0x%x, urb-status: 0x%x", 
+      debug_printf(LIBUSB_DEBUG_ERR, "get_descriptor(): getting descriptor "
+		   "failed: status: 0x%x, urb-status: 0x%x", 
 		   status, urb.UrbHeader.Status);
       *sent = 0;
     }

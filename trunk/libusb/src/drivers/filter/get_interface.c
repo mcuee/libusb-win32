@@ -29,12 +29,13 @@ NTSTATUS get_interface(libusb_device_extension *device_extension,
   char tmp;
 
   debug_print_nl();
-  debug_printf(DEBUG_MSG, "get_interface(): interface %d\n", interface);
-  debug_printf(DEBUG_MSG, "get_interface(): timeout %d", timeout);
+  debug_printf(LIBUSB_DEBUG_MSG, "get_interface(): interface %d\n", interface);
+  debug_printf(LIBUSB_DEBUG_MSG, "get_interface(): timeout %d", timeout);
 
   if(!device_extension->current_configuration)
     {
-      debug_printf(DEBUG_ERR, "get_interface(): invalid configuration 0"); 
+      debug_printf(LIBUSB_DEBUG_ERR, "get_interface(): invalid "
+		   "configuration 0"); 
       return STATUS_INVALID_DEVICE_STATE;
     }
     
@@ -51,8 +52,8 @@ NTSTATUS get_interface(libusb_device_extension *device_extension,
   
   if(!NT_SUCCESS(status) || !USBD_SUCCESS(urb.UrbHeader.Status))
     {
-      debug_printf(DEBUG_ERR, "get_interface(): getting interface failed: "
-		   "status: 0x%x, urb-status: 0x%x", 
+      debug_printf(LIBUSB_DEBUG_ERR, "get_interface(): getting interface "
+		   "failed: status: 0x%x, urb-status: 0x%x", 
 		   status, urb.UrbHeader.Status);
     }
   else

@@ -36,7 +36,7 @@ NTSTATUS dispatch_pnp(libusb_device_extension *device_extension, IRP *irp)
   switch(IoGetCurrentIrpStackLocation(irp)->MinorFunction) 
     {     
     case IRP_MN_REMOVE_DEVICE:
-      debug_printf(DEBUG_MSG, "dispatch_pnp(): IRP_MN_REMOVE_DEVICE");
+      debug_printf(LIBUSB_DEBUG_MSG, "dispatch_pnp(): IRP_MN_REMOVE_DEVICE");
       remove_lock_release_and_wait(&device_extension->remove_lock);
       IoSkipCurrentIrpStackLocation(irp);
       status = IoCallDriver(device_extension->next_stack_device, irp);
@@ -46,10 +46,11 @@ NTSTATUS dispatch_pnp(libusb_device_extension *device_extension, IRP *irp)
       return status;
 
     case IRP_MN_SURPRISE_REMOVAL:
-      debug_printf(DEBUG_MSG, "dispatch_pnp(): IRP_MN_SURPRISE_REMOVAL");
+      debug_printf(LIBUSB_DEBUG_MSG, "dispatch_pnp(): "
+		   "IRP_MN_SURPRISE_REMOVAL");
       break;
     case IRP_MN_START_DEVICE:
-      debug_printf(DEBUG_MSG, "dispatch_pnp(): IRP_MN_START_DEVICE");
+      debug_printf(LIBUSB_DEBUG_MSG, "dispatch_pnp(): IRP_MN_START_DEVICE");
       IoCopyCurrentIrpStackLocationToNext(irp);
       IoSetCompletionRoutine(irp, on_start_complete,
 			     NULL, TRUE, TRUE, TRUE);
@@ -57,19 +58,23 @@ NTSTATUS dispatch_pnp(libusb_device_extension *device_extension, IRP *irp)
       return IoCallDriver(device_extension->next_stack_device, irp);
 
     case IRP_MN_CANCEL_REMOVE_DEVICE:
-      debug_printf(DEBUG_MSG, "dispatch_pnp(): IRP_MN_CANCEL_REMOVE_DEVICE");
+      debug_printf(LIBUSB_DEBUG_MSG, "dispatch_pnp(): "
+		   "IRP_MN_CANCEL_REMOVE_DEVICE");
       break;
     case IRP_MN_CANCEL_STOP_DEVICE:
-      debug_printf(DEBUG_MSG, "dispatch_pnp(): IRP_MN_CANCEL_STOP_DEVICE");
+      debug_printf(LIBUSB_DEBUG_MSG, "dispatch_pnp(): "
+		   "IRP_MN_CANCEL_STOP_DEVICE");
       break;
     case IRP_MN_QUERY_STOP_DEVICE:
-      debug_printf(DEBUG_MSG, "dispatch_pnp(): IRP_MN_QUERY_STOP_DEVICE");
+      debug_printf(LIBUSB_DEBUG_MSG, "dispatch_pnp(): "
+		   "IRP_MN_QUERY_STOP_DEVICE");
       break;
     case IRP_MN_STOP_DEVICE:
-      debug_printf(DEBUG_MSG, "dispatch_pnp(): IRP_MN_STOP_DEVICE");
+      debug_printf(LIBUSB_DEBUG_MSG, "dispatch_pnp(): IRP_MN_STOP_DEVICE");
       break;
     case IRP_MN_QUERY_REMOVE_DEVICE:
-      debug_printf(DEBUG_MSG, "dispatch_pnp(): IRP_MN_QUERY_REMOVE_DEVICE");
+      debug_printf(LIBUSB_DEBUG_MSG, "dispatch_pnp(): "
+		   "IRP_MN_QUERY_REMOVE_DEVICE");
       break;
     case IRP_MN_DEVICE_USAGE_NOTIFICATION:
       if((device_extension->self->AttachedDevice == NULL) ||

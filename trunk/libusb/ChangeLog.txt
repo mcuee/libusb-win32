@@ -9,7 +9,8 @@ Version 0.1.8.1:
 	- Improved installer/uninstaller speed.
 	- Added Cygwin support. The whole package can now be build under 
 	  Cygwin and the latest MSys/MinGW.
-
+	- DLL: improved error handling (function return values).
+	- Installer: fixed minor bug.
 
 Version 0.1.8.0:
 	

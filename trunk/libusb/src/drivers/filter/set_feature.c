@@ -28,14 +28,15 @@ NTSTATUS set_feature(libusb_device_extension *device_extension,
   URB urb;
 
   debug_print_nl();
-  debug_printf(DEBUG_MSG, "set_feature(): recipient %02d", recipient);
-  debug_printf(DEBUG_MSG, "set_feature(): index %04d", index);
-  debug_printf(DEBUG_MSG, "set_feature(): feature %04d", feature);
-  debug_printf(DEBUG_MSG, "set_feature(): timeout %d", timeout);
+  debug_printf(LIBUSB_DEBUG_MSG, "set_feature(): recipient %02d", recipient);
+  debug_printf(LIBUSB_DEBUG_MSG, "set_feature(): index %04d", index);
+  debug_printf(LIBUSB_DEBUG_MSG, "set_feature(): feature %04d", feature);
+  debug_printf(LIBUSB_DEBUG_MSG, "set_feature(): timeout %d", timeout);
 
   if(!device_extension->current_configuration && recipient != USB_RECIP_DEVICE)
     {
-      debug_printf(DEBUG_MSG, "set_feature(): invalid configuration 0"); 
+      debug_printf(LIBUSB_DEBUG_MSG, "set_feature(): invalid "
+		   "configuration 0"); 
       return STATUS_INVALID_PARAMETER;
     }
 
@@ -55,7 +56,7 @@ NTSTATUS set_feature(libusb_device_extension *device_extension,
       urb.UrbControlFeatureRequest.Index = 0; 
       break;
     default:
-      debug_printf(DEBUG_ERR, "set_feature(): invalid recipient");
+      debug_printf(LIBUSB_DEBUG_ERR, "set_feature(): invalid recipient");
       return STATUS_INVALID_PARAMETER;
     }
   
@@ -69,7 +70,7 @@ NTSTATUS set_feature(libusb_device_extension *device_extension,
   
   if(!NT_SUCCESS(status) || !USBD_SUCCESS(urb.UrbHeader.Status))
     {
-      debug_printf(DEBUG_ERR, "set_feature(): setting feature failed: "
+      debug_printf(LIBUSB_DEBUG_ERR, "set_feature(): setting feature failed: "
 		   "status: 0x%x, urb-status: 0x%x", 
 		   status, urb.UrbHeader.Status);
     }

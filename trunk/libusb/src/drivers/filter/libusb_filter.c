@@ -47,7 +47,7 @@ NTSTATUS __stdcall DriverEntry(DRIVER_OBJECT *driver_object,
   driver_object->DriverExtension->AddDevice = add_device;
   driver_object->DriverUnload = unload;
 
-  debug_printf(DEBUG_MSG, "DriverEntry(): loading driver");
+  debug_printf(LIBUSB_DEBUG_MSG, "DriverEntry(): loading driver");
 
   return STATUS_SUCCESS;
 }
@@ -70,11 +70,11 @@ NTSTATUS __stdcall add_device(DRIVER_OBJECT *driver_object,
   status = IoCreateDevice(driver_object, sizeof(libusb_device_extension), 
 			  NULL, device_type, 0, FALSE, &device_object);
 
-  debug_printf(DEBUG_ERR, "add_device(): creating device");
+  debug_printf(LIBUSB_DEBUG_ERR, "add_device(): creating device");
 
   if(!NT_SUCCESS(status))
     {
-      debug_printf(DEBUG_ERR, "add_device(): creating device failed");
+      debug_printf(LIBUSB_DEBUG_ERR, "add_device(): creating device failed");
       return status;
     }
 
@@ -114,7 +114,7 @@ NTSTATUS __stdcall add_device(DRIVER_OBJECT *driver_object,
 
 VOID __stdcall unload(DRIVER_OBJECT *driver_object)
 {
-  debug_printf(DEBUG_MSG, "unload(): unloading driver");
+  debug_printf(LIBUSB_DEBUG_MSG, "unload(): unloading driver");
 }
 
 
@@ -175,11 +175,11 @@ NTSTATUS call_usbd(libusb_device_extension *device_extension, void *urb,
 
       if(status == STATUS_TIMEOUT)
 	{
-	  debug_printf(DEBUG_WARN, "call_usbd(): request timed out");
+	  debug_printf(LIBUSB_DEBUG_WARN, "call_usbd(): request timed out");
 	  IoCancelIrp(irp);
 	  KeWaitForSingleObject(&event, Executive, KernelMode, FALSE, NULL);
+	  status = STATUS_CANCELLED;
 	}
-      status = io_status.Status;
     }
 
   return status;
@@ -248,12 +248,12 @@ int update_pipe_info(libusb_device_extension *device_extension, int interface,
 
   if(interface_info)
     {
-      debug_printf(DEBUG_MSG, "update_pipe_info(): interface %d",
+      debug_printf(LIBUSB_DEBUG_MSG, "update_pipe_info(): interface %d",
 	       interface);
       for(i = 0; i < (int)interface_info->NumberOfPipes
 	    && i < LIBUSB_MAX_NUMBER_OF_ENDPOINTS; i++) 
 	{
-	  debug_printf(DEBUG_MSG, "update_pipe_info(): endpoint "
+	  debug_printf(LIBUSB_DEBUG_MSG, "update_pipe_info(): endpoint "
 		       "address %02xh",
 		       interface_info->Pipes[i].EndpointAddress);	  
 
@@ -280,12 +280,12 @@ NTSTATUS control_object_create(libusb_device_extension *device_extension)
 
   if(!get_device_id(device_extension))
     {
-      debug_printf(DEBUG_ERR, "create_control_object(): getting device id"
-	       " failed");
+      debug_printf(LIBUSB_DEBUG_ERR, "create_control_object(): getting "
+		   "device id failed");
       return STATUS_UNSUCCESSFUL;
     }
 
-  debug_printf(DEBUG_MSG, "create_control_object(): creating device %d",
+  debug_printf(LIBUSB_DEBUG_MSG, "create_control_object(): creating device %d",
 	       device_extension->device_id);
 
   _snwprintf(tmp_name_0, sizeof(tmp_name_0)/sizeof(WCHAR), L"%s%04d", 
@@ -307,7 +307,7 @@ NTSTATUS control_object_create(libusb_device_extension *device_extension)
 			  &device_extension->control_device_object);
   if(!NT_SUCCESS(status))
     {
-      debug_printf(DEBUG_ERR, "create_control_object(): creating device"
+      debug_printf(LIBUSB_DEBUG_ERR, "create_control_object(): creating device"
 		   " %d failed", device_extension->device_id);
       device_extension->control_device_object = NULL;
       return status;
@@ -321,8 +321,8 @@ NTSTATUS control_object_create(libusb_device_extension *device_extension)
 
   if(!NT_SUCCESS(status))
     {
-      debug_printf(DEBUG_ERR, "control_object_create(): creating symbolic "
-		   "link failed");
+      debug_printf(LIBUSB_DEBUG_ERR, "control_object_create(): creating "
+		   "symbolic link failed");
       IoDeleteDevice(device_extension->control_device_object);
       device_extension->control_device_object = NULL;
       return status;
@@ -357,8 +357,8 @@ void control_object_delete(libusb_device_extension *device_extension)
       control_extension = (libusb_device_extension *)
 	device_extension->control_device_object->DeviceExtension;
 
-      debug_printf(DEBUG_ERR, "control_object_delete(): deleting device %d",
-		   device_extension->device_id);
+      debug_printf(LIBUSB_DEBUG_ERR, "control_object_delete(): deleting "
+		   "device %d", device_extension->device_id);
       
       _snwprintf(tmp_name, sizeof(tmp_name)/sizeof(WCHAR), L"%s%04d", 
 		 LIBUSB_SYMBOLIC_LINK_NAME,
@@ -370,14 +370,14 @@ void control_object_delete(libusb_device_extension *device_extension)
 
       if(!NT_SUCCESS(IoDeleteSymbolicLink(&symbolic_link_name)))
 	{
-	  debug_printf(DEBUG_ERR, "control_object_delete(): "
+	  debug_printf(LIBUSB_DEBUG_ERR, "control_object_delete(): "
 		       "IoDeleteSymbolicLink() failed\n");
 	}
       
       if(!control_extension->ref_count)
 	{
-	  debug_printf(DEBUG_MSG, "control_object_delete(): releasing device "
-		       "id %d", device_extension->device_id);
+	  debug_printf(LIBUSB_DEBUG_MSG, "control_object_delete(): "
+		       "releasing device id %d", device_extension->device_id);
 	  release_device_id(device_extension);
 	}
 

@@ -28,7 +28,7 @@ NTSTATUS get_configuration(libusb_device_extension *device_extension,
   char tmp;
 
   debug_print_nl();
-  debug_printf(DEBUG_MSG, "get_configuration(): timeout %d", timeout);
+  debug_printf(LIBUSB_DEBUG_MSG, "get_configuration(): timeout %d", timeout);
 
   urb.UrbHeader.Function = URB_FUNCTION_GET_CONFIGURATION;
   urb.UrbHeader.Length = sizeof(struct _URB_CONTROL_GET_CONFIGURATION_REQUEST);
@@ -42,14 +42,14 @@ NTSTATUS get_configuration(libusb_device_extension *device_extension,
 
   if(!NT_SUCCESS(status) || !USBD_SUCCESS(urb.UrbHeader.Status))
     {
-      debug_printf(DEBUG_ERR, "get_configuration(): getting configuration "
-		   "failed: status: 0x%x, urb-status: 0x%x", 
+      debug_printf(LIBUSB_DEBUG_ERR, "get_configuration(): getting "
+		   "configuration failed: status: 0x%x, urb-status: 0x%x", 
 		   status, urb.UrbHeader.Status);
     }
   else
     {
-      *configuration = (int)tmp;
-      debug_printf(DEBUG_ERR, "get_configuration(): current config: %d",
+      *configuration = tmp;
+      debug_printf(LIBUSB_DEBUG_ERR, "get_configuration(): current config: %d",
 		   *configuration);
     }
   return status;

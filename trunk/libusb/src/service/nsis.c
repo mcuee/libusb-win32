@@ -111,6 +111,8 @@ static void create_kernel_service(void)
 {
   char display_name[128];
 
+  usb_service_stop_filter(1);
+
   snprintf(display_name, sizeof(display_name) - 1,
 	   "LibUsb-Win32 - Filter Driver, Version %d.%d.%d.%d", 
 	   VERSION_MAJOR, VERSION_MINOR, VERSION_MICRO, VERSION_NANO);
@@ -174,7 +176,7 @@ static void stop_system_service(void)
 
 static void stop_kernel_service(void)
 {
-  usb_service_stop_filter();
+  usb_service_stop_filter(0);
 }
 
 static void reboot_required(void)
