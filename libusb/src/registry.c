@@ -360,7 +360,7 @@ bool_t usb_registry_is_service_libusb(HDEVINFO dev_info,
   return FALSE;
 }
 
-void usb_registry_start_filter(void)
+void usb_registry_start_filter(bool_t restart)
 {
   HDEVINFO dev_info;
   SP_DEVINFO_DATA dev_info_data;
@@ -390,7 +390,8 @@ void usb_registry_start_filter(void)
         {
           if(usb_registry_insert_filter(dev_info, &dev_info_data, filter_name))
             {
-              usb_registry_restart_device(dev_info, &dev_info_data);
+              if(restart)
+                usb_registry_restart_device(dev_info, &dev_info_data);
             }
         }
       dev_index++;
@@ -400,7 +401,7 @@ void usb_registry_start_filter(void)
 }
 
 
-void usb_registry_stop_filter(void)
+void usb_registry_stop_filter(bool_t restart)
 {
   HDEVINFO dev_info;
   SP_DEVINFO_DATA dev_info_data;
@@ -427,7 +428,8 @@ void usb_registry_stop_filter(void)
       if(usb_registry_remove_filter(dev_info, &dev_info_data, 
                                     filter_name))
         {
-          usb_registry_restart_device(dev_info, &dev_info_data);
+          if(restart)
+            usb_registry_restart_device(dev_info, &dev_info_data);
         }
       dev_index++;
     }
@@ -513,9 +515,33 @@ bool_t usb_registry_match(HDEVINFO dev_info, SP_DEVINFO_DATA *dev_info_data)
 
   /* search for USB devices, skip root hubs and interfaces of composite */
   /* devices */
-  if(!usb_registry_mz_string_find_sub(tmp, "usb\\vid_")
-     || usb_registry_mz_string_find_sub(tmp, "root_hub")
-     || usb_registry_mz_string_find_sub(tmp, "&mi_"))
+  if(usb_registry_mz_string_find_sub(tmp, "&mi_"))
+    {
+      return FALSE;
+    }
+
+  return TRUE;
+}
+
+bool_t usb_registry_match_no_root_hubs(HDEVINFO dev_info, 
+                                  SP_DEVINFO_DATA *dev_info_data)
+{
+  char tmp[MAX_PATH];
+  
+  if(!usb_registry_get_property(SPDRP_HARDWAREID, dev_info, dev_info_data,
+                                tmp, sizeof(tmp)))
+    {
+      usb_debug_error("usb_registry_match_no_hubs(): getting hardware id "
+                      "failed");
+      return FALSE;
+    }
+
+  usb_registry_mz_string_lower(tmp);
+
+  /* search for USB devices, skip root hubs and interfaces of composite */
+  /* devices */
+  if(usb_registry_mz_string_find_sub(tmp, "&mi_")
+     || usb_registry_mz_string_find_sub(tmp, "root_hub"))
     {
       return FALSE;
     }
@@ -612,3 +638,94 @@ void usb_registry_mz_string_lower(char *src)
     }
 }
 
+
+int usb_registry_get_num_busses(void)
+{
+  HDEVINFO dev_info;
+  SP_DEVINFO_DATA dev_info_data;
+  int dev_index = 0;
+  char id[MAX_PATH];
+  int ret = 0;
+
+  dev_info_data.cbSize = sizeof(SP_DEVINFO_DATA);
+
+  dev_info = SetupDiGetClassDevs(NULL, "USB", NULL,
+                                 DIGCF_ALLCLASSES | DIGCF_PRESENT);
+  
+  if(dev_info == INVALID_HANDLE_VALUE)
+    {
+      usb_debug_error("usb_registry_get_num_busses(): getting "
+                      "device info set failed");
+      return 0;
+    }
+  
+  while(SetupDiEnumDeviceInfo(dev_info, dev_index, &dev_info_data))
+    {
+      if(!usb_registry_get_property(SPDRP_HARDWAREID, dev_info, &dev_info_data,
+                                    id, sizeof(id)))
+        {
+          usb_debug_error("usb_registry_get_num_busses(): getting hardware "
+                          "id failed");
+          dev_index++;
+          continue;
+        }
+      
+      usb_registry_mz_string_lower(id);
+      
+      /* search for USB root hubs */
+      if(usb_registry_mz_string_find_sub(id, "root_hub"))
+        {
+          ret++;
+        }
+      dev_index++;
+    }
+  
+  SetupDiDestroyDeviceInfoList(dev_info);
+
+  return ret;
+}
+
+bool_t usb_registry_restart_root_hubs(void)
+{
+  HDEVINFO dev_info;
+  SP_DEVINFO_DATA dev_info_data;
+  int dev_index = 0;
+  char id[MAX_PATH];
+
+  dev_info_data.cbSize = sizeof(SP_DEVINFO_DATA);
+
+  dev_info = SetupDiGetClassDevs(NULL, "USB", NULL,
+                                 DIGCF_ALLCLASSES | DIGCF_PRESENT);
+  
+  if(dev_info == INVALID_HANDLE_VALUE)
+    {
+      usb_debug_error("usb_registry_restart_root_hubs(): getting "
+                      "device info set failed");
+      return 0;
+    }
+  
+  while(SetupDiEnumDeviceInfo(dev_info, dev_index, &dev_info_data))
+    {
+      if(!usb_registry_get_property(SPDRP_HARDWAREID, dev_info, &dev_info_data,
+                                    id, sizeof(id)))
+        {
+          usb_debug_error("usb_registry_restart_root_hubs(): getting hardware "
+                          "id failed");
+          dev_index++;
+          continue;
+        }
+      
+      usb_registry_mz_string_lower(id);
+      
+      /* search for USB root hubs */
+      if(usb_registry_mz_string_find_sub(id, "root_hub"))
+        {
+          usb_registry_restart_device(dev_info, &dev_info_data);
+        }
+      dev_index++;
+    }
+  
+  SetupDiDestroyDeviceInfoList(dev_info);
+
+  return TRUE;
+}

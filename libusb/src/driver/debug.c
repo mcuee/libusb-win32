@@ -27,7 +27,7 @@
 
 #define DEBUG_BUFFER_SIZE 512
 
-static int debug_level = LIBUSB_DEBUG_MSG;
+static int debug_level = LIBUSB_DEBUG_ERR;
 
 void debug_print_nl(void)
 {

@@ -58,6 +58,8 @@ bool_t usb_registry_stop_device(HDEVINFO dev_info,
 bool_t usb_registry_start_device(HDEVINFO dev_info, 
                                  SP_DEVINFO_DATA *dev_info_data);
 
+bool_t usb_registry_restart_root_hubs(void);
+
 bool_t usb_registry_insert_filter(HDEVINFO dev_info,
                                   SP_DEVINFO_DATA *dev_info_data,
                                   char *filter_name);
@@ -68,14 +70,16 @@ bool_t usb_registry_remove_filter(HDEVINFO dev_info,
 bool_t usb_registry_is_service_libusb(HDEVINFO dev_info, 
                                       SP_DEVINFO_DATA *dev_info_data);
 
-void usb_registry_start_filter(void);
-void usb_registry_stop_filter(void);
+void usb_registry_start_filter(bool_t restart);
+void usb_registry_stop_filter(bool_t restart);
 
 void usb_registry_stop_libusb_devices(void);
 void usb_registry_start_libusb_devices(void);
 
 
 bool_t usb_registry_match(HDEVINFO dev_info, SP_DEVINFO_DATA *dev_info_data);
+bool_t usb_registry_match_no_root_hubs(HDEVINFO dev_info, 
+                                       SP_DEVINFO_DATA *dev_info_data);
 
 int usb_registry_mz_string_size(char *src);
 char *usb_registry_mz_string_find(char *src, char *str);
@@ -84,5 +88,6 @@ bool_t usb_registry_mz_string_insert(char *src, char *str);
 bool_t usb_registry_mz_string_remove(char *src, char *str);
 void usb_registry_mz_string_lower(char *src);
 
+int usb_registry_get_num_busses(void);
 
 #endif

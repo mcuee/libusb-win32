@@ -15,8 +15,8 @@ MinVersion=4,5
 PrivilegesRequired=admin
 
 [Files]
-Source: "*.sys"; DestDir: "{sys}\drivers"; Flags: uninsneveruninstall replacesameversion restartreplace
-Source: "*.dll"; DestDir: "{sys}"; Flags: uninsneveruninstall replacesameversion restartreplace
+Source: "*.sys"; DestDir: "{win}\system32\drivers"; Flags: uninsneveruninstall replacesameversion restartreplace
+Source: "*.dll"; DestDir: "{win}\system32"; Flags: uninsneveruninstall replacesameversion restartreplace
 
 Source: "@BIN_DIST_DIR@\lib\*.*"; DestDir: "{app}\lib"; Flags: recursesubdirs
 Source: "@BIN_DIST_DIR@\include\*.h"; DestDir: "{app}\include"; Flags: recursesubdirs
@@ -24,8 +24,8 @@ Source: "@BIN_DIST_DIR@\include\*.h"; DestDir: "{app}\include"; Flags: recursesu
 Source: "testlibusb.exe"; DestDir: "{app}\bin";
 Source: "testlibusb-win.exe"; DestDir: "{app}\bin";
 Source: "testlibusb-win.exe.manifest"; DestDir: "{app}\bin";
-Source: "libusbd-nt.exe"; DestDir: "{sys}"; Flags: replacesameversion restartreplace
-Source: "libusbd-9x.exe"; DestDir: "{sys}"; Flags: replacesameversion restartreplace
+Source: "libusbd-nt.exe"; DestDir: "{win}\system32"; Flags: replacesameversion restartreplace
+Source: "libusbd-9x.exe"; DestDir: "{win}\system32"; Flags: replacesameversion restartreplace
 
 Source: "@BIN_DIST_DIR@\*.*"; DestDir: "{app}"
 Source: "@SRC_DIST_DIR@\*.*"; DestDir: "{app}\src"; Flags: recursesubdirs
@@ -39,12 +39,13 @@ Name: "{group}\LGPL License"; Filename: "{app}\COPYING_GPL.txt"
 
 
 [Run]
-Filename: "rundll32"; Parameters: "libusb0.dll,usb_delete_service_rundll"; StatusMsg: "Deleting old services (this may take a few seconds) ..." 
-Filename: "rundll32"; Parameters: "libusb0.dll,usb_create_service_rundll"; StatusMsg: "Creating services (this may take a few seconds) ..." 
+Filename: "rundll32"; Parameters: "libusb0.dll,usb_uninstall_service_np_rundll"; StatusMsg: "Deleting old services (this may take a few seconds) ..." 
+Filename: "rundll32"; Parameters: "libusb0.dll,usb_install_service_np_rundll"; StatusMsg: "Creating services (this may take a few seconds) ..." 
 Filename: "{app}\bin\testlibusb-win"; Description: "Run test application"; Flags: postinstall
 
+
 [UninstallRun]
-Filename: "rundll32"; Parameters: "libusb0.dll,usb_delete_service_rundll"
+Filename: "rundll32"; Parameters: "libusb0.dll,usb_uninstall_service_np_rundll"
 
 [Messages]
 StatusUninstalling=Uninstalling %1 (this may take a few seconds) ...

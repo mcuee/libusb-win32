@@ -21,7 +21,8 @@
 
 
 NTSTATUS get_configuration(libusb_device_extension *device_extension,
-                           char *configuration, int *ret, int timeout)
+                           unsigned char *configuration, int *ret, 
+                           int timeout)
 {
   NTSTATUS status = STATUS_SUCCESS;
   URB urb;

@@ -19,6 +19,7 @@
 
 #include "libusb_driver.h"
 
+static int bus_index = 0;
 
 static struct {
   KMUTEX mutex;
@@ -78,7 +79,6 @@ NTSTATUS DDKAPI add_device(DRIVER_OBJECT *driver_object,
   device_type = device_object->DeviceType;
   ObDereferenceObject(device_object);
   
-
   if(!get_device_id(&id))
     {
       debug_printf(LIBUSB_DEBUG_ERR, "add_device(): getting device id failed");
@@ -419,4 +419,88 @@ static NTSTATUS DDKAPI on_usbd_complete(DEVICE_OBJECT *device_object,
 {
   KeSetEvent((KEVENT *) context, IO_NO_INCREMENT, FALSE);
   return STATUS_MORE_PROCESSING_REQUIRED;
+}
+
+
+NTSTATUS get_device_info(libusb_device_extension *device_extension, 
+                         libusb_request *request, int *ret)
+{
+  memset(request, 0, sizeof(libusb_request));
+
+  request->device_info.port = device_extension->port;
+  request->device_info.parent_id= device_extension->parent_id;
+  request->device_info.bus= device_extension->bus;
+  request->device_info.id 
+    = (unsigned int)device_extension->physical_device_object;
+
+  *ret = sizeof(libusb_request);
+
+  return STATUS_SUCCESS;
+}
+
+BOOL is_root_hub(libusb_device_extension *device_extension)
+{
+  WCHAR buf0[MAX_PATH];
+  char buf1[MAX_PATH];
+  ULONG ret;
+  int i;
+
+  memset(buf0, 0, sizeof(buf0));
+  memset(buf1, 0, sizeof(buf1));
+
+  if(NT_SUCCESS(IoGetDeviceProperty(device_extension->physical_device_object,
+                                    DevicePropertyHardwareID,
+                                    sizeof(buf0), buf0, &ret)) && ret)
+    {
+      for(i = 0; i < ret/2; i++)
+        buf1[i] = (char)buf0[i];
+
+      _strlwr(buf1);
+
+      if(strstr(buf1, "root_hub"))
+        {
+          return TRUE;
+        }
+    }
+
+  return FALSE;
+}
+
+void get_topology_info(libusb_device_extension *device_extension)
+{
+  DEVICE_OBJECT *device_object;
+  libusb_device_extension *dx;
+  int i;
+  int found = 0;
+  device_extension->parent_id = 0;
+  device_extension->bus = 0;
+
+  device_object = device_extension->self->DriverObject->DeviceObject;
+
+  while(device_object)
+    {
+      dx = (libusb_device_extension *)device_object->DeviceExtension;
+
+      for(i = 0; i < dx->num_child_ids; i++)
+        {
+          if(dx->child_ids[i] 
+             == (unsigned int)device_extension->physical_device_object)
+            {
+              device_extension->parent_id 
+                = (unsigned int)dx->physical_device_object;
+              device_extension->bus = dx->bus;
+              found = 1;
+            }
+        }
+      
+      if(found)
+        break;
+      device_object = device_object->NextDevice;
+    }
+
+  if(!found && device_extension->is_root_hub)
+    {
+      device_extension->bus = bus_index;
+      bus_index++;
+    }
 }

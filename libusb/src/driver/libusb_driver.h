@@ -54,6 +54,8 @@
 
 #define LIBUSB_MAX_NUMBER_OF_ENDPOINTS  32
 #define LIBUSB_MAX_NUMBER_OF_INTERFACES 32
+#define LIBUSB_MAX_NUMBER_OF_CHILD_IDS  32
+
 
 #define LIBUSB_DEFAULT_TIMEOUT  5000   
 
@@ -87,8 +89,14 @@ typedef struct
   USBD_CONFIGURATION_HANDLE configuration_handle;
   LONG ref_count;
   int is_started;
+  int is_root_hub;
   int configuration;
   int device_id;
+  int port;
+  int bus;
+  unsigned int parent_id;
+  int num_child_ids;
+  unsigned int child_ids[LIBUSB_MAX_NUMBER_OF_CHILD_IDS];
   libusb_interface_info_t interfaces[LIBUSB_MAX_NUMBER_OF_INTERFACES];
 } libusb_device_extension;
 
@@ -123,11 +131,13 @@ void release_device_id(int id);
 NTSTATUS set_configuration(libusb_device_extension *device_extension,
                            int configuration, int timeout);
 NTSTATUS get_configuration(libusb_device_extension *device_extension,
-                           char *configuration, int *ret, int timeout);
+                           unsigned char *configuration, int *ret, 
+                           int timeout);
 NTSTATUS set_interface(libusb_device_extension *device_extension,
                        int interface, int altsetting, int timeout);
 NTSTATUS get_interface(libusb_device_extension *device_extension,
-                       int interface, char *altsetting, int *ret, int timeout);
+                       int interface, unsigned char *altsetting, 
+                       int *ret, int timeout);
 NTSTATUS set_feature(libusb_device_extension *device_extension,
                      int recipient, int index, int feature, int timeout);
 NTSTATUS clear_feature(libusb_device_extension *device_extension,
@@ -162,6 +172,10 @@ NTSTATUS release_interface(libusb_device_extension *device_extension,
                            int interface);
 NTSTATUS release_all_interfaces(libusb_device_extension *device_extension);
 
+NTSTATUS get_device_info(libusb_device_extension *device_extension, 
+                         libusb_request *request, int *ret);
+BOOL is_root_hub(libusb_device_extension *device_extension);
+void get_topology_info(libusb_device_extension *device_extension);
 
 void debug_print_nl(void);
 void debug_set_level(int level);

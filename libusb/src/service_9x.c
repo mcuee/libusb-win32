@@ -61,7 +61,7 @@ LRESULT CALLBACK window_proc(HWND handle, UINT message, WPARAM w_param,
       if(w_param == DBT_DEVICEARRIVAL)
         {
           usb_unregister_notifications();
-          usb_registry_start_filter();
+          usb_registry_start_filter(TRUE);
           usb_register_notifications();
         }
       break;
@@ -108,6 +108,7 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE prev_instance,
                               NULL, WS_OVERLAPPEDWINDOW, -1, -1, -1, -1,
                               NULL, NULL, instance, NULL);
 
+  CreateMutex(NULL, TRUE, "libusb_service_mutex");
   usb_register_notifications();
   register_service_process(GetCurrentProcessId(), 1);
 

@@ -23,6 +23,7 @@
 #include <ddk/cfgmgr32.h>
 #include <regstr.h>
 
+#include "usb.h"
 #include "service.h"
 #include "registry.h"
 #include "win_debug.h"
@@ -33,19 +34,40 @@
 #define LIBUSB_DRIVER_PATH  "system32\\drivers\\libusb0.sys"
 
 
-void CALLBACK usb_create_service_rundll(HWND wnd, HINSTANCE instance,
-                                        LPSTR cmd_line, int cmd_show);
-void CALLBACK usb_delete_service_rundll(HWND wnd, HINSTANCE instance,
-                                        LPSTR cmd_line, int cmd_show);
-void CALLBACK usb_install_driver_rundll(HWND wnd, HINSTANCE instance,
-                                        LPSTR cmd_line, int cmd_show);
+void CALLBACK usb_install_service_np_rundll(HWND wnd, HINSTANCE instance,
+                                            LPSTR cmd_line, int cmd_show);
+void CALLBACK usb_uninstall_service_np_rundll(HWND wnd, HINSTANCE instance,
+                                              LPSTR cmd_line, int cmd_show);
+void CALLBACK usb_install_driver_np_rundll(HWND wnd, HINSTANCE instance,
+                                           LPSTR cmd_line, int cmd_show);
 
 
-void CALLBACK usb_create_service_rundll(HWND wnd, HINSTANCE instance,
-                                        LPSTR cmd_line, int cmd_show)
+
+void CALLBACK usb_install_service_np_rundll(HWND wnd, HINSTANCE instance,
+                                            LPSTR cmd_line, int cmd_show)
+{
+  usb_install_service_np();
+}
+
+void CALLBACK usb_uninstall_service_np_rundll(HWND wnd, HINSTANCE instance,
+                                              LPSTR cmd_line, int cmd_show)
+{
+  usb_uninstall_service_np();
+}
+
+void CALLBACK usb_install_driver_np_rundll(HWND wnd, HINSTANCE instance,
+                                           LPSTR cmd_line, int cmd_show)
+{
+  usb_install_driver_np(cmd_line);
+}
+
+
+int usb_install_service_np(void)
 {
   char display_name[MAX_PATH];
   HKEY reg_key = NULL;
+  int ret = 0;
+
 
   memset(display_name, 0, sizeof(display_name));
 
@@ -62,15 +84,17 @@ void CALLBACK usb_create_service_rundll(HWND wnd, HINSTANCE instance,
                VERSION_MAJOR, VERSION_MINOR, VERSION_MICRO, VERSION_NANO);
       
       /* create the kernel service */
-      usb_create_service(LIBUSB_DRIVER_NAME_NT, display_name, 
-                         LIBUSB_DRIVER_PATH,
-                         SERVICE_KERNEL_DRIVER, SERVICE_DEMAND_START);
+      if(!usb_create_service(LIBUSB_DRIVER_NAME_NT, display_name, 
+                             LIBUSB_DRIVER_PATH,
+                             SERVICE_KERNEL_DRIVER, SERVICE_DEMAND_START))
+        ret = -1;
     }
   
   /* restart libusb devices */
   usb_registry_start_libusb_devices(); 
   /* insert filter drivers */
-  usb_registry_start_filter();
+  usb_registry_start_filter(FALSE);
+  usb_registry_restart_root_hubs(); 
 
   if(usb_registry_is_nt())
     {
@@ -79,12 +103,15 @@ void CALLBACK usb_create_service_rundll(HWND wnd, HINSTANCE instance,
                VERSION_MAJOR, VERSION_MINOR, VERSION_MICRO, VERSION_NANO);
       
       /* create the system service */
-      usb_create_service(LIBUSB_SERVICE_NAME, display_name,
-                         LIBUSB_SERVICE_PATH, 
-                         SERVICE_WIN32_OWN_PROCESS,
-                         SERVICE_AUTO_START); 
+      if(!usb_create_service(LIBUSB_SERVICE_NAME, display_name,
+                             LIBUSB_SERVICE_PATH, 
+                             SERVICE_WIN32_OWN_PROCESS,
+                             SERVICE_AUTO_START))
+        ret = -1;
+
       /* start the system service */
-      usb_start_service(LIBUSB_SERVICE_NAME);
+      if(!usb_start_service(LIBUSB_SERVICE_NAME))
+        ret = -1;
     }
   else
     {
@@ -101,6 +128,7 @@ void CALLBACK usb_create_service_rundll(HWND wnd, HINSTANCE instance,
             {
               usb_debug_error("usb_create_service_rundll(): installing "
                               "service failed");
+              ret = -1;
             }
           else
             {
@@ -108,23 +136,28 @@ void CALLBACK usb_create_service_rundll(HWND wnd, HINSTANCE instance,
                 {
                   usb_debug_error("usb_create_service_rundll(): starting "
                                   "deamon failed\n");
+                  ret = -1;
                 }
             }
           RegCloseKey(reg_key);
         }
     }
+
+  return ret;
 }
 
-void CALLBACK usb_delete_service_rundll(HWND wnd, HINSTANCE instance,
-                                        LPSTR cmd_line, int cmd_show)
+int usb_uninstall_service_np(void)
 {
   HANDLE win; 
   HKEY reg_key = NULL;
+  int ret = 0;
 
   if(usb_registry_is_nt())
     {
-      usb_stop_service(LIBUSB_SERVICE_NAME); 
-      usb_delete_service(LIBUSB_SERVICE_NAME);
+      if(!usb_stop_service(LIBUSB_SERVICE_NAME))
+        ret = -1;
+      if(!usb_delete_service(LIBUSB_SERVICE_NAME))
+        ret = -1;
     }
   else
     {
@@ -149,11 +182,13 @@ void CALLBACK usb_delete_service_rundll(HWND wnd, HINSTANCE instance,
     } 
 
   /* remove filter drivers */
-  usb_registry_stop_filter(); 
+  usb_registry_stop_filter(FALSE);
+  usb_registry_restart_root_hubs(); 
+
+  return ret;
 }
 
-void CALLBACK usb_install_driver_rundll(HWND wnd, HINSTANCE instance,
-                                        LPSTR cmd_line, int cmd_show)
+int usb_install_driver_np(const char *inf_file)
 {
   HDEVINFO dev_info;
   SP_DEVINFO_DATA dev_info_data;
@@ -161,7 +196,7 @@ void CALLBACK usb_install_driver_rundll(HWND wnd, HINSTANCE instance,
   HINF inf_handle;
   DWORD config_flags, problem, status;
   BOOL reboot;
-  char inf_file[MAX_PATH];
+  char inf_path[MAX_PATH];
   char id[MAX_PATH];
   char tmp_id[MAX_PATH];
   char *p;
@@ -174,12 +209,12 @@ void CALLBACK usb_install_driver_rundll(HWND wnd, HINSTANCE instance,
 
   update_driver_for_plug_and_play_devices_t UpdateDriverForPlugAndPlayDevices;
 
-  newdev_dll = LoadLibrary("newdev.dll.dll");
+  newdev_dll = LoadLibrary("newdev.dll");
 
   if(!newdev_dll)
     {
       usb_debug_error("usb_install_driver(): loading newdev.dll failed\n");
-      return;
+      return -1;
     }
   
   UpdateDriverForPlugAndPlayDevices =  
@@ -188,7 +223,7 @@ void CALLBACK usb_install_driver_rundll(HWND wnd, HINSTANCE instance,
 
   if(!UpdateDriverForPlugAndPlayDevices)
     {
-      return;
+      return -1;
     }
 
 
@@ -196,30 +231,30 @@ void CALLBACK usb_install_driver_rundll(HWND wnd, HINSTANCE instance,
 
 
   /* retrieve the full .inf file path */
-  if(!GetFullPathName(cmd_line, MAX_PATH, inf_file, NULL))
+  if(!GetFullPathName(inf_file, MAX_PATH, inf_path, NULL))
     {
       usb_debug_error("usb_install_driver(): .inf file %s not found\n", 
-                      cmd_line);
-      return;
+                      inf_file);
+      return -1;
     }
 
   /* open the .inf file */
-  inf_handle = SetupOpenInfFile(inf_file, NULL, INF_STYLE_WIN4, NULL);
+  inf_handle = SetupOpenInfFile(inf_path, NULL, INF_STYLE_WIN4, NULL);
 
   if(inf_handle == INVALID_HANDLE_VALUE)
     {
       usb_debug_error("usb_install_driver(): unable to open .inf file %s\n", 
-                      cmd_line);
-      return;
+                      inf_file);
+      return -1;
     }
 
   /* find the .inf file's device description section marked "Devices" */
   if(!SetupFindFirstLine(inf_handle, "Devices", NULL, &inf_context))
     {
       usb_debug_error("usb_install_driver(): .inf file %s does not contain "
-                      "any device descriptions\n", cmd_line);
+                      "any device descriptions\n", inf_file);
       SetupCloseInfFile(inf_handle);
-      return;
+      return -1;
     }
 
 
@@ -242,12 +277,12 @@ void CALLBACK usb_install_driver_rundll(HWND wnd, HINSTANCE instance,
 
     /* update all connected devices matching this ID, but only if this */
     /* driver is better or newer */
-    UpdateDriverForPlugAndPlayDevices(NULL, id, inf_file, 0, &reboot);
+    UpdateDriverForPlugAndPlayDevices(NULL, id, inf_path, 0, &reboot);
     
 
     /* copy the .inf file to the system directory so that is will be found */
     /* when new  devices are plugged in */
-    SetupCopyOEMInf(inf_file, NULL, SPOST_PATH, 0, NULL, 0, NULL, NULL);
+    SetupCopyOEMInf(inf_path, NULL, SPOST_PATH, 0, NULL, 0, NULL, NULL);
 
 
     /* now search the registry for device nodes representing currently  */
@@ -261,7 +296,7 @@ void CALLBACK usb_install_driver_rundll(HWND wnd, HINSTANCE instance,
     if(dev_info == INVALID_HANDLE_VALUE)
       {
         SetupCloseInfFile(inf_handle);
-        return;
+        return -1;
       }
  
     dev_index = 0;
@@ -333,5 +368,5 @@ void CALLBACK usb_install_driver_rundll(HWND wnd, HINSTANCE instance,
   usb_registry_stop_libusb_devices(); /* stop all libusb devices */
   usb_registry_start_libusb_devices(); /* restart all libusb devices */
 
-  return;
+  return 0;
 }

@@ -60,7 +60,7 @@ int main(int argc, char **argv)
       { LIBUSB_SERVICE_NAME, (LPSERVICE_MAIN_FUNCTION)usb_service_main },
       { NULL, NULL }
     };
-
+ 
   StartServiceCtrlDispatcher(dispatch_table);
   return 0;
 }
@@ -83,6 +83,8 @@ static void WINAPI usb_service_main(int argc, char **argv)
   
   if(!service_status_handle)
     return;
+
+  CreateMutex(NULL, TRUE, "libusb_service_mutex");
 
   usb_register_notifications();
   usb_service_run(argc, argv);
@@ -109,7 +111,7 @@ static DWORD WINAPI usb_service_handler(DWORD code, DWORD event_type,
       if(event_type == DBT_DEVICEARRIVAL)
         {
           usb_unregister_notifications();
-          usb_registry_start_filter();
+          usb_registry_start_filter(TRUE);
           usb_register_notifications();
         }
       usb_service_set_status(SERVICE_RUNNING, NO_ERROR);
