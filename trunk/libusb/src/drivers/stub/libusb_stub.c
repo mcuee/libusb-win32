@@ -34,6 +34,8 @@ NTSTATUS __stdcall add_device(DRIVER_OBJECT *driver_object,
 static NTSTATUS dispatch(DEVICE_OBJECT *device_object, IRP *irp);
 static NTSTATUS dispatch_pnp(libusb_device_extension *device_extension, 
 			     IRP *irp);
+static NTSTATUS on_pnp_complete(DEVICE_OBJECT *device_object,IRP *irp,
+				void *context);
 
 NTSTATUS __stdcall DriverEntry(DRIVER_OBJECT *driver_object,
 			       UNICODE_STRING *registry_path)
@@ -121,6 +123,7 @@ NTSTATUS __stdcall dispatch(DEVICE_OBJECT *device_object, IRP *irp)
 NTSTATUS dispatch_pnp(libusb_device_extension *device_extension, IRP *irp)
 {
   NTSTATUS status = STATUS_NOT_SUPPORTED;
+  KEVENT event;
   IO_STACK_LOCATION *stack_location = IoGetCurrentIrpStackLocation(irp);
 
   switch(stack_location->MinorFunction) 
@@ -132,6 +135,37 @@ NTSTATUS dispatch_pnp(libusb_device_extension *device_extension, IRP *irp)
       IoDetachDevice(device_extension->next_stack_device);
       IoDeleteDevice(device_extension->self);
       return status;
+    case IRP_MN_QUERY_CAPABILITIES: 
+      stack_location->Parameters.DeviceCapabilities.Capabilities
+	->SurpriseRemovalOK = TRUE;
+
+      if(!IoIsWdmVersionAvailable(1, 0x20))
+	{
+	  KeInitializeEvent(&event, NotificationEvent, FALSE);
+	  IoCopyCurrentIrpStackLocationToNext(irp);
+	  
+	  IoSetCompletionRoutine(irp, on_pnp_complete, &event,
+				 TRUE, TRUE, TRUE);
+	  
+	  status = IoCallDriver(device_extension->next_stack_device, irp);
+	  
+	  if(status == STATUS_PENDING) 
+	    {
+	      KeWaitForSingleObject(&event, Executive, KernelMode,
+				    FALSE, NULL);
+	      status = irp->IoStatus.Status;
+	    }
+	  
+	  if(NT_SUCCESS(status))
+	    {
+	      stack_location->Parameters.DeviceCapabilities.Capabilities
+		->SurpriseRemovalOK = TRUE;
+	    }
+	  return status;
+	} 
+      
+      break;
+
     case IRP_MN_SURPRISE_REMOVAL:
     case IRP_MN_START_DEVICE:
     case IRP_MN_CANCEL_REMOVE_DEVICE:
@@ -152,5 +186,17 @@ NTSTATUS dispatch_pnp(libusb_device_extension *device_extension, IRP *irp)
 VOID __stdcall unload(DRIVER_OBJECT *driver_object)
 {
 
+}
+
+NTSTATUS on_pnp_complete(DEVICE_OBJECT *device_object,IRP *irp, void *context)
+{
+    KEVENT *event = (KEVENT *)context;
+
+    if(irp->PendingReturned == TRUE) 
+      {
+        KeSetEvent(event, IO_NO_INCREMENT, FALSE);
+      }
+
+    return STATUS_MORE_PROCESSING_REQUIRED;
 }
 

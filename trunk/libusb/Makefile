@@ -60,7 +60,7 @@ TEST_FILES = testlibusb.exe testlibusb-win.exe
 
 
 ifndef DDK_ROOT_PATH
-	DDK_ROOT_PATH = C:/WINDDK/2600.1106
+	DDK_ROOT_PATH = C:/WINDDK
 endif
 
 .PHONY: all

@@ -148,26 +148,30 @@ bool_t usb_registry_set_property(DWORD which, HDEVINFO dev_info,
 
 
   memset(tmp, 0, sizeof(tmp));
-  strncpy(tmp, buf, sizeof(tmp));
-
-  if(reg_type == REG_MULTI_SZ)
+  
+  if(buf)
     {
-      p = tmp;
-
-      while(*p && p < (tmp + sizeof(tmp) - 2))
+      strncpy(tmp, buf, sizeof(tmp));
+      
+      if(reg_type == REG_MULTI_SZ)
 	{
-	  if(*p == ',')
+	  p = tmp;
+	  
+	  while(*p && p < (tmp + sizeof(tmp) - 2))
 	    {
-	      *p = 0;
+	      if(*p == ',')
+		{
+		  *p = 0;
+		}
+	      p++;
 	    }
-	  size++;
-	  p++;
+	  *p++ = 0;
+	  *p = 0;
 	}
-      *p++ = 0;
-      *p = 0;
+      
+      size = strlen(tmp);
+      size += reg_type == REG_MULTI_SZ ? 2 : 1;
     }
-
-  size += reg_type == REG_MULTI_SZ ? 2 : 1;
 
   if(usb_registry_is_nt())
     {
