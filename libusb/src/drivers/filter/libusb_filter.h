@@ -151,6 +151,8 @@ NTSTATUS on_device_usage_notification_complete(DEVICE_OBJECT *device_object,
 					       void *context);
 NTSTATUS on_start_complete(DEVICE_OBJECT *device_object, IRP *irp, 
 			   void *context);
+NTSTATUS on_usbd_complete(DEVICE_OBJECT *device_object, IRP *irp, 
+			   void *context);
 
 void debug_print_nl(void);
 void debug_set_level(int level);

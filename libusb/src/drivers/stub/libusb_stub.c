@@ -19,12 +19,23 @@
 
 
 #include <wdm.h>
+#include <wchar.h>
+#include <initguid.h>
+
+
+// {798DC6FE-4216-48e2-A851-D67957A05C3A}
+DEFINE_GUID(LIBUSB_DEFAULT_GUID, \
+0x798dc6fe, 0x4216, 0x48e2, 0xa8, 0x51, 0xd6, 0x79, 0x57, 0xa0, 0x5c, 0x3a);
+
+#define LIBUSB_GUID_KEY L"libusb-guid"
 
 
 typedef struct
 {
   DEVICE_OBJECT	*self;
   DEVICE_OBJECT	*next_stack_device;
+  UNICODE_STRING interface_name;
+  int interface_valid;
 } libusb_device_extension;
 
 
@@ -61,6 +72,14 @@ NTSTATUS __stdcall add_device(DRIVER_OBJECT *driver_object,
   DEVICE_OBJECT *device_object;
   libusb_device_extension *device_extension;
   ULONG device_type = FILE_DEVICE_UNKNOWN;
+  HANDLE reg_key = NULL;
+  GUID guid;
+  WCHAR guid_string[256];
+  KEY_VALUE_FULL_INFORMATION *guid_value;
+  WCHAR guid_key[256];
+  UNICODE_STRING guid_string_uni;
+  UNICODE_STRING guid_key_uni;
+  ULONG tmp;
 
   if(!IoIsWdmVersionAvailable(1, 0x20)) 
     {
@@ -85,6 +104,52 @@ NTSTATUS __stdcall add_device(DRIVER_OBJECT *driver_object,
   device_object->DeviceType = device_extension->next_stack_device->DeviceType;
   device_object->Characteristics =
                           device_extension->next_stack_device->Characteristics;
+
+  device_extension->interface_valid = FALSE;
+
+  if(IoOpenDeviceRegistryKey(physical_device_object, PLUGPLAY_REGKEY_DEVICE,
+ 			     STANDARD_RIGHTS_READ, &reg_key) == STATUS_SUCCESS)
+     {
+       RtlZeroMemory(guid_key, sizeof(guid_key));
+       RtlZeroMemory(guid_string, sizeof(guid_string));
+       
+       _snwprintf(guid_key, sizeof(guid_key)/sizeof(WCHAR), L"%s", 
+		  LIBUSB_GUID_KEY);
+       RtlInitUnicodeString(&guid_key_uni, guid_key);
+       
+       if((ZwQueryValueKey(reg_key, &guid_key_uni,
+			   KeyValueFullInformation,
+			   guid_string,
+			   sizeof(guid_string),
+			   &tmp) == STATUS_SUCCESS) && tmp)
+	 {
+	   guid_value = (KEY_VALUE_FULL_INFORMATION *)guid_string;
+	   RtlInitUnicodeString(&guid_string_uni, 
+				(WCHAR *)(((char *)guid_value) 
+					  + guid_value->DataOffset));
+	   
+	   if(RtlGUIDFromString(&guid_string_uni, &guid) == STATUS_SUCCESS)
+	     {
+	       if(IoRegisterDeviceInterface(physical_device_object,
+					    &guid, NULL,
+					    &device_extension->interface_name)
+		  == STATUS_SUCCESS)
+		 {
+		   device_extension->interface_valid = TRUE;
+		 }
+	     }
+	 }
+       ZwClose(reg_key);
+     }
+  else
+    {
+      if(IoRegisterDeviceInterface(physical_device_object,
+				   (LPGUID)&LIBUSB_DEFAULT_GUID,
+				   NULL,
+				   &device_extension->interface_name)
+	 == STATUS_SUCCESS)
+	device_extension->interface_valid = TRUE;
+    }
 
   device_object->Flags |= DO_DIRECT_IO | DO_POWER_PAGABLE;
   device_object->Flags &= ~DO_DEVICE_INITIALIZING;
@@ -130,6 +195,11 @@ NTSTATUS dispatch_pnp(libusb_device_extension *device_extension, IRP *irp)
     {      
     case IRP_MN_REMOVE_DEVICE:
       irp->IoStatus.Status = STATUS_SUCCESS;
+      
+      if(device_extension->interface_valid)
+	IoSetDeviceInterfaceState(&device_extension->interface_name, FALSE);
+      
+      RtlFreeUnicodeString(&device_extension->interface_name);
       IoSkipCurrentIrpStackLocation(irp);
       status = IoCallDriver(device_extension->next_stack_device, irp);
       IoDetachDevice(device_extension->next_stack_device);
@@ -166,8 +236,12 @@ NTSTATUS dispatch_pnp(libusb_device_extension *device_extension, IRP *irp)
       
       break;
 
-    case IRP_MN_SURPRISE_REMOVAL:
     case IRP_MN_START_DEVICE:
+      if(device_extension->interface_valid)
+	IoSetDeviceInterfaceState(&device_extension->interface_name, TRUE);
+      status = STATUS_SUCCESS;
+      break;
+    case IRP_MN_SURPRISE_REMOVAL:
     case IRP_MN_CANCEL_REMOVE_DEVICE:
     case IRP_MN_CANCEL_STOP_DEVICE:
     case IRP_MN_QUERY_STOP_DEVICE:

@@ -79,7 +79,7 @@ testlibusb.exe: testlibusb.o
 	$(CC) $(CFLAGS) -o $@ -I./src  $^ -lusb -L.
 
 testlibusb-win.exe: testlibusb_win.o
-	$(CC) $(CFLAGS) -mwindows -o $@ -I./src  $^ -lusb -lgdi32 -L.
+	$(CC) $(CFLAGS) -mwindows -o $@ -I./src  $^ -lusb -lgdi32 -luser32 -L.
 
 libusbd-nt.exe: service_nt.o service.o registry.o resource.o win_debug.o
 	$(CC) $(CPPFLAGS) -mwindows -Wall $(CFLAGS) -o $@ $^ -lsetupapi

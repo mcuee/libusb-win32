@@ -99,6 +99,9 @@ install_start:
 	SetRebootFlag true
 	DeleteRegValue HKLM "System\CurrentControlSet\Control\Class\{36FC9E60-C465-11CF-8056-444553540000}" "LowerFilters"
 
+	DetailPrint "Stopping kernel service ..."
+	nsExec::ExecToLog "$INSTDIR\bin\libusbis.exe --stop-kernel-service-full"
+
 	DetailPrint "Creating kernel service ..."
 	nsExec::ExecToLog "$INSTDIR\bin\libusbis.exe --create-kernel-service"
 
@@ -108,11 +111,6 @@ install_start:
 	DetailPrint "Starting system service (this can take several seconds) ..."
 	nsExec::ExecToLog "$INSTDIR\bin\libusbis.exe --start-system-service"
 
-	nsExec::ExecToStack "$INSTDIR\bin\libusbis.exe --reboot-required"
-	Pop $0
-	Pop $0
-  	StrCmp $0 "yes" 0 +2
-	SetRebootFlag true
 	Goto done
 
   win9x:
@@ -124,17 +122,14 @@ install_start:
 	SetRebootFlag true
 	DeleteRegValue HKLM "System\CurrentControlSet\Services\Class\USB" "LowerFilters"
 
+	DetailPrint "Stopping kernel service ..."
+	nsExec::ExecToLog "$INSTDIR\bin\libusbis.exe --stop-kernel-service-full"
+
 	DetailPrint "Creating system service ..."
 	WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\RunServices" "LibUsb-Win32 Daemon, Version ${VERSION}" "$SYSDIR\libusbd-9x.exe" 
 
 	DetailPrint "Starting system service (this can take several seconds) ..."
 	Exec "libusbd-9x.exe"
-
-	nsExec::ExecToStack "$INSTDIR\bin\libusbis.exe --reboot-required"
-	Pop $0
-	Pop $0
-  	StrCmp $0 "yes" 0 +2
-	SetRebootFlag true
 
   done:
 

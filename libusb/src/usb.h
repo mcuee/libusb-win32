@@ -3,15 +3,19 @@
 
 #include <stdlib.h>
 
-/* 'interface' is defined somewhere in the Windows header files. To avoid  */
-/* conflicts and compilation errors, this macro is deleted here */
+/* 
+ * 'interface' is defined somewhere in the Windows header files. This macro 
+ * is deleted here to avoid conflicts and compile errors.
+ */
 
 #ifdef interface
 #undef interface
 #endif
 
-/* PATH_MAX from limits.h can't be used on Windows, when  the dll and
-   import libraries are build/used by different compilers */
+/*
+ * PATH_MAX from limits.h can't be used on Windows if the dll and
+ * import libraries are build/used by different compilers 
+ */
 
 #define LIBUSB_PATH_MAX 512
 
@@ -228,8 +232,8 @@ struct usb_ctrl_setup {
 #define USB_LE16_TO_CPU(x)
 
 /* Data types */
-struct usb_device;
-struct usb_bus;
+/* struct usb_device; */
+/* struct usb_bus; */
 
 struct usb_device {
   struct usb_device *next, *prev;

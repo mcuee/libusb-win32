@@ -132,46 +132,64 @@ void usb_service_start_filter(void)
   SP_DEVINFO_DATA dev_info_data;
   int dev_index = 0;
   char *filter_name = NULL;
-  int filter_installed = 0;
 
   filter_name = usb_registry_is_nt() ? 
     LIBUSB_DRIVER_NAME_NT : LIBUSB_DRIVER_NAME_9X;
   
   dev_info_data.cbSize = sizeof(SP_DEVINFO_DATA);
 
-  do 
+  dev_index = 0;
+  dev_info = SetupDiGetClassDevs(NULL, "USB", 0, 
+				 DIGCF_ALLCLASSES | DIGCF_PRESENT);
+  
+  if(dev_info == INVALID_HANDLE_VALUE)
     {
-      filter_installed = 0;
-      dev_index = 0;
-      dev_info = SetupDiGetClassDevs(NULL, "USB", 0, 
-				     DIGCF_ALLCLASSES | DIGCF_PRESENT);
+      usb_debug_error("usb_service_start_filter(): getting "
+		      "device info set failed");
       
-      if(dev_info == INVALID_HANDLE_VALUE)
+      return;
+    }
+  
+  while(SetupDiEnumDeviceInfo(dev_info, dev_index, &dev_info_data))
+    {
+      if(!usb_registry_is_composite_interface(dev_info, &dev_info_data)
+	 && !usb_registry_is_root_hub(dev_info, &dev_info_data))
 	{
-	  usb_debug_error("usb_service_start_filter(): getting "
-			  "device info set failed");
-
-	  return;
-	}
-      
-      while(SetupDiEnumDeviceInfo(dev_info, dev_index, &dev_info_data))
-	{
-	  if(!usb_registry_is_composite_interface(dev_info, &dev_info_data)
-	     && !usb_registry_is_root_hub(dev_info, &dev_info_data))
+	  if(usb_registry_insert_filter(dev_info, &dev_info_data, 
+					filter_name))
 	    {
-	      if(usb_registry_insert_filter(dev_info, &dev_info_data, 
-					    filter_name))
-		{
-		  filter_installed = 1;
-		  usb_registry_set_device_state(DICS_PROPCHANGE, dev_info, 
-						&dev_info_data);
-		  break;
-		}
+	      usb_registry_set_device_state(DICS_PROPCHANGE, dev_info, 
+					    &dev_info_data);
 	    }
-	  dev_index++;
 	}
-      SetupDiDestroyDeviceInfoList(dev_info);
-    } while(filter_installed);
+      dev_index++;
+    }
+
+  SetupDiDestroyDeviceInfoList(dev_info);
+
+  dev_index = 0;
+  dev_info = SetupDiGetClassDevs(NULL, "USB", 0, DIGCF_ALLCLASSES);
+  
+  if(dev_info == INVALID_HANDLE_VALUE)
+    {
+      usb_debug_error("usb_service_start_filter(): getting "
+		      "device info set failed");
+      
+      return;
+    }
+  
+  while(SetupDiEnumDeviceInfo(dev_info, dev_index, &dev_info_data))
+    {
+      if((!usb_registry_is_composite_interface(dev_info, &dev_info_data)
+	  && usb_registry_is_service_libusb(dev_info, &dev_info_data))
+	 || usb_registry_is_composite_libusb(dev_info, &dev_info_data))
+	{
+	  usb_registry_insert_filter(dev_info, &dev_info_data, filter_name);
+	}
+      dev_index++;
+    }
+
+  SetupDiDestroyDeviceInfoList(dev_info);
 }
 
 
@@ -181,7 +199,6 @@ void usb_service_stop_filter(int all)
   SP_DEVINFO_DATA dev_info_data;
   int dev_index = 0;
   char *filter_name = NULL;
-  int filter_removed = 0;
 
   filter_name = usb_registry_is_nt() ? 
     LIBUSB_DRIVER_NAME_NT : LIBUSB_DRIVER_NAME_9X;
@@ -189,49 +206,43 @@ void usb_service_stop_filter(int all)
   dev_info_data.cbSize = sizeof(SP_DEVINFO_DATA);
   dev_info = SetupDiGetClassDevs(NULL, "USB", 0, DIGCF_ALLCLASSES);
 
-  do 
+  dev_index = 0;
+  dev_info = SetupDiGetClassDevs(NULL, "USB", 0, DIGCF_ALLCLASSES);
+  
+  if(dev_info == INVALID_HANDLE_VALUE)
     {
-      filter_removed = 0;
-      dev_index = 0;
-      dev_info = SetupDiGetClassDevs(NULL, "USB", 0, DIGCF_ALLCLASSES);
-      
-      if(dev_info == INVALID_HANDLE_VALUE)
+      usb_debug_error("usb_service_stop_filter(): getting "
+		      "device info set failed");
+      return;
+    }
+  
+  while(SetupDiEnumDeviceInfo(dev_info, dev_index, &dev_info_data))
+    {
+      if(!all)
 	{
-	  usb_debug_error("usb_service_stop_filter(): getting "
-			  "device info set failed");
-	  return;
-	}
-      
-      while(SetupDiEnumDeviceInfo(dev_info, dev_index, &dev_info_data))
-	{
-	  if(!all)
+	  if(!(usb_registry_is_composite_libusb(dev_info, &dev_info_data)
+	       || usb_registry_is_service_libusb(dev_info, &dev_info_data)))
 	    {
-	      if(!(usb_registry_is_composite_libusb(dev_info, &dev_info_data)
-		   || usb_registry_is_service_libusb(dev_info, &dev_info_data)))
+	      if(usb_registry_remove_filter(dev_info, &dev_info_data, 
+					    filter_name))
 		{
-		  if(usb_registry_remove_filter(dev_info, &dev_info_data, filter_name))
-		    {
-		      filter_removed = 1;
-		      usb_registry_set_device_state(DICS_PROPCHANGE, dev_info, 
-						    &dev_info_data);
-		      break;
-		    }
-		}
-	    }
-	  else
-	    {
-	      if(usb_registry_remove_filter(dev_info, &dev_info_data, filter_name))
-		{
-		  filter_removed = 1;
 		  usb_registry_set_device_state(DICS_PROPCHANGE, dev_info, 
 						&dev_info_data);
-		  break;
 		}
 	    }
-	  dev_index++;
 	}
-      SetupDiDestroyDeviceInfoList(dev_info);
-    } while(filter_removed);
+      else
+	{
+	  if(usb_registry_remove_filter(dev_info, &dev_info_data, filter_name))
+	    {
+	      usb_registry_set_device_state(DICS_PROPCHANGE, dev_info, 
+					    &dev_info_data);
+	    }
+	}
+      dev_index++;
+    }
+  
+  SetupDiDestroyDeviceInfoList(dev_info);
 }
 
 
@@ -311,9 +322,6 @@ bool_t usb_create_service(const char *name, const char *display_name,
       close_service_handle(scm);
     }
   
-  return ret;
-
-
   return ret;
 }
 

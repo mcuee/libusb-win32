@@ -19,11 +19,13 @@
 
 #include "libusb_filter.h"
 
+
 typedef struct {
   URB urb;
   IRP *main_irp;
   IRP *sub_irp;
   KIRQL irql;
+  ULONG completing;
   libusb_remove_lock *remove_lock;
 } Context;
 
@@ -41,7 +43,6 @@ NTSTATUS bulk_int_transfer(IRP *irp, libusb_device_extension *device_extension,
   USBD_PIPE_HANDLE pipe_handle = NULL;
   IO_STACK_LOCATION *next_irp_stack = NULL;
   Context *context;
-  //  KIRQL irql;
 
   debug_print_nl();
   debug_printf(LIBUSB_DEBUG_MSG, "bulk_int_transfer(): endpoint %02xh", 
@@ -86,6 +87,7 @@ NTSTATUS bulk_int_transfer(IRP *irp, libusb_device_extension *device_extension,
      pipe_handle, NULL, buffer, size, 
      direction | USBD_SHORT_TRANSFER_OK, NULL);
   
+  context->completing = 0;
   context->main_irp = irp;
   context->remove_lock = &device_extension->remove_lock;
   context->sub_irp = 
@@ -120,6 +122,13 @@ NTSTATUS on_bulk_int_complete(DEVICE_OBJECT *device_object,
   URB *urb = &(((Context *)context)->urb);
   libusb_remove_lock *lock = ((Context *)context)->remove_lock;
   int transmitted = 0;
+  KIRQL irql;
+
+  InterlockedExchange(&(((Context *)context)->completing), 1);
+
+  IoAcquireCancelSpinLock(&irql);
+  IoSetCancelRoutine(((Context *)context)->main_irp, NULL);
+  IoReleaseCancelSpinLock(irql);
 
   if(NT_SUCCESS(irp->IoStatus.Status))
     {
@@ -147,12 +156,16 @@ NTSTATUS on_bulk_int_complete(DEVICE_OBJECT *device_object,
 
 void on_bulk_int_cancel(DEVICE_OBJECT *device_object, IRP *irp)
 {
+  int transmitted = 0;
   Context *context = (Context *)irp->Tail.Overlay.DriverContext[0];
-  debug_printf(LIBUSB_DEBUG_WARN, "on_bulk_int_cancel(): IRP cancelled");
+  libusb_remove_lock *lock = context->remove_lock;
 
-  if(context)
+  if(!InterlockedExchange(&(((Context *)context)->completing), 0))
     {
       IoReleaseCancelSpinLock(context->irql);
       IoCancelIrp(context->sub_irp);
+      debug_printf(LIBUSB_DEBUG_WARN, "on_bulk_int_cancel(): IRP cancelled");
+      return;
     }
+  IoReleaseCancelSpinLock(context->irql);
 }
