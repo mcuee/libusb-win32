@@ -32,26 +32,26 @@ NTSTATUS vendor_class_request(libusb_device_extension *device_extension,
 
   switch(type)
     {
-    case BMREQUEST_CLASS:
+    case USB_TYPE_CLASS:
       debug_printf(LIBUSB_DEBUG_MSG, "vendor_class_request(): type: class");
       switch(recipient)
 	{
-	case BMREQUEST_TO_DEVICE:
+	case USB_RECIP_DEVICE:
 	  debug_printf(LIBUSB_DEBUG_MSG, "vendor_class_request(): recipient: "
 		       "device");
 	  urb.UrbHeader.Function = URB_FUNCTION_CLASS_DEVICE;
 	  break;
-	case BMREQUEST_TO_INTERFACE:
+	case USB_RECIP_INTERFACE:
 	  debug_printf(LIBUSB_DEBUG_MSG, "vendor_class_request(): recipient: "
 		       "interface");
 	  urb.UrbHeader.Function = URB_FUNCTION_CLASS_INTERFACE;
 	  break;
-	case BMREQUEST_TO_ENDPOINT:
+	case USB_RECIP_ENDPOINT:
 	  debug_printf(LIBUSB_DEBUG_MSG, "vendor_class_request(): recipient: "
 		       "endpoint");
 	  urb.UrbHeader.Function = URB_FUNCTION_CLASS_ENDPOINT;
 	  break;
-	case BMREQUEST_TO_OTHER:
+	case USB_RECIP_OTHER:
 	  debug_printf(LIBUSB_DEBUG_MSG, "vendor_class_request(): recipient: "
 		       "other");
 	  urb.UrbHeader.Function = URB_FUNCTION_CLASS_OTHER;
@@ -62,26 +62,26 @@ NTSTATUS vendor_class_request(libusb_device_extension *device_extension,
 	  return STATUS_INVALID_PARAMETER;
 	}
       break;
-    case BMREQUEST_VENDOR:
+    case USB_TYPE_VENDOR:
       debug_printf(LIBUSB_DEBUG_MSG, "vendor_class_request(): type: vendor");
       switch(recipient)
 	{
-	case BMREQUEST_TO_DEVICE:
+	case USB_RECIP_DEVICE:
 	  debug_printf(LIBUSB_DEBUG_MSG, "vendor_class_request(): recipient: "
 		       "device");
 	  urb.UrbHeader.Function = URB_FUNCTION_VENDOR_DEVICE;
 	  break;
-	case BMREQUEST_TO_INTERFACE:
+	case USB_RECIP_INTERFACE:
 	  debug_printf(LIBUSB_DEBUG_MSG, "vendor_class_request(): recipient: "
 		       "interface");
 	  urb.UrbHeader.Function = URB_FUNCTION_VENDOR_INTERFACE;
 	  break;
-	case BMREQUEST_TO_ENDPOINT:
+	case USB_RECIP_ENDPOINT:
 	  debug_printf(LIBUSB_DEBUG_MSG, "vendor_class_request(): recipient: "
 		       "endpoint");
 	  urb.UrbHeader.Function = URB_FUNCTION_VENDOR_ENDPOINT;
 	  break;
-	case BMREQUEST_TO_OTHER:
+	case USB_RECIP_OTHER:
 	  debug_printf(LIBUSB_DEBUG_MSG, "vendor_class_request(): recipient: "
 		       "other");
 	  urb.UrbHeader.Function = URB_FUNCTION_VENDOR_OTHER;
