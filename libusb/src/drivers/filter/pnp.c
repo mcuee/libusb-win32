@@ -37,10 +37,9 @@ NTSTATUS dispatch_pnp(libusb_device_extension *device_extension, IRP *irp)
     {     
     case IRP_MN_REMOVE_DEVICE:
       debug_printf(DEBUG_MSG, "dispatch_pnp(): IRP_MN_REMOVE_DEVICE");
-      irp->IoStatus.Status = STATUS_SUCCESS;
+      remove_lock_release_and_wait(&device_extension->remove_lock);
       IoSkipCurrentIrpStackLocation(irp);
       status = IoCallDriver(device_extension->next_stack_device, irp);
-      remove_lock_release_and_wait(&device_extension->remove_lock);
       control_object_delete(device_extension);
       IoDetachDevice(device_extension->next_stack_device);
       IoDeleteDevice(device_extension->self);
@@ -52,7 +51,6 @@ NTSTATUS dispatch_pnp(libusb_device_extension *device_extension, IRP *irp)
       break;
     case IRP_MN_START_DEVICE:
       debug_printf(DEBUG_MSG, "dispatch_pnp(): IRP_MN_START_DEVICE");
-      irp->IoStatus.Status = status;
       IoCopyCurrentIrpStackLocationToNext(irp);
       IoSetCompletionRoutine(irp, on_start_complete,
 			     NULL, TRUE, TRUE, TRUE);
@@ -73,7 +71,6 @@ NTSTATUS dispatch_pnp(libusb_device_extension *device_extension, IRP *irp)
       break;
     case IRP_MN_QUERY_REMOVE_DEVICE:
       debug_printf(DEBUG_MSG, "dispatch_pnp(): IRP_MN_QUERY_REMOVE_DEVICE");
-      irp->IoStatus.Status = STATUS_SUCCESS;
       break;
     case IRP_MN_DEVICE_USAGE_NOTIFICATION:
       if((device_extension->self->AttachedDevice == NULL) ||
@@ -91,11 +88,10 @@ NTSTATUS dispatch_pnp(libusb_device_extension *device_extension, IRP *irp)
     default:
       status = irp->IoStatus.Status;
     }
+
   irp->IoStatus.Status = status;
   IoSkipCurrentIrpStackLocation(irp);
-  status = IoCallDriver(device_extension->next_stack_device, irp);
   remove_lock_release(&device_extension->remove_lock);
-  
-  return status;
+  return IoCallDriver(device_extension->next_stack_device, irp);
 }
 

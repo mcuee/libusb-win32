@@ -21,8 +21,8 @@ BEGIN
         BEGIN
             VALUE "CompanyName", "http://libusb-win32.sourceforge.net"
             VALUE "FileDescription", "LibUSB-Win32 - Stub Driver"
-            VALUE "FileVersion", "@RC_VERSION@"
-            VALUE "ProductVersion", "@RC_VERSION@"
+            VALUE "FileVersion", "@VERSION@"
+            VALUE "ProductVersion", "@VERSION@"
             VALUE "InternalName", "libusb_stub"
             VALUE "LegalCopyright", "© 2003 Stephan Meyer, <ste_meyer@web.de>"
             VALUE "OriginalFilename", "libusbst.sys"

@@ -4,7 +4,6 @@
 LANGUAGE LANG_ENGLISH, SUBLANG_NEUTRAL
 
 
-
 VS_VERSION_INFO VERSIONINFO
  FILEVERSION @RC_VERSION@
  PRODUCTVERSION @RC_VERSION@
@@ -20,8 +19,8 @@ BEGIN
         BEGIN
             VALUE "CompanyName", "http://libusb-win32.sourceforge.net"
             VALUE "FileDescription", "LibUsb-Win32 - Generic USB Library"
-            VALUE "FileVersion",   "@RC_VERSION@"
-            VALUE "ProductVersion", "@RC_VERSION@"
+            VALUE "FileVersion",   "@VERSION@"
+            VALUE "ProductVersion", "@VERSION@"
             VALUE "InternalName", "libusb-win32"
             VALUE "LegalCopyright", "© 2003 S.Meyer, J.Erdfelt, T.Sailer"
             VALUE "ProductName", "LibUsb-Win32"

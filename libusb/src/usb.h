@@ -249,6 +249,7 @@ struct usb_bus {
   char dirname[LIBUSB_PATH_MAX];
 
   struct usb_device *devices;
+  unsigned long location;
 };
 
 /* Version information, Windows specific */
@@ -283,12 +284,31 @@ extern "C" {
 #endif
 
   /* Function prototypes */
+
+  /* usb.c */
   usb_dev_handle *usb_open(struct usb_device *dev);
   int usb_close(usb_dev_handle *dev);
+  int usb_get_string(usb_dev_handle *dev, int index, int langid, char *buf,
+		     size_t buflen);
+  int usb_get_string_simple(usb_dev_handle *dev, int index, char *buf,
+			    size_t buflen);
+
+  /* descriptors.c */
+  int usb_get_descriptor_by_endpoint(usb_dev_handle *udev, int ep,
+				     unsigned char type, unsigned char index,
+				     void *buf, int size);
+  int usb_get_descriptor(usb_dev_handle *udev, unsigned char type,
+			 unsigned char index, void *buf, int size);
+
+  /* <arch>.c */
   int usb_bulk_write(usb_dev_handle *dev, int ep, char *bytes, int size,
 		     int timeout);
   int usb_bulk_read(usb_dev_handle *dev, int ep, char *bytes, int size,
 		    int timeout);
+  int usb_interrupt_write(usb_dev_handle *dev, int ep, char *bytes, int size,
+			  int timeout);
+  int usb_interrupt_read(usb_dev_handle *dev, int ep, char *bytes, int size,
+			 int timeout);
   int usb_control_msg(usb_dev_handle *dev, int requesttype, int request,
 		      int value, int index, char *bytes, int size, 
 		      int timeout);
@@ -299,10 +319,6 @@ extern "C" {
   int usb_resetep(usb_dev_handle *dev, unsigned int ep);
   int usb_clear_halt(usb_dev_handle *dev, unsigned int ep);
   int usb_reset(usb_dev_handle *dev);
-  int usb_get_string(usb_dev_handle *dev, int index, int langid, char *buf,
-		     size_t buflen);
-  int usb_get_string_simple(usb_dev_handle *dev, int index, char *buf,
-			    size_t buflen);
 
   char *usb_strerror(void);
 

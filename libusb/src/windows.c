@@ -100,7 +100,7 @@ static HANDLE _kernel32_dll = NULL;
 static cancel_io_t _cancel_io = NULL;
 
 
-BOOL APIENTRY DllMain(HANDLE module, DWORD reason, LPVOID reserved)
+BOOL WINAPI DllMain(HANDLE module, DWORD reason, LPVOID reserved)
 {
   switch(reason)
     {
@@ -108,15 +108,15 @@ BOOL APIENTRY DllMain(HANDLE module, DWORD reason, LPVOID reserved)
       _kernel32_dll = LoadLibrary("KERNEL32.DLL");
       _cancel_io = (cancel_io_t)GetProcAddress(_kernel32_dll, "CancelIo");
       break;
+    case DLL_PROCESS_DETACH:
+      FreeLibrary(_kernel32_dll);
+      break;
     case DLL_THREAD_ATTACH:
       break;
     case DLL_THREAD_DETACH:
       break;
-    case DLL_PROCESS_DETACH:
-      FreeLibrary(_kernel32_dll);
-      break;
     default:
-      ;
+      break;
     }
   return TRUE;
 }
@@ -489,6 +489,17 @@ int usb_bulk_read(usb_dev_handle *dev, int ep, char *bytes, int size,
   return retrieved;
 }
 
+int usb_interrupt_write(usb_dev_handle *dev, int ep, char *bytes, int size,
+	int timeout)
+{
+  return usb_bulk_write(dev, ep, bytes, size, timeout);
+}
+
+int usb_interrupt_read(usb_dev_handle *dev, int ep, char *bytes, int size,
+		       int timeout)
+{
+  return usb_bulk_read(dev, ep, bytes, size, timeout);
+}
 
 int usb_control_msg(usb_dev_handle *dev, int requesttype, int request,
 		    int value, int index, char *bytes, int size, int timeout)

@@ -29,7 +29,7 @@ SetCompressor lzma
 !define MUI_FINISHPAGE_RUN_TEXT "Run test program"
 !define MUI_FINISHPAGE_RUN "$INSTDIR\bin\testlibusb-win.exe"
 !insertmacro MUI_PAGE_FINISH
-!insertmacro MUI_UNPAGE_WELCOME
+;!insertmacro MUI_UNPAGE_WELCOME
 !insertmacro MUI_UNPAGE_CONFIRM
 !insertmacro MUI_UNPAGE_INSTFILES
 !insertmacro MUI_LANGUAGE "English"
@@ -66,7 +66,7 @@ install_start:
   	File "testlibusb.exe"
 	File "testlibusb-win.exe"
 	File "testlibusb-win.exe.manifest"
-	File "libusb-nsis.exe"
+	File "libusbis.exe"
 
   	SetOutPath $SYSDIR
   	File "libusb0.dll"
@@ -87,38 +87,34 @@ install_start:
 
   winnt:
 
-	DeleteRegValue HKLM "System\CurrentControlSet\Control\Class\{36FC9E60-C465-11CF-8056-444553540000}" "LowerFilters"
-
 	SetOutPath $SYSDIR
 	File "libusbd-nt.exe"
 	SetOutPath $INSTDIR\bin
 
-	DetailPrint "Stopping kernel service (this can take several seconds) ..."
-	nsExec::ExecToLog "$INSTDIR\bin\libusb-nsis.exe --stop_kernel_service_full"
+	DeleteRegValue HKLM "System\CurrentControlSet\Control\Class\{36FC9E60-C465-11CF-8056-444553540000}" "LowerFilters"
 
 	DetailPrint "Creating kernel service ..."
-	nsExec::ExecToLog "$INSTDIR\bin\libusb-nsis.exe --create_kernel_service"
+	nsExec::ExecToLog "$INSTDIR\bin\libusbis.exe --create-kernel-service"
 
 	DetailPrint "Restarting USB host controllers (this can take several seconds) ..."
-	nsExec::ExecToLog "$INSTDIR\bin\libusb-nsis.exe --restart_host_controllers"
+	nsExec::ExecToLog "$INSTDIR\bin\libusbis.exe --restart-host-controllers"
 
 	DetailPrint "Creating system service ..."
-	nsExec::ExecToLog "$INSTDIR\bin\libusb-nsis.exe --create_system_service"  
+	nsExec::ExecToLog "$INSTDIR\bin\libusbis.exe --create-system-service"  
 
 	DetailPrint "Starting system service (this can take several seconds) ..."
-	nsExec::ExecToLog "$INSTDIR\bin\libusb-nsis.exe --start_system_service"
+	nsExec::ExecToLog "$INSTDIR\bin\libusbis.exe --start-system-service"
 	
 	Goto done
+
   win9x:
-   	DeleteRegValue HKLM "System\CurrentControlSet\Services\Class\USB" "LowerFilters"
 	SetOutPath $SYSDIR
 	File "libusbd-9x.exe"
 
-	DetailPrint "Stopping kernel service (this can take several seconds) ..."
-	nsExec::ExecToLog "$INSTDIR\bin\libusb-nsis.exe --stop_kernel_service_full"
+	DeleteRegValue HKLM "System\CurrentControlSet\Services\Class\USB" "LowerFilters"
 
 	DetailPrint "Restarting USB host controllers (this can take several seconds) ..."
-	nsExec::ExecToLog "$INSTDIR\bin\libusb-nsis.exe --restart_host_controllers"
+	nsExec::ExecToLog "$INSTDIR\bin\libusbis.exe --restart-host-controllers"
 
 	DetailPrint "Creating system service ..."
 	WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\RunServices" "LibUsb-Win32 Daemon, Version ${VERSION}" "$SYSDIR\libusbd-9x.exe" 
@@ -165,27 +161,35 @@ Section "Uninstall"
 	SetOutPath $INSTDIR\bin
 
 	DetailPrint "Stopping system service ..."
-	nsExec::ExecToLog "$INSTDIR\bin\libusb-nsis.exe --stop_system_service"
+	nsExec::ExecToLog "$INSTDIR\bin\libusbis.exe --stop-system-service"
 
 	DetailPrint "Deleting system service ..."
-	nsExec::ExecToLog "$INSTDIR\bin\libusb-nsis.exe --delete_system_service"
+	nsExec::ExecToLog "$INSTDIR\bin\libusbis.exe --delete-system-service"
 
-	DetailPrint "Stopping kernel service (this can take several seconds) ..."
-	nsExec::ExecToLog "$INSTDIR\bin\libusb-nsis.exe --stop_kernel_service"
+	DetailPrint "Stopping kernel service ..."
+	nsExec::ExecToLog "$INSTDIR\bin\libusbis.exe --stop-kernel-service"
+
+	DetailPrint "Restarting USB host controllers (this can take several seconds) ..."
+	nsExec::ExecToLog "$INSTDIR\bin\libusbis.exe --restart-host-controllers"
 
 	Delete $SYSDIR\libusbd-nt.exe
 
 	Goto done
   win9x:
-	DeleteRegValue HKLM "Software\Microsoft\Windows\CurrentVERSION\RunServices" "LibUsb-Win32 - Daemon, Version ${VERSION}"
 
 	SetOutPath $INSTDIR\bin
 
 	DetailPrint "Stopping system service ..."
-	nsExec::ExecToLog "$INSTDIR\bin\libusb-nsis.exe --stop_system_service"
+	nsExec::ExecToLog "$INSTDIR\bin\libusbis.exe --stop-system-service"
 
-	DetailPrint "Stopping kernel service (this can take several seconds) ..."
-	nsExec::ExecToLog "$INSTDIR\bin\libusb-nsis.exe --stop_kernel_service"
+	DetailPrint "Deleting system service ..."
+	DeleteRegValue HKLM "Software\Microsoft\Windows\CurrentVERSION\RunServices" "LibUsb-Win32 - Daemon, Version ${VERSION}"
+
+	DetailPrint "Stopping kernel service ..."
+	nsExec::ExecToLog "$INSTDIR\bin\libusbis.exe --stop-kernel-service"
+
+	DetailPrint "Restarting USB host controllers (this can take several seconds) ..."
+	nsExec::ExecToLog "$INSTDIR\bin\libusbis.exe --restart-host-controllers"
 
 	Delete $SYSDIR\libusbd-9x.exe
 done:

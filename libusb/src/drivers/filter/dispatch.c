@@ -86,28 +86,22 @@ NTSTATUS dispatch_control(DEVICE_OBJECT *device_object, IRP *irp)
       break;
 
     case IRP_MJ_CREATE:
-      debug_printf(DEBUG_MSG, "dispatch_control(): device %d: CREATE",
-		   device_extension->device_id);
-      InterlockedIncrement(&device_extension->ref_count);
+       InterlockedIncrement(&device_extension->ref_count);
       status = STATUS_SUCCESS;
       break;
     case IRP_MJ_CLOSE:
-      debug_printf(DEBUG_MSG, "dispatch_control(): device %d: CLOSE",
-		   device_extension->device_id);
       if(!InterlockedDecrement(&device_extension->ref_count))
 	{
 	  if(!device_extension->main_device_object)
 	    {
 	      debug_printf(DEBUG_MSG, "dispatch_control(): releasing device "
-		       "id %d", device_extension->device_id);
+			   "id %d", device_extension->device_id);
 	      release_device_id(device_extension);
 	    }
 	}
       status = STATUS_SUCCESS;
       break;
     case IRP_MJ_CLEANUP:
-      debug_printf(DEBUG_MSG, "dispatch_control(): device %d: CLEANUP",
-		   device_extension->device_id);
       status = STATUS_SUCCESS;
       break;
 
