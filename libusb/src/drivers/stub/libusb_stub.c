@@ -34,10 +34,6 @@ NTSTATUS __stdcall add_device(DRIVER_OBJECT *driver_object,
 static NTSTATUS dispatch(DEVICE_OBJECT *device_object, IRP *irp);
 static NTSTATUS dispatch_pnp(libusb_device_extension *device_extension, 
 			     IRP *irp);
-static NTSTATUS complete_irp(libusb_device_extension *device_extension,
-			     IRP *irp, NTSTATUS status, ULONG info);
-static NTSTATUS on_start_completion(DEVICE_OBJECT *device_object, IRP *irp, 
-				    void *event);
 
 NTSTATUS __stdcall DriverEntry(DRIVER_OBJECT *driver_object,
 			       UNICODE_STRING *registry_path)
@@ -64,16 +60,15 @@ NTSTATUS __stdcall add_device(DRIVER_OBJECT *driver_object,
   NTSTATUS status;
   DEVICE_OBJECT *device_object;
   libusb_device_extension *device_extension;
-  int i, j;
 
-  KdPrint(("LIBUSBSTUB - add_device(): creating device\n"));
+  KdPrint(("LIBUSB_STUB - add_device(): creating device\n"));
 
   status = IoCreateDevice(driver_object, sizeof(libusb_device_extension), 
 			  NULL, FILE_DEVICE_UNKNOWN, 0, FALSE, 
 			  &device_object);
   if(!NT_SUCCESS(status))
     {
-      KdPrint(("LIBUSBSTUB - add_device(): creating device failed\n"));
+      KdPrint(("LIBUSB_STUB - add_device(): creating device failed\n"));
       return status;
     }
 
@@ -94,9 +89,8 @@ NTSTATUS __stdcall dispatch(DEVICE_OBJECT *device_object, IRP *irp)
   NTSTATUS status = STATUS_SUCCESS;
   libusb_device_extension *device_extension = 
     (libusb_device_extension *)device_object->DeviceExtension;
-  IO_STACK_LOCATION *stack_location = IoGetCurrentIrpStackLocation(irp);
 
-  switch(stack_location->MajorFunction) 
+  switch(IoGetCurrentIrpStackLocation(irp)->MajorFunction) 
     {
     case IRP_MJ_PNP:
       return dispatch_pnp(device_extension, irp);
@@ -114,6 +108,7 @@ NTSTATUS __stdcall dispatch(DEVICE_OBJECT *device_object, IRP *irp)
     }
 
   irp->IoStatus.Status = status;
+  irp->IoStatus.Information = 0;
   IoCompleteRequest(irp, IO_NO_INCREMENT);
  
   return status;
@@ -124,48 +119,18 @@ NTSTATUS dispatch_pnp(libusb_device_extension *device_extension, IRP *irp)
   NTSTATUS status = STATUS_SUCCESS;
   IO_STACK_LOCATION *stack_location = IoGetCurrentIrpStackLocation(irp);
 
-  KEVENT event;
-
   switch(stack_location->MinorFunction) 
     {      
-    case IRP_MN_START_DEVICE:
-
-      KeInitializeEvent(&event, NotificationEvent, FALSE);
-      
-      IoCopyCurrentIrpStackLocationToNext(irp);
-      IoSetCompletionRoutine(irp, 
-			     (PIO_COMPLETION_ROUTINE)on_start_completion, 
-			     (void*)&event, TRUE, TRUE, TRUE);
-      
-      status = IoCallDriver(device_extension->next_stack_device, irp);
-      
-      if(status == STATUS_PENDING) 
-	{
-	  KeWaitForSingleObject(&event, Executive, 
-				KernelMode, FALSE, NULL);
-	  status = irp->IoStatus.Status;
-	}
-
-      if(!(NT_SUCCESS(status) && NT_SUCCESS(irp->IoStatus.Status)))
-	{ 
-	  KdPrint(("LIBUSB_STUB - dispatch_pnp(): calling lower driver failed\n"));
-	  return status;
-	}
-
-      irp->IoStatus.Status = status;
-      IoCompleteRequest(irp, IO_NO_INCREMENT);
-      break;
-
     case IRP_MN_REMOVE_DEVICE:
 
+      irp->IoStatus.Status = STATUS_SUCCESS;
       IoSkipCurrentIrpStackLocation(irp);
       status = IoCallDriver(device_extension->next_stack_device, irp);
 
-
       if(!NT_SUCCESS(status))
 	{ 
-	  KdPrint(("LIBUSB_STUB - dispatch_pnp(): calling lower driver "
-		   "failed\n"));
+	  KdPrint(("LIBUSB_STUB - dispatch_pnp(): calling lower "
+		   "driver failed\n"));
 	  return status;
 	}
 
@@ -174,30 +139,26 @@ NTSTATUS dispatch_pnp(libusb_device_extension *device_extension, IRP *irp)
 
       return status;
 
+    case IRP_MN_SURPRISE_REMOVAL:
+      irp->IoStatus.Status = STATUS_SUCCESS;
+      break;
+
+    case IRP_MN_START_DEVICE:
     case IRP_MN_CANCEL_REMOVE_DEVICE:
     case IRP_MN_CANCEL_STOP_DEVICE:
     case IRP_MN_QUERY_STOP_DEVICE:
     case IRP_MN_STOP_DEVICE:
     case IRP_MN_QUERY_REMOVE_DEVICE:
-    case IRP_MN_SURPRISE_REMOVAL:
     default:
-      IoSkipCurrentIrpStackLocation (irp);
-      status = IoCallDriver (device_extension->next_stack_device, irp);
+      ;
     }
-
-  return status;
+  IoSkipCurrentIrpStackLocation(irp);
+  return IoCallDriver(device_extension->next_stack_device, irp);
 }
 
 
 VOID __stdcall unload(DRIVER_OBJECT *driver_object)
 {
-  KdPrint(("LIBUSB_STUB - dispatch_pnp(): unloading driver\n"));
+  KdPrint(("LIBUSB_STUB - unload(): unloading driver\n"));
 }
 
-
-NTSTATUS on_start_completion(DEVICE_OBJECT *device_object, 
-			     IRP *irp, void *event)
-{
-  KeSetEvent((KEVENT *)event, IO_NO_INCREMENT, FALSE);
-  return STATUS_MORE_PROCESSING_REQUIRED;
-}

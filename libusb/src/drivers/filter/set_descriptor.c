@@ -45,7 +45,7 @@ NTSTATUS set_descriptor(libusb_device_extension *device_extension,
   urb.UrbControlDescriptorRequest.LanguageId = (USHORT)language_id;
   urb.UrbControlDescriptorRequest.UrbLink = NULL;
 	
-  m_status = call_usbd(device_extension, (void *)&urb, 
+  m_status = call_usbd(device_extension, &urb, 
 		       IOCTL_INTERNAL_USB_SUBMIT_URB, timeout);
   
   if(!NT_SUCCESS(m_status) || !USBD_SUCCESS(urb.UrbHeader.Status))

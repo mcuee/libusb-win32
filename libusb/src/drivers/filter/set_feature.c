@@ -64,7 +64,7 @@ NTSTATUS set_feature(libusb_device_extension *device_extension,
   urb.UrbControlFeatureRequest.UrbLink = NULL; 
   urb.UrbControlFeatureRequest.Index = (USHORT)index; 
   
-  m_status = call_usbd(device_extension, (void *)&urb, 
+  m_status = call_usbd(device_extension, &urb, 
 		       IOCTL_INTERNAL_USB_SUBMIT_URB, timeout);
   
   if(!NT_SUCCESS(m_status) || !USBD_SUCCESS(urb.UrbHeader.Status))

@@ -1,4 +1,4 @@
-/* LIBUSB-WIN32, Generic Windows USB Driver
+#/* LIBUSB-WIN32, Generic Windows USB Driver
  * Copyright (C) 2002-2003 Stephan Meyer, <ste_meyer@web.de>
  *
  * This program is free software; you can redistribute it and/or modify
@@ -23,89 +23,65 @@
 NTSTATUS dispatch_pnp(libusb_device_extension *device_extension, IRP *irp)
 {
   NTSTATUS status = STATUS_SUCCESS;
-  KEVENT event;
-  IO_STACK_LOCATION *stack_location = IoGetCurrentIrpStackLocation(irp);
   
-  status = acquire_remove_lock(&device_extension->remove_lock);
+  status = remove_lock_acquire(&device_extension->remove_lock);
+  
 
-  if(!NT_SUCCESS(status))
-    { 
-      return complete_irp(irp, status, 0);
-    }
-
-  switch(stack_location->MinorFunction) 
-    {      
-    case IRP_MN_START_DEVICE:
-
-      KeInitializeEvent(&event, NotificationEvent, FALSE);
-      
-      IoCopyCurrentIrpStackLocationToNext(irp);
-      IoSetCompletionRoutine(irp, 
-			     (PIO_COMPLETION_ROUTINE)on_start_completion, 
-			     (void*)&event, TRUE, TRUE, TRUE);
-      
-      status = IoCallDriver(device_extension->next_stack_device, irp);
-      
-      if(status == STATUS_PENDING) 
-	{
-	  KeWaitForSingleObject(&event, Executive, 
-				KernelMode, FALSE, NULL);
-	  status = irp->IoStatus.Status;
-	}
-
-      if(!(NT_SUCCESS(status) && NT_SUCCESS(irp->IoStatus.Status)))
-	{ 
-	  KdPrint(("LIBUSB_FILTER - dispatch_pnp(): calling lower driver"
-		   "failed\n"));
-	  break;
-	}
-
-      irp->IoStatus.Status = status;
-      IoCompleteRequest(irp, IO_NO_INCREMENT);
-      break;
+  switch(IoGetCurrentIrpStackLocation(irp)->MinorFunction) 
+    {     
 
     case IRP_MN_REMOVE_DEVICE:
+      KdPrint(("LIBUSB_FILTER - dispatch_pnp(): IRP_MN_REMOVE_DEVICE\n"));
+      remove_lock_release_and_wait(&device_extension->remove_lock);
 
-      delete_control_object(device_extension);
-
+      irp->IoStatus.Status = STATUS_SUCCESS;
       IoSkipCurrentIrpStackLocation(irp);
       status = IoCallDriver(device_extension->next_stack_device, irp);
 
-
       if(!NT_SUCCESS(status))
 	{ 
-	  KdPrint(("LIBUSB_FILTER - dispatch_pnp(): calling lower driver failed\n"));
+	  KdPrint(("LIBUSB_FILTER - dispatch_pnp(): calling lower "
+		   "driver failed\n"));
+	  remove_lock_release(&device_extension->remove_lock);
 	  return status;
 	}
 
-      release_remove_lock_and_wait(&device_extension->remove_lock);
-
+      control_object_delete(device_extension);
       IoDetachDevice(device_extension->next_stack_device);
       IoDeleteDevice(device_extension->self);
-
       return status;
 
-    case IRP_MN_CANCEL_REMOVE_DEVICE:
-    case IRP_MN_CANCEL_STOP_DEVICE:
-    case IRP_MN_QUERY_STOP_DEVICE:
-    case IRP_MN_STOP_DEVICE:
-    case IRP_MN_QUERY_REMOVE_DEVICE:
     case IRP_MN_SURPRISE_REMOVAL:
-    default:
-      IoSkipCurrentIrpStackLocation (irp);
-      status = IoCallDriver (device_extension->next_stack_device, irp);
+      KdPrint(("LIBUSB_FILTER - dispatch_pnp(): IRP_MN_SURPRISE_REMOVAL\n"));
+      irp->IoStatus.Status = STATUS_SUCCESS;
+      break;
 
+    case IRP_MN_START_DEVICE:
+      KdPrint(("LIBUSB_FILTER - dispatch_pnp(): IRP_MN_START_DEVICE\n"));
+      break;
+    case IRP_MN_CANCEL_REMOVE_DEVICE:
+      KdPrint(("LIBUSB_FILTER - dispatch_pnp(): IRP_MN_CANCEL_REMOVE_DEVICE\n"));
+      break;
+    case IRP_MN_CANCEL_STOP_DEVICE:
+      KdPrint(("LIBUSB_FILTER - dispatch_pnp(): IRP_MN_CANCEL_STOP_DEVICE\n"));
+      break;
+    case IRP_MN_QUERY_STOP_DEVICE:
+      KdPrint(("LIBUSB_FILTER - dispatch_pnp(): IRP_MN_QUERY_STOP_DEVICE\n"));
+      break;
+    case IRP_MN_STOP_DEVICE:
+      KdPrint(("LIBUSB_FILTER - dispatch_pnp(): IRP_MN_STOP_DEVICE\n"));
+      break;
+    case IRP_MN_QUERY_REMOVE_DEVICE:
+      KdPrint(("LIBUSB_FILTER - dispatch_pnp(): IRP_MN_QUERY_REMOVE_DEVICE\n"));
+      break;
+    default:
+      ;
     }
-  release_remove_lock(&device_extension->remove_lock);
+  
+  IoSkipCurrentIrpStackLocation(irp);
+  status = IoCallDriver(device_extension->next_stack_device, irp);
+  remove_lock_release(&device_extension->remove_lock);
 
   return status;
 }
 
-
-
-NTSTATUS on_start_completion(DEVICE_OBJECT *device_object, 
-			     IRP *irp, void *event)
-{
-  KeSetEvent((KEVENT *)event, IO_NO_INCREMENT, FALSE);
-  return STATUS_MORE_PROCESSING_REQUIRED;
-}

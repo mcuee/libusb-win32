@@ -19,23 +19,39 @@
 
 #include "libusb_filter.h"
 
+typedef struct {
+  URB urb;
+  IRP *main_irp;
+  IRP *sub_irp;
+  LONG do_complete;
+  libusb_remove_lock *remove_lock;
+} Context;
 
 
-NTSTATUS bulk_transfer(libusb_device_extension *device_extension,
+
+NTSTATUS on_bulk_complete(DEVICE_OBJECT *device_object, 
+			  IRP *irp,  void *context);
+void on_bulk_cancel(DEVICE_OBJECT *device_object, IRP *irp);
+
+
+NTSTATUS bulk_transfer(IRP *irp, libusb_device_extension *device_extension,
 		       int endpoint, MDL *buffer, 
-		       int size, int direction, int *sent, int timeout)
+		       int size, int direction)
 {
   NTSTATUS m_status = STATUS_SUCCESS;
   USBD_PIPE_HANDLE pipe_handle = NULL;
-  URB urb;
+  IO_STACK_LOCATION *next_irp_stack = NULL;
+  Context *context;
+  KIRQL irql;
 
   KdPrint(("LIBUSB_FILTER - bulk_transfer(): endpoint %02xh\n", endpoint));
   KdPrint(("LIBUSB_FILTER - bulk_transfer(): size %d\n", size));
   
   if(!device_extension->current_configuration)
     {
-      KdPrint(("LIBUSB_FILTER - bulk_transfer(): invalid configuration 0")); 
-      return STATUS_UNSUCCESSFUL;
+      KdPrint(("LIBUSB_FILTER - bulk_transfer(): invalid configuration 0"));
+      remove_lock_release(&device_extension->remove_lock);
+      return complete_irp(irp, STATUS_UNSUCCESSFUL, 0);
     }
 
   if(direction == USBD_TRANSFER_DIRECTION_IN)
@@ -43,31 +59,91 @@ NTSTATUS bulk_transfer(libusb_device_extension *device_extension,
   else
     KdPrint(("LIBUSB_FILTER - bulk_transfer(): direction out\n"));
   
-  KdPrint(("LIBUSB_FILTER - bulk_transfer(): timeout %d\n", timeout));
-
   if(!get_pipe_handle(device_extension, endpoint, &pipe_handle))
     {
       KdPrint(("LIBUSB_FILTER - bulk_transfer(): getting endpoint pipe "
 	       "failed\n"));
-      return STATUS_UNSUCCESSFUL;
+      remove_lock_release(&device_extension->remove_lock);
+      return complete_irp(irp, STATUS_INVALID_PARAMETER, 0);
     }
       
+  context = (Context *)ExAllocatePool(NonPagedPool, sizeof(Context));
+  
+  if(!context)
+    {
+      KdPrint(("LIBUSB_FILTER - bulk_transfer(): memory allocation error\n"));
+      remove_lock_release(&device_extension->remove_lock);
+      return complete_irp(irp, STATUS_NO_MEMORY, 0);
+    }
+
+  RtlZeroMemory(context, sizeof(Context));
 
   UsbBuildInterruptOrBulkTransferRequest
-    (&urb, sizeof(struct _URB_BULK_OR_INTERRUPT_TRANSFER),
+    (&(context->urb), sizeof(struct _URB_BULK_OR_INTERRUPT_TRANSFER),
      pipe_handle, NULL, buffer, size, 
      direction | USBD_SHORT_TRANSFER_OK, NULL);
+  
+  context->main_irp = irp;
+  context->remove_lock = &(device_extension->remove_lock);
+  context->do_complete = 2;
+  context->sub_irp = 
+    IoBuildDeviceIoControlRequest(IOCTL_INTERNAL_USB_SUBMIT_URB, 
+				  device_extension->next_stack_device,
+				  NULL, 0, NULL, 0, TRUE, 
+				  NULL, NULL);
 
-  m_status = call_usbd(device_extension, (void *)&urb, 
-		       IOCTL_INTERNAL_USB_SUBMIT_URB, timeout);
-    
-  if(!NT_SUCCESS(m_status) || !USBD_SUCCESS(urb.UrbHeader.Status))
+  next_irp_stack = IoGetNextIrpStackLocation(context->sub_irp);
+  next_irp_stack->Parameters.Others.Argument1 = &(((Context *)context)->urb);
+  next_irp_stack->Parameters.Others.Argument2 = NULL;
+
+  irp->Tail.Overlay.DriverContext[0] = (void *)context;
+
+  IoAcquireCancelSpinLock(&irql);
+  IoSetCancelRoutine(context->main_irp, on_bulk_cancel);
+  IoReleaseCancelSpinLock(irql);
+
+  IoSetCompletionRoutine(context->sub_irp, on_bulk_complete, 
+			 context, TRUE, TRUE, TRUE);   
+
+  IoMarkIrpPending(context->main_irp);
+  IoCallDriver(device_extension->next_stack_device, context->sub_irp);
+  
+  return STATUS_PENDING;  
+}
+
+
+NTSTATUS on_bulk_complete(DEVICE_OBJECT *device_object, 
+				  IRP *irp,  void *context)
+{
+  URB *urb = &(((Context *)context)->urb);
+  libusb_remove_lock *lock = ((Context *)context)->remove_lock;
+  int transmitted = 0;
+
+  if(NT_SUCCESS(irp->IoStatus.Status))
     {
-      KdPrint(("LIBUSB_FILTER - bulk_transfer(): transfer failed\n"));
-      return STATUS_UNSUCCESSFUL;
+      transmitted = urb->UrbBulkOrInterruptTransfer.TransferBufferLength;
+      KdPrint(("LIBUSB_FILTER - on_bulk_complete(): %d bytes transmitted\n",
+	       transmitted));
     }
-  
-  *sent = urb.UrbBulkOrInterruptTransfer.TransferBufferLength;
-  
-  return m_status;
+  else
+    {
+      KdPrint(("LIBUSB_FILTER - on_bulk_complete(): transfer failed\n"));
+    }
+
+  KdPrint(("LIBUSB_FILTER - on_bulk_complete(): completing main irp\n"));
+  complete_irp(((Context *)context)->main_irp, irp->IoStatus.Status,
+		   transmitted);
+
+  ExFreePool(context);
+  remove_lock_release(lock);
+
+  return STATUS_SUCCESS;
+}
+
+
+void on_bulk_cancel(DEVICE_OBJECT *device_object, IRP *irp)
+{
+  Context *context = (Context *)irp->Tail.Overlay.DriverContext[0];
+  KdPrint(("LIBUSB_FILTER - on_bulk_cancel(): IRP cancelled\n"));
+  IoCancelIrp(context->sub_irp);
 }

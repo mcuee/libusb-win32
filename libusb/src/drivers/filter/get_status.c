@@ -60,12 +60,12 @@ NTSTATUS get_status(libusb_device_extension *device_extension, int recipient,
 
   urb.UrbHeader.Length = sizeof(struct _URB_CONTROL_GET_STATUS_REQUEST);
   urb.UrbControlGetStatusRequest.TransferBufferLength = 2;
-  urb.UrbControlGetStatusRequest.TransferBuffer = (void *)&tmp; 
+  urb.UrbControlGetStatusRequest.TransferBuffer = &tmp; 
   urb.UrbControlGetStatusRequest.TransferBufferMDL = NULL;
   urb.UrbControlGetStatusRequest.UrbLink = NULL;
   urb.UrbControlGetStatusRequest.Index = (USHORT)index; 
 	
-  m_status = call_usbd(device_extension, (void *)&urb, 
+  m_status = call_usbd(device_extension, &urb, 
 		       IOCTL_INTERNAL_USB_SUBMIT_URB, timeout);
       
   if(!NT_SUCCESS(m_status) || !USBD_SUCCESS(urb.UrbHeader.Status))

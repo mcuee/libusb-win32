@@ -1,9 +1,17 @@
 [Version]
 Signature="$Chicago$"
-
+Class=USB
+ClassGUID={36FC9E60-C465-11CF-8056-444553540000}
+provider = "http://libusb-win32.sourceforge.net"
 DriverVer=@INF_VERSION@
 
-provider=%libusb-win32%
+
+[SourceDisksNames]
+0 = "Libusb-Win32 Filter Driver Installation Disk",,
+
+[SourceDisksFiles]
+libusbfl.sys = 0,, 
+libusb0.dll = 0,, 
 
 [DestinationDirs]
 LIBUSB_FILTER.Files.Sys = 10,System32\Drivers
@@ -40,7 +48,3 @@ ServiceType    = 1
 StartType      = 3
 ErrorControl   = 0
 ServiceBinary  = %12%\libusbfl.sys
-
-
-[Strings]
-libusb-win32="http://libusb-win32.sourceforge.net"

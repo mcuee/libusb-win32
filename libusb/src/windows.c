@@ -24,11 +24,11 @@
 #include "usbi.h"
 #include "filter_api.h"
 
-#define WIN_DEFAULT_TIMEOUT             5000
+#define WIN_DEFAULT_TIMEOUT 5000
 
-#define USB_FEATURE_ENDPOINT_HALT         0
+#define USB_FEATURE_ENDPOINT_HALT 0
 
-#define LIBUSB_DEVICE_NAME "\\\\.\\libusb-"
+#define LIBUSB_DEVICE_NAME "\\\\.\\libusb0-"
 #define LIBUSB_BUS_NAME "bus-0"
 
 #define WIN_MAX_DEVICES 127
@@ -118,19 +118,19 @@ int usb_os_open(usb_dev_handle *dev)
   dev->impl_info = CreateFile(dev->device->filename, GENERIC_READ
 			      | GENERIC_WRITE,
 			      FILE_SHARE_READ | FILE_SHARE_WRITE,
-			      NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL,
+			      NULL, OPEN_EXISTING, FILE_FLAG_OVERLAPPED,
 			      NULL);
 
   if(dev->impl_info == INVALID_HANDLE_VALUE) 
     {
       dev->impl_info = CreateFile(dev->device->filename, GENERIC_READ,
 			     FILE_SHARE_READ,
-			     NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL,
+				  NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL,
 			     NULL);
       
       if(dev->impl_info == INVALID_HANDLE_VALUE) 
 	{
-	  USB_ERROR_STR(-1, "failed to open %s: %s\n",
+	  USB_ERROR_STR(-1, "failed to open %s: win error: %s\n",
 			dev->device->filename, last_win_error());
 	}
     }
@@ -147,7 +147,7 @@ int usb_os_close(usb_dev_handle *dev)
   
   if(!CloseHandle(dev->impl_info)) 
     {
-      USB_ERROR_STR(0, "tried to close device %s: %s\n", 
+      USB_ERROR_STR(0, "tried to close device %s: win error: %s\n", 
 		    dev->device->filename, last_win_error());
     }
   return 0;
@@ -156,18 +156,17 @@ int usb_os_close(usb_dev_handle *dev)
 int usb_set_configuration(usb_dev_handle *dev, int configuration)
 {
   int sent;
-  usb_configuration_request configuration_request;
+  libusb_request req;
   
-  configuration_request.configuration = configuration;
-  configuration_request.timeout = WIN_DEFAULT_TIMEOUT;
+  req.configuration.configuration = configuration;
+  req.timeout = WIN_DEFAULT_TIMEOUT;
 
   if(!DeviceIoControl(dev->impl_info, LIBUSB_IOCTL_SET_CONFIGURATION, 
-		      (void *)&configuration_request, 
-		      sizeof(usb_configuration_request), 
+		      &req, sizeof(libusb_request), 
 		      NULL, 0, (DWORD *)&sent, NULL))
     {
-      USB_ERROR_STR(-1, "could not set config %d: %s\n", configuration,
-		    last_win_error());
+      USB_ERROR_STR(-1, "could not set config %d: win error: %s\n", 
+		    configuration, last_win_error());
     }
   
   dev->config = configuration;
@@ -194,23 +193,22 @@ int usb_release_interface(usb_dev_handle *dev, int interface)
 int usb_set_altinterface(usb_dev_handle *dev, int alternate)
 {
   int sent;
-  usb_interface_request m_request;
+  libusb_request req;
 
   if(dev->interface < 0)
     {
       USB_ERROR(-EINVAL);
     }
 
-  m_request.interface = dev->interface;
-  m_request.altsetting = alternate;
-  m_request.timeout = WIN_DEFAULT_TIMEOUT;
+  req.interface.interface = dev->interface;
+  req.interface.altsetting = alternate;
+  req.timeout = WIN_DEFAULT_TIMEOUT;
   
   if(!DeviceIoControl(dev->impl_info, LIBUSB_IOCTL_SET_INTERFACE, 
-		      (void *)&m_request, sizeof(usb_interface_request), 
-		      NULL, 0,
-		      (DWORD *)&sent, NULL))
+		      &req, sizeof(libusb_request), 
+		      NULL, 0, (DWORD *)&sent, NULL))
     {
-      USB_ERROR_STR(-1, "could not set alt intf %d/%d: %s",
+      USB_ERROR_STR(-1, "could not set alt interface %d/%d: win error: %s",
 		    dev->interface, alternate, last_win_error());
     }
   
@@ -221,71 +219,137 @@ int usb_set_altinterface(usb_dev_handle *dev, int alternate)
 
 
 int usb_bulk_write(usb_dev_handle *dev, int ep, char *bytes, int size,
-	int timeout)
+		   int timeout)
 {
-  usb_bulk_transfer bulk;
-  int ret, sent = 0;
+  libusb_request req;
+  int ret, requested, sent = 0;
+  HANDLE event;
+  OVERLAPPED ol;
 
   ep &= ~USB_ENDPOINT_IN;
+  req.endpoint.endpoint = ep;
+  req.timeout = timeout;
+
+  event = CreateEvent(NULL, TRUE, FALSE, NULL);
+
+  ol.Offset = 0;
+  ol.OffsetHigh = 0;
+  ol.hEvent = event;
+
+  timeout = timeout ? timeout : INFINITE;
   
+  if(!event)
+    {
+      USB_ERROR_STR(-1, "error creating event: win error: %s", 
+		    last_win_error());
+    }
+
   do {
-    bulk.endpoint = ep;
-    bulk.len = size - sent;
-    
-    if(bulk.len > MAX_READ_WRITE)
-      {
-	bulk.len = MAX_READ_WRITE;
-      }
-    
-    bulk.timeout = timeout;
-    bulk.data = (unsigned char *)bytes + sent;
-    
+    ResetEvent(event);
+
+    requested = size > MAX_READ_WRITE ? MAX_READ_WRITE : size;
+
     if(!DeviceIoControl(dev->impl_info, LIBUSB_IOCTL_INTERRUPT_OR_BULK_WRITE, 
-			&bulk, sizeof(bulk), (void *)bulk.data, 
-			(DWORD)bulk.len, (DWORD *)&ret, NULL))
+			&req, sizeof(libusb_request), bytes, 
+			(DWORD)requested, (DWORD *)&ret, &ol))
       {
-	USB_ERROR_STR(-1, "error writing to bulk endpoint 0x%x: %s",
+	if(GetLastError() != ERROR_IO_PENDING)
+	  {
+	    CloseHandle(event);
+	    USB_ERROR_STR(-1, "error writing to bulk endpoint 0x%x: "
+			  "win error: %s", ep, last_win_error());
+	  }
+      }
+
+    if(WaitForSingleObject(event, timeout) == WAIT_TIMEOUT)
+      {
+	CancelIo(dev->impl_info);
+	CloseHandle(event);
+	USB_ERROR_STR(-1, "timeout error writing to bulk endpoint 0x%x: "
+		      "win error: %s", ep, last_win_error());
+      }
+    if(!GetOverlappedResult(dev->impl_info, &ol, (DWORD *)&ret, FALSE))
+      {
+	CloseHandle(event);
+	USB_ERROR_STR(-1, "error writing to bulk endpoint 0x%x: win error: %s",
 		      ep, last_win_error());
       }
-    
+
     sent += ret;
-  } while(ret > 0 && sent < size);
+    bytes += ret;
+    size -= ret;
+  } while(ret > 0 && size);
   
+  CloseHandle(event);
+
   return sent;
 }
 
 int usb_bulk_read(usb_dev_handle *dev, int ep, char *bytes, int size,
-	int timeout)
+		  int timeout)
 {
-  usb_bulk_transfer bulk;
-  int ret, retrieved = 0, requested;
+  libusb_request req;
+  int ret, requested, retrieved = 0;
+  HANDLE event;
+  OVERLAPPED ol;
 
   ep |= USB_ENDPOINT_IN;
+  req.endpoint.endpoint = ep;
+  req.timeout = timeout;
+
+  event = CreateEvent(NULL, TRUE, FALSE, NULL);
+
+  ol.Offset = 0;
+  ol.OffsetHigh = 0;
+  ol.hEvent = event;
+
+  timeout = timeout ? timeout : INFINITE;
+
+  if(!event)
+    {
+      USB_ERROR_STR(-1, "error creating event: win error: %s", 
+		    last_win_error());
+    }
 
   do {
-    bulk.endpoint = ep;
-    requested = size - retrieved;
-    if(requested > MAX_READ_WRITE)
-      {
-	requested = MAX_READ_WRITE;
-      }
-    bulk.len = requested;
-    bulk.timeout = timeout;
-    bulk.data = (unsigned char *)bytes + retrieved;
+    ResetEvent(event);
+
+    requested = size > MAX_READ_WRITE ? MAX_READ_WRITE : size;
 
     if(!DeviceIoControl(dev->impl_info, LIBUSB_IOCTL_INTERRUPT_OR_BULK_READ, 
-			&bulk, sizeof(bulk), (void *)bulk.data, 
-			(DWORD)bulk.len, (DWORD *)&ret, NULL))
+			&req, sizeof(libusb_request), bytes, 
+			(DWORD)requested, (DWORD *)&ret, &ol))
       {
-	USB_ERROR_STR(-1, "error reading from bulk endpoint 0x%x: %s\n",
-		      ep, last_win_error());
-	
+	if(GetLastError() != ERROR_IO_PENDING)
+	  {
+	    CloseHandle(event);
+	    USB_ERROR_STR(-1, "error reading from bulk endpoint 0x%x: "
+			  "win error: %s\n", ep, last_win_error());
+	  }
       }
-    
+
+    if(WaitForSingleObject(event, timeout) == WAIT_TIMEOUT)
+      {
+	CancelIo(dev->impl_info);
+	CloseHandle(event);
+	    USB_ERROR_STR(-1, "timeout error reading from bulk endpoint "
+			  "0x%x: win error: %s\n", ep, last_win_error());
+      }
+
+    if(!GetOverlappedResult(dev->impl_info, &ol, (DWORD *)&ret, FALSE))
+      {
+	CloseHandle(event);
+	USB_ERROR_STR(-1, "error reading from bulk endpoint 0x%x: "
+		      "win error: %s\n", ep, last_win_error());
+      }
+
     retrieved += ret;
-    
-  } while(ret > 0 && retrieved < size && ret == requested);
+    bytes += ret;
+    size -= ret;
+  } while(ret > 0 && size && ret == requested);
   
+  CloseHandle(event);
+
   return retrieved;
 }
 
@@ -295,12 +359,8 @@ int usb_control_msg(usb_dev_handle *dev, int requesttype, int request,
 {
   int ret = 0;
   int error = 0;
-  usb_status_request status_request;
-  usb_feature_request feature_request;
-  usb_descriptor_request descriptor_request;
-  usb_configuration_request configuration_request;
-  usb_interface_request interface_request;
-  usb_vendor_request vendor_request;
+  libusb_request req;
+  req.timeout = timeout;
 
   switch(requesttype & (0x03 << 5))
     {
@@ -308,34 +368,29 @@ int usb_control_msg(usb_dev_handle *dev, int requesttype, int request,
       switch(request)
 	{
 	case USB_REQ_GET_STATUS: 
-	  status_request.recipient = requesttype & 0x1F;
-	  status_request.index = index;
-	  status_request.timeout = timeout;
+	  req.status.recipient = requesttype & 0x1F;
+	  req.status.index = index;
 	  
 	  if(!DeviceIoControl(dev->impl_info, LIBUSB_IOCTL_GET_STATUS, 
-			      (void *)&status_request, 
-			      sizeof(usb_status_request), 
-			      (void *)&status_request, 
-			      sizeof(usb_status_request), 
+			      &req, sizeof(libusb_request), 
+			      &req, sizeof(libusb_request), 
 			      (DWORD *)&ret, NULL))
 	    {
 	      error = 1;
 	      break;
 	    }
 
-	  (unsigned short)*bytes = (unsigned short) status_request.status;
+	  (unsigned short)*bytes = (unsigned short) req.status.status;
 
 	  break;
       
 	case USB_REQ_CLEAR_FEATURE:
-	  feature_request.recipient = requesttype & 0x1F;
-	  feature_request.feature = value;
-	  feature_request.index = index;
-	  feature_request.timeout = timeout;
+	  req.feature.recipient = requesttype & 0x1F;
+	  req.feature.feature = value;
+	  req.feature.index = index;
 
 	  if(!DeviceIoControl(dev->impl_info, LIBUSB_IOCTL_CLEAR_FEATURE, 
-			      (void *)&feature_request, 
-			      sizeof(usb_feature_request), 
+			      &req, sizeof(libusb_request), 
 			      NULL, 0, (DWORD *)&ret, NULL))
 	    {
 	      error = 1;
@@ -344,14 +399,12 @@ int usb_control_msg(usb_dev_handle *dev, int requesttype, int request,
 	  break;
 	  
 	case USB_REQ_SET_FEATURE:
-	  feature_request.recipient = requesttype & 0x1F;
-	  feature_request.feature = value;
-	  feature_request.index = index;
-	  feature_request.timeout = timeout;
+	  req.feature.recipient = requesttype & 0x1F;
+	  req.feature.feature = value;
+	  req.feature.index = index;
 	  
 	  if(!DeviceIoControl(dev->impl_info, LIBUSB_IOCTL_SET_FEATURE, 
-			      (void *)&feature_request, 
-			      sizeof(usb_feature_request), 
+			      &req, sizeof(libusb_request), 
 			      NULL, 0, (DWORD *)&ret, NULL))
 	    {
 	      error = 1;
@@ -360,32 +413,26 @@ int usb_control_msg(usb_dev_handle *dev, int requesttype, int request,
 	  break;
 
 	case USB_REQ_GET_DESCRIPTOR:     	  
-	  descriptor_request.type = value >> 8;
-	  descriptor_request.index = value & 0x00FF;
-	  descriptor_request.language_id = index;
-	  descriptor_request.timeout = timeout;
+	  req.descriptor.type = (value >> 8) & 0x000000FF;
+	  req.descriptor.index = value & 0x000000FF;
+	  req.descriptor.language_id = index;
 	  
 	  if(!DeviceIoControl(dev->impl_info, LIBUSB_IOCTL_GET_DESCRIPTOR, 
-			      (void *)&descriptor_request, 
-			      sizeof(usb_descriptor_request), 
-			      (void *)bytes, size, 
-			      (DWORD *)&ret, NULL))
+			      &req, sizeof(libusb_request), 
+			      bytes, size,(DWORD *)&ret, NULL))
 	    {
 	      error = 1;
 	    }
 	  break;
 	  
 	case USB_REQ_SET_DESCRIPTOR:
-	  descriptor_request.type = value >> 8;
-	  descriptor_request.index = value & 0x00FF;
-	  descriptor_request.language_id = index;
-	  descriptor_request.timeout = timeout;
+	  req.descriptor.type = (value >> 8) & 0x000000FF;
+	  req.descriptor.index = value & 0x000000FF;
+	  req.descriptor.language_id = index;
 	  
 	  if(!DeviceIoControl(dev->impl_info, LIBUSB_IOCTL_SET_DESCRIPTOR, 
-			      (void *)&descriptor_request, 
-			      sizeof(usb_descriptor_request), 
-			      (void *)bytes, size, 
-			      (DWORD *)&ret, NULL))
+			      &req, sizeof(libusb_request), 
+			      bytes, size, (DWORD *)&ret, NULL))
 	    {
 	      error = 1;
 	    }
@@ -393,30 +440,25 @@ int usb_control_msg(usb_dev_handle *dev, int requesttype, int request,
 	  break;
 	  
 	case USB_REQ_GET_CONFIGURATION:
-	  configuration_request.timeout = timeout;
 
 	  if(!DeviceIoControl(dev->impl_info, LIBUSB_IOCTL_GET_CONFIGURATION, 
-			      (void *)&configuration_request, 
-			      sizeof(usb_configuration_request), 
-			      (void *)&configuration_request, 
-			      sizeof(usb_configuration_request), 
+			      &req, sizeof(libusb_request), 
+			      &req, sizeof(libusb_request),
 			      (DWORD *)&ret, NULL))
 	    {
 	      error = 1;
 	      break;
 	    }
 
-	  *bytes = (unsigned char) configuration_request.configuration;
+	  *bytes = (unsigned char)req.configuration.configuration;
 	  
 	  break;
       
 	case USB_REQ_SET_CONFIGURATION:	  
-	  configuration_request.configuration = value;
-	  configuration_request.timeout = timeout;
+	  req.configuration.configuration = value;
 
 	  if(!DeviceIoControl(dev->impl_info, LIBUSB_IOCTL_SET_CONFIGURATION, 
-			      (void *)&configuration_request, 
-			      sizeof(usb_configuration_request), 
+			      &req, sizeof(libusb_request), 
 			      NULL, 0, (DWORD *)&ret, NULL))
 	    {
 	      error = 1;
@@ -425,32 +467,27 @@ int usb_control_msg(usb_dev_handle *dev, int requesttype, int request,
 	  break;
 	  
 	case USB_REQ_GET_INTERFACE:
-	  interface_request.interface = index;
-	  interface_request.timeout = timeout;
+	  req.interface.interface = index;
 	  
 	  if(!DeviceIoControl(dev->impl_info, LIBUSB_IOCTL_GET_INTERFACE, 
-			      (void *)&interface_request, 
-			      sizeof(usb_interface_request), 
-			      (void *)&interface_request, 
-			      sizeof(usb_interface_request), 
+			      &req, sizeof(libusb_request),
+			      &req, sizeof(libusb_request),
 			      (DWORD *)&ret, NULL))
 	    {
 	      error = 1;
 	      break;
 	    }
 
-	  *bytes = (unsigned char) interface_request.altsetting;
+	  *bytes = (unsigned char)req.interface.altsetting;
 	  
 	  break;
       
 	case USB_REQ_SET_INTERFACE:
-	  interface_request.interface = index;
-	  interface_request.altsetting = value;
-	  interface_request.timeout = timeout;
+	  req.interface.interface = index;
+	  req.interface.altsetting = value;
 	  
 	  if(!DeviceIoControl(dev->impl_info, LIBUSB_IOCTL_SET_INTERFACE, 
-			      (void *)&interface_request, 
-			      sizeof(usb_interface_request), 
+			      &req, sizeof(libusb_request), 
 			      NULL, 0, (DWORD *)&ret, NULL))
 	    {
 	      error = 1;
@@ -466,18 +503,15 @@ int usb_control_msg(usb_dev_handle *dev, int requesttype, int request,
     case USB_TYPE_VENDOR:  
     case USB_TYPE_CLASS:
     
-      vendor_request.request = request;
-      vendor_request.value = value;
-      vendor_request.index = index;
-      vendor_request.timeout = timeout;
+      req.vendor.request = request;
+      req.vendor.value = value;
+      req.vendor.index = index;
 
       if((unsigned char) requesttype & 0x80)
 	{
 	  if(!DeviceIoControl(dev->impl_info, LIBUSB_IOCTL_VENDOR_READ, 
-			      (void *)&vendor_request, 
-			      sizeof(usb_vendor_request), 
-			      (void *)bytes, size, 
-			      (DWORD *)&ret, NULL))
+			      &req, sizeof(libusb_request), 
+			      bytes, size, (DWORD *)&ret, NULL))
 	    {
 	      error = 1;
 	    }
@@ -485,10 +519,8 @@ int usb_control_msg(usb_dev_handle *dev, int requesttype, int request,
       else
 	{
 	  if(!DeviceIoControl(dev->impl_info, LIBUSB_IOCTL_VENDOR_WRITE, 
-			      (void *)&vendor_request, 
-			      sizeof(usb_vendor_request), 
-			      (void *)bytes, size, 
-			      (DWORD *)&ret, NULL))
+			      &req, sizeof(libusb_request), 
+			      bytes, size, (DWORD *)&ret, NULL))
 	    {
 	      error = 1;
 	    }
@@ -502,7 +534,8 @@ int usb_control_msg(usb_dev_handle *dev, int requesttype, int request,
   
   if(error)
     {
-      USB_ERROR_STR(-1, "error sending control message: %s", last_win_error());
+      USB_ERROR_STR(-1, "error sending control message: win error: %s", 
+		    last_win_error());
     }
 
   return ret;
@@ -626,13 +659,15 @@ void usb_os_init(void)
 int usb_resetep(usb_dev_handle *dev, unsigned int ep)
 {
   int ret;
-  usb_pipe_request request = { (int)ep, WIN_DEFAULT_TIMEOUT };
+  libusb_request req;
+  req.endpoint.endpoint = (int)ep;
+  req.timeout = WIN_DEFAULT_TIMEOUT;
 
   if(!DeviceIoControl(dev->impl_info, LIBUSB_IOCTL_RESET_ENDPOINT, 
-		      &request, sizeof(usb_pipe_request),
+		      &req, sizeof(libusb_request),
 		      NULL, 0, (DWORD *)&ret, NULL))
     {
-      USB_ERROR_STR(-1, "could not reset ep %d : %s", ep, 
+      USB_ERROR_STR(-1, "could not reset ep %d : win error: %s", ep, 
 		    last_win_error());
     }
   
@@ -649,7 +684,7 @@ int usb_clear_halt(usb_dev_handle *dev, unsigned int ep)
 
   if(ret < 0)
     {
-      USB_ERROR_STR(ret, "could not clear/halt ep %d : %s\n", ep,
+      USB_ERROR_STR(ret, "could not clear/halt ep %d: win error: %s\n", ep,
 		    last_win_error());
     }
   return 0;
@@ -658,13 +693,14 @@ int usb_clear_halt(usb_dev_handle *dev, unsigned int ep)
 int usb_reset(usb_dev_handle *dev)
 {
   int ret;
-  usb_device_request request = { WIN_DEFAULT_TIMEOUT };
-  
+  libusb_request req;
+  req.timeout = WIN_DEFAULT_TIMEOUT;
+
   if(!DeviceIoControl(dev->impl_info, LIBUSB_IOCTL_RESET_DEVICE,
-		      &request, sizeof(usb_device_request), NULL, 0,
+		      &req, sizeof(libusb_request), NULL, 0,
 		      (DWORD *)&ret, NULL))
     {
-      USB_ERROR_STR(-1, "could not reset : %s\n", last_win_error());
+      USB_ERROR_STR(-1, "could not reset: win error: %s\n", last_win_error());
     }
   return 0;
 }

@@ -30,14 +30,13 @@ NTSTATUS get_configuration(libusb_device_extension *device_extension,
   KdPrint(("LIBUSB_FILTER - get_configuration(): timeout %d\n", timeout));
 
   urb.UrbHeader.Function = URB_FUNCTION_GET_CONFIGURATION;
-  urb.UrbHeader.Length = 
-    sizeof(struct _URB_CONTROL_GET_CONFIGURATION_REQUEST);
+  urb.UrbHeader.Length = sizeof(struct _URB_CONTROL_GET_CONFIGURATION_REQUEST);
   urb.UrbControlGetConfigurationRequest.TransferBufferLength = 1;
-  urb.UrbControlGetConfigurationRequest.TransferBuffer = (void *)&tmp;
+  urb.UrbControlGetConfigurationRequest.TransferBuffer = &tmp;
   urb.UrbControlGetConfigurationRequest.TransferBufferMDL = NULL; 
   urb.UrbControlGetConfigurationRequest.UrbLink = NULL; 
 
-  m_status = call_usbd(device_extension, (void *)&urb, 
+  m_status = call_usbd(device_extension, &urb, 
 		       IOCTL_INTERNAL_USB_SUBMIT_URB, timeout);
 
   if(!NT_SUCCESS(m_status) || !USBD_SUCCESS(urb.UrbHeader.Status))
@@ -46,6 +45,7 @@ NTSTATUS get_configuration(libusb_device_extension *device_extension,
 	       "failed\n"));
       return STATUS_UNSUCCESSFUL;
     }
+
   *configuration = (int)tmp;
 
   return m_status;
