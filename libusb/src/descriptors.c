@@ -7,6 +7,8 @@
  */
 
 #include <stdio.h>
+#include <string.h>
+
 #include "usbi.h"
 
 int usb_get_descriptor(usb_dev_handle *udev, unsigned char type, unsigned char index, void *buf, int size)

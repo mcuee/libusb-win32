@@ -24,7 +24,6 @@
 #include <wdm.h>
 #include <usbdi.h>
 #include <usbdlib.h>
-#include <initguid.h>
 
 #include "filter_api.h"
 
@@ -41,14 +40,6 @@
 #define LIBUSB_MAX_NUMBER_OF_INTERFACES 32
 
 #define LIBUSB_DEFAULT_TIMEOUT  5000   
-
-#ifndef FALSE
-#define FALSE 0
-#endif 
- 
-#ifndef TRUE
-#define TRUE (!FALSE)
-#endif
 
 
 typedef struct
@@ -72,6 +63,8 @@ typedef struct
   DEVICE_OBJECT *control_device_object;
   DEVICE_OBJECT *main_device_object;
   DRIVER_OBJECT *driver_object;
+  LONG is_control_object;
+  LONG ref_count;
   libusb_remove_lock remove_lock; 
   USBD_CONFIGURATION_HANDLE configuration_handle;
   int current_configuration;
@@ -148,6 +141,11 @@ NTSTATUS reset_device(libusb_device_extension *device_extension, int timeout);
 
 NTSTATUS on_internal_ioctl_complete(DEVICE_OBJECT *device_object, IRP *irp,
 				    void *context);
+NTSTATUS on_device_usage_notification_complete(DEVICE_OBJECT *device_object,
+					       IRP *irp,
+					       void *context);
+NTSTATUS on_start_complete(DEVICE_OBJECT *device_object, IRP *irp, 
+			   void *context);
 
 void debug_print_nl(void);
 void debug_set_level(int level);

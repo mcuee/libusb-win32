@@ -58,9 +58,17 @@ NTSTATUS __stdcall add_device(DRIVER_OBJECT *driver_object,
   NTSTATUS status;
   DEVICE_OBJECT *device_object;
   libusb_device_extension *device_extension;
+  ULONG device_type = FILE_DEVICE_UNKNOWN;
+
+  if(!IoIsWdmVersionAvailable(1, 0x20)) 
+    {
+      device_object = IoGetAttachedDeviceReference(physical_device_object);
+      device_type = device_object->DeviceType;
+      ObDereferenceObject(device_object);
+    }
 
   status = IoCreateDevice(driver_object, sizeof(libusb_device_extension), 
-			  NULL, FILE_DEVICE_UNKNOWN, 0, FALSE, 
+			  NULL, device_type, 0, FALSE, 
 			  &device_object);
   if(!NT_SUCCESS(status))
     {
@@ -72,6 +80,10 @@ NTSTATUS __stdcall add_device(DRIVER_OBJECT *driver_object,
   device_extension->next_stack_device = 
     IoAttachDeviceToDeviceStack(device_object, physical_device_object);
   
+  device_object->DeviceType = device_extension->next_stack_device->DeviceType;
+  device_object->Characteristics =
+                          device_extension->next_stack_device->Characteristics;
+
   device_object->Flags |= DO_DIRECT_IO | DO_POWER_PAGABLE;
   device_object->Flags &= ~DO_DEVICE_INITIALIZING;
 
@@ -81,23 +93,20 @@ NTSTATUS __stdcall add_device(DRIVER_OBJECT *driver_object,
 
 NTSTATUS __stdcall dispatch(DEVICE_OBJECT *device_object, IRP *irp)
 {
-  NTSTATUS status = STATUS_SUCCESS;
   libusb_device_extension *device_extension = 
     (libusb_device_extension *)device_object->DeviceExtension;
+  NTSTATUS status = STATUS_NOT_SUPPORTED;
 
   switch(IoGetCurrentIrpStackLocation(irp)->MajorFunction) 
     {
     case IRP_MJ_PNP:
       return dispatch_pnp(device_extension, irp);
-      
     case IRP_MJ_POWER:
       PoStartNextPowerIrp(irp);
       IoSkipCurrentIrpStackLocation(irp);
       return PoCallDriver(device_extension->next_stack_device, irp);
-      
-    case IRP_MJ_DEVICE_CONTROL:
-    case IRP_MJ_CREATE:      
-    case IRP_MJ_CLOSE:
+    case IRP_MJ_CLEANUP:
+      status = STATUS_SUCCESS;
     default:
       ;
     }
@@ -111,7 +120,7 @@ NTSTATUS __stdcall dispatch(DEVICE_OBJECT *device_object, IRP *irp)
 
 NTSTATUS dispatch_pnp(libusb_device_extension *device_extension, IRP *irp)
 {
-  NTSTATUS status = STATUS_SUCCESS;
+  NTSTATUS status = STATUS_NOT_SUPPORTED;
   IO_STACK_LOCATION *stack_location = IoGetCurrentIrpStackLocation(irp);
 
   switch(stack_location->MinorFunction) 
@@ -123,20 +132,18 @@ NTSTATUS dispatch_pnp(libusb_device_extension *device_extension, IRP *irp)
       IoDetachDevice(device_extension->next_stack_device);
       IoDeleteDevice(device_extension->self);
       return status;
-
     case IRP_MN_SURPRISE_REMOVAL:
-      irp->IoStatus.Status = STATUS_SUCCESS;
-      break;
-
     case IRP_MN_START_DEVICE:
     case IRP_MN_CANCEL_REMOVE_DEVICE:
     case IRP_MN_CANCEL_STOP_DEVICE:
     case IRP_MN_QUERY_STOP_DEVICE:
     case IRP_MN_STOP_DEVICE:
     case IRP_MN_QUERY_REMOVE_DEVICE:
+      status = STATUS_SUCCESS;
     default:
       ;
     }
+  irp->IoStatus.Status = status;
   IoSkipCurrentIrpStackLocation(irp);
   return IoCallDriver(device_extension->next_stack_device, irp);
 }

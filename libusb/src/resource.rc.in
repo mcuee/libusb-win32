@@ -19,12 +19,12 @@ BEGIN
         BLOCK "040704b0"
         BEGIN
             VALUE "CompanyName", "http://libusb-win32.sourceforge.net"
-            VALUE "FileDescription", "LibUSB-Win32 - Generic USB Library"
+            VALUE "FileDescription", "LibUsb-Win32 - Generic USB Library"
             VALUE "FileVersion",   "@RC_VERSION@"
             VALUE "ProductVersion", "@RC_VERSION@"
             VALUE "InternalName", "libusb-win32"
             VALUE "LegalCopyright", "© 2003 S.Meyer, J.Erdfelt, T.Sailer"
-            VALUE "ProductName", "LibUSB-Win32"
+            VALUE "ProductName", "LibUsb-Win32"
         END
     END
     BLOCK "VarFileInfo"
