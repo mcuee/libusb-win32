@@ -404,9 +404,11 @@ BOOL CALLBACK dialog_proc_1(HWND dialog, UINT message,
             }
 
           if(!device->vid)
-            device->vid = 0x12AB;
-          if(!device->pid)
-            device->pid = 0x12AB;
+            {
+              device->vid = 0x12AB;
+              device->pid = 0x12AB;
+            }
+
           if(!device->manufacturer[0])
             strcpy(device->manufacturer, "Insert manufacturer name");
           if(!device->description[0])
