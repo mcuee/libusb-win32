@@ -22,7 +22,7 @@
 
 
 NTSTATUS get_status(libusb_device_extension *device_extension, int recipient,
-		    int index, int *status, int timeout)
+		    int index, char *status, int timeout)
 {
   NTSTATUS _status = STATUS_SUCCESS;
   URB urb;
@@ -32,12 +32,6 @@ NTSTATUS get_status(libusb_device_extension *device_extension, int recipient,
   debug_printf(LIBUSB_DEBUG_MSG, "get_status(): recipient %02d", recipient);
   debug_printf(LIBUSB_DEBUG_MSG, "get_status(): index %04d", index);
   debug_printf(LIBUSB_DEBUG_MSG, "get_status(): timeout %d", timeout);
-
-  if(!device_extension->current_configuration && recipient != USB_RECIP_DEVICE)
-    {
-      debug_printf(LIBUSB_DEBUG_ERR, "get_status(): invalid configuration 0"); 
-      return STATUS_INVALID_DEVICE_STATE;
-    }
 
   switch(recipient)
     {
@@ -60,7 +54,7 @@ NTSTATUS get_status(libusb_device_extension *device_extension, int recipient,
 
   urb.UrbHeader.Length = sizeof(struct _URB_CONTROL_GET_STATUS_REQUEST);
   urb.UrbControlGetStatusRequest.TransferBufferLength = 2;
-  urb.UrbControlGetStatusRequest.TransferBuffer = &tmp; 
+  urb.UrbControlGetStatusRequest.TransferBuffer = status; 
   urb.UrbControlGetStatusRequest.TransferBufferMDL = NULL;
   urb.UrbControlGetStatusRequest.UrbLink = NULL;
   urb.UrbControlGetStatusRequest.Index = (USHORT)index; 
@@ -74,10 +68,7 @@ NTSTATUS get_status(libusb_device_extension *device_extension, int recipient,
 		   "status: 0x%x, urb-status: 0x%x", 
 		   status, urb.UrbHeader.Status);
     }
-  else
-    {
-      *status = (int)tmp;
-    }
+
   return _status;
 }
 

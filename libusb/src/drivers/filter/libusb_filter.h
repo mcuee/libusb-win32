@@ -55,9 +55,15 @@ typedef struct
 
 typedef struct
 {
-  UCHAR endpoint_address;
-  USBD_PIPE_HANDLE pipe_handle;
-} libusb_pipe_info;
+  int address;
+  USBD_PIPE_HANDLE handle;
+} libusb_endpoint_info;
+
+typedef struct
+{
+  int valid;
+  libusb_endpoint_info endpoints[LIBUSB_MAX_NUMBER_OF_ENDPOINTS];
+} libusb_interface_info;
 
 typedef struct
 {
@@ -73,8 +79,7 @@ typedef struct
   USBD_CONFIGURATION_HANDLE configuration_handle;
   int current_configuration;
   int device_id;
-  libusb_pipe_info pipe_info[LIBUSB_MAX_NUMBER_OF_INTERFACES]
-  [LIBUSB_MAX_NUMBER_OF_ENDPOINTS];
+  libusb_interface_info interface_info[LIBUSB_MAX_NUMBER_OF_INTERFACES];
 } libusb_device_extension;
 
 
@@ -112,17 +117,17 @@ void release_device_id(libusb_device_extension *device_extension);
 NTSTATUS set_configuration(libusb_device_extension *device_extension,
 			   int configuration, int timeout);
 NTSTATUS get_configuration(libusb_device_extension *device_extension,
-			   int *configuration, int timeout);
+			   char *configuration, int timeout);
 NTSTATUS set_interface(libusb_device_extension *device_extension,
 		       int interface, int altsetting, int timeout);
 NTSTATUS get_interface(libusb_device_extension *device_extension,
-		       int interface, int *altsetting, int timeout);
+		       int interface, char *altsetting, int timeout);
 NTSTATUS set_feature(libusb_device_extension *device_extension,
 		     int recipient, int index, int feature, int timeout);
 NTSTATUS clear_feature(libusb_device_extension *device_extension,
 		       int recipient, int index, int feature, int timeout);
 NTSTATUS get_status(libusb_device_extension *device_extension, int recipient,
-		    int index, int *status, int timeout);
+		    int index, char *status, int timeout);
 NTSTATUS set_descriptor(libusb_device_extension *device_extension,
 			void *buffer, int size, 
 			int type, int index, int language_id, 

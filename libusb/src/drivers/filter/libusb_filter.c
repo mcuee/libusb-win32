@@ -202,10 +202,11 @@ int get_pipe_handle(libusb_device_extension *device_extension,
     {
       for(j = 0; j < LIBUSB_MAX_NUMBER_OF_ENDPOINTS; j++)
 	{
-	  if(device_extension->pipe_info[i][j].endpoint_address 
+	  if(device_extension->interface_info[i].endpoints[j].address 
 	     == endpoint_address)
 	    {
-	      *pipe_handle = device_extension->pipe_info[i][j].pipe_handle;
+	      *pipe_handle 
+		= device_extension->interface_info[i].endpoints[j].handle;
 
 	      if(!*pipe_handle)
 		{
@@ -227,10 +228,12 @@ void clear_pipe_info(libusb_device_extension *device_extension)
   
   for(i = 0; i < LIBUSB_MAX_NUMBER_OF_INTERFACES; i++)
     {
+      device_extension->interface_info[i].valid = FALSE;
+
       for(j = 0; j < LIBUSB_MAX_NUMBER_OF_ENDPOINTS; j++)
 	{
-	  device_extension->pipe_info[i][j].endpoint_address = -1;	
-	  device_extension->pipe_info[i][j].pipe_handle = NULL;
+	  device_extension->interface_info[i].endpoints[j].address = -1;
+	  device_extension->interface_info[i].endpoints[j].handle = NULL;
 	} 
     }
 }
@@ -245,10 +248,12 @@ int update_pipe_info(libusb_device_extension *device_extension, int interface,
       return FALSE;
     }
 
+  device_extension->interface_info[interface].valid = TRUE;
+  
   for(i = 0; i < LIBUSB_MAX_NUMBER_OF_ENDPOINTS ; i++)
     {
-      device_extension->pipe_info[interface][i].endpoint_address = -1;	
-      device_extension->pipe_info[interface][i].pipe_handle = NULL;	
+      device_extension->interface_info[interface].endpoints[i].address = -1;
+      device_extension->interface_info[interface].endpoints[i].handle = NULL;
     } 
 
   if(interface_info)
@@ -262,10 +267,10 @@ int update_pipe_info(libusb_device_extension *device_extension, int interface,
 		       "address %02xh",
 		       interface_info->Pipes[i].EndpointAddress);	  
 
-	  device_extension->pipe_info[interface][i].pipe_handle = 
-	    interface_info->Pipes[i].PipeHandle;	
-	  device_extension->pipe_info[interface][i].endpoint_address = 
-	    interface_info->Pipes[i].EndpointAddress;	
+	  device_extension->interface_info[interface].endpoints[i].handle
+	    = interface_info->Pipes[i].PipeHandle;	
+	  device_extension->interface_info[interface].endpoints[i].address = 
+	    interface_info->Pipes[i].EndpointAddress;
 	}
     }
 

@@ -98,58 +98,57 @@ enum {
 
 
 typedef struct {
-  int timeout;
-/*  int error; */
+  unsigned int timeout;
   union {
     struct
     {
-      int configuration;
+      unsigned int configuration;
     } configuration;
     struct
     {
-      int interface;
-      int altsetting;
+      unsigned int interface;
+      unsigned int altsetting;
     } interface;
     struct
     {
-      int endpoint;
+      unsigned int endpoint;
     } endpoint;    
     struct
     {
-      int type;
-      int recipient;
-      int request;
-      int value;
-      int index;
+      unsigned int type;
+      unsigned int recipient;
+      unsigned int request;
+      unsigned int value;
+      unsigned int index;
     } vendor;
     struct
     {
-      int recipient;
-      int feature;
-      int index;
+      unsigned int recipient;
+      unsigned int feature;
+      unsigned int index;
     } feature;
     struct
     {
-      int recipient;
-      int index;
-      int status;
+      unsigned int recipient;
+      unsigned int index;
+      unsigned int status;
     } status;
     struct
     {
-      int type;
-      int index;
-      int language_id;
+      unsigned int type;
+      unsigned int index;
+      unsigned int language_id;
     } descriptor;    
     struct
     {
-      int level;
+      unsigned int level;
     } debug;
     struct
     {
-      int major;
-      int minor;
-      int micro;
-      int nano;
+      unsigned int major;
+      unsigned int minor;
+      unsigned int micro;
+      unsigned int nano;
     } version;
   };
 } libusb_request;

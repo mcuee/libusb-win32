@@ -130,7 +130,7 @@ NTSTATUS on_bulk_int_complete(DEVICE_OBJECT *device_object,
   IoSetCancelRoutine(((Context *)context)->main_irp, NULL);
   IoReleaseCancelSpinLock(irql);
 
-  if(NT_SUCCESS(irp->IoStatus.Status))
+  if(NT_SUCCESS(irp->IoStatus.Status) && USBD_SUCCESS(urb->UrbHeader.Status))
     {
       transmitted = urb->UrbBulkOrInterruptTransfer.TransferBufferLength;
       debug_printf(LIBUSB_DEBUG_MSG, "on_bulk_int_complete(): %d bytes "
@@ -139,10 +139,9 @@ NTSTATUS on_bulk_int_complete(DEVICE_OBJECT *device_object,
   else
     {
       debug_printf(LIBUSB_DEBUG_ERR, "on_bulk_int_complete(): transfer "
-		   "failed");
+		   "failed: status: 0x%x, urb-status: 0x%x", 
+		   irp->IoStatus.Status, urb->UrbHeader.Status);
     }
-
-  ((Context *)context)->main_irp->Tail.Overlay.DriverContext[0] = NULL;
 
   complete_irp(((Context *)context)->main_irp, irp->IoStatus.Status,
 	       transmitted);
@@ -156,9 +155,7 @@ NTSTATUS on_bulk_int_complete(DEVICE_OBJECT *device_object,
 
 void on_bulk_int_cancel(DEVICE_OBJECT *device_object, IRP *irp)
 {
-  int transmitted = 0;
   Context *context = (Context *)irp->Tail.Overlay.DriverContext[0];
-  libusb_remove_lock *lock = context->remove_lock;
 
   if(!InterlockedExchange(&(((Context *)context)->completing), 0))
     {
@@ -167,6 +164,7 @@ void on_bulk_int_cancel(DEVICE_OBJECT *device_object, IRP *irp)
       debug_printf(LIBUSB_DEBUG_WARN, "on_bulk_int_cancel(): IRP cancelled");
       return;
     }
+
   IoReleaseCancelSpinLock(context->irql);
 }
 
