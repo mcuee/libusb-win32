@@ -22,7 +22,7 @@
 NTSTATUS set_configuration(libusb_device_extension *device_extension,
 			   int configuration, int timeout)
 {
-  NTSTATUS m_status = STATUS_SUCCESS;
+  NTSTATUS status = STATUS_SUCCESS;
   URB urb, *urb_ptr = NULL;
   USB_DEVICE_DESCRIPTOR device_descriptor;
   USB_CONFIGURATION_DESCRIPTOR *configuration_descriptor = NULL;
@@ -31,23 +31,26 @@ NTSTATUS set_configuration(libusb_device_extension *device_extension,
   int junk, i, j;
   volatile int config_full_size;
 
-  KdPrint(("LIBUSB_FILTER - set_configuration(): configuration %d\n", 
-	   configuration));
-  KdPrint(("LIBUSB_FILTER - set_configuration(): timeout %d\n", timeout));
+  debug_print_nl();
+  debug_printf(DEBUG_MSG, "set_configuration(): configuration %d", 
+	       configuration);
+  debug_printf(DEBUG_MSG, "set_configuration(): timeout %d", timeout);
 
   if(!configuration)
     {
-      UsbBuildSelectConfigurationRequest(&urb,
-					 sizeof(struct _URB_SELECT_CONFIGURATION), 
-					 NULL);
-      m_status = call_usbd(device_extension, &urb, 
-			   IOCTL_INTERNAL_USB_SUBMIT_URB, timeout);
+      UsbBuildSelectConfigurationRequest
+	(&urb,
+	 sizeof(struct _URB_SELECT_CONFIGURATION), 
+	 NULL);
+
+      status = call_usbd(device_extension, &urb, 
+			 IOCTL_INTERNAL_USB_SUBMIT_URB, timeout);
       
-      if(!NT_SUCCESS(m_status) || !USBD_SUCCESS(urb.UrbHeader.Status))
+      if(!NT_SUCCESS(status) || !USBD_SUCCESS(urb.UrbHeader.Status))
 	{
-	  KdPrint(("LIBUSB_FILTER - set_configuration(): setting config %d "
-		   "failed\n", configuration));
-	  return STATUS_UNSUCCESSFUL;
+	  debug_printf(DEBUG_ERR, "set_configuration(): setting config %d "
+		       "failed", configuration);
+	  return status;
 	}
 
       device_extension->configuration_handle =
@@ -55,61 +58,57 @@ NTSTATUS set_configuration(libusb_device_extension *device_extension,
      
       device_extension->current_configuration = configuration;
 
-      update_pipe_info(device_extension, 0, NULL);
-      return m_status;
+      clear_pipe_info(device_extension);
+      return status;
     }
 
-  m_status = get_descriptor(device_extension,
+  status = get_descriptor(device_extension,
 			    &device_descriptor,
-			    NULL, sizeof(USB_DEVICE_DESCRIPTOR), 
+			    sizeof(USB_DEVICE_DESCRIPTOR), 
 			    USB_DEVICE_DESCRIPTOR_TYPE,
 			    0, 0, &junk, LIBUSB_DEFAULT_TIMEOUT);  
 
-  if(!NT_SUCCESS(m_status))
+  if(!NT_SUCCESS(status))
     {
-      KdPrint(("LIBUSB_FILTER - set_configuration(): getting device "
-	       "descriptor failed\n"));
-      return STATUS_UNSUCCESSFUL;
+      debug_printf(DEBUG_ERR, "set_configuration(): getting device "
+	       "descriptor failed");
+      return status;
     }
 
   if(device_descriptor.bNumConfigurations < configuration)
     {
-      KdPrint(("LIBUSB_FILTER - set_configuration(): invalid configuration "
-	       "%d\n", configuration));
-      return STATUS_UNSUCCESSFUL;
+      debug_printf(DEBUG_ERR, "set_configuration(): invalid configuration "
+	       "%d", configuration);
+      return STATUS_INVALID_PARAMETER;
     }
-
 
   configuration_descriptor = (USB_CONFIGURATION_DESCRIPTOR *) 
     ExAllocatePool(NonPagedPool, sizeof(USB_CONFIGURATION_DESCRIPTOR));
   
   if(!configuration_descriptor)
     {
-      KdPrint(("LIBUSB_FILTER - set_configuration(): memory allocation "
-	       "failed\n"));
+      debug_printf(DEBUG_ERR, "set_configuration(): memory allocation "
+		   "failed");
       return STATUS_NO_MEMORY;
     }
   
-  m_status = get_descriptor(device_extension,
-			    configuration_descriptor,
-			    NULL, sizeof(USB_CONFIGURATION_DESCRIPTOR), 
-			    USB_CONFIGURATION_DESCRIPTOR_TYPE,
-			    configuration - 1,
-			    0, &junk, LIBUSB_DEFAULT_TIMEOUT);
+  status = get_descriptor(device_extension,
+			  configuration_descriptor,
+			  sizeof(USB_CONFIGURATION_DESCRIPTOR), 
+			  USB_CONFIGURATION_DESCRIPTOR_TYPE,
+			  configuration - 1,
+			  0, &junk, LIBUSB_DEFAULT_TIMEOUT);
 
-  if(!NT_SUCCESS(m_status))
+  if(!NT_SUCCESS(status))
     {
-      KdPrint(("LIBUSB_FILTER - set_configuration(): getting configuration "
-	       "descriptor %d failed\n", configuration));
+      debug_printf(DEBUG_ERR, "set_configuration(): getting configuration "
+		   "descriptor %d failed", configuration);
       ExFreePool(configuration_descriptor);
-      return STATUS_UNSUCCESSFUL;
+      return status;
     }
 
   config_full_size = configuration_descriptor->wTotalLength;
 
-  KdPrint(("LIBUSB_FILTER - set_configuration(): configuration descriptor "
-	   "total length: %d\n", config_full_size));
-  
   ExFreePool(configuration_descriptor);
 
   configuration_descriptor = (USB_CONFIGURATION_DESCRIPTOR *)
@@ -117,24 +116,23 @@ NTSTATUS set_configuration(libusb_device_extension *device_extension,
   
   if(!configuration_descriptor)
     {
-      KdPrint(("LIBUSB_FILTER - set_configuration(): memory allocation "
-	       "failed\n"));
+      debug_printf(DEBUG_ERR, "set_configuration(): memory allocation failed");
       return STATUS_NO_MEMORY;
     }
 
-  m_status = get_descriptor(device_extension,
-			    configuration_descriptor,
-			    NULL, config_full_size, 
-			    USB_CONFIGURATION_DESCRIPTOR_TYPE,
-			    configuration - 1,
-			    0, &junk, LIBUSB_DEFAULT_TIMEOUT);
+  status = get_descriptor(device_extension,
+			  configuration_descriptor,
+			  config_full_size, 
+			  USB_CONFIGURATION_DESCRIPTOR_TYPE,
+			  configuration - 1,
+			  0, &junk, LIBUSB_DEFAULT_TIMEOUT);
 
-  if(!NT_SUCCESS(m_status))
+  if(!NT_SUCCESS(status))
     {
-      KdPrint(("LIBUSB_FILTER - set_configuration(): getting configuration "
-	       "descriptor %d failed\n"));
+      debug_printf(DEBUG_ERR, "set_configuration(): getting configuration "
+		   "descriptor %d failed");
       ExFreePool(configuration_descriptor);
-      return STATUS_UNSUCCESSFUL;
+      return status;
     }
 
 
@@ -144,8 +142,7 @@ NTSTATUS set_configuration(libusb_device_extension *device_extension,
 
   if(!interfaces)
     {
-      KdPrint(("LIBUSB_FILTER - set_configuration(): memory allocation "
-	       "failed\n"));
+      debug_printf(DEBUG_ERR, "set_configuration(): memory allocation failed");
       ExFreePool(configuration_descriptor);
       return STATUS_NO_MEMORY;
     }
@@ -160,19 +157,23 @@ NTSTATUS set_configuration(libusb_device_extension *device_extension,
 	USBD_ParseConfigurationDescriptorEx(configuration_descriptor,
 					    configuration_descriptor,
 					    i, 0, -1, -1, -1);
-      if(interface_descriptor)
+      if(!interface_descriptor ||
+	 ((char *)interface_descriptor + interface_descriptor->bNumEndpoints 
+	  * sizeof(USB_ENDPOINT_DESCRIPTOR) 
+	  + sizeof(USB_INTERFACE_DESCRIPTOR)) 
+	 > ((char *)configuration_descriptor + config_full_size))
 	{
-	  KdPrint(("LIBUSB_FILTER - set_configuration(): interface %d "
-		   "found\n", i));
-	  interfaces[i].InterfaceDescriptor = interface_descriptor;
-	}
-      else
-	{
-	  KdPrint(("LIBUSB_FILTER - set_configuration(): interface %d not "
-		   "found\n",i));
+	  debug_printf(DEBUG_ERR, "set_configuration(): interface %d not "
+		       "found", i);
 	  ExFreePool(interfaces);
 	  ExFreePool(configuration_descriptor);
 	  return STATUS_INVALID_PARAMETER;
+	}
+      else
+	{
+	  debug_printf(DEBUG_MSG, "set_configuration(): interface %d "
+		       "found", i);
+	  interfaces[i].InterfaceDescriptor = interface_descriptor;
 	}
     }
 
@@ -181,35 +182,33 @@ NTSTATUS set_configuration(libusb_device_extension *device_extension,
 					      interfaces);
   if(!urb_ptr)
     {
-      KdPrint(("LIBUSB_FILTER - set_configuration(): memory allocation "
-	       "failed\n"));
+      debug_printf(DEBUG_ERR, "set_configuration(): memory allocation failed");
       ExFreePool(interfaces);
       ExFreePool(configuration_descriptor);
       return STATUS_NO_MEMORY;
     }
-
 
   for(i = 0; i < configuration_descriptor->bNumInterfaces; i++)
     {
       for(j = 0; j < (int)interfaces[i].Interface->NumberOfPipes; j++)
 	{
 	  interfaces[i].Interface->Pipes[j].MaximumTransferSize = 
-	    MAX_READ_WRITE;
+	    LIBUSB_MAX_READ_WRITE;
 	}
     }
 
-  m_status = call_usbd(device_extension, (void *)urb_ptr, 
-		       IOCTL_INTERNAL_USB_SUBMIT_URB, timeout);
+  status = call_usbd(device_extension, urb_ptr, 
+		     IOCTL_INTERNAL_USB_SUBMIT_URB, timeout);
   
-  if(!NT_SUCCESS(m_status) || !USBD_SUCCESS(urb_ptr->UrbHeader.Status))
+  if(!NT_SUCCESS(status) || !USBD_SUCCESS(urb_ptr->UrbHeader.Status))
     {
-      KdPrint(("LIBUSB_FILTER - set_configuration(): setting configuration "
-	       "%d %x %x failed\n", configuration, m_status, 
-	       urb_ptr->UrbHeader.Status));
+      debug_printf(DEBUG_ERR, "set_configuration(): setting configuration "
+		   "%d %x %x failed", configuration, status, 
+		   urb_ptr->UrbHeader.Status);
       ExFreePool(interfaces);
       ExFreePool(configuration_descriptor);
       ExFreePool(urb_ptr);
-      return STATUS_UNSUCCESSFUL;
+      return status;
     }
 
 
@@ -227,5 +226,5 @@ NTSTATUS set_configuration(libusb_device_extension *device_extension,
   ExFreePool(urb_ptr);
   ExFreePool(configuration_descriptor);
 
-  return m_status;
+  return status;
 }

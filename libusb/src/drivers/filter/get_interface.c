@@ -24,39 +24,40 @@
 NTSTATUS get_interface(libusb_device_extension *device_extension,
 		       int interface, int *altsetting, int timeout)
 {
-  NTSTATUS m_status = STATUS_SUCCESS;
+  NTSTATUS status = STATUS_SUCCESS;
   URB urb;
   char tmp;
 
-  KdPrint(("LIBUSB_FILTER - get_interface(): interface %d\n", interface));
+  debug_print_nl();
+  debug_printf(DEBUG_MSG, "get_interface(): interface %d\n", interface);
+  debug_printf(DEBUG_MSG, "get_interface(): timeout %d", timeout);
 
   if(!device_extension->current_configuration)
     {
-      KdPrint(("LIBUSB_FILTER - get_interface(): invalid configuration 0")); 
-      return STATUS_UNSUCCESSFUL;
+      debug_printf(DEBUG_ERR, "get_interface(): invalid configuration 0"); 
+      return STATUS_INVALID_DEVICE_STATE;
     }
     
   urb.UrbHeader.Function = URB_FUNCTION_GET_INTERFACE;
-  urb.UrbHeader.Length = 
-    sizeof(struct _URB_CONTROL_GET_INTERFACE_REQUEST);
+  urb.UrbHeader.Length = sizeof(struct _URB_CONTROL_GET_INTERFACE_REQUEST);
   urb.UrbControlGetInterfaceRequest.TransferBufferLength = 1;
   urb.UrbControlGetInterfaceRequest.TransferBuffer = &tmp;
   urb.UrbControlGetInterfaceRequest.TransferBufferMDL = NULL;
   urb.UrbControlGetInterfaceRequest.UrbLink = NULL;
   urb.UrbControlGetInterfaceRequest.Interface = (USHORT)interface;
   
-  m_status = call_usbd(device_extension, &urb, 
-		       IOCTL_INTERNAL_USB_SUBMIT_URB, timeout);
+  status = call_usbd(device_extension, &urb, 
+		     IOCTL_INTERNAL_USB_SUBMIT_URB, timeout);
   
-  if(!NT_SUCCESS(m_status) || !USBD_SUCCESS(urb.UrbHeader.Status))
+  if(!NT_SUCCESS(status) || !USBD_SUCCESS(urb.UrbHeader.Status))
     {
-      KdPrint(("LIBUSB_FILTER - get_interface(): getting interface failed "
-	       "%x %x\n", m_status, urb.UrbHeader.Status));
-      return STATUS_UNSUCCESSFUL;
+      debug_printf(DEBUG_ERR, "get_interface(): getting interface failed");
     }
-  
-  *altsetting = (int)tmp;
-  return m_status;
+  else
+    {
+      *altsetting = (int)tmp;
+    }
+  return status;
 }
 
 

@@ -1,12 +1,5 @@
 
 
-INCLUDES = -I./src -I./src/drivers/filter
-
-CFLAGS = -O2 -DEOVERFLOW=139
-
-LDFLAGS = -shared -Wl,--output-def,$(DLL_TARGET).def \
-	-Wl,--out-implib,$(LIB_TARGET).a -lsetupapi
-
 CC = gcc
 MAKE = make
 CP = cp -a
@@ -21,7 +14,7 @@ WINDRES = windres
 VERSION_MAJOR = 0
 VERSION_MINOR = 1
 VERSION_MICRO = 7
-VERSION_NANO = 5
+VERSION_NANO = 8
 
 VERSION = $(VERSION_MAJOR).$(VERSION_MINOR).$(VERSION_MICRO).$(VERSION_NANO)
 RC_VERSION = $(VERSION_MAJOR),$(VERSION_MINOR),$(VERSION_MICRO),$(VERSION_NANO)
@@ -41,41 +34,47 @@ SRC_DIST_DIR = $(TARGET)-win32-src-$(VERSION)
 BIN_DIST_DIR = $(TARGET)-win32-bin-$(VERSION)
 
 DIST_SOURCE_FILES = ./src
-DIST_MISC_FILES = COPYING.LGPL COPYING.GPL AUTHORS build_drivers.bat
+DIST_MISC_FILES = COPYING_LGPL.txt COPYING_GPL.txt AUTHORS.txt NEWS.txt \
+	ChangeLog.txt
+
 SRC_DIR = ./src
 FILTER_SRC_DIR = $(SRC_DIR)/drivers/filter
 STUB_SRC_DIR = $(SRC_DIR)/drivers/stub
 
 VPATH = .:./src:./src/drivers/filter:./src/drivers/stub:./tests
 
+INCLUDES = -I./src -I./src/drivers/filter
+
+CFLAGS = -O2 
+CPPFLAGS = -D EOVERFLOW=139 
+
+LDFLAGS = -shared -Wl,--output-def,$(DLL_TARGET).def \
+	-Wl,--out-implib,$(LIB_TARGET).a -lsetupapi
+
+
 TEST_FILES = testlibusb.exe
 
-DDK_BUILD_CHECKED = 0
 BUILD_MSVC_LIB = 0
 BUILD_BCC_LIB = 0
 
 ifndef DDK_ROOT_PATH
-	DDK_ROOT_PATH = c:\WINDDK
-endif
-
-ifeq ($(DDK_BUILD_CHECKED), 1)
-	DDK_BUILD_STYLE = checked
-	BIN_DIST_DIR = $(TARGET)-win32-bin-checked-$(VERSION)
-else
-	DDK_BUILD_STYLE = free
-	BIN_DIST_DIR = $(TARGET)-win32-bin-free-$(VERSION)
+	DDK_ROOT_PATH = c:/WINDDK
 endif
 
 .PHONY: all
-all: $(DLL_TARGET).dll $(TEST_FILES) $(DRIVER_TARGETS) $(INF_FILES) README
+all: $(DLL_TARGET).dll $(TEST_FILES) $(DRIVER_TARGETS) $(INF_FILES) README.txt
 
 $(DLL_TARGET).dll: $(OBJECTS)
 	$(CC) -o $@ $^ $(LDFLAGS) 
 	$(STRIP) $@
-%.o:%.c
-	$(CC) -c $< -o $@ $(CFLAGS) $(INCLUDES) 
 
-README: README.in
+windows.o: windows.c
+	$(CC) -c $< -o $@ -Wall $(CFLAGS) $(CPPFLAGS) $(INCLUDES) 
+
+%.o:%.c
+	$(CC) -c $< -o $@ $(CFLAGS) $(CPPFLAGS) $(INCLUDES) 
+
+README.txt: README.in
 	sed 's/@VERSION@/$(VERSION)/' $< > $@
 
 resource.o: resource.rc.in
@@ -91,12 +90,13 @@ testlibusb.exe: testlibusb.o
 %.inf:%.inf.in
 	sed 's/@INF_VERSION@/$(INF_VERSION)/' $< > $@
 
+
 $(TARGET)fl.sys: $(TARGET)_stub.rc $(TARGET)_filter.rc $(INF_FILES)
 	$(MAKE) --win32 build_drivers
 
 .PHONY: build_drivers
 build_drivers:
-	call build_drivers.bat $(DDK_ROOT_PATH) $(DDK_BUILD_STYLE)
+	call build_drivers.bat $(DDK_ROOT_PATH)
 
 .PHONY: bcc_implib
 bcc_lib:
@@ -104,7 +104,7 @@ bcc_lib:
 
 .PHONY: msvc_lib
 msvc_lib:
-	lib /machine:i386 /def:$(DLL_TARGET).def 
+	$(DDK_ROOT_PATH)/bin/x86/lib.exe /machine:i386 /def:$(DLL_TARGET).def 
 	$(MV) $(DLL_TARGET).lib $(LIB_TARGET).lib
 
 .PHONY: bin_dist
@@ -134,9 +134,8 @@ ifeq ($(BUILD_MSVC_LIB), 1)
 	$(INSTALL) $(LIB_TARGET).lib $(BIN_DIST_DIR)/lib/msvc
 endif
 
-	$(INSTALL) $(DIST_MISC_FILES) README $(BIN_DIST_DIR)
-	$(TAR) -czf $(BIN_DIST_DIR).tgz $(BIN_DIST_DIR)
-	$(RM) $(BIN_DIST_DIR)
+	$(INSTALL) $(DIST_MISC_FILES) README.txt $(BIN_DIST_DIR)
+	$(TAR) -czf $(BIN_DIST_DIR).tar.gz $(BIN_DIST_DIR)
 
 .PHONY: src_dist
 src_dist:
@@ -147,7 +146,7 @@ src_dist:
 	$(INSTALL) $(SRC_DIR)/*.c $(SRC_DIST_DIR)/src
 	$(INSTALL) $(SRC_DIR)/*.h $(SRC_DIST_DIR)/src
 	$(INSTALL) $(SRC_DIR)/*.rc.in $(SRC_DIST_DIR)/src
-	$(INSTALL) ./tests/* $(SRC_DIST_DIR)/tests
+	$(INSTALL) ./tests/*.c $(SRC_DIST_DIR)/tests
 
 	$(INSTALL) $(SRC_DIR)/drivers/dirs $(SRC_DIST_DIR)/src/drivers
 	$(INSTALL) $(SRC_DIR)/drivers/usbd.lib $(SRC_DIST_DIR)/src/drivers
@@ -163,9 +162,10 @@ src_dist:
 	$(INSTALL) $(FILTER_SRC_DIR)/sources $(SRC_DIST_DIR)/src/drivers/filter
 	$(INSTALL) $(FILTER_SRC_DIR)/makefile $(SRC_DIST_DIR)/src/drivers/filter
 
-	$(INSTALL) $(DIST_MISC_FILES) README.in Makefile $(SRC_DIST_DIR)
-	$(TAR) -czf $(TARGET)-win32-src-$(VERSION).tgz $(SRC_DIST_DIR)
-	$(RM) $(SRC_DIST_DIR)
+	$(INSTALL) $(DIST_MISC_FILES) README.in Makefile build_drivers.bat \
+	build_all.sh $(SRC_DIST_DIR)
+
+	$(TAR) -czf $(TARGET)-win32-src-$(VERSION).tar.gz $(SRC_DIST_DIR) 
 
 .PHONY: dist
 dist: bin_dist src_dist
@@ -173,7 +173,7 @@ dist: bin_dist src_dist
 
 .PHONY: clean
 clean:	
-	$(RM) *.o *.dll *.a *.def *.exp *.lib *.exe *.tgz *.inf *~ \
+	$(RM) *.o *.dll *.a *.def *.exp *.lib *.exe *.tar.gz *.inf *~ \
 	./src/*~ *.sys \
 	$(SRC_DIR)/*.rc \
 	$(SRC_DIR)/drivers/*.log $(SRC_DIR)/drivers/i386 \
@@ -181,6 +181,9 @@ clean:
 	$(FILTER_SRC_DIR)/*_wxp_x86 \
 	$(STUB_SRC_DIR)/*~ $(STUB_SRC_DIR)/*.rc $(STUB_SRC_DIR)/*.log \
 	$(STUB_SRC_DIR)/*_wxp_x86 README
+	$(RM) $(SRC_DIST_DIR)
+	$(RM) $(BIN_DIST_DIR)
+
 
 
 .PHONY : install
@@ -188,7 +191,6 @@ install: $(DLL_TARGET).dll
 	$(INSTALL) -d $(INSTALL_DIR)/lib
 	$(INSTALL) -d $(INSTALL_DIR)/include
 	$(INSTALL) -d $(INSTALL_DIR)/bin
-	$(INSTALL) $(DLL_TARGET).dll $(INSTALL_DIR)/bin
 	$(INSTALL) $(LIB_TARGET).a $(INSTALL_DIR)/lib
 	$(INSTALL) $(SRC_DIR)/usb.h $(INSTALL_DIR)/include
 

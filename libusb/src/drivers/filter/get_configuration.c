@@ -23,11 +23,12 @@
 NTSTATUS get_configuration(libusb_device_extension *device_extension,
 			   int *configuration, int timeout)
 {
-  NTSTATUS m_status = STATUS_SUCCESS;
+  NTSTATUS status = STATUS_SUCCESS;
   URB urb;
   char tmp;
 
-  KdPrint(("LIBUSB_FILTER - get_configuration(): timeout %d\n", timeout));
+  debug_print_nl();
+  debug_printf(DEBUG_MSG, "get_configuration(): timeout %d", timeout);
 
   urb.UrbHeader.Function = URB_FUNCTION_GET_CONFIGURATION;
   urb.UrbHeader.Length = sizeof(struct _URB_CONTROL_GET_CONFIGURATION_REQUEST);
@@ -36,17 +37,19 @@ NTSTATUS get_configuration(libusb_device_extension *device_extension,
   urb.UrbControlGetConfigurationRequest.TransferBufferMDL = NULL; 
   urb.UrbControlGetConfigurationRequest.UrbLink = NULL; 
 
-  m_status = call_usbd(device_extension, &urb, 
+  status = call_usbd(device_extension, &urb, 
 		       IOCTL_INTERNAL_USB_SUBMIT_URB, timeout);
 
-  if(!NT_SUCCESS(m_status) || !USBD_SUCCESS(urb.UrbHeader.Status))
+  if(!NT_SUCCESS(status) || !USBD_SUCCESS(urb.UrbHeader.Status))
     {
-      KdPrint(("LIBUSB_FILTER - get_configuration(): getting configuration "
-	       "failed\n"));
-      return STATUS_UNSUCCESSFUL;
+      debug_printf(DEBUG_ERR, "get_configuration(): getting configuration "
+		   "failed");
     }
-
-  *configuration = (int)tmp;
-
-  return m_status;
+  else
+    {
+      *configuration = (int)tmp;
+      debug_printf(DEBUG_ERR, "get_configuration(): current config: %d",
+		   *configuration);
+    }
+  return status;
 }

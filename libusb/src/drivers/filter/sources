@@ -27,4 +27,5 @@ SOURCES = \
 	clear_feature.c \
 	get_status.c \
 	bulk_transfer.c \
-	vendor_request.c
+	vendor_request.c \
+	debug.c

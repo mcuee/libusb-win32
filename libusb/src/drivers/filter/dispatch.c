@@ -33,34 +33,25 @@ NTSTATUS __stdcall dispatch(DEVICE_OBJECT *device_object, IRP *irp)
 
   switch(IoGetCurrentIrpStackLocation(irp)->MajorFunction) 
     {
-      
     case IRP_MJ_PNP:
-
       status = dispatch_pnp(device_extension, irp);
-
       break;
       
     case IRP_MJ_POWER:
-
       PoStartNextPowerIrp(irp);
       IoSkipCurrentIrpStackLocation(irp);
       return PoCallDriver(device_extension->next_stack_device, irp);
       
     case IRP_MJ_CREATE:      
     case IRP_MJ_CLOSE:
-
       status = complete_irp(irp, STATUS_SUCCESS,0);
-
       break;
       
     case IRP_MJ_DEVICE_CONTROL:
-
       status = dispatch_ioctl(device_extension, irp);
-
       break;
     
     default:
-
       IoSkipCurrentIrpStackLocation(irp);
       status = IoCallDriver(device_extension->next_stack_device, irp);
     }

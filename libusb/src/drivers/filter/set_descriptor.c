@@ -25,15 +25,15 @@ NTSTATUS set_descriptor(libusb_device_extension *device_extension,
 			void *buffer, MDL *mdl_buffer, int size, int type, 
 			int index, int language_id, int *sent, int timeout)
 {
-  NTSTATUS m_status = STATUS_SUCCESS;
+  NTSTATUS status = STATUS_SUCCESS;
   URB urb;
 
-  KdPrint(("LIBUSB_FILTER - set_descriptor(): buffer size %d\n", size));
-  KdPrint(("LIBUSB_FILTER - set_descriptor(): type %04d\n", type));
-  KdPrint(("LIBUSB_FILTER - set_descriptor(): index %04d\n", index));
-  KdPrint(("LIBUSB_FILTER - set_descriptor(): language id %04d\n", 
-	   language_id));
-  KdPrint(("LIBUSB_FILTER - set_descriptor(): timeout %d\n", timeout));
+  debug_print_nl();
+  debug_printf(DEBUG_MSG, "set_descriptor(): buffer size %d", size);
+  debug_printf(DEBUG_MSG, "set_descriptor(): type %04d", type);
+  debug_printf(DEBUG_MSG, "set_descriptor(): index %04d", index);
+  debug_printf(DEBUG_MSG, "set_descriptor(): language id %04d", language_id);
+  debug_printf(DEBUG_MSG, "set_descriptor(): timeout %d", timeout);
 
   urb.UrbHeader.Function =  URB_FUNCTION_SET_DESCRIPTOR_TO_DEVICE;
   urb.UrbHeader.Length = sizeof(struct _URB_CONTROL_DESCRIPTOR_REQUEST);
@@ -45,17 +45,16 @@ NTSTATUS set_descriptor(libusb_device_extension *device_extension,
   urb.UrbControlDescriptorRequest.LanguageId = (USHORT)language_id;
   urb.UrbControlDescriptorRequest.UrbLink = NULL;
 	
-  m_status = call_usbd(device_extension, &urb, 
+  status = call_usbd(device_extension, &urb, 
 		       IOCTL_INTERNAL_USB_SUBMIT_URB, timeout);
   
-  if(!NT_SUCCESS(m_status) || !USBD_SUCCESS(urb.UrbHeader.Status))
+  if(!NT_SUCCESS(status) || !USBD_SUCCESS(urb.UrbHeader.Status))
     {
-      KdPrint(("LIBUSB_FILTER - set_descriptor(): setting descriptor "
-	       "failed\n"));
-      return STATUS_UNSUCCESSFUL;
+      debug_printf(DEBUG_ERR, "set_descriptor(): setting descriptor failed");
     }
-  
-  *sent = urb.UrbControlDescriptorRequest.TransferBufferLength;
-
-  return m_status;
+  else
+    {
+      *sent = urb.UrbControlDescriptorRequest.TransferBufferLength;
+    }
+  return status;
 }

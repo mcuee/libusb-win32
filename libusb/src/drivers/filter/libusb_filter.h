@@ -39,7 +39,6 @@
 
 #define LIBUSB_MAX_NUMBER_OF_ENDPOINTS  32
 #define LIBUSB_MAX_NUMBER_OF_INTERFACES 32
-#define LIBUSB_MAX_NUMBER_OF_DEVICES    1024
 
 #define LIBUSB_DEFAULT_TIMEOUT  5000   
 
@@ -50,6 +49,7 @@
 #ifndef TRUE
 #define TRUE (!FALSE)
 #endif
+
 
 typedef struct
 {
@@ -95,6 +95,7 @@ NTSTATUS call_usbd(libusb_device_extension *device_extension, void *urb,
 
 int get_pipe_handle(libusb_device_extension *device_extension, 
 		    int endpoint_address, USBD_PIPE_HANDLE *pipe_handle);
+void clear_pipe_info(libusb_device_extension *device_extension);
 int update_pipe_info(libusb_device_extension *device_extension, 
 		     int interface,
 		     USBD_INTERFACE_INFORMATION *interface_info);
@@ -130,7 +131,7 @@ NTSTATUS set_descriptor(libusb_device_extension *device_extension,
 			int type, int index, int language_id, 
 			int *sent, int timeout);
 NTSTATUS get_descriptor(libusb_device_extension *device_extension,
-			void *buffer,  MDL *mdl_buffer,int size, int type, 
+			void *buffer, int size, int type, 
 			int index, int language_id, int *sent, int timeout);
 NTSTATUS bulk_transfer(IRP *irp, libusb_device_extension *device_extension,
 		       int endpoint, MDL *buffer,
@@ -144,6 +145,11 @@ NTSTATUS abort_endpoint(libusb_device_extension *device_extension,
 NTSTATUS reset_endpoint(libusb_device_extension *device_extension,
 			int endpoint, int timeout);
 NTSTATUS reset_device(libusb_device_extension *device_extension, int timeout);
+
+
+void debug_print_nl(void);
+void debug_set_level(int level);
+void debug_printf(int level, char *format, ...);
 
 
 #endif
