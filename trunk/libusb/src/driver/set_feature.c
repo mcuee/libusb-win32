@@ -33,7 +33,7 @@ NTSTATUS set_feature(libusb_device_extension *device_extension,
   debug_printf(LIBUSB_DEBUG_MSG, "set_feature(): feature %04d", feature);
   debug_printf(LIBUSB_DEBUG_MSG, "set_feature(): timeout %d", timeout);
 
-  if(!device_extension->current_configuration && recipient != USB_RECIP_DEVICE)
+  if(!device_extension->configuration && recipient != USB_RECIP_DEVICE)
     {
       debug_printf(LIBUSB_DEBUG_MSG, "set_feature(): invalid "
                    "configuration 0"); 

@@ -32,7 +32,7 @@ NTSTATUS abort_endpoint(libusb_device_extension *device_extension,
                endpoint);
   debug_printf(LIBUSB_DEBUG_MSG, "abort_endpoint(): timeout %d\n", timeout);
 
-  if(!device_extension->current_configuration)
+  if(!device_extension->configuration)
     {
       debug_printf(LIBUSB_DEBUG_ERR, "abort_endpoint(): invalid "
                    "configuration 0");

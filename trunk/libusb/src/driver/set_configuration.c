@@ -38,12 +38,12 @@ NTSTATUS set_configuration(libusb_device_extension *device_extension,
                configuration);
   debug_printf(LIBUSB_DEBUG_MSG, "set_configuration(): timeout %d", timeout);
 
-  if(device_extension->current_configuration == configuration)
+  if(device_extension->configuration == configuration)
     {
       return STATUS_SUCCESS;
     }
 
-  memset(&urb, 0, sizeof(struct _URB_SELECT_CONFIGURATION));
+  memset(&urb, 0, sizeof(URB));
 
   if(!configuration)
     {
@@ -65,7 +65,7 @@ NTSTATUS set_configuration(libusb_device_extension *device_extension,
       device_extension->configuration_handle =
         urb.UrbSelectConfiguration.ConfigurationHandle;
      
-      device_extension->current_configuration = configuration;
+      device_extension->configuration = configuration;
 
       clear_pipe_info(device_extension);
       return status;
@@ -226,7 +226,7 @@ NTSTATUS set_configuration(libusb_device_extension *device_extension,
   device_extension->configuration_handle =
     urb_ptr->UrbSelectConfiguration.ConfigurationHandle;
   
-  device_extension->current_configuration = configuration;
+  device_extension->configuration = configuration;
 
   clear_pipe_info(device_extension);
 

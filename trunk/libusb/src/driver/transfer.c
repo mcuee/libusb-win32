@@ -25,7 +25,7 @@ typedef struct {
   IRP *main_irp;
   IRP *sub_irp;
   KEVENT event;
-  libusb_remove_lock *remove_lock; 
+  libusb_remove_lock_t *remove_lock; 
 } Context;
 
 
@@ -68,7 +68,7 @@ NTSTATUS transfer(IRP *irp, libusb_device_extension *device_extension,
   debug_printf(LIBUSB_DEBUG_MSG, "transfer(): size %d", size);
 
 
-  if(!device_extension->current_configuration)
+  if(!device_extension->configuration)
     {
       debug_printf(LIBUSB_DEBUG_ERR, "transfer(): invalid configuration 0");
       remove_lock_release(&device_extension->remove_lock);
@@ -159,7 +159,7 @@ NTSTATUS __stdcall transfer_complete(DEVICE_OBJECT *device_object, IRP *irp,
                                      void *context)
 {
   Context *c = (Context *)context;
-  libusb_remove_lock *lock = c->remove_lock;
+  libusb_remove_lock_t *lock = c->remove_lock;
   int transmitted = 0;
   KIRQL irql;
   PDRIVER_CANCEL cancel;
@@ -216,7 +216,7 @@ NTSTATUS __stdcall transfer_complete(DEVICE_OBJECT *device_object, IRP *irp,
 void __stdcall transfer_cancel(DEVICE_OBJECT *device_object, IRP *irp)
 {
   Context *c = (Context *)irp->Tail.Overlay.DriverContext[0];
-  libusb_remove_lock *lock = c->remove_lock;
+  libusb_remove_lock_t *lock = c->remove_lock;
  
   IoReleaseCancelSpinLock(irp->CancelIrql);
 

@@ -37,7 +37,7 @@ NTSTATUS set_interface(libusb_device_extension *device_extension,
   debug_printf(LIBUSB_DEBUG_MSG, "set_interface(): altsetting %d", altsetting);
   debug_printf(LIBUSB_DEBUG_MSG, "set_interface(): timeout %d", timeout);
 
-  if(!device_extension->current_configuration)
+  if(!device_extension->configuration)
     {
       debug_printf(LIBUSB_DEBUG_ERR, "set_interface(): invalid "
                    "configuration 0"); 
@@ -58,7 +58,7 @@ NTSTATUS set_interface(libusb_device_extension *device_extension,
                           configuration_descriptor,
                           sizeof(USB_CONFIGURATION_DESCRIPTOR), 
                           USB_CONFIGURATION_DESCRIPTOR_TYPE,
-                          device_extension->current_configuration - 1,
+                          device_extension->configuration - 1,
                           0, &junk, LIBUSB_DEFAULT_TIMEOUT);
 
   if(!NT_SUCCESS(status))
@@ -87,7 +87,7 @@ NTSTATUS set_interface(libusb_device_extension *device_extension,
                           configuration_descriptor,
                           config_full_size, 
                           USB_CONFIGURATION_DESCRIPTOR_TYPE,
-                          device_extension->current_configuration - 1,
+                          device_extension->configuration - 1,
                           0, &junk, LIBUSB_DEFAULT_TIMEOUT);
   if(!NT_SUCCESS(status))
     {

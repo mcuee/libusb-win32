@@ -71,20 +71,20 @@ typedef struct
   long usage_count;
   int remove_pending;
   KEVENT event;
-} libusb_remove_lock;
+} libusb_remove_lock_t;
 
 typedef struct
 {
   int address;
   USBD_PIPE_HANDLE handle;
-} libusb_endpoint_info;
+} libusb_endpoint_info_t;
 
 typedef struct
 {
   int valid;
   int claimed;
-  libusb_endpoint_info endpoints[LIBUSB_MAX_NUMBER_OF_ENDPOINTS];
-} libusb_interface_info;
+  libusb_endpoint_info_t endpoints[LIBUSB_MAX_NUMBER_OF_ENDPOINTS];
+} libusb_interface_info_t;
 
 typedef struct
 {
@@ -97,11 +97,11 @@ typedef struct
   LONG is_control_object;
   LONG ref_count;
   LONG is_started;
-  libusb_remove_lock remove_lock; 
+  libusb_remove_lock_t remove_lock; 
   USBD_CONFIGURATION_HANDLE configuration_handle;
-  int current_configuration;
+  int configuration;
   int device_id;
-  libusb_interface_info interface_info[LIBUSB_MAX_NUMBER_OF_INTERFACES];
+  libusb_interface_info_t interfaces[LIBUSB_MAX_NUMBER_OF_INTERFACES];
 } libusb_device_extension;
 
 
@@ -130,10 +130,10 @@ int is_device_visible(libusb_device_extension *device_extension);
 NTSTATUS control_object_create(libusb_device_extension *device_extension);
 void control_object_delete(libusb_device_extension *device_extension);
 
-void remove_lock_initialize(libusb_remove_lock *remove_lock);
-NTSTATUS remove_lock_acquire(libusb_remove_lock *remove_lock);
-void remove_lock_release(libusb_remove_lock *remove_lock);
-void remove_lock_release_and_wait(libusb_remove_lock *remove_lock);
+void remove_lock_initialize(libusb_remove_lock_t *remove_lock);
+NTSTATUS remove_lock_acquire(libusb_remove_lock_t *remove_lock);
+void remove_lock_release(libusb_remove_lock_t *remove_lock);
+void remove_lock_release_and_wait(libusb_remove_lock_t *remove_lock);
 
 int get_device_id(libusb_device_extension *device_extension);
 void release_device_id(libusb_device_extension *device_extension);

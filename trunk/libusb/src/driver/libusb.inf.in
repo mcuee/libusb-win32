@@ -46,7 +46,7 @@ HKR,,Icon,,"-20"
 
 [Strings]
 libusb-win32 = "http://libusb-win32.sourceforge.net"
-class_display_name = "LibUSB-Win32 Devices"
+class_display_name = "LibUSB-Win32 Devices test"
 
 ;------------------------------------------------------------------------------
 ; Device descriptions, modify this section to match your device(s)
