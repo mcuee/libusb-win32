@@ -1,0 +1,13 @@
+*.inf
+*.rc
+*.tgz
+README
+*~
+*.sys
+*.exe
+*.lib
+*.a
+*.o
+*.dll
+./src/drivers/*.log
+i386

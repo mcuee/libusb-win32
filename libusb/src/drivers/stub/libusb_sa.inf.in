@@ -1,0 +1,56 @@
+[Version]
+Signature="$Chicago$"
+Class=USB
+provider=%libusb-win32%
+LayoutFile=layout.inf
+DriverVer=@INF_VERSION@
+
+[Manufacturer]
+%libusb-win32%=libusb-win32
+
+[libusb-win32]
+"LibUSB Sample Device"=LIBUSB_STUB.Dev, USB\VID_0547&PID_2131
+
+[PreCopySection]
+HKR,,NoSetupUI,,1
+
+[DestinationDirs]
+LIBUSB_STUB.Files.Sys = 10,System32\Drivers
+LIBUSB_STUB.Files.Inf = 10,Inf
+LIBUSB_STUB.Files.Dll = 10,System32
+
+[LIBUSB_STUB.Files.Sys]
+libusbst.sys
+
+[LIBUSB_STUB.Files.Inf]
+libusb_sa.inf
+
+[LIBUSB_STUB.Files.Dll]
+libusb0.dll
+
+[LIBUSB_STUB.Dev]
+CopyFiles=LIBUSB_STUB.Files.Sys, LIBUSB_STUB.Files.Inf, LIBUSB_STUB.Files.Dll
+AddReg=LIBUSB_STUB.AddReg
+
+[LIBUSB_STUB.Dev.NT]
+CopyFiles=LIBUSB_STUB.Files.Sys, LIBUSB_STUB.Files.Inf, LIBUSB_STUB.Files.Dll
+AddReg=LIBUSB_STUB.AddReg
+
+[LIBUSB_STUB.Dev.NT.Services]
+Addservice=LibUsbStub, 0x00000002, LIBUSB_STUB.AddService
+
+[LIBUSB_STUB.AddService]
+DisplayName    = "LibUSB-Win32 - Stub Driver"
+ServiceType    = 1
+StartType      = 2
+ErrorControl   = 0
+ServiceBinary  = %12%\libusbst.sys
+LoadOrderGroup = Base
+
+[LIBUSB_STUB.AddReg]
+HKR,,DevLoader,,*ntkern
+HKR,,NTMPDriver,,libusbst.sys
+
+[Strings]
+libusb-win32="http://libusb-win32.sourceforge.net"
+

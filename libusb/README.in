@@ -1,0 +1,158 @@
+General Information
+===================
+
+This is libusb-win32 version @VERSION@. libusb-win32 is a library which allows
+userspace application access to USB devices on Windows operation systems 
+(Win98, WinMe, Win2k, WinXP). 
+It is derived from and fully API compatible to libusb available at 
+http://libusb.sourceforge.net.
+
+The official ftp site is:
+  ftp://ftp.libusb-win32.sourceforge.net/pub/libusb/
+
+The official web site is:
+  http://libusb-win32.sourceforge.net/
+
+A mailing list is located at:
+  libusb-win32-devel@sourceforge.net
+
+
+The package consists of the following components:
+
+* An USB class filter driver (libusbfl.sys) which allows access to all 
+  installed USB devices except root hubs and host controllers.
+
+* An USB device driver stub (libusbst.sys) which does, as the name indicates,
+  nothing really interresting. The only purpose of this driver is to install
+  USB devices for which no driver excists (self build/developed USB hardware,
+  etc.). All communication with these devices is done through the filter
+  driver. 
+
+* Two inf-files to install the above drivers.
+
+* A user space library to access the filter driver. 
+
+
+Copying
+=======
+
+* The DLL is distributed under the LGPL. See file COPYING.LGPL for details.
+
+* The drivers are distributed under the GPL. See file COPYING.GPL for details.
+
+
+Building
+========
+
+* Requirements
+
+   - Win2k or XP system.
+   - The XP-DDK (Win2k-DDK could work, but has not been tested).
+   - MinGW/Msys (http://www.mingw.org), Cygwin is not working yet.
+   - Microsoft Visual C++ and Borland C++ Builder to build the import libraries
+     for these compilers (optional). Make sure, that the compilers binary 
+     directories are in the systems search path. 
+     A free command line version of BCC can be downloaded from 
+     http://www.borland.com.
+
+* Build process
+
+  The package is currently build with a standard Makefile, no autoconf/automake
+  scripts are available yet.
+
+   - From an Msys shell run the following commands (replace 'DDKDIR' with 
+     your DDK's root directory): 
+     'make DDK_PATH=c:/DDKDIR' to build the DLL, inf-files and 'free'
+     versions of the drivers, or
+     'make DDK_PATH=c:/DDKDIR DDK_BUILD_CHECKED=1' to build the same as above
+     but 'checked' versions of the drivers. These 'checked' produce useful
+     debug messages at runtime, which can be captured using 'DebugView'
+     available from http://www.sysinternals.com.
+   - To build the distribution archives use 'make dist'. The options
+     'BUILD_BCC_LIB=1' and/or 'BUILD_MSVC_LIB=1' can be added to build and
+     include import libraries for Borland and/or Microsoft compilers.
+
+
+Installation
+============
+
+* Installation of the filter driver
+ 
+   - Build the package as described above, or download a binary package from
+     the project site.
+   - Right click on the file 'libusb_fl.inf'. From the appearing popup menu 
+     choose "Install" to install the driver and it's DLL. 
+   - Reboot your system to make the driver work.
+   - Test the installation by running the supplied test programm 
+     'testlibusb.exe' from a console window (Msys, Cygwin, cmd, command).
+     If everything works, the program should print out the USB descriptors of 
+     all USB devices connected to the system (USB host controllers and root 
+     hubs are excluded from that list).
+
+* Installation of the stub driver (optional)
+
+   - Install the filter driver as described above.
+   - Rename and edit the sample inf-file 'libusb_sa.inf', so that it fits your
+     device (modify the vendor and product IDs, strings, etc.). 
+     Create different inf-files to install different types of devices (devices
+     with different IDs).
+   - Connect the device.
+   - When Windows asks for a driver, choose the inf-file created above. On
+     Win2k and WinXP systems Windows will warn you, that the driver is not 
+     'digitally signed'. Ignore this stupid message and continue the 
+     installation.
+   - Open the Windows Device Manager to verify that the device is installed 
+     correctly.
+   - Run the test program as decribed above. The device should now be included
+     in the list.
+
+Documentation
+=============
+
+There is no documentation available yet, accept this file. Use the API
+documentation from the main libusb project site at 
+http://libusb.sourceforge.net
+
+
+How to report bugs
+==================
+
+To report a bug, visit http://www.sourceforge.net/projects/libusb-win32/ 
+and fill out a bug report form.
+
+Please make sure to include:
+
+* The version of libusb-win32
+
+* Information about your system. For instance:
+
+   - What operating system and version
+   - What DDK version
+
+  And anything else you think is relevant.
+
+* How to reproduce the bug. 
+
+  If you can reproduce it with the 'testlibusb.exe' program that is built 
+  in the libusb-win32/ directory, that will be most convenient.  Otherwise, 
+  please include a short test program that exhibits the behavior. 
+  As a last resort, you can also provide a pointer to a larger piece 
+  of software that can be downloaded.
+
+* If the bug was a crash, the exact text that was printed out
+  when the crash occured.
+
+* Further information such as stack traces may be useful, but
+  is not necessary.
+
+
+Patches
+=======
+
+Patches can be sent to libusb-win32-devel@sourceforge.net.
+
+If the patch fixes a bug, it is usually a good idea to include
+all the information described in "How to Report Bugs".
+
+
+

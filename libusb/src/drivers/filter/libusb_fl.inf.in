@@ -1,0 +1,46 @@
+[Version]
+Signature="$Chicago$"
+
+DriverVer=@INF_VERSION@
+
+provider=%libusb-win32%
+
+[DestinationDirs]
+LIBUSB_FILTER.Files.Sys = 10,System32\Drivers
+LIBUSB_FILTER.Files.Dll = 10,System32
+
+[LIBUSB_FILTER.Files.Sys]
+libusbfl.sys
+
+[LIBUSB_FILTER.Files.Dll]
+libusb0.dll
+
+[DefaultInstall]
+CopyFiles = LIBUSB_FILTER.Files.Sys, LIBUSB_FILTER.Files.Dll
+AddReg = LIBUSB_FILTER_AddReg
+
+[DefaultInstall.NT]
+CopyFiles = LIBUSB_FILTER.Files.Sys, LIBUSB_FILTER.Files.Dll
+AddReg = LIBUSB_FILTER_AddReg_NT
+
+[LIBUSB_FILTER_AddReg]
+HKLM, System\CurrentControlSet\Services\Class\USB,  LowerFilters, 0x00000000, libusbfl.sys
+
+[LIBUSB_FILTER_AddReg_NT]
+HKLM, System\CurrentControlSet\Control\Class\{36FC9E60-C465-11CF-8056-444553540000}, LowerFilters, 0x00010008, libusbfl
+
+
+[DefaultInstall.NT.Services]
+AddService = libusbfl, , libusbfltr_Service_Inst
+
+
+[libusbfltr_Service_Inst]
+DisplayName    = "LibUSB-Win32 - Filter Driver"
+ServiceType    = 1
+StartType      = 3
+ErrorControl   = 0
+ServiceBinary  = %12%\libusbfl.sys
+
+
+[Strings]
+libusb-win32="http://libusb-win32.sourceforge.net"
