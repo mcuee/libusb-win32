@@ -30,27 +30,9 @@
 
 #include "registry.h"
 
-#define ID_DIALOG_0 10000
-#define ID_DIALOG_1 10001
-#define ID_DIALOG_2 10002
-#define ID_DIALOG_3 10003
+#define __INF_WIZARD_C__
+#include "inf_wizard_rc.rc"
 
-#define ID_BUTTON_CANCEL 10003
-#define ID_BUTTON_NEXT   10004
-#define ID_BUTTON_BACK   10005
-
-#define ID_LIST 10006
-
-#define ID_TEXT_VID 10007
-#define ID_TEXT_PID 10008
-#define ID_TEXT_MANUFACTURER 10009
-#define ID_TEXT_DEV_NAME 10010
-
-#define ID_DUMMY 10011
-#define ID_INFO_TEXT 10012
-#define ID_LIST_HEADER_TEXT 10013
-
-#define LIBUSB_WINDOW_CLASS "LIBUSB_WINDOW_CLASS"
 
 #define STRINGIFY(x) #x
 #define STRINGIFYVALUE(x) STRINGIFY(x)
@@ -179,11 +161,7 @@ typedef struct {
   char manufacturer[MAX_PATH];
 } device_context_t;
 
-static HWND main_win;
 
-
-LRESULT CALLBACK win_proc(HWND handle, UINT message, WPARAM w_param, 
-                          LPARAM l_param);
 BOOL CALLBACK dialog_proc_0(HWND dialog, UINT message, 
                             WPARAM w_param, LPARAM l_param);
 BOOL CALLBACK dialog_proc_1(HWND dialog, UINT message, 
@@ -204,40 +182,11 @@ int APIENTRY WinMain(HINSTANCE instance, HINSTANCE prev_instance,
                      LPSTR cmd_line, int cmd_show)
 {
   MSG msg;
-  WNDCLASSEX win_class;
   int next_dialog;
   device_context_t device;
 
   LoadLibrary("comctl32.dll");
   InitCommonControls();
-
-  win_class.cbSize = sizeof(WNDCLASSEX); 
-  
-  win_class.style = CS_HREDRAW | CS_VREDRAW;
-  win_class.lpfnWndProc = win_proc;
-  win_class.cbClsExtra = 0;
-  win_class.cbWndExtra = 0;
-  win_class.hInstance = instance;
-  win_class.hIcon = NULL;
-  win_class.hCursor = LoadCursor(NULL, IDC_ARROW);
-  win_class.hbrBackground = (HBRUSH)(COLOR_3DFACE + 1);
-  win_class.lpszMenuName = NULL;
-  win_class.lpszClassName = LIBUSB_WINDOW_CLASS;
-  win_class.hIconSm = NULL;
-
-  RegisterClassEx(&win_class);
-
-  main_win = CreateWindowEx(WS_EX_APPWINDOW | WS_EX_CONTROLPARENT,
-                            LIBUSB_WINDOW_CLASS, 
-                            "LibUSB-Win32 - .inf File Wizard", 
-                            WS_OVERLAPPEDWINDOW | WS_CLIPCHILDREN 
-                            | WS_DLGFRAME,
-                            CW_USEDEFAULT, 0, 500, 500, NULL, NULL, 
-                            instance, NULL);
-  if(!main_win) 
-    {
-      return FALSE;
-    }
 
   memset(&device, 0, sizeof(device));
 
@@ -250,25 +199,26 @@ int APIENTRY WinMain(HINSTANCE instance, HINSTANCE prev_instance,
           case ID_DIALOG_0:
             next_dialog = DialogBoxParam(instance, 
                                          MAKEINTRESOURCE(next_dialog), 
-                                         main_win, dialog_proc_0,
+                                         NULL, dialog_proc_0,
                                          (LPARAM)&device);
+
             break;
           case ID_DIALOG_1:
             next_dialog = DialogBoxParam(instance, 
                                          MAKEINTRESOURCE(next_dialog), 
-                                         main_win, dialog_proc_1,
+                                         NULL, dialog_proc_1,
                                          (LPARAM)&device);
             break;
           case ID_DIALOG_2:
             next_dialog = DialogBoxParam(instance, 
                                          MAKEINTRESOURCE(next_dialog), 
-                                         main_win, dialog_proc_2,
+                                         NULL, dialog_proc_2,
                                          (LPARAM)&device);
             break;
           case ID_DIALOG_3:
             next_dialog = DialogBoxParam(instance, 
                                          MAKEINTRESOURCE(next_dialog), 
-                                         main_win, dialog_proc_3,
+                                         NULL, dialog_proc_3,
                                          (LPARAM)&device);
             break;
         default:
@@ -284,26 +234,9 @@ int APIENTRY WinMain(HINSTANCE instance, HINSTANCE prev_instance,
       DispatchMessage(&msg);
     }
 
-  DestroyWindow(main_win);
-  UnregisterClass(LIBUSB_WINDOW_CLASS, instance);
-
   return msg.wParam;
 }
 
-
-LRESULT CALLBACK win_proc(HWND win, UINT message, WPARAM w_param, 
-                          LPARAM l_param)
-{
-  switch(message) 
-    {
-    case WM_DESTROY:
-      PostQuitMessage(0);
-      break;
-    default:
-      ;
-    }
-  return DefWindowProc(win, message, w_param, l_param );
-}
 
 BOOL CALLBACK dialog_proc_0(HWND dialog, UINT message, 
                                WPARAM w_param, LPARAM l_param)
@@ -321,6 +254,7 @@ BOOL CALLBACK dialog_proc_0(HWND dialog, UINT message,
           EndDialog(dialog, ID_DIALOG_1);
           return TRUE ;
         case ID_BUTTON_CANCEL:
+        case IDCANCEL:
           EndDialog(dialog, 0);
           return TRUE ;
         }
@@ -434,6 +368,7 @@ BOOL CALLBACK dialog_proc_1(HWND dialog, UINT message,
           return TRUE ;
 
         case ID_BUTTON_CANCEL:
+        case IDCANCEL:
           device_list_clean(list);
           if(notification_handle_hub)
             UnregisterDeviceNotification(notification_handle_hub);
@@ -499,6 +434,7 @@ BOOL CALLBACK dialog_proc_2(HWND dialog, UINT message,
           EndDialog(dialog, ID_DIALOG_1);
           return TRUE ;
         case ID_BUTTON_CANCEL:
+        case IDCANCEL:
           EndDialog(dialog, 0);
           return TRUE ;
         }
@@ -534,8 +470,10 @@ BOOL CALLBACK dialog_proc_3(HWND dialog, UINT message,
       return TRUE;
       
     case WM_COMMAND:
-      if(LOWORD(w_param) == ID_BUTTON_NEXT)
+      switch(LOWORD(w_param))
         {
+        case ID_BUTTON_NEXT:
+        case IDCANCEL:
           EndDialog(dialog, 0);
           return TRUE ;
         }
