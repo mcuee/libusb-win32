@@ -36,10 +36,16 @@ NTSTATUS set_configuration(libusb_device_extension *device_extension,
 	       configuration);
   debug_printf(DEBUG_MSG, "set_configuration(): timeout %d", timeout);
 
+  if(device_extension->current_configuration == configuration)
+    {
+      return STATUS_SUCCESS;
+    }
+
   if(!configuration)
     {
       UsbBuildSelectConfigurationRequest
-	(&urb,
+	(
+	 &urb,
 	 sizeof(struct _URB_SELECT_CONFIGURATION), 
 	 NULL);
 
@@ -63,22 +69,22 @@ NTSTATUS set_configuration(libusb_device_extension *device_extension,
     }
 
   status = get_descriptor(device_extension,
-			    &device_descriptor,
-			    sizeof(USB_DEVICE_DESCRIPTOR), 
-			    USB_DEVICE_DESCRIPTOR_TYPE,
-			    0, 0, &junk, LIBUSB_DEFAULT_TIMEOUT);  
+			  &device_descriptor,
+			  sizeof(USB_DEVICE_DESCRIPTOR), 
+			  USB_DEVICE_DESCRIPTOR_TYPE,
+			  0, 0, &junk, LIBUSB_DEFAULT_TIMEOUT);  
 
   if(!NT_SUCCESS(status))
     {
       debug_printf(DEBUG_ERR, "set_configuration(): getting device "
-	       "descriptor failed");
+		   "descriptor failed");
       return status;
     }
 
   if(device_descriptor.bNumConfigurations < configuration)
     {
       debug_printf(DEBUG_ERR, "set_configuration(): invalid configuration "
-	       "%d", configuration);
+		   "%d", configuration);
       return STATUS_INVALID_PARAMETER;
     }
 

@@ -50,7 +50,18 @@ NTSTATUS __stdcall dispatch(DEVICE_OBJECT *device_object, IRP *irp)
     case IRP_MJ_DEVICE_CONTROL:
       status = dispatch_ioctl(device_extension, irp);
       break;
-    
+
+    case IRP_MJ_INTERNAL_DEVICE_CONTROL:
+      if(IoGetCurrentIrpStackLocation(irp)
+	 ->Parameters.DeviceIoControl.IoControlCode 
+	 == IOCTL_INTERNAL_USB_SUBMIT_URB)
+	{
+	  IoCopyCurrentIrpStackLocationToNext(irp);
+	  IoSetCompletionRoutine(irp, on_internal_ioctl_complete, NULL, 
+				 TRUE, TRUE, TRUE);
+	  return IoCallDriver(device_extension->next_stack_device, irp);
+	}
+
     default:
       IoSkipCurrentIrpStackLocation(irp);
       status = IoCallDriver(device_extension->next_stack_device, irp);
