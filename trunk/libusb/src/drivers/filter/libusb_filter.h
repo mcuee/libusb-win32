@@ -113,7 +113,6 @@ void remove_lock_release_and_wait(libusb_remove_lock *remove_lock);
 int get_device_id(libusb_device_extension *device_extension);
 void release_device_id(libusb_device_extension *device_extension);
 
-
 NTSTATUS set_configuration(libusb_device_extension *device_extension,
 			   int configuration, int timeout);
 NTSTATUS get_configuration(libusb_device_extension *device_extension,
@@ -138,6 +137,10 @@ NTSTATUS get_descriptor(libusb_device_extension *device_extension,
 NTSTATUS bulk_int_transfer(IRP *irp, libusb_device_extension *device_extension,
 			   int endpoint, MDL *buffer,
 			   int size, int direction);
+NTSTATUS isochronous_transfer(IRP *irp, 
+			      libusb_device_extension *device_extension,
+			      int endpoint, int packet_size, MDL *buffer,
+			      int size, int direction);
 NTSTATUS vendor_class_request(libusb_device_extension *device_extension,
 			      int type, int recipient,
 			      int request, int value, int index,
@@ -151,13 +154,6 @@ NTSTATUS reset_device(libusb_device_extension *device_extension, int timeout);
 
 NTSTATUS on_internal_ioctl_complete(DEVICE_OBJECT *device_object, IRP *irp,
 				    void *context);
-NTSTATUS on_device_usage_notification_complete(DEVICE_OBJECT *device_object,
-					       IRP *irp,
-					       void *context);
-NTSTATUS on_start_complete(DEVICE_OBJECT *device_object, IRP *irp, 
-			   void *context);
-NTSTATUS on_usbd_complete(DEVICE_OBJECT *device_object, IRP *irp, 
-			   void *context);
 
 void debug_print_nl(void);
 void debug_set_level(int level);

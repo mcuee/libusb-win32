@@ -162,15 +162,15 @@ int APIENTRY WinMain(HINSTANCE instance, HINSTANCE prev_instance,
 
   on_refresh();
 
-/*   dev_if.dbcc_size = sizeof(dev_if); */
-/*   dev_if.dbcc_devicetype = DBT_DEVTYP_DEVICEINTERFACE; */
-/*   dev_if.dbcc_classguid = GUID_DEVINTERFACE_USB_HUB; */
+  dev_if.dbcc_size = sizeof(dev_if);
+  dev_if.dbcc_devicetype = DBT_DEVTYP_DEVICEINTERFACE;
+  dev_if.dbcc_classguid = GUID_DEVINTERFACE_USB_HUB;
 
-/*   notification_handle_hub = RegisterDeviceNotification(main_win, &dev_if, 0); */
+  notification_handle_hub = RegisterDeviceNotification(main_win, &dev_if, 0);
 
-/*   dev_if.dbcc_classguid = GUID_DEVINTERFACE_USB_DEVICE; */
+  dev_if.dbcc_classguid = GUID_DEVINTERFACE_USB_DEVICE;
 
-/*   notification_handle_dev = RegisterDeviceNotification(main_win, &dev_if, 0); */
+  notification_handle_dev = RegisterDeviceNotification(main_win, &dev_if, 0);
 
   while(GetMessage(&msg, NULL, 0, 0) ) 
     {
@@ -214,22 +214,22 @@ LRESULT CALLBACK win_proc(HWND win, UINT message, WPARAM w_param,
 	}
       break;
 
-/*     case WM_DEVICECHANGE: */
+    case WM_DEVICECHANGE:
       
-/*       switch(w_param) */
-/* 	{ */
-/* 	case DBT_DEVICEREMOVECOMPLETE: */
-/* 	  if(hdr->dbch_devicetype == DBT_DEVTYP_DEVICEINTERFACE)  */
-/* 	    on_refresh(); */
-/* 	  break; */
-/* 	case DBT_DEVICEARRIVAL: */
-/* 	  if(hdr->dbch_devicetype == DBT_DEVTYP_DEVICEINTERFACE) */
-/* 	    on_refresh(); */
-/* 	  break; */
-/* 	default: */
-/* 	  ; */
-/* 	} */
-/*       break; */
+      switch(w_param)
+	{
+	case DBT_DEVICEREMOVECOMPLETE:
+	  if(hdr->dbch_devicetype == DBT_DEVTYP_DEVICEINTERFACE) 
+	    on_refresh();
+	  break;
+	case DBT_DEVICEARRIVAL:
+	  if(hdr->dbch_devicetype == DBT_DEVTYP_DEVICEINTERFACE)
+	    on_refresh();
+	  break;
+	default:
+	  ;
+	}
+      break;
     default:
       return DefWindowProc(win, message, w_param, l_param );
     }

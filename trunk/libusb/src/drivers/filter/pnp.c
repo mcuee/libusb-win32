@@ -19,6 +19,13 @@
 
 #include "libusb_filter.h"
 
+static NTSTATUS on_start_complete(DEVICE_OBJECT *device_object, IRP *irp, 
+				  void *context);
+
+static NTSTATUS 
+on_device_usage_notification_complete(DEVICE_OBJECT *device_object,
+				      IRP *irp,
+				      void *context);
 
 NTSTATUS dispatch_pnp(libusb_device_extension *device_extension, IRP *irp)
 {
@@ -77,6 +84,9 @@ NTSTATUS dispatch_pnp(libusb_device_extension *device_extension, IRP *irp)
 		   "IRP_MN_QUERY_REMOVE_DEVICE");
       break;
     case IRP_MN_DEVICE_USAGE_NOTIFICATION:
+      debug_printf(LIBUSB_DEBUG_MSG, "dispatch_pnp(): "
+		   "IRP_MN_DEVICE_USAGE_NOTIFICATION");
+
       if((device_extension->self->AttachedDevice == NULL) ||
 	 (device_extension->self->AttachedDevice->Flags & DO_POWER_PAGABLE))
 	{
@@ -99,3 +109,46 @@ NTSTATUS dispatch_pnp(libusb_device_extension *device_extension, IRP *irp)
   return IoCallDriver(device_extension->next_stack_device, irp);
 }
 
+static NTSTATUS on_start_complete(DEVICE_OBJECT *device_object, IRP *irp, 
+				  void *context)
+{
+  libusb_device_extension *device_extension
+    = (libusb_device_extension *)device_object->DeviceExtension;
+
+  if(irp->PendingReturned)
+    {
+      IoMarkIrpPending(irp);
+    }
+  
+  if(NT_SUCCESS(irp->IoStatus.Status)) 
+    {
+      if(device_extension->next_stack_device->Characteristics 
+	 & FILE_REMOVABLE_MEDIA) 
+	{
+	  device_object->Characteristics |= FILE_REMOVABLE_MEDIA;
+        }
+    }
+  
+  return STATUS_SUCCESS;
+}
+
+static NTSTATUS 
+on_device_usage_notification_complete(DEVICE_OBJECT *device_object,
+				      IRP *irp,
+				      void *context)
+{
+  libusb_device_extension *device_extension
+    = (libusb_device_extension *)device_object->DeviceExtension;
+
+  if(irp->PendingReturned)
+    {
+      IoMarkIrpPending(irp);
+    }
+
+  if(!(device_extension->next_stack_device->Flags & DO_POWER_PAGABLE))
+    {
+        device_object->Flags &= ~DO_POWER_PAGABLE;
+    }
+
+  return STATUS_SUCCESS;
+}

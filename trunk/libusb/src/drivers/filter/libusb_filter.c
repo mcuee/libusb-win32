@@ -26,6 +26,9 @@ static struct {
   int is_used[LIBUSB_MAX_NUMBER_OF_DEVICES];
 } device_ids;
 
+static NTSTATUS on_usbd_complete(DEVICE_OBJECT *device_object, IRP *irp, 
+				 void *context);
+
 NTSTATUS __stdcall DriverEntry(DRIVER_OBJECT *driver_object,
 			       UNICODE_STRING *registry_path)
 {
@@ -136,17 +139,18 @@ NTSTATUS call_usbd(libusb_device_extension *device_extension, void *urb,
   NTSTATUS status = STATUS_SUCCESS;
   IRP *irp;
   IO_STACK_LOCATION *next_irp_stack;
-  
+  LARGE_INTEGER _timeout;
+
   KeInitializeEvent(&event, NotificationEvent, FALSE);
 
   irp = IoBuildDeviceIoControlRequest(control_code, 
 				      device_extension->next_stack_device,
 				      NULL, 0, NULL, 0, TRUE, 
-				      &event, &io_status);
+				      NULL, &io_status);
 
   if(!irp)
     {
-      return STATUS_UNSUCCESSFUL;
+      return STATUS_INSUFFICIENT_RESOURCES;
     }
 
   next_irp_stack = IoGetNextIrpStackLocation(irp);
@@ -154,14 +158,12 @@ NTSTATUS call_usbd(libusb_device_extension *device_extension, void *urb,
   next_irp_stack->Parameters.Others.Argument2 = NULL;
 
 
-  IoSetCompletionRoutine(irp, on_usbd_complete, (PVOID)&event, TRUE, TRUE,
-			 TRUE); 
+  IoSetCompletionRoutine(irp, on_usbd_complete, &event, TRUE, TRUE, TRUE); 
   status = IoCallDriver(device_extension->next_stack_device, irp);
   
 
   if(status == STATUS_PENDING)
     {
-      LARGE_INTEGER _timeout;
       _timeout.QuadPart = -(timeout * 10000);
       
       if(timeout)
@@ -169,7 +171,7 @@ NTSTATUS call_usbd(libusb_device_extension *device_extension, void *urb,
 	  status = KeWaitForSingleObject(&event, Executive, KernelMode,
 					 FALSE, &_timeout);
 	}
-      else
+      else /* wait forever */
 	{
 	  status = KeWaitForSingleObject(&event, Executive, KernelMode,
 					 FALSE, NULL);
@@ -177,16 +179,16 @@ NTSTATUS call_usbd(libusb_device_extension *device_extension, void *urb,
 
       if(status == STATUS_TIMEOUT)
 	{
-	  debug_printf(LIBUSB_DEBUG_WARN, "call_usbd(): request timed out");
+	  debug_printf(LIBUSB_DEBUG_ERR, "call_usbd(): request timed out");
 	  IoCancelIrp(irp);
 	  KeWaitForSingleObject(&event, Executive, KernelMode, FALSE, NULL);
 	  status = STATUS_CANCELLED;
 	}
     }
 
-  KeClearEvent(&event);
+  KeWaitForSingleObject(&event, Executive, KernelMode, FALSE, NULL);
   IoCompleteRequest(irp, IO_NO_INCREMENT);
-  KeWaitForSingleObject(&event, Executive, KernelMode, FALSE, NULL); 
+
   return status;
 }
 
@@ -480,51 +482,9 @@ void release_device_id(libusb_device_extension *device_extension)
     }
 }
 
-NTSTATUS on_device_usage_notification_complete(DEVICE_OBJECT *device_object,
-					       IRP *irp,
-					       void *context)
-{
-  libusb_device_extension *device_extension
-    = (libusb_device_extension *)device_object->DeviceExtension;
 
-  if(irp->PendingReturned)
-    {
-      IoMarkIrpPending(irp);
-    }
-
-  if(!(device_extension->next_stack_device->Flags & DO_POWER_PAGABLE))
-    {
-        device_object->Flags &= ~DO_POWER_PAGABLE;
-    }
-
-  return STATUS_SUCCESS;
-}
-
-NTSTATUS on_start_complete(DEVICE_OBJECT *device_object, IRP *irp, 
-			   void *context)
-{
-  libusb_device_extension *device_extension
-    = (libusb_device_extension *)device_object->DeviceExtension;
-
-  if(irp->PendingReturned)
-    {
-      IoMarkIrpPending(irp);
-    }
-
-  if(NT_SUCCESS(irp->IoStatus.Status)) 
-    {
-      if(device_extension->next_stack_device->Characteristics 
-	 & FILE_REMOVABLE_MEDIA) 
-	{
-	  device_object->Characteristics |= FILE_REMOVABLE_MEDIA;
-        }
-    }
-  
-  return STATUS_SUCCESS;
-}
-
-NTSTATUS on_usbd_complete(DEVICE_OBJECT *device_object, IRP *irp, 
-			   void *context)
+static NTSTATUS on_usbd_complete(DEVICE_OBJECT *device_object, IRP *irp, 
+				 void *context)
 {
   KeSetEvent((KEVENT *) context, IO_NO_INCREMENT, FALSE);
   return STATUS_MORE_PROCESSING_REQUIRED;

@@ -338,6 +338,14 @@ extern "C" {
   const struct usb_version *usb_get_version(void);
 
 
+  int usb_isochronous_setup(void **context, unsigned char ep,
+			    int pktsize, char *bytes, int size);
+  int usb_isochronous_read(usb_dev_handle *dev, void *context);
+  int usb_isochronous_write(usb_dev_handle *dev, void *context);
+  int usb_isochronous_reap(usb_dev_handle *dev, void *context, int timeout);
+  int usb_isochronous_free(void **context);
+
+
 #ifdef __cplusplus
 }
 #endif

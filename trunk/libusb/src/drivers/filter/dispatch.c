@@ -86,7 +86,7 @@ NTSTATUS dispatch_control(DEVICE_OBJECT *device_object, IRP *irp)
       break;
 
     case IRP_MJ_CREATE:
-       InterlockedIncrement(&device_extension->ref_count);
+      InterlockedIncrement(&device_extension->ref_count);
       status = STATUS_SUCCESS;
       break;
     case IRP_MJ_CLOSE:
