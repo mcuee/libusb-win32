@@ -75,6 +75,11 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE prev_instance,
   register_service_process = (register_service_process_t) 
     GetProcAddress(kernel32_dll, "RegisterServiceProcess");
 
+  if(!register_service_process)
+    {
+      return 1;
+    }
+
 
   RegisterClass(&win_class);
   win_handle = CreateWindowEx(WS_EX_APPWINDOW, LIBUSB_WINDOW_CLASS, 

@@ -29,13 +29,13 @@ NTSTATUS get_status(libusb_device_extension *device_extension, int recipient,
   short tmp;
 
   debug_print_nl();
-  debug_printf(DEBUG_MSG, "get_status(): recipient %02d", recipient);
-  debug_printf(DEBUG_MSG, "get_status(): index %04d", index);
-  debug_printf(DEBUG_MSG, "get_status(): timeout %d", timeout);
+  debug_printf(LIBUSB_DEBUG_MSG, "get_status(): recipient %02d", recipient);
+  debug_printf(LIBUSB_DEBUG_MSG, "get_status(): index %04d", index);
+  debug_printf(LIBUSB_DEBUG_MSG, "get_status(): timeout %d", timeout);
 
   if(!device_extension->current_configuration && recipient != USB_RECIP_DEVICE)
     {
-      debug_printf(DEBUG_ERR, "get_status(): invalid configuration 0"); 
+      debug_printf(LIBUSB_DEBUG_ERR, "get_status(): invalid configuration 0"); 
       return STATUS_INVALID_DEVICE_STATE;
     }
 
@@ -54,7 +54,7 @@ NTSTATUS get_status(libusb_device_extension *device_extension, int recipient,
       urb.UrbHeader.Function = URB_FUNCTION_GET_STATUS_FROM_OTHER;
       break;
     default:
-      debug_printf(DEBUG_ERR, "get_status(): invalid recipient");
+      debug_printf(LIBUSB_DEBUG_ERR, "get_status(): invalid recipient");
       return STATUS_INVALID_PARAMETER;
     }
 
@@ -70,7 +70,7 @@ NTSTATUS get_status(libusb_device_extension *device_extension, int recipient,
       
   if(!NT_SUCCESS(_status) || !USBD_SUCCESS(urb.UrbHeader.Status))
     {
-      debug_printf(DEBUG_ERR, "get_status(): getting status failed: "
+      debug_printf(LIBUSB_DEBUG_ERR, "get_status(): getting status failed: "
 		   "status: 0x%x, urb-status: 0x%x", 
 		   status, urb.UrbHeader.Status);
     }

@@ -26,14 +26,15 @@ NTSTATUS clear_feature(libusb_device_extension *device_extension,
   URB urb;
 
   debug_print_nl();
-  debug_printf(DEBUG_MSG, "clear_feature(): recipient %02d", recipient);
-  debug_printf(DEBUG_MSG, "clear_feature(): index %04d", index);
-  debug_printf(DEBUG_MSG, "clear_feature(): feature %04d", feature);
-  debug_printf(DEBUG_MSG, "clear_feature(): timeout %d", timeout);
+  debug_printf(LIBUSB_DEBUG_MSG, "clear_feature(): recipient %02d", recipient);
+  debug_printf(LIBUSB_DEBUG_MSG, "clear_feature(): index %04d", index);
+  debug_printf(LIBUSB_DEBUG_MSG, "clear_feature(): feature %04d", feature);
+  debug_printf(LIBUSB_DEBUG_MSG, "clear_feature(): timeout %d", timeout);
 
   if(!device_extension->current_configuration && recipient != USB_RECIP_DEVICE)
     {
-      debug_printf(DEBUG_ERR, "clear_feature(): invalid configuration 0"); 
+      debug_printf(LIBUSB_DEBUG_ERR, "clear_feature(): invalid "
+		   "configuration 0"); 
       return STATUS_INVALID_DEVICE_STATE;
     }
 
@@ -52,7 +53,7 @@ NTSTATUS clear_feature(libusb_device_extension *device_extension,
       urb.UrbHeader.Function = URB_FUNCTION_CLEAR_FEATURE_TO_OTHER;
       break;
     default:
-      debug_printf(DEBUG_ERR, "clear_feature(): invalid recipient");
+      debug_printf(LIBUSB_DEBUG_ERR, "clear_feature(): invalid recipient");
       return STATUS_INVALID_PARAMETER;
     }
   
@@ -66,7 +67,7 @@ NTSTATUS clear_feature(libusb_device_extension *device_extension,
   
   if(!NT_SUCCESS(status) || !USBD_SUCCESS(urb.UrbHeader.Status))
     {
-      debug_printf(DEBUG_ERR, "set_feature(): clearing feature failed: "
+      debug_printf(LIBUSB_DEBUG_ERR, "set_feature(): clearing feature failed: "
 		   "status: 0x%x, urb-status: 0x%x", 
 		   status, urb.UrbHeader.Status);
     }

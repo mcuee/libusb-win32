@@ -32,9 +32,9 @@ NTSTATUS set_configuration(libusb_device_extension *device_extension,
   volatile int config_full_size;
 
   debug_print_nl();
-  debug_printf(DEBUG_MSG, "set_configuration(): configuration %d", 
+  debug_printf(LIBUSB_DEBUG_MSG, "set_configuration(): configuration %d", 
 	       configuration);
-  debug_printf(DEBUG_MSG, "set_configuration(): timeout %d", timeout);
+  debug_printf(LIBUSB_DEBUG_MSG, "set_configuration(): timeout %d", timeout);
 
   if(device_extension->current_configuration == configuration)
     {
@@ -54,8 +54,9 @@ NTSTATUS set_configuration(libusb_device_extension *device_extension,
       
       if(!NT_SUCCESS(status) || !USBD_SUCCESS(urb.UrbHeader.Status))
 	{
-	  debug_printf(DEBUG_ERR, "set_configuration(): setting configuration "
-		       "%d failed: status: 0x%x, urb-status: 0x%x", 
+	  debug_printf(LIBUSB_DEBUG_ERR, "set_configuration(): setting "
+		       "configuration %d failed: status: 0x%x, "
+		       "urb-status: 0x%x", 
 		       configuration, status, urb.UrbHeader.Status);
 	  return status;
 	}
@@ -77,15 +78,15 @@ NTSTATUS set_configuration(libusb_device_extension *device_extension,
 
   if(!NT_SUCCESS(status))
     {
-      debug_printf(DEBUG_ERR, "set_configuration(): getting device "
+      debug_printf(LIBUSB_DEBUG_ERR, "set_configuration(): getting device "
 		   "descriptor failed");
       return status;
     }
 
   if(device_descriptor.bNumConfigurations < configuration)
     {
-      debug_printf(DEBUG_ERR, "set_configuration(): invalid configuration "
-		   "%d", configuration);
+      debug_printf(LIBUSB_DEBUG_ERR, "set_configuration(): invalid "
+		   "configuration %d", configuration);
       return STATUS_INVALID_PARAMETER;
     }
 
@@ -94,7 +95,7 @@ NTSTATUS set_configuration(libusb_device_extension *device_extension,
   
   if(!configuration_descriptor)
     {
-      debug_printf(DEBUG_ERR, "set_configuration(): memory allocation "
+      debug_printf(LIBUSB_DEBUG_ERR, "set_configuration(): memory allocation "
 		   "failed");
       return STATUS_NO_MEMORY;
     }
@@ -108,8 +109,8 @@ NTSTATUS set_configuration(libusb_device_extension *device_extension,
 
   if(!NT_SUCCESS(status))
     {
-      debug_printf(DEBUG_ERR, "set_configuration(): getting configuration "
-		   "descriptor %d failed", configuration);
+      debug_printf(LIBUSB_DEBUG_ERR, "set_configuration(): getting "
+		   "configuration descriptor %d failed", configuration);
       ExFreePool(configuration_descriptor);
       return status;
     }
@@ -123,7 +124,8 @@ NTSTATUS set_configuration(libusb_device_extension *device_extension,
   
   if(!configuration_descriptor)
     {
-      debug_printf(DEBUG_ERR, "set_configuration(): memory allocation failed");
+      debug_printf(LIBUSB_DEBUG_ERR, "set_configuration(): memory allocation "
+		   "failed");
       return STATUS_NO_MEMORY;
     }
 
@@ -136,8 +138,8 @@ NTSTATUS set_configuration(libusb_device_extension *device_extension,
 
   if(!NT_SUCCESS(status))
     {
-      debug_printf(DEBUG_ERR, "set_configuration(): getting configuration "
-		   "descriptor %d failed");
+      debug_printf(LIBUSB_DEBUG_ERR, "set_configuration(): getting "
+		   "configuration descriptor %d failed");
       ExFreePool(configuration_descriptor);
       return status;
     }
@@ -149,7 +151,8 @@ NTSTATUS set_configuration(libusb_device_extension *device_extension,
 
   if(!interfaces)
     {
-      debug_printf(DEBUG_ERR, "set_configuration(): memory allocation failed");
+      debug_printf(LIBUSB_DEBUG_ERR, "set_configuration(): memory allocation "
+		   "failed");
       ExFreePool(configuration_descriptor);
       return STATUS_NO_MEMORY;
     }
@@ -170,15 +173,15 @@ NTSTATUS set_configuration(libusb_device_extension *device_extension,
 	  + sizeof(USB_INTERFACE_DESCRIPTOR)) 
 	 > ((char *)configuration_descriptor + config_full_size))
 	{
-	  debug_printf(DEBUG_ERR, "set_configuration(): interface %d not "
-		       "found", i);
+	  debug_printf(LIBUSB_DEBUG_ERR, "set_configuration(): interface %d "
+		       "not found", i);
 	  ExFreePool(interfaces);
 	  ExFreePool(configuration_descriptor);
 	  return STATUS_INVALID_PARAMETER;
 	}
       else
 	{
-	  debug_printf(DEBUG_MSG, "set_configuration(): interface %d "
+	  debug_printf(LIBUSB_DEBUG_MSG, "set_configuration(): interface %d "
 		       "found", i);
 	  interfaces[i].InterfaceDescriptor = interface_descriptor;
 	}
@@ -189,7 +192,8 @@ NTSTATUS set_configuration(libusb_device_extension *device_extension,
 					      interfaces);
   if(!urb_ptr)
     {
-      debug_printf(DEBUG_ERR, "set_configuration(): memory allocation failed");
+      debug_printf(LIBUSB_DEBUG_ERR, "set_configuration(): memory allocation "
+		   "failed");
       ExFreePool(interfaces);
       ExFreePool(configuration_descriptor);
       return STATUS_NO_MEMORY;
@@ -209,8 +213,8 @@ NTSTATUS set_configuration(libusb_device_extension *device_extension,
   
   if(!NT_SUCCESS(status) || !USBD_SUCCESS(urb_ptr->UrbHeader.Status))
     {
-      debug_printf(DEBUG_ERR, "set_configuration(): setting configuration "
-		   "%d failed: status: 0x%x, urb-status: 0x%x", 
+      debug_printf(LIBUSB_DEBUG_ERR, "set_configuration(): setting "
+		   "configuration %d failed: status: 0x%x, urb-status: 0x%x", 
 		    configuration, status, urb_ptr->UrbHeader.Status);
       ExFreePool(interfaces);
       ExFreePool(configuration_descriptor);

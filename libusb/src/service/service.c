@@ -157,7 +157,7 @@ void usb_service_start_filter(void)
       while(SetupDiEnumDeviceInfo(dev_info, dev_index, &dev_info_data))
 	{
 	  if(!usb_registry_is_composite_interface(dev_info, &dev_info_data)
-	    && !usb_registry_is_root_hub(dev_info, &dev_info_data))
+	     && !usb_registry_is_root_hub(dev_info, &dev_info_data))
 	    {
 	      if(usb_registry_insert_filter(dev_info, &dev_info_data, 
 					    filter_name))
@@ -175,7 +175,7 @@ void usb_service_start_filter(void)
 }
 
 
-void usb_service_stop_filter()
+void usb_service_stop_filter(int all)
 {
   HDEVINFO dev_info;
   SP_DEVINFO_DATA dev_info_data;
@@ -204,8 +204,21 @@ void usb_service_stop_filter()
       
       while(SetupDiEnumDeviceInfo(dev_info, dev_index, &dev_info_data))
 	{
-	  if(!(usb_registry_is_composite_libusb(dev_info, &dev_info_data)
-	       || usb_registry_is_service_libusb(dev_info, &dev_info_data)))
+	  if(!all)
+	    {
+	      if(!(usb_registry_is_composite_libusb(dev_info, &dev_info_data)
+		   || usb_registry_is_service_libusb(dev_info, &dev_info_data)))
+		{
+		  if(usb_registry_remove_filter(dev_info, &dev_info_data, filter_name))
+		    {
+		      filter_removed = 1;
+		      usb_registry_set_device_state(DICS_PROPCHANGE, dev_info, 
+						    &dev_info_data);
+		      break;
+		    }
+		}
+	    }
+	  else
 	    {
 	      if(usb_registry_remove_filter(dev_info, &dev_info_data, filter_name))
 		{

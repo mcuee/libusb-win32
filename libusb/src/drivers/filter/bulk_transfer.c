@@ -44,25 +44,27 @@ NTSTATUS bulk_int_transfer(IRP *irp, libusb_device_extension *device_extension,
   //  KIRQL irql;
 
   debug_print_nl();
-  debug_printf(DEBUG_MSG, "bulk_int_transfer(): endpoint %02xh", endpoint);
-  debug_printf(DEBUG_MSG, "bulk_int_transfer(): size %d", size);
+  debug_printf(LIBUSB_DEBUG_MSG, "bulk_int_transfer(): endpoint %02xh", 
+	       endpoint);
+  debug_printf(LIBUSB_DEBUG_MSG, "bulk_int_transfer(): size %d", size);
 
   if(direction == USBD_TRANSFER_DIRECTION_IN)
-    debug_printf(DEBUG_MSG, "bulk_int_transfer(): direction in");
+    debug_printf(LIBUSB_DEBUG_MSG, "bulk_int_transfer(): direction in");
   else
-    debug_printf(DEBUG_MSG, "bulk_int_transfer(): direction out");
+    debug_printf(LIBUSB_DEBUG_MSG, "bulk_int_transfer(): direction out");
 
   if(!device_extension->current_configuration)
     {
-      debug_printf(DEBUG_ERR, "bulk_int_transfer(): invalid configuration 0");
+      debug_printf(LIBUSB_DEBUG_ERR, "bulk_int_transfer(): invalid "
+		   "configuration 0");
       remove_lock_release(&device_extension->remove_lock);
       return complete_irp(irp, STATUS_INVALID_DEVICE_STATE, 0);
     }
   
   if(!get_pipe_handle(device_extension, endpoint, &pipe_handle))
     {
-      debug_printf(DEBUG_ERR, "bulk_int_transfer(): getting endpoint pipe "
-		   "failed");
+      debug_printf(LIBUSB_DEBUG_ERR, "bulk_int_transfer(): getting endpoint "
+		   "pipe failed");
       remove_lock_release(&device_extension->remove_lock);
       return complete_irp(irp, STATUS_INVALID_PARAMETER, 0);
     }
@@ -71,7 +73,8 @@ NTSTATUS bulk_int_transfer(IRP *irp, libusb_device_extension *device_extension,
   
   if(!context)
     {
-      debug_printf(DEBUG_ERR, "bulk_int_transfer(): memory allocation error");
+      debug_printf(LIBUSB_DEBUG_ERR, "bulk_int_transfer(): memory allocation "
+		   "error");
       remove_lock_release(&device_extension->remove_lock);
       return complete_irp(irp, STATUS_NO_MEMORY, 0);
     }
@@ -98,9 +101,7 @@ NTSTATUS bulk_int_transfer(IRP *irp, libusb_device_extension *device_extension,
   irp->Tail.Overlay.DriverContext[0] = context;
 
   IoAcquireCancelSpinLock(&context->irql);
-  //  IoAcquireCancelSpinLock(&irql);
   IoSetCancelRoutine(context->main_irp, on_bulk_int_cancel);
-  //  IoReleaseCancelSpinLock(irql);
   IoReleaseCancelSpinLock(context->irql);
 
   IoSetCompletionRoutine(context->sub_irp, on_bulk_int_complete, 
@@ -123,12 +124,13 @@ NTSTATUS on_bulk_int_complete(DEVICE_OBJECT *device_object,
   if(NT_SUCCESS(irp->IoStatus.Status))
     {
       transmitted = urb->UrbBulkOrInterruptTransfer.TransferBufferLength;
-      debug_printf(DEBUG_MSG, "on_bulk_int_complete(): %d bytes transmitted",
-		   transmitted);
+      debug_printf(LIBUSB_DEBUG_MSG, "on_bulk_int_complete(): %d bytes "
+		   "transmitted", transmitted);
     }
   else
     {
-      debug_printf(DEBUG_ERR, "on_bulk_int_complete(): transfer failed");
+      debug_printf(LIBUSB_DEBUG_ERR, "on_bulk_int_complete(): transfer "
+		   "failed");
     }
 
   ((Context *)context)->main_irp->Tail.Overlay.DriverContext[0] = NULL;
@@ -146,7 +148,7 @@ NTSTATUS on_bulk_int_complete(DEVICE_OBJECT *device_object,
 void on_bulk_int_cancel(DEVICE_OBJECT *device_object, IRP *irp)
 {
   Context *context = (Context *)irp->Tail.Overlay.DriverContext[0];
-  debug_printf(DEBUG_WARN, "on_bulk_int_cancel(): IRP cancelled");
+  debug_printf(LIBUSB_DEBUG_WARN, "on_bulk_int_cancel(): IRP cancelled");
 
   if(context)
     {

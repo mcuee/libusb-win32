@@ -21,10 +21,14 @@
 #define __FILTER_API_H__
 
 enum {
-  DEBUG_ERR = 1,
-  DEBUG_WARN,
-  DEBUG_MSG,
+  LIBUSB_DEBUG_ERR = 1,
+  LIBUSB_DEBUG_WARN,
+  LIBUSB_DEBUG_MSG,
 };
+
+/*enum {
+  
+}*/
 
 #define LIBUSB_VERSION_MAJOR @VERSION_MAJOR@
 #define LIBUSB_VERSION_MINOR @VERSION_MINOR@
@@ -95,6 +99,7 @@ enum {
 
 typedef struct {
   int timeout;
+/*  int error; */
   union {
     struct
     {
@@ -135,7 +140,6 @@ typedef struct {
       int index;
       int language_id;
     } descriptor;    
-
     struct
     {
       int level;

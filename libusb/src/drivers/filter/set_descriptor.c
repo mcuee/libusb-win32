@@ -29,11 +29,12 @@ NTSTATUS set_descriptor(libusb_device_extension *device_extension,
   URB urb;
 
   debug_print_nl();
-  debug_printf(DEBUG_MSG, "set_descriptor(): buffer size %d", size);
-  debug_printf(DEBUG_MSG, "set_descriptor(): type %04d", type);
-  debug_printf(DEBUG_MSG, "set_descriptor(): index %04d", index);
-  debug_printf(DEBUG_MSG, "set_descriptor(): language id %04d", language_id);
-  debug_printf(DEBUG_MSG, "set_descriptor(): timeout %d", timeout);
+  debug_printf(LIBUSB_DEBUG_MSG, "set_descriptor(): buffer size %d", size);
+  debug_printf(LIBUSB_DEBUG_MSG, "set_descriptor(): type %04d", type);
+  debug_printf(LIBUSB_DEBUG_MSG, "set_descriptor(): index %04d", index);
+  debug_printf(LIBUSB_DEBUG_MSG, "set_descriptor(): language id %04d",
+	       language_id);
+  debug_printf(LIBUSB_DEBUG_MSG, "set_descriptor(): timeout %d", timeout);
 
   urb.UrbHeader.Function =  URB_FUNCTION_SET_DESCRIPTOR_TO_DEVICE;
   urb.UrbHeader.Length = sizeof(struct _URB_CONTROL_DESCRIPTOR_REQUEST);
@@ -50,8 +51,8 @@ NTSTATUS set_descriptor(libusb_device_extension *device_extension,
   
   if(!NT_SUCCESS(status) || !USBD_SUCCESS(urb.UrbHeader.Status))
     {
-      debug_printf(DEBUG_ERR, "set_descriptor(): setting descriptor failed: "
-		   "status: 0x%x, urb-status: 0x%x", 
+      debug_printf(LIBUSB_DEBUG_ERR, "set_descriptor(): setting descriptor "
+		   "failed: status: 0x%x, urb-status: 0x%x", 
 		   status, urb.UrbHeader.Status);
     }
   else

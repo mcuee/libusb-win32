@@ -33,7 +33,7 @@ bool_t usb_service_free_dll();
 
 
 void usb_service_start_filter(void);
-void usb_service_stop_filter(void);
+void usb_service_stop_filter(int all);
 
 
 bool_t usb_create_service(const char *name, const char *display_name,
