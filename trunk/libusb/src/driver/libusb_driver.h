@@ -125,9 +125,6 @@ NTSTATUS remove_lock_acquire(libusb_remove_lock_t *remove_lock);
 void remove_lock_release(libusb_remove_lock_t *remove_lock);
 void remove_lock_release_and_wait(libusb_remove_lock_t *remove_lock);
 
-int get_device_id(int *id);
-void release_device_id(int id);
-
 NTSTATUS set_configuration(libusb_device_extension *device_extension,
                            int configuration, int timeout);
 NTSTATUS get_configuration(libusb_device_extension *device_extension,

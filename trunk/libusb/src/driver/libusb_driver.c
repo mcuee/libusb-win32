@@ -21,18 +21,13 @@
 
 static int bus_index = 0;
 
-static struct {
-  KMUTEX mutex;
-  int is_used[LIBUSB_MAX_NUMBER_OF_DEVICES];
-} device_ids;
-
 static void DDKAPI unload(DRIVER_OBJECT *driver_object);
 static NTSTATUS DDKAPI add_device(DRIVER_OBJECT *driver_object, 
                                   DEVICE_OBJECT *physical_device_object);
 
 static NTSTATUS DDKAPI on_usbd_complete(DEVICE_OBJECT *device_object, 
-                                           IRP *irp, 
-                                           void *context);
+                                        IRP *irp, 
+                                        void *context);
 
 NTSTATUS DDKAPI DriverEntry(DRIVER_OBJECT *driver_object,
                             UNICODE_STRING *registry_path)
@@ -41,12 +36,6 @@ NTSTATUS DDKAPI DriverEntry(DRIVER_OBJECT *driver_object,
     (PDRIVER_DISPATCH *)driver_object->MajorFunction;
   int i;
 
-  KeInitializeMutex(&device_ids.mutex, 0);
-
-  for(i = 0; i < LIBUSB_MAX_NUMBER_OF_DEVICES; i++)
-    {
-      device_ids.is_used[i] = 0;
-    }
 
   for(i = 0; i <= IRP_MJ_MAXIMUM_FUNCTION; i++, dispatch_function++) 
     {
@@ -65,7 +54,7 @@ NTSTATUS DDKAPI add_device(DRIVER_OBJECT *driver_object,
                            DEVICE_OBJECT *physical_device_object)
 {
   NTSTATUS status;
-  DEVICE_OBJECT *device_object;
+  DEVICE_OBJECT *device_object = NULL;
   libusb_device_extension *device_extension;
   ULONG device_type = FILE_DEVICE_UNKNOWN;
 
@@ -73,40 +62,39 @@ NTSTATUS DDKAPI add_device(DRIVER_OBJECT *driver_object,
   UNICODE_STRING symbolic_link_name;
   WCHAR tmp_name_0[128];
   WCHAR tmp_name_1[128];
-  int id;
+  int i;
 
   device_object = IoGetAttachedDeviceReference(physical_device_object);
   device_type = device_object->DeviceType;
   ObDereferenceObject(device_object);
   
-  if(!get_device_id(&id))
+
+  for(i = 0; i < LIBUSB_MAX_NUMBER_OF_DEVICES; i++)
     {
-      debug_printf(LIBUSB_DEBUG_ERR, "add_device(): getting device id failed");
-      return STATUS_UNSUCCESSFUL;
+      _snwprintf(tmp_name_0, sizeof(tmp_name_0)/sizeof(WCHAR), L"%s%04d", 
+                 LIBUSB_NT_DEVICE_NAME, i);
+      _snwprintf(tmp_name_1, sizeof(tmp_name_1)/sizeof(WCHAR), L"%s%04d", 
+                 LIBUSB_SYMBOLIC_LINK_NAME, i);
+    
+      RtlInitUnicodeString(&nt_device_name, tmp_name_0);  
+      RtlInitUnicodeString(&symbolic_link_name, tmp_name_1);
+
+
+      status = IoCreateDevice(driver_object, 
+                              sizeof(libusb_device_extension), 
+                              &nt_device_name, device_type, 0, FALSE, 
+                              &device_object);
+
+      if(NT_SUCCESS(status))
+        {
+          debug_printf(LIBUSB_DEBUG_MSG, "add_device(): device %d created", i);
+          break;
+        }
     }
 
-  debug_printf(LIBUSB_DEBUG_MSG, "add_device(): creating device %d", id);
-
-  _snwprintf(tmp_name_0, sizeof(tmp_name_0)/sizeof(WCHAR), L"%s%04d", 
-             LIBUSB_NT_DEVICE_NAME, id);
-  
-  RtlInitUnicodeString(&nt_device_name, tmp_name_0);
-
-  _snwprintf(tmp_name_1, sizeof(tmp_name_1)/sizeof(WCHAR), L"%s%04d", 
-             LIBUSB_SYMBOLIC_LINK_NAME, id);
-  
-  RtlInitUnicodeString(&symbolic_link_name, tmp_name_1);
-
-
-  status = IoCreateDevice(driver_object, sizeof(libusb_device_extension), 
-                          &nt_device_name, device_type, 0, FALSE, 
-                          &device_object);
-
-
-  if(!NT_SUCCESS(status))
+  if(!device_object)
     {
       debug_printf(LIBUSB_DEBUG_ERR, "add_device(): creating device failed");
-      release_device_id(id);
       return status;
     }
 
@@ -116,7 +104,7 @@ NTSTATUS DDKAPI add_device(DRIVER_OBJECT *driver_object,
 
   device_extension->self = device_object;
   device_extension->physical_device_object = physical_device_object;
-  device_extension->device_id = id;
+  device_extension->device_id = i;
       
   status = IoCreateSymbolicLink(&symbolic_link_name, &nt_device_name);
   
@@ -125,7 +113,6 @@ NTSTATUS DDKAPI add_device(DRIVER_OBJECT *driver_object,
       debug_printf(LIBUSB_DEBUG_ERR, "add_device(): creating "
                    "symbolic link failed");
       IoDeleteDevice(device_object);
-      release_device_id(id);
       return status;
     }
 
@@ -191,7 +178,6 @@ NTSTATUS call_usbd(libusb_device_extension *device_extension, void *urb,
   next_irp_stack->Parameters.Others.Argument1 = urb;
   next_irp_stack->Parameters.Others.Argument2 = NULL;
 
-
   IoSetCompletionRoutine(irp, on_usbd_complete, &event, TRUE, TRUE, TRUE); 
 
   status = IoCallDriver(device_extension->physical_device_object, irp);
@@ -226,6 +212,15 @@ NTSTATUS call_usbd(libusb_device_extension *device_extension, void *urb,
 
   return status;
 }
+
+
+static NTSTATUS DDKAPI on_usbd_complete(DEVICE_OBJECT *device_object, 
+                                           IRP *irp, void *context)
+{
+  KeSetEvent((KEVENT *) context, IO_NO_INCREMENT, FALSE);
+  return STATUS_MORE_PROCESSING_REQUIRED;
+}
+
 
 NTSTATUS pass_irp_down(libusb_device_extension *device_extension, IRP *irp)
 {
@@ -373,54 +368,6 @@ void remove_lock_release_and_wait(libusb_remove_lock_t *remove_lock)
                         FALSE, NULL);
 }
 
-int get_device_id(int *id)
-{
-  int ret = FALSE;
-  int i;
-  
-  *id = -1;
-
-  KeWaitForSingleObject(&device_ids.mutex, Executive, KernelMode,
-                        FALSE, NULL);
-
-  for(i = 0; i < LIBUSB_MAX_NUMBER_OF_DEVICES; i++)
-    {
-      if(!device_ids.is_used[i])
-        {
-          device_ids.is_used[i] = TRUE;
-          *id = i;
-          ret = TRUE;
-          break;
-        }
-    }
-
-  KeReleaseMutex(&device_ids.mutex, FALSE);
-  return ret;
-}
-
-void release_device_id(int id)
-{
-  if(id >= 0)
-    {
-      KeWaitForSingleObject(&device_ids.mutex, Executive, KernelMode,
-                            FALSE, NULL);
-      
-      if(id < LIBUSB_MAX_NUMBER_OF_DEVICES)
-        {
-          device_ids.is_used[id] = FALSE;
-        }
-
-      KeReleaseMutex(&device_ids.mutex, FALSE);
-    }
-}
-
-static NTSTATUS DDKAPI on_usbd_complete(DEVICE_OBJECT *device_object, 
-                                           IRP *irp, void *context)
-{
-  KeSetEvent((KEVENT *) context, IO_NO_INCREMENT, FALSE);
-  return STATUS_MORE_PROCESSING_REQUIRED;
-}
-
 
 NTSTATUS get_device_info(libusb_device_extension *device_extension, 
                          libusb_request *request, int *ret)
@@ -452,8 +399,11 @@ BOOL is_root_hub(libusb_device_extension *device_extension)
                                     DevicePropertyHardwareID,
                                     sizeof(buf0), buf0, &ret)) && ret)
     {
+      /* convert unicode string */
       for(i = 0; i < ret/2; i++)
-        buf1[i] = (char)buf0[i];
+        {
+          buf1[i] = (char)buf0[i];
+        }
 
       _strlwr(buf1);
 
@@ -490,11 +440,15 @@ void get_topology_info(libusb_device_extension *device_extension)
                 = (unsigned int)dx->physical_device_object;
               device_extension->bus = dx->bus;
               found = 1;
+              break;
             }
         }
       
       if(found)
-        break;
+        {
+          break;
+        }
+
       device_object = device_object->NextDevice;
     }
 
