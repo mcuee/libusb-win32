@@ -1,0 +1,68 @@
+Version 0.1.7.10:
+
+	- DLL: fixed bug which caused the device detection to fail on some 
+	  systems
+	- Filter driver: PNP and power management code improved. This will 
+	  hopefully remove the shutdown and hibernation problems reported by
+	  some users an XP systems.
+	- The binary package distributions has been split up into two parts:
+	  Filter driver and device driver. An user friendly GUI installer has
+	  been added for the filter driver. The device driver (stub driver)
+	  doesn't need the filter driver to be installed any more.
+	- Filter driver: the filter driver is now installed in a different way
+	  which will now allow access to all USB devices which weren't
+	  accessible in the past (mice, scanners, etc.). A Windows system service 
+	  (daemon) has been added to achive this.
+
+ 
+Version 0.1.7.9:
+
+	- Filter driver: support for Composite Devices (devices with multiple
+	  interfaces) improved.
+
+	- DLL: added function usb_get_version() which returns the version of
+	  the running driver and DLL.
+
+
+Version 0.1.7.8:
+
+	- DLL: removed a memory leak
+
+	- DLL: fixed bug which caused the DLL to detect an invalid number
+	  of root hubs on some systems which made some devices inaccessable.
+
+	- DLL: errors are now also printed to the Windows debug system. They
+	  can be captured using DebugView from http://www.sysinternals.com.
+
+	- Filter driver: the driver now reflects the DLL's debug setting
+	  (can be set using usb_set_debug()).
+	  This makes the distribution of two different driver versions 
+	  (checked/free build) unnecessary.
+	  The following debug levels are supported:
+	      0: no output
+	      1: errors only
+	      2: warnings and errors
+	      3 and higher: warnings, errors, normal messages
+	 - Inf files: updated, minor changes
+
+
+Version 0.1.7.7:
+
+	- Filter driver: some control transfers (vendor specific request)
+	  failed or worked incorrectly, this bug has been fixed.
+
+	- all drivers: a bug in the inf-files which prevented the drivers
+	  to install on Win98 systems has been fixed.
+
+	- Filter driver: parameter validation and error handling has been
+	  improved.
+
+	- Filter driver, DLL: the maximum number of supported devices has
+	  been increased to 256.
+
+	- DLL: under some circumstances the DLL didn't detect newly connected
+	  devices correctly at runtime, this problem has been fixed.
+
+	- The build system now uses the 'lib' utility from the DDK to build
+          the import library for Microsoft compilers. Visual C++ isn't required
+          any more.
