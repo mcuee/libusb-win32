@@ -47,30 +47,29 @@ NTSTATUS transfer(IRP *irp, libusb_device_extension *device_extension,
   CHAR stack_size;
   KIRQL irql;
 
-  debug_print_nl();
+  DEBUG_PRINT_NL();
 
   if(urb_function == URB_FUNCTION_ISOCH_TRANSFER)
-    debug_printf(LIBUSB_DEBUG_MSG, "transfer(): isochronous transfer");
+    DEBUG_MESSAGE("transfer(): isochronous transfer");
   else
-    debug_printf(LIBUSB_DEBUG_MSG, "transfer(): bulk or interrupt transfer");
+    DEBUG_MESSAGE("transfer(): bulk or interrupt transfer");
  
   if(direction == USBD_TRANSFER_DIRECTION_IN)
-    debug_printf(LIBUSB_DEBUG_MSG, "transfer(): direction in");
+    DEBUG_MESSAGE("transfer(): direction in");
   else
-    debug_printf(LIBUSB_DEBUG_MSG, "transfer(): direction out");
+    DEBUG_MESSAGE("transfer(): direction out");
 
-  debug_printf(LIBUSB_DEBUG_MSG, "transfer(): endpoint 0x%02x", endpoint);
+  DEBUG_MESSAGE("transfer(): endpoint 0x%02x", endpoint);
 
   if(urb_function == URB_FUNCTION_ISOCH_TRANSFER)
-    debug_printf(LIBUSB_DEBUG_MSG, "transfer(): packet_size 0x%x", 
-                 packet_size);
+    DEBUG_MESSAGE("transfer(): packet_size 0x%x", packet_size);
 
-  debug_printf(LIBUSB_DEBUG_MSG, "transfer(): size %d", size);
+  DEBUG_MESSAGE("transfer(): size %d", size);
 
 
   if(!device_extension->configuration)
     {
-      debug_printf(LIBUSB_DEBUG_ERR, "transfer(): invalid configuration 0");
+      DEBUG_ERROR("transfer(): invalid configuration 0");
       remove_lock_release(&device_extension->remove_lock);
       return complete_irp(irp, STATUS_INVALID_DEVICE_STATE, 0);
     }
@@ -80,7 +79,7 @@ NTSTATUS transfer(IRP *irp, libusb_device_extension *device_extension,
   
   if(!context)
     {
-      debug_printf(LIBUSB_DEBUG_ERR, "transfer(): memory allocation error");
+      DEBUG_ERROR("transfer(): memory allocation error");
       remove_lock_release(&device_extension->remove_lock);
       return complete_irp(irp, STATUS_NO_MEMORY, 0);
     }
@@ -107,7 +106,7 @@ NTSTATUS transfer(IRP *irp, libusb_device_extension *device_extension,
     
   if(!context->sub_irp)
     {
-      debug_printf(LIBUSB_DEBUG_ERR, "transfer(): memory allocation error");
+      DEBUG_ERROR("transfer(): memory allocation error");
 	
       ExFreePool(context->urb);
       ExFreePool(context);
@@ -186,13 +185,13 @@ NTSTATUS DDKAPI transfer_complete(DEVICE_OBJECT *device_object, IRP *irp,
                 = c->urb->UrbBulkOrInterruptTransfer.TransferBufferLength;
             }
 	  
-          debug_printf(LIBUSB_DEBUG_MSG, "transfer_complete(): %d bytes "
-                       "transmitted", transmitted);
+          DEBUG_MESSAGE("transfer_complete(): %d bytes transmitted", 
+                        transmitted);
         }
       else
         {
-          debug_printf(LIBUSB_DEBUG_ERR, "transfer_complete(): transfer "
-                       "failed: status: 0x%x, urb-status: 0x%x", 
+          DEBUG_ERROR("transfer_complete(): transfer failed: status: 0x%x, "
+                      "urb-status: 0x%x", 
                        irp->IoStatus.Status, c->urb->UrbHeader.Status);
         }
 
@@ -220,7 +219,7 @@ void DDKAPI transfer_cancel(DEVICE_OBJECT *device_object, IRP *irp)
  
   IoReleaseCancelSpinLock(irp->CancelIrql);
 
-  debug_printf(LIBUSB_DEBUG_ERR, "transfer_cancel(): timeout error");
+  DEBUG_ERROR("transfer_cancel(): timeout error");
 
   /* cancel sub IRP and wait for completion */
   IoCancelIrp(c->sub_irp);
@@ -245,8 +244,7 @@ static URB *create_urb(libusb_device_extension *device_extension,
   
   if(!get_pipe_handle(device_extension, endpoint, &pipe_handle))
     {
-      debug_printf(LIBUSB_DEBUG_ERR, "create_urb(): getting endpoint pipe "
-                   "failed");
+      DEBUG_ERROR("create_urb(): getting endpoint pipe failed");
       return NULL;
     }
   
@@ -257,8 +255,7 @@ static URB *create_urb(libusb_device_extension *device_extension,
       
       if(num_packets > 255)
         {
-          debug_printf(LIBUSB_DEBUG_ERR, "create_urb(): transfer size "
-                       "too large");
+          DEBUG_ERROR("create_urb(): transfer size too large");
           return NULL;
         }
       
@@ -274,8 +271,7 @@ static URB *create_urb(libusb_device_extension *device_extension,
   
   if(!urb)
     {
-      debug_printf(LIBUSB_DEBUG_ERR, "create_urb(): memory allocation "
-                   "error");
+      DEBUG_ERROR("create_urb(): memory allocation error");
       return NULL;
     }
   

@@ -27,8 +27,8 @@ NTSTATUS get_configuration(libusb_device_extension *device_extension,
   NTSTATUS status = STATUS_SUCCESS;
   URB urb;
 
-  debug_print_nl();
-  debug_printf(LIBUSB_DEBUG_MSG, "get_configuration(): timeout %d", timeout);
+  DEBUG_PRINT_NL();
+  DEBUG_MESSAGE("get_configuration(): timeout %d", timeout);
 
   memset(&urb, 0, sizeof(URB));
 
@@ -43,15 +43,14 @@ NTSTATUS get_configuration(libusb_device_extension *device_extension,
 
   if(!NT_SUCCESS(status) || !USBD_SUCCESS(urb.UrbHeader.Status))
     {
-      debug_printf(LIBUSB_DEBUG_ERR, "get_configuration(): getting "
-                   "configuration failed: status: 0x%x, urb-status: 0x%x", 
-                   status, urb.UrbHeader.Status);
+      DEBUG_ERROR("get_configuration(): getting configuration failed: "
+                  "status: 0x%x, urb-status: 0x%x",
+                  status, urb.UrbHeader.Status);
       *ret = 0;
     }
   else
     {
-      debug_printf(LIBUSB_DEBUG_MSG, "get_configuration(): current config: %d",
-                   *configuration);
+      DEBUG_MESSAGE("get_configuration(): current config: %d", *configuration);
       *ret = urb.UrbControlGetConfigurationRequest.TransferBufferLength;
     }
   return status;

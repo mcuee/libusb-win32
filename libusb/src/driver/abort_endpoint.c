@@ -27,23 +27,20 @@ NTSTATUS abort_endpoint(libusb_device_extension *device_extension,
   NTSTATUS status = STATUS_SUCCESS;
   URB urb;
 
-  debug_print_nl();
-  debug_printf(LIBUSB_DEBUG_MSG, "abort_endpoint(): endpoint 0x%02x\n", 
-               endpoint);
-  debug_printf(LIBUSB_DEBUG_MSG, "abort_endpoint(): timeout %d\n", timeout);
+  DEBUG_PRINT_NL();
+  DEBUG_MESSAGE("abort_endpoint(): endpoint 0x%02x\n", endpoint);
+  DEBUG_MESSAGE("abort_endpoint(): timeout %d\n", timeout);
 
   if(!device_extension->configuration)
     {
-      debug_printf(LIBUSB_DEBUG_ERR, "abort_endpoint(): invalid "
-                   "configuration 0");
+      DEBUG_ERROR("abort_endpoint(): invalid configuration 0");
       return STATUS_INVALID_DEVICE_STATE;
     }
 
   if(!get_pipe_handle(device_extension, endpoint, 
                       &urb.UrbPipeRequest.PipeHandle))
     {
-      debug_printf(LIBUSB_DEBUG_ERR, "abort_endpoint(): getting endpoint pipe "
-                   "failed");
+      DEBUG_ERROR("abort_endpoint(): getting endpoint pipe failed");
       return STATUS_INVALID_PARAMETER;
     }
 
@@ -57,9 +54,8 @@ NTSTATUS abort_endpoint(libusb_device_extension *device_extension,
   
   if(!NT_SUCCESS(status) || !USBD_SUCCESS(urb.UrbHeader.Status))
     {
-      debug_printf(LIBUSB_DEBUG_ERR, "abort_endpoint(): request failed: "
-                   "status: 0x%x, urb-status: 0x%x", 
-                   status, urb.UrbHeader.Status);
+      DEBUG_ERROR("abort_endpoint(): request failed: status: 0x%x, "
+                  "urb-status: 0x%x", status, urb.UrbHeader.Status);
     }
   
   return status;

@@ -28,14 +28,13 @@ NTSTATUS get_interface(libusb_device_extension *device_extension,
   NTSTATUS status = STATUS_SUCCESS;
   URB urb;
 
-  debug_print_nl();
-  debug_printf(LIBUSB_DEBUG_MSG, "get_interface(): interface %d", interface);
-  debug_printf(LIBUSB_DEBUG_MSG, "get_interface(): timeout %d", timeout);
+  DEBUG_PRINT_NL();
+  DEBUG_MESSAGE("get_interface(): interface %d", interface);
+  DEBUG_MESSAGE("get_interface(): timeout %d", timeout);
 
   if(!device_extension->configuration)
     {
-      debug_printf(LIBUSB_DEBUG_ERR, "get_interface(): invalid "
-                   "configuration 0"); 
+      DEBUG_ERROR("get_interface(): invalid configuration 0"); 
       return STATUS_INVALID_DEVICE_STATE;
     }
 
@@ -52,16 +51,15 @@ NTSTATUS get_interface(libusb_device_extension *device_extension,
   
   if(!NT_SUCCESS(status) || !USBD_SUCCESS(urb.UrbHeader.Status))
     {
-      debug_printf(LIBUSB_DEBUG_ERR, "get_interface(): getting interface "
-                   "failed: status: 0x%x, urb-status: 0x%x", 
-                   status, urb.UrbHeader.Status);
+      DEBUG_ERROR("get_interface(): getting interface "
+                  "failed: status: 0x%x, urb-status: 0x%x", 
+                  status, urb.UrbHeader.Status);
       *ret = 0;
     }
   else
     {
       *ret = urb.UrbControlGetInterfaceRequest.TransferBufferLength;
-      debug_printf(LIBUSB_DEBUG_MSG, "get_interface(): current altsetting "
-                   "is %d", *altsetting); 
+      DEBUG_MESSAGE("get_interface(): current altsetting is %d", *altsetting); 
     }
 
   return status;

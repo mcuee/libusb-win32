@@ -59,6 +59,43 @@
 
 #define LIBUSB_DEFAULT_TIMEOUT  5000   
 
+#ifdef __LIBUSB_DRIVER_C__
+int debug_level = LIBUSB_DEBUG_ERR;
+#else
+extern int debug_level;
+#endif
+
+#ifdef DBG
+#define DEBUG_PRINT_NL() if(debug_level >= LIBUSB_DEBUG_MSG) KdPrint(("\n"))
+
+#define DEBUG_SET_LEVEL(level) debug_level = level
+
+#define DEBUG_MESSAGE(format, args...) \
+  do { \
+     if(LIBUSB_DEBUG_MSG <= debug_level) \
+        KdPrint(("LIBUSB-DRIVER - " format, ## args)); \
+     } while(0)
+
+#define DEBUG_WARNING(format, args...) \
+  do { \
+     if(LIBUSB_DEBUG_WARN <= debug_level) \
+        KdPrint(("LIBUSB-DRIVER - " format, ## args)); \
+     } while(0)
+
+#define DEBUG_ERROR(format, args...) \
+  do { \
+     if(LIBUSB_DEBUG_ERR <= debug_level) \
+        KdPrint(("LIBUSB-DRIVER - " format, ## args)); \
+     } while(0)
+
+#else
+
+#define DEBUG_PRINT_NL()
+#define DEBUG_SET_LEVEL(level)
+#define DEBUG_MESSAGE(format, args...)
+#define DEBUG_WARNING(format, args...)
+#define DEBUG_ERROR(format, args...)
+#endif
 
 typedef struct
 {
@@ -173,10 +210,6 @@ NTSTATUS get_device_info(libusb_device_extension *device_extension,
                          libusb_request *request, int *ret);
 BOOL is_root_hub(libusb_device_extension *device_extension);
 void get_topology_info(libusb_device_extension *device_extension);
-
-void debug_print_nl(void);
-void debug_set_level(int level);
-void debug_printf(int level, char *format, ...);
 
 
 #endif

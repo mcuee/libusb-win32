@@ -29,94 +29,82 @@ NTSTATUS vendor_class_request(libusb_device_extension *device_extension,
   NTSTATUS status = STATUS_SUCCESS;
   URB urb;
 
+  DEBUG_PRINT_NL();
+
   memset(&urb, 0, sizeof(struct _URB_CONTROL_VENDOR_OR_CLASS_REQUEST));
 
   switch(type)
     {
     case USB_TYPE_CLASS:
-      debug_printf(LIBUSB_DEBUG_MSG, "vendor_class_request(): type: class");
+      DEBUG_MESSAGE("vendor_class_request(): type: class");
       switch(recipient)
         {
         case USB_RECIP_DEVICE:
-          debug_printf(LIBUSB_DEBUG_MSG, "vendor_class_request(): recipient: "
-                       "device");
+          DEBUG_MESSAGE("vendor_class_request(): recipient: device");
           urb.UrbHeader.Function = URB_FUNCTION_CLASS_DEVICE;
           break;
         case USB_RECIP_INTERFACE:
-          debug_printf(LIBUSB_DEBUG_MSG, "vendor_class_request(): recipient: "
-                       "interface");
+          DEBUG_MESSAGE("vendor_class_request(): recipient: interface");
           urb.UrbHeader.Function = URB_FUNCTION_CLASS_INTERFACE;
           break;
         case USB_RECIP_ENDPOINT:
-          debug_printf(LIBUSB_DEBUG_MSG, "vendor_class_request(): recipient: "
-                       "endpoint");
+          DEBUG_MESSAGE("vendor_class_request(): recipient: endpoint");
           urb.UrbHeader.Function = URB_FUNCTION_CLASS_ENDPOINT;
           break;
         case USB_RECIP_OTHER:
-          debug_printf(LIBUSB_DEBUG_MSG, "vendor_class_request(): recipient: "
-                       "other");
+          DEBUG_MESSAGE("vendor_class_request(): recipient: other");
           urb.UrbHeader.Function = URB_FUNCTION_CLASS_OTHER;
           break;
         default:
-          debug_printf(LIBUSB_DEBUG_ERR, "vendor_class_request(): invalid "
-                       "recipient");
+          DEBUG_ERROR("vendor_class_request(): invalid recipient");
           return STATUS_INVALID_PARAMETER;
         }
       break;
     case USB_TYPE_VENDOR:
-      debug_printf(LIBUSB_DEBUG_MSG, "vendor_class_request(): type: vendor");
+      DEBUG_MESSAGE("vendor_class_request(): type: vendor");
       switch(recipient)
         {
         case USB_RECIP_DEVICE:
-          debug_printf(LIBUSB_DEBUG_MSG, "vendor_class_request(): recipient: "
-                       "device");
+          DEBUG_MESSAGE("vendor_class_request(): recipient: device");
           urb.UrbHeader.Function = URB_FUNCTION_VENDOR_DEVICE;
           break;
         case USB_RECIP_INTERFACE:
-          debug_printf(LIBUSB_DEBUG_MSG, "vendor_class_request(): recipient: "
-                       "interface");
+          DEBUG_MESSAGE("vendor_class_request(): recipient: interface");
           urb.UrbHeader.Function = URB_FUNCTION_VENDOR_INTERFACE;
           break;
         case USB_RECIP_ENDPOINT:
-          debug_printf(LIBUSB_DEBUG_MSG, "vendor_class_request(): recipient: "
-                       "endpoint");
+          DEBUG_MESSAGE("vendor_class_request(): recipient: endpoint");
           urb.UrbHeader.Function = URB_FUNCTION_VENDOR_ENDPOINT;
           break;
         case USB_RECIP_OTHER:
-          debug_printf(LIBUSB_DEBUG_MSG, "vendor_class_request(): recipient: "
-                       "other");
+          DEBUG_MESSAGE("vendor_class_request(): recipient: other");
           urb.UrbHeader.Function = URB_FUNCTION_VENDOR_OTHER;
           break;
         default:
-          debug_printf(LIBUSB_DEBUG_ERR, "vendor_class_request(): invalid "
-                       "recipient");
+          DEBUG_ERROR("vendor_class_request(): invalid recipient");
           return STATUS_INVALID_PARAMETER;
         }
       break;
     default:
-      debug_printf(LIBUSB_DEBUG_ERR, "vendor_class_request(): invalid type");
+      DEBUG_ERROR("vendor_class_request(): invalid type");
       return STATUS_INVALID_PARAMETER;
     }
 
-  debug_printf(LIBUSB_DEBUG_MSG, "vendor_class_request(): request: 0x%02x",
-               request);
-  debug_printf(LIBUSB_DEBUG_MSG, "vendor_class_request(): value: 0x%04x",
-               value);
-  debug_printf(LIBUSB_DEBUG_MSG, "vendor_class_request(): index: 0x%04x",
-               index);
-  debug_printf(LIBUSB_DEBUG_MSG, "vendor_class_request(): size: %d", size);
+  DEBUG_MESSAGE("vendor_class_request(): request: 0x%02x", request);
+  DEBUG_MESSAGE("vendor_class_request(): value: 0x%04x", value);
+  DEBUG_MESSAGE("vendor_class_request(): index: 0x%04x", index);
+  DEBUG_MESSAGE("vendor_class_request(): size: %d", size);
 
   if(direction == USBD_TRANSFER_DIRECTION_IN)
     {
-      debug_printf(LIBUSB_DEBUG_MSG, "vendor_class_request(): direction: in");
+      DEBUG_MESSAGE("vendor_class_request(): direction: in");
     }
   else
     {
-      debug_printf(LIBUSB_DEBUG_MSG, "vendor_class_request(): direction: out");
+      DEBUG_MESSAGE("vendor_class_request(): direction: out");
     }
 
-  debug_printf(LIBUSB_DEBUG_MSG, "vendor_class_request(): timeout: %d",
-               timeout);
+  DEBUG_MESSAGE("vendor_class_request(): timeout: %d", timeout);
 
   urb.UrbHeader.Length = sizeof(struct _URB_CONTROL_VENDOR_OR_CLASS_REQUEST);
   urb.UrbControlVendorClassRequest.TransferFlags 
@@ -133,16 +121,14 @@ NTSTATUS vendor_class_request(libusb_device_extension *device_extension,
   
   if(!NT_SUCCESS(status) || !USBD_SUCCESS(urb.UrbHeader.Status))
     {
-      debug_printf(LIBUSB_DEBUG_ERR, "vendor_class_request(): request failed: "
-                   "status: 0x%x, urb-status: 0x%x", 
-                   status, urb.UrbHeader.Status);
+     DEBUG_ERROR("vendor_class_request(): request failed: status: 0x%x, "
+                 "urb-status: 0x%x", status, urb.UrbHeader.Status);
       *sent = 0;
     }
   else
     {
       *sent = urb.UrbControlVendorClassRequest.TransferBufferLength;
-      debug_printf(LIBUSB_DEBUG_MSG, "vendor_class_request(): %d bytes "
-                   "transmitted", *sent);
+      DEBUG_MESSAGE("vendor_class_request(): %d bytes transmitted", *sent);
     }
   return status;
 }
