@@ -17,6 +17,8 @@
  */
 
 #define WINVER 0x0500
+#define INITGUID
+
 #include <windows.h>
 #include <dbt.h>
 #include <initguid.h>

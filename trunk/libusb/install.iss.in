@@ -23,6 +23,7 @@ Source: "@BIN_DIST_DIR@\include\*.h"; DestDir: "{app}\include"; Flags: recursesu
 
 Source: "testlibusb.exe"; DestDir: "{app}\bin";
 Source: "testlibusb-win.exe"; DestDir: "{app}\bin";
+Source: "testlibusb-win.exe.manifest"; DestDir: "{app}\bin";
 Source: "libusbd-nt.exe"; DestDir: "{sys}"; Flags: replacesameversion restartreplace
 Source: "libusbd-9x.exe"; DestDir: "{sys}"; Flags: replacesameversion restartreplace
 
@@ -47,3 +48,18 @@ Filename: "rundll32"; Parameters: "libusb0.dll,usb_delete_service_rundll"
 
 [Messages]
 StatusUninstalling=Uninstalling %1 (this may take a few seconds) ...
+
+
+[Code]
+function InitializeSetup(): Boolean;
+  begin 
+  if FileExists(GetWinDir() + '\system32\libusbd-nt.exe') 
+    or FileExists(GetWinDir() + '\system32\libusbd-9x.exe') then begin
+      MsgBox('An old version of LibUSB-Win32 is already installed on this system. Please uninstall this version first!', 
+              mbError, MB_OK);
+      Result := FALSE;
+  end
+  else begin
+      Result := TRUE;
+  end;
+end;

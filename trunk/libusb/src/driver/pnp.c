@@ -35,6 +35,8 @@ NTSTATUS dispatch_pnp(libusb_device_extension *device_extension, IRP *irp)
 {
   NTSTATUS status = STATUS_SUCCESS;
   IO_STACK_LOCATION *stack_location = IoGetCurrentIrpStackLocation(irp);
+  UNICODE_STRING symbolic_link_name;
+  WCHAR tmp_name[128];
 
   status = remove_lock_acquire(&device_extension->remove_lock);
   
@@ -48,15 +50,32 @@ NTSTATUS dispatch_pnp(libusb_device_extension *device_extension, IRP *irp)
   switch(stack_location->MinorFunction) 
     {     
     case IRP_MN_REMOVE_DEVICE:
-      device_extension->is_started = 0;
+
       debug_printf(LIBUSB_DEBUG_MSG, "dispatch_pnp(): IRP_MN_REMOVE_DEVICE");
-      remove_lock_release_and_wait(&device_extension->remove_lock);
+
+      device_extension->is_started = 0;
+
       IoSkipCurrentIrpStackLocation(irp);
       status = IoCallDriver(device_extension->next_stack_device, irp);
-      control_object_delete(device_extension);
+
+      remove_lock_release_and_wait(&device_extension->remove_lock);
+
+      debug_printf(LIBUSB_DEBUG_ERR, "dispatch_pnp(): deleting "
+                   "device %d", device_extension->device_id);
+      
+      _snwprintf(tmp_name, sizeof(tmp_name)/sizeof(WCHAR), L"%s%04d", 
+                 LIBUSB_SYMBOLIC_LINK_NAME,
+                 device_extension->device_id);
+      
+      RtlInitUnicodeString(&symbolic_link_name, tmp_name);
+      IoDeleteSymbolicLink(&symbolic_link_name);
+      
+      release_device_id(device_extension->device_id);
+
       IoDetachDevice(device_extension->next_stack_device);
       IoDeleteDevice(device_extension->self);
       return status;
+
 
     case IRP_MN_SURPRISE_REMOVAL:
       device_extension->is_started = 0;
@@ -66,6 +85,7 @@ NTSTATUS dispatch_pnp(libusb_device_extension *device_extension, IRP *irp)
 
     case IRP_MN_START_DEVICE:
       debug_printf(LIBUSB_DEBUG_MSG, "dispatch_pnp(): IRP_MN_START_DEVICE");
+
       IoCopyCurrentIrpStackLocationToNext(irp);
       IoSetCompletionRoutine(irp, on_start_complete, NULL, TRUE, TRUE, TRUE);
 
@@ -102,20 +122,18 @@ NTSTATUS dispatch_pnp(libusb_device_extension *device_extension, IRP *irp)
         }
 
       IoCopyCurrentIrpStackLocationToNext(irp);
-      
       IoSetCompletionRoutine(irp, on_query_capabilities_complete, NULL,
                              TRUE, TRUE, TRUE);
-      
       return IoCallDriver(device_extension->next_stack_device, irp);
 
     default:
-      status = irp->IoStatus.Status;
+      debug_printf(LIBUSB_DEBUG_MSG, "dispatch_pnp(): "
+                   "IRP_UNKNOWN");
     }
 
-  irp->IoStatus.Status = status;
-  IoSkipCurrentIrpStackLocation(irp);
+  status = pass_irp_down(device_extension, irp);
   remove_lock_release(&device_extension->remove_lock);
-  return IoCallDriver(device_extension->next_stack_device, irp);
+  return status;
 }
 
 static NTSTATUS DDKAPI 
@@ -137,13 +155,7 @@ on_start_complete(DEVICE_OBJECT *device_object, IRP *irp, void *context)
   
   if(NT_SUCCESS(irp->IoStatus.Status))
     {
-      if(is_device_visible(device_extension))
-        {
-          if(NT_SUCCESS(control_object_create(device_extension)))
-            {
-              device_extension->is_started = 1;
-            }   
-        }
+      device_extension->is_started = 1;
     }
 
   remove_lock_release(&device_extension->remove_lock);

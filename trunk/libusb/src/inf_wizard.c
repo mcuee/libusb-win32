@@ -17,7 +17,9 @@
  */
 
 
+#define _WIN32_IE 0x0400
 #define WINVER 0x0500
+#define INITGUID
 
 #include <windows.h>
 #include <dbt.h>
@@ -60,24 +62,34 @@ DEFINE_GUID(GUID_DEVINTERFACE_USB_HUB, 0xf18a0e88, 0xc30c, 0x11d0, 0x88, \
 DEFINE_GUID(GUID_DEVINTERFACE_USB_DEVICE, 0xA5DCBF10L, 0x6530, 0x11D2, \
             0x90, 0x1F, 0x00, 0xC0, 0x4F, 0xB9, 0x51, 0xED);
 
+const char cat_file_content[] =
+"This file will contain the digital signature of the files to be installed\n"
+"on the system.\n"
+"This file will be provided by Microsoft upon certification of your "
+"drivers.\n";
+
 const char info_text_0[] = 
-"This program will create will create an .inf file for your device.\n\n"
-"Connect your device to the system and install it. If Windows asks\n"
-"for a driver then cancel the device installation. The installation"; 
+"This program will create will create an .inf and a .cat file for your\n"
+"device.\n\n"
+"Before clicking \"Next\" make sure that your device is connected and "
+"installed.\n";
 
 const char info_text_1[] = 
-"An .inf file has been created successfully for the following device:\n\n";
+"An .inf and .cat file has been created successfully for the following "
+"device:\n\n";
 
 const char list_header_text[] = 
 "Select your device from the list of detected devices below.\n"
-"If your device isn't listed then just click \"Next\" and enter\n"
-"your device description manually\n";
+"If your device isn't listed then either connect it or just click \"Next\"\n"
+"and enter your device description manually\n";
 
 const char inf_header[] = 
 "[Version]\n"
 "Signature = \"$Chicago$\"\n"
 "provider  = %manufacturer%\n"
-"DriverVer = " STRINGIFYVALUE(INF_DATE) "," STRINGIFYVALUE(VERSION) "\n"
+"DriverVer = " STRINGIFYVALUE(INF_DATE) "," STRINGIFYVALUE(VERSION) "\n";
+
+const char inf_body[] = 
 "Class = LibUsbDevices\n"
 "ClassGUID = {EB781AAF-9C70-4523-A5DF-642A87ECA567}\n"
 "\n"
@@ -147,7 +159,8 @@ const char inf_header[] =
 ";--------------------------------------------------------------------------\n"
 "\n"
 "[LIBUSB.AddService]\n"
-"DisplayName    = \"LibUsb-Win32 - Kernel Driver @INF_VERSION@\"\n"
+"DisplayName    = \"LibUsb-Win32 - Kernel Driver " 
+STRINGIFYVALUE(INF_DATE) ", " STRINGIFYVALUE(VERSION) "\"\n"
 "ServiceType    = 1\n"
 "StartType      = 3\n"
 "ErrorControl   = 0\n"
@@ -296,7 +309,7 @@ LRESULT CALLBACK win_proc(HWND win, UINT message, WPARAM w_param,
 BOOL CALLBACK dialog_proc_0(HWND dialog, UINT message, 
                                WPARAM w_param, LPARAM l_param)
 {
-  switch (message)
+  switch(message)
     {
     case WM_INITDIALOG:
       SetWindowText(GetDlgItem(dialog, ID_INFO_TEXT), info_text_0);
@@ -312,7 +325,6 @@ BOOL CALLBACK dialog_proc_0(HWND dialog, UINT message,
           EndDialog(dialog, 0);
           return TRUE ;
         }
-      break;
     }
   
   return FALSE;
@@ -332,7 +344,6 @@ BOOL CALLBACK dialog_proc_1(HWND dialog, UINT message,
   switch(message)
     {
     case WM_INITDIALOG:
-      usb_debug_error("init dialog 1");
       device = (device_context_t *)l_param;
       memset(device, 0, sizeof(*device));
 
@@ -365,7 +376,7 @@ BOOL CALLBACK dialog_proc_1(HWND dialog, UINT message,
         default:
           ;
         }
-      break;
+      return TRUE;
 
     case WM_COMMAND:
       switch(LOWORD(w_param))
@@ -430,7 +441,6 @@ BOOL CALLBACK dialog_proc_1(HWND dialog, UINT message,
           EndDialog(dialog, 0);
           return TRUE ;
         }
-      break;
     }
   
   return FALSE;
@@ -442,7 +452,7 @@ BOOL CALLBACK dialog_proc_2(HWND dialog, UINT message,
   static device_context_t *device = NULL;
   char tmp[MAX_PATH];
 
-  switch (message)
+  switch(message)
     {
     case WM_INITDIALOG:
       device = (device_context_t *)l_param;
@@ -491,7 +501,6 @@ BOOL CALLBACK dialog_proc_2(HWND dialog, UINT message,
           EndDialog(dialog, 0);
           return TRUE ;
         }
-      break;
     }
   
   return FALSE;
@@ -501,17 +510,14 @@ BOOL CALLBACK dialog_proc_3(HWND dialog, UINT message,
                             WPARAM w_param, LPARAM l_param)
 {
   static device_context_t *device = NULL;
-  char tmp[1024];
-  int ret = 0;
+  char tmp[MAX_PATH];
 
-  switch (message)
+  switch(message)
     {
     case WM_INITDIALOG:
       device = (device_context_t *)l_param;
 
-      memset(tmp, 0, sizeof(tmp));
-
-      sprintf(tmp + ret, 
+      sprintf(tmp,
               "%s\n"
               "Vendor ID:\t\t 0x%04X\n\n"
               "Product ID:\t\t 0x%04X\n\n"
@@ -527,13 +533,11 @@ BOOL CALLBACK dialog_proc_3(HWND dialog, UINT message,
       return TRUE;
       
     case WM_COMMAND:
-      switch(LOWORD(w_param))
+      if(LOWORD(w_param) == ID_BUTTON_NEXT)
         {
-        case ID_BUTTON_NEXT:
           EndDialog(dialog, 0);
           return TRUE ;
         }
-      break;
     }
   
   return FALSE;
@@ -542,6 +546,8 @@ BOOL CALLBACK dialog_proc_3(HWND dialog, UINT message,
 static void device_list_init(HWND list)
 {
   LVCOLUMN lvc; 
+
+  ListView_SetExtendedListViewStyle(list, LVS_EX_FULLROWSELECT);
 
   memset(&lvc, 0, sizeof(lvc));
 
@@ -645,46 +651,59 @@ static void device_list_clean(HWND list)
 {
   LVITEM item;
 
-  item.iItem = 0;
-  
+  memset(&item, 0, sizeof(LVITEM));
+
   while(ListView_GetItem(list, &item))
     {
       if(item.lParam)
         free((void *)item.lParam);
       
       ListView_DeleteItem(list, 0);
+      memset(&item, 0, sizeof(LVITEM));
     }
 }
 
 static int save_file(HWND dialog, device_context_t *device)
 {
   OPENFILENAME open_file;
-  char file_name[MAX_PATH];
+  char inf_name[MAX_PATH];
+  char inf_path[MAX_PATH];
+
+  char cat_name[MAX_PATH];
+  char cat_path[MAX_PATH];
+
   char error[MAX_PATH];
   FILE *file;
 
   memset(&open_file, 0, sizeof(open_file));
-  //  memset(file_name, 0, sizeof(file));
-  strcpy(file_name, "your_file.inf");
+  strcpy(inf_path, "your_file.inf");
 
   open_file.lStructSize = sizeof(OPENFILENAME);
   open_file.hwndOwner = dialog;
-  open_file.lpstrFile = file_name;
-  open_file.nMaxFile = sizeof(file_name);
+  open_file.lpstrFile = inf_path;
+  open_file.nMaxFile = sizeof(inf_path);
   open_file.lpstrFilter = "*.inf\0";
   open_file.nFilterIndex = 0;
-  open_file.lpstrFileTitle = NULL;
-  open_file.nMaxFileTitle = 100;
+  open_file.lpstrFileTitle = inf_name;
+  open_file.nMaxFileTitle = sizeof(inf_name);
   open_file.lpstrInitialDir = NULL;
   open_file.Flags = OFN_PATHMUSTEXIST;
   
   if(GetSaveFileName(&open_file))
     {
-      file = fopen(file_name, "w");
+      strcpy(cat_path, inf_path);
+      strcpy(cat_name, inf_name);
+
+      strcpy(strstr(cat_path, ".inf"), ".cat");
+      strcpy(strstr(cat_name, ".inf"), ".cat");
+
+      file = fopen(inf_path, "w");
 
       if(file)
         {
           fprintf(file, "%s", inf_header);
+          fprintf(file, "CatalogFile = %s\n\n", cat_name);
+          fprintf(file, "%s", inf_body);
 
           fprintf(file, "[Devices]\n");
           fprintf(file, "\"%s\"=LIBUSB_DEV, USB\\VID_%04x&PID_%04x\n\n", 
@@ -698,11 +717,27 @@ static int save_file(HWND dialog, device_context_t *device)
         }
       else
         {
-          sprintf(error, "Error: unable to open file: %s", file_name);
+          sprintf(error, "Error: unable to open file: %s", inf_name);
           MessageBox(dialog, error, "Error",
                      MB_OK | MB_APPLMODAL | MB_ICONWARNING);
         }
-        return TRUE;
+
+
+      file = fopen(cat_path, "w");
+
+      if(file)
+        {
+          fprintf(file, "%s", cat_file_content);
+          fclose(file);
+        }
+      else
+        {
+          sprintf(error, "Error: unable to open file: %s", cat_name);
+          MessageBox(dialog, error, "Error",
+                     MB_OK | MB_APPLMODAL | MB_ICONWARNING);
+        }
+
+      return TRUE;
     }
   return FALSE;
 }

@@ -35,8 +35,8 @@ OBJECTS = usb.o error.o descriptors.o windows.o resource.o install.o \
 	registry.o service.o win_debug.o
 
 DRIVER_OBJECTS = abort_endpoint.o claim_interface.o clear_feature.o \
-	debug.o dispatch.o driver_registry.o get_configuration.o \
-	get_descriptor.o get_interface.o get_status.o internal_ioctl.o \
+	debug.o dispatch.o get_configuration.o \
+	get_descriptor.o get_interface.o get_status.o \
 	ioctl.o libusb_driver.o pnp.o release_interface.o reset_device.o \
 	reset_endpoint.o set_configuration.o set_descriptor.o \
 	set_feature.o set_interface.o transfer.o vendor_request.o \
@@ -93,10 +93,12 @@ all: $(DLL_TARGET).dll $(EXE_FILES) $(DRIVER_TARGET) \
 $(DLL_TARGET).dll: driver_api.h $(OBJECTS)
 	$(CC) -o $@ $(OBJECTS) $(DLL_LDFLAGS) 
 
-%.o: %.c
-	$(CC) -c $< -o $@ $(CFLAGS) -Wall $(CPPFLAGS) $(INCLUDES) 
+$(DRIVER_TARGET): $(TARGET)_driver_rc.rc driver_api.h $(DRIVER_OBJECTS)
+	dlltool --dllname usbd.sys --def ./src/driver/usbd.def \
+	--output-lib libusbd.a
+	$(CC) -o $@ $(DRIVER_OBJECTS) $(DRIVER_LDFLAGS)
 
-inf-wizard.exe: inf_wizard.o inf_wizard_rc.o 
+inf-wizard.exe: inf_wizard.o inf_wizard_rc.o registry.o win_debug.o
 	$(CC) $(CFLAGS) -o $@ -I./src  $^ $(LDFLAGS)
 
 testlibusb.exe: testlibusb.o resource.o 
@@ -111,8 +113,8 @@ libusbd-nt.exe: service_nt.o service.o registry.o resource.o win_debug.o
 libusbd-9x.exe: service_9x.o service.o registry.o resource.o win_debug.o
 	$(CC) $(CPPFLAGS) -Wall $(CFLAGS) -o $@ $^ $(LDFLAGS)
 
-README.txt: README.in
-	sed -e 's/@VERSION@/$(VERSION)/' $< > $@
+%.o: %.c
+	$(CC) -c $< -o $@ $(CFLAGS) -Wall $(CPPFLAGS) $(INCLUDES) 
 
 %.o: %.rc.in
 	sed -e 's/@RC_VERSION@/$(RC_VERSION)/' \
@@ -129,10 +131,9 @@ README.txt: README.in
 	-e 's/@VERSION_NANO@/$(VERSION_NANO)/' \
 	$< > $@
 
-$(DRIVER_TARGET): $(TARGET)_driver_rc.rc driver_api.h $(DRIVER_OBJECTS)
-	dlltool --dllname usbd.sys --def ./src/driver/usbd.def \
-	--output-lib libusbd.a
-	$(CC) -o $@ $(DRIVER_OBJECTS) $(DRIVER_LDFLAGS)
+README.txt: README.in
+	sed -e 's/@VERSION@/$(VERSION)/' $< > $@
+
 
 .PHONY: bcc_implib
 bcc_lib:
@@ -213,7 +214,7 @@ snapshot: dist
 
 .PHONY: clean
 clean:	
-	$(RM) *.o *.dll *.a *.exp *.lib *.exe *.def *.tar.gz *.inf *~ *.iss *.rc *.h
+	$(RM) *.o *.dll *.a *.exp *.lib *.exe *.def *.tar.gz *~ *.iss *.rc *.h
 	$(RM) ./src/*~ *.sys *.log
 	$(RM) $(DRIVER_SRC_DIR)/*~
 	$(RM) README.txt

@@ -20,13 +20,12 @@
 #ifndef __DRIVER_API_H__
 #define __DRIVER_API_H__
 
-#undef interface
-
 enum {
   LIBUSB_DEBUG_ERR = 1,
   LIBUSB_DEBUG_WARN,
   LIBUSB_DEBUG_MSG,
 };
+
 
 #define LIBUSB_VERSION_MAJOR @VERSION_MAJOR@
 #define LIBUSB_VERSION_MINOR @VERSION_MINOR@

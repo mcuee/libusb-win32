@@ -18,6 +18,8 @@
 
 
 #define WINVER 0x0500
+#define INITGUID
+
 #include <windows.h>
 #include <dbt.h>
 #include <initguid.h>
@@ -27,6 +29,7 @@
 
 
 #define LIBUSB_SERVICE_NAME "libusbd"
+
 
 DEFINE_GUID(GUID_DEVINTERFACE_USB_HUB, 0xf18a0e88, 0xc30c, 0x11d0, 0x88, \
             0x15, 0x00, 0xa0, 0xc9, 0x06, 0xbe, 0xd8);

@@ -150,7 +150,7 @@ NTSTATUS transfer(IRP *irp, libusb_device_extension *device_extension,
     } 
     
   IoMarkIrpPending(irp);
-  IoCallDriver(device_extension->next_stack_device, context->sub_irp);
+  IoCallDriver(device_extension->physical_device_object, context->sub_irp);
   return STATUS_PENDING;  
 }
 

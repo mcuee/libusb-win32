@@ -28,8 +28,10 @@
 #include "win_debug.h"
 
 
+#define LIBUSB_SERVICE_NAME "libusbd"
+#define LIBUSB_SERVICE_PATH "system32\\libusbd-nt.exe"
+#define LIBUSB_DRIVER_PATH  "system32\\drivers\\libusb0.sys"
 
-#define LIBUSB_DRIVER_PATH "system32\\drivers\\libusb0.sys"
 
 void CALLBACK usb_create_service_rundll(HWND wnd, HINSTANCE instance,
                                         LPSTR cmd_line, int cmd_show);
