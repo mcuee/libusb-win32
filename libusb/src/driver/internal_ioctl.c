@@ -22,7 +22,6 @@
 NTSTATUS __stdcall
 on_internal_ioctl_complete(DEVICE_OBJECT *device_object, IRP *irp,
                            void *context);
-
 int block_internal_device_control(libusb_device_extension *device_extension,
                                   IRP *irp);
 
@@ -82,13 +81,13 @@ on_internal_ioctl_complete(DEVICE_OBJECT *device_object, IRP *irp,
 
           if(configuration_descriptor)
             {
-              device_extension->current_configuration = 
+              device_extension->configuration = 
                 configuration_descriptor->bConfigurationValue;
               interface_info = &(urb->UrbSelectConfiguration.Interface);
             }
           else
             {
-              device_extension->current_configuration = 0;
+              device_extension->configuration = 0;
               interface_info = NULL;
             }
 	  
@@ -106,7 +105,7 @@ on_internal_ioctl_complete(DEVICE_OBJECT *device_object, IRP *irp,
 	     
           debug_printf(LIBUSB_DEBUG_MSG, "on_internal_ioctl_complete(): "
                        "current configuration is %d", 
-                       device_extension->current_configuration);
+                       device_extension->configuration);
 
           break;
 

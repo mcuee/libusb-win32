@@ -100,30 +100,6 @@ static int usb_transfer_sync(usb_dev_handle *dev, int control_code,
 			     int timeout);
 
 
-/* DLL main entry point */
-BOOL WINAPI DllMain(HANDLE module, DWORD reason, LPVOID reserved)
-{
-  switch(reason)
-    {
-    case DLL_PROCESS_ATTACH:
-      if(!usb_service_load_dll())
-	{      
-	  return FALSE;
-	}
-      break;
-    case DLL_PROCESS_DETACH:
-      usb_service_free_dll();
-      break;
-    case DLL_THREAD_ATTACH:
-      break;
-    case DLL_THREAD_DETACH:
-      break;
-    default:
-      break;
-    }
-  return TRUE;
-}
-
 /* prints a message to the Windows debug system */
 static void output_debug_string(const char *s, ...)
 {

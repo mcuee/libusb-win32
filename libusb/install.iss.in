@@ -1,0 +1,41 @@
+
+[Setup]
+AppName=LibUsb-Win32
+AppVerName=LibUsb-Win32-@VERSION@
+AppPublisher=LibUSB-Win32 
+AppPublisherURL=http://libusb-win32.sourceforge.net/ 
+AppVersion=@VERSION@
+DefaultDirName={pf}\LibUsb-Win32-@VERSION@
+DefaultGroupName=LibUsb-Win32
+LicenseFile=installer_license.txt
+Compression=lzma
+SolidCompression=yes
+MinVersion=5,5
+PrivilegesRequired=admin
+
+[Files]
+Source: "@BIN_DIST_DIR@\bin\*.sys"; DestDir: "{sys}\drivers"; Flags: uninsneveruninstall replacesameversion restartreplace
+Source: "@BIN_DIST_DIR@\bin\*.dll"; DestDir: "{sys}"; Flags: uninsneveruninstall replacesameversion restartreplace
+Source: "@BIN_DIST_DIR@\lib\*.*"; DestDir: "{app}\lib"; Flags: recursesubdirs
+Source: "@BIN_DIST_DIR@\bin\*.exe"; DestDir: "{app}\bin";
+Source: "@BIN_DIST_DIR@\*.*"; DestDir: "{app}"
+
+Source: "@SRC_DIST_DIR@\*.*"; DestDir: "{app}\src"; Flags: recursesubdirs
+
+
+[Icons] 
+Name: "{group}\Test Program"; Filename: "{app}\bin\testlibusb-win.exe"; 
+Name: "{group}\Uninstall LibUsb-Win32"; Filename: "{uninstallexe}"
+Name: "{group}\GPL License"; Filename: "{app}\COPYING_GPL.txt"
+Name: "{group}\LGPL License"; Filename: "{app}\COPYING_GPL.txt"
+
+
+[Run]
+Filename: "rundll32"; Parameters: "libusb0.dll,usb_create_kernel_service_rundll"; StatusMsg: "Creating kernel service (this may take a few seconds) ..." 
+Filename: "{app}\bin\testlibusb-win"; Description: "Run test application"; Flags: postinstall
+
+[UninstallRun]
+Filename: "rundll32"; Parameters: "libusb0.dll,usb_remove_kernel_service_rundll"
+
+[Messages]
+StatusUninstalling=Uninstalling %1 (this may take a few seconds) ...

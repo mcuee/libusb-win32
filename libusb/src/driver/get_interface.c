@@ -31,14 +31,14 @@ NTSTATUS get_interface(libusb_device_extension *device_extension,
   debug_printf(LIBUSB_DEBUG_MSG, "get_interface(): interface %d", interface);
   debug_printf(LIBUSB_DEBUG_MSG, "get_interface(): timeout %d", timeout);
 
-  if(!device_extension->current_configuration)
+  if(!device_extension->configuration)
     {
       debug_printf(LIBUSB_DEBUG_ERR, "get_interface(): invalid "
                    "configuration 0"); 
       return STATUS_INVALID_DEVICE_STATE;
     }
 
-  memset(&urb, 0, sizeof(struct _URB_CONTROL_GET_INTERFACE_REQUEST));
+  memset(&urb, 0, sizeof(URB));
 
   urb.UrbHeader.Function = URB_FUNCTION_GET_INTERFACE;
   urb.UrbHeader.Length = sizeof(struct _URB_CONTROL_GET_INTERFACE_REQUEST);

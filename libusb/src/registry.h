@@ -1,5 +1,3 @@
-
-
 /* LIBUSB-WIN32, Generic Windows USB Driver
  * Copyright (C) 2002-2004 Stephan Meyer, <ste_meyer@web.de>
  *
@@ -27,8 +25,8 @@
 #include <setupapi.h>
 
 
-#define LIBUSB_DRIVER_NAME_NT "libusb0"
-#define LIBUSB_DRIVER_NAME_9X "libusb0.sys"
+#define LIBUSB_DRIVER_NAME "libusb0"
+#define LIBUSB_COINSTALLER_ENTRY "libusb0,usb_coinstaller"
 
 typedef int bool_t;
 
@@ -39,38 +37,32 @@ typedef int bool_t;
 #define TRUE (!(FALSE)) 
 #endif
 
-#define REGISTRY_BUF_SIZE 512
 
 
-bool_t usb_registry_is_nt(void);
 
 bool_t usb_registry_get_property(DWORD which, HDEVINFO dev_info, 
-				 SP_DEVINFO_DATA *dev_info_data,
-				 char *buf, int size);
+                                 SP_DEVINFO_DATA *dev_info_data,
+                                 char *buf, int size);
 bool_t usb_registry_set_property(DWORD which, HDEVINFO dev_info, 
-				 SP_DEVINFO_DATA *dev_info_data, 
-				 char *buf);
+                                 SP_DEVINFO_DATA *dev_info_data, 
+                                 char *buf, int size);
 
 bool_t usb_registry_restart_device(HDEVINFO dev_info, 
-				   SP_DEVINFO_DATA *dev_info_data);
+                                   SP_DEVINFO_DATA *dev_info_data);
 bool_t usb_registry_stop_device(HDEVINFO dev_info, 
-				SP_DEVINFO_DATA *dev_info_data);
+                                SP_DEVINFO_DATA *dev_info_data);
 bool_t usb_registry_start_device(HDEVINFO dev_info, 
-				 SP_DEVINFO_DATA *dev_info_data);
+                                 SP_DEVINFO_DATA *dev_info_data);
 
 bool_t usb_registry_insert_filter(HDEVINFO dev_info,
-				  SP_DEVINFO_DATA *dev_info_data,
-				  const char *filter_name);
+                                  SP_DEVINFO_DATA *dev_info_data,
+                                  char *filter_name);
 bool_t usb_registry_remove_filter(HDEVINFO dev_info, 
-				  SP_DEVINFO_DATA *dev_info_data,
-				  const char *filter_name);
+                                  SP_DEVINFO_DATA *dev_info_data,
+                                  char *filter_name);
 
-bool_t usb_registry_is_root_hub(HDEVINFO dev_info, 
-				SP_DEVINFO_DATA *dev_info_data);
-bool_t usb_registry_is_composite_interface(HDEVINFO dev_info, 
-					   SP_DEVINFO_DATA *dev_info_data);
 bool_t usb_registry_is_service_libusb(HDEVINFO dev_info, 
-				      SP_DEVINFO_DATA *dev_info_data);
+                                      SP_DEVINFO_DATA *dev_info_data);
 
 void usb_registry_start_filter(void);
 void usb_registry_stop_filter(void);
@@ -78,5 +70,16 @@ void usb_registry_stop_filter(void);
 void usb_registry_stop_libusb_devices(void);
 void usb_registry_start_libusb_devices(void);
 
+
+bool_t usb_registry_match(HDEVINFO dev_info, SP_DEVINFO_DATA *dev_info_data);
+
+int usb_registry_mz_string_size(char *src);
+char *usb_registry_mz_string_find(char *src, char *str);
+char *usb_registry_mz_string_find_sub(char *src, char *str);
+bool_t usb_registry_mz_string_insert(char *src, char *str);
+bool_t usb_registry_mz_string_remove(char *src, char *str);
+
+bool_t usb_registry_insert_co_installer(char *guid);
+bool_t usb_registry_remove_co_installer(char *guid);
 
 #endif

@@ -204,11 +204,11 @@ int get_pipe_handle(libusb_device_extension *device_extension,
     {
       for(j = 0; j < LIBUSB_MAX_NUMBER_OF_ENDPOINTS; j++)
         {
-          if(device_extension->interface_info[i].endpoints[j].address 
+          if(device_extension->interfaces[i].endpoints[j].address 
              == endpoint_address)
             {
               *pipe_handle 
-                = device_extension->interface_info[i].endpoints[j].handle;
+                = device_extension->interfaces[i].endpoints[j].handle;
 
               if(!*pipe_handle)
                 {
@@ -230,13 +230,13 @@ void clear_pipe_info(libusb_device_extension *device_extension)
   
   for(i = 0; i < LIBUSB_MAX_NUMBER_OF_INTERFACES; i++)
     {
-      device_extension->interface_info[i].valid = FALSE;
-      device_extension->interface_info[i].claimed = FALSE;
+      device_extension->interfaces[i].valid = FALSE;
+      device_extension->interfaces[i].claimed = FALSE;
 
       for(j = 0; j < LIBUSB_MAX_NUMBER_OF_ENDPOINTS; j++)
         {
-          device_extension->interface_info[i].endpoints[j].address = -1;
-          device_extension->interface_info[i].endpoints[j].handle = NULL;
+          device_extension->interfaces[i].endpoints[j].address = -1;
+          device_extension->interfaces[i].endpoints[j].handle = NULL;
         } 
     }
 }
@@ -254,12 +254,12 @@ int update_pipe_info(libusb_device_extension *device_extension, int interface,
   debug_printf(LIBUSB_DEBUG_MSG, "update_pipe_info(): interface %d",
                interface);
 
-  device_extension->interface_info[interface].valid = TRUE;
+  device_extension->interfaces[interface].valid = TRUE;
   
   for(i = 0; i < LIBUSB_MAX_NUMBER_OF_ENDPOINTS ; i++)
     {
-      device_extension->interface_info[interface].endpoints[i].address = -1;
-      device_extension->interface_info[interface].endpoints[i].handle = NULL;
+      device_extension->interfaces[interface].endpoints[i].address = -1;
+      device_extension->interfaces[interface].endpoints[i].handle = NULL;
     } 
 
   if(interface_info)
@@ -271,9 +271,9 @@ int update_pipe_info(libusb_device_extension *device_extension, int interface,
                        "address 0x%02x",
                        interface_info->Pipes[i].EndpointAddress);	  
 
-          device_extension->interface_info[interface].endpoints[i].handle
+          device_extension->interfaces[interface].endpoints[i].handle
             = interface_info->Pipes[i].PipeHandle;	
-          device_extension->interface_info[interface].endpoints[i].address = 
+          device_extension->interfaces[interface].endpoints[i].address = 
             interface_info->Pipes[i].EndpointAddress;
         }
     }
@@ -400,7 +400,7 @@ void control_object_delete(libusb_device_extension *device_extension)
     }
 }
 
-void remove_lock_initialize(libusb_remove_lock *remove_lock)
+void remove_lock_initialize(libusb_remove_lock_t *remove_lock)
 {
   KeInitializeEvent(&remove_lock->event, NotificationEvent, FALSE);
   remove_lock->usage_count = 1;
@@ -408,7 +408,7 @@ void remove_lock_initialize(libusb_remove_lock *remove_lock)
 }
 
 
-NTSTATUS remove_lock_acquire(libusb_remove_lock *remove_lock)
+NTSTATUS remove_lock_acquire(libusb_remove_lock_t *remove_lock)
 {
   InterlockedIncrement(&remove_lock->usage_count);
 
@@ -424,7 +424,7 @@ NTSTATUS remove_lock_acquire(libusb_remove_lock *remove_lock)
 }
 
 
-void remove_lock_release(libusb_remove_lock *remove_lock)
+void remove_lock_release(libusb_remove_lock_t *remove_lock)
 {
   if(InterlockedDecrement(&remove_lock->usage_count) == 0)
     {
@@ -433,7 +433,7 @@ void remove_lock_release(libusb_remove_lock *remove_lock)
 }
 
 
-void remove_lock_release_and_wait(libusb_remove_lock *remove_lock)
+void remove_lock_release_and_wait(libusb_remove_lock_t *remove_lock)
 {
   remove_lock->remove_pending = TRUE;
   remove_lock_release(remove_lock);
@@ -502,14 +502,14 @@ int is_interface_claimed(libusb_device_extension *device_extension,
       return FALSE;
     }
 
-  if(!device_extension->interface_info[interface].valid)
+  if(!device_extension->interfaces[interface].valid)
     {
       debug_printf(LIBUSB_DEBUG_ERR, "is_interface_claimed(): invalid "
                    "interface %d", interface);
       return FALSE;
     }
 
-  return device_extension->interface_info[interface].claimed;
+  return device_extension->interfaces[interface].claimed;
 }
 
 int is_any_interface_claimed(libusb_device_extension *device_extension)
@@ -518,7 +518,7 @@ int is_any_interface_claimed(libusb_device_extension *device_extension)
 
   for(i = 0; i < LIBUSB_MAX_NUMBER_OF_INTERFACES; i++)
     {
-      if(device_extension->interface_info[i].claimed)
+      if(device_extension->interfaces[i].claimed)
         {
           return TRUE;
         }
@@ -535,10 +535,10 @@ int is_endpoint_claimed(libusb_device_extension *device_extension,
     {
       for(j = 0; j < LIBUSB_MAX_NUMBER_OF_ENDPOINTS; j++)
         {
-          if(device_extension->interface_info[i].endpoints[j].handle  
+          if(device_extension->interfaces[i].endpoints[j].handle  
              == pipe_handle)
             {
-              return device_extension->interface_info[i].claimed;
+              return device_extension->interfaces[i].claimed;
             }
         }
     }

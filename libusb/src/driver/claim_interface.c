@@ -34,21 +34,21 @@ NTSTATUS claim_interface(libusb_device_extension *device_extension,
       return STATUS_INVALID_PARAMETER;
     }
 
-  if(!device_extension->interface_info[interface].valid)
+  if(!device_extension->interfaces[interface].valid)
     {
       debug_printf(LIBUSB_DEBUG_ERR, "claim_interface(): invalid interface "
                    "%d", interface);
       return STATUS_INVALID_PARAMETER;
     }
 
-  if(device_extension->interface_info[interface].claimed)
+  if(device_extension->interfaces[interface].claimed)
     {
       debug_printf(LIBUSB_DEBUG_ERR, "claim_interface(): could not claim "
                    "interface %d, interface is already claimed", interface);
       return STATUS_DEVICE_BUSY;
     }
 
-  device_extension->interface_info[interface].claimed = TRUE;
+  device_extension->interfaces[interface].claimed = TRUE;
 
   return STATUS_SUCCESS;
 }

@@ -11,21 +11,22 @@
 #include "usbi.h"
 
 int usb_get_descriptor_by_endpoint(usb_dev_handle *udev, int ep,
-	unsigned char type, unsigned char index, void *buf, int size)
+                                   unsigned char type, unsigned char index, 
+                                   void *buf, int size)
 {
   memset(buf, 0, size);
 
   return usb_control_msg(udev, ep | USB_ENDPOINT_IN, USB_REQ_GET_DESCRIPTOR,
-                        (type << 8) + index, 0, buf, size, 1000);
+                         (type << 8) + index, 0, buf, size, 1000);
 }
 
 int usb_get_descriptor(usb_dev_handle *udev, unsigned char type,
-	unsigned char index, void *buf, int size)
+                       unsigned char index, void *buf, int size)
 {
   memset(buf, 0, size);
 
   return usb_control_msg(udev, USB_ENDPOINT_IN, USB_REQ_GET_DESCRIPTOR,
-                        (type << 8) + index, 0, buf, size, 1000);
+                         (type << 8) + index, 0, buf, size, 1000);
 }
 
 /*
@@ -33,7 +34,8 @@ int usb_get_descriptor(usb_dev_handle *udev, unsigned char type,
  * kernel. It's not a coincidence :)
  */
 
-static int usb_parse_endpoint(struct usb_endpoint_descriptor *endpoint, unsigned char *buffer, int size)
+static int usb_parse_endpoint(struct usb_endpoint_descriptor *endpoint, 
+                              unsigned char *buffer, int size)
 {
   struct usb_descriptor_header *header;
   unsigned char *begin;
@@ -52,7 +54,7 @@ static int usb_parse_endpoint(struct usb_endpoint_descriptor *endpoint, unsigned
   if (header->bDescriptorType != USB_DT_ENDPOINT) {
     if (usb_debug >= 2)
       fprintf(stderr, "unexpected descriptor 0x%X, expecting endpoint descriptor, type 0x%X\n",
-         endpoint->bDescriptorType, USB_DT_ENDPOINT);
+              endpoint->bDescriptorType, USB_DT_ENDPOINT);
     return parsed;
   }
   if (header->bLength == USB_DT_ENDPOINT_AUDIO_SIZE)
@@ -122,7 +124,7 @@ static int usb_parse_endpoint(struct usb_endpoint_descriptor *endpoint, unsigned
 }
 
 static int usb_parse_interface(struct usb_interface *interface,
-	unsigned char *buffer, int size)
+                               unsigned char *buffer, int size)
 {
   int i, len, numskipped, retval, parsed = 0;
   struct usb_descriptor_header *header;
@@ -201,7 +203,7 @@ static int usb_parse_interface(struct usb_interface *interface,
     header = (struct usb_descriptor_header *)buffer;
     if ((size >= sizeof(struct usb_descriptor_header)) &&
         ((header->bDescriptorType == USB_DT_CONFIG) ||
-        (header->bDescriptorType == USB_DT_DEVICE)))
+         (header->bDescriptorType == USB_DT_DEVICE)))
       return parsed;
 
     if (ifp->bNumEndpoints > USB_MAXENDPOINTS) {
@@ -211,8 +213,8 @@ static int usb_parse_interface(struct usb_interface *interface,
     }
 
     ifp->endpoint = (struct usb_endpoint_descriptor *)
-                     malloc(ifp->bNumEndpoints *
-                     sizeof(struct usb_endpoint_descriptor));
+      malloc(ifp->bNumEndpoints *
+             sizeof(struct usb_endpoint_descriptor));
     if (!ifp->endpoint) {
       if (usb_debug >= 1)
         fprintf(stderr, "couldn't allocate memory for ifp->endpoint\n");
@@ -267,8 +269,8 @@ int usb_parse_configuration(struct usb_config_descriptor *config, char *buffer)
   }
 
   config->interface = (struct usb_interface *)
-                       malloc(config->bNumInterfaces *
-                       sizeof(struct usb_interface));
+    malloc(config->bNumInterfaces *
+           sizeof(struct usb_interface));
   if (!config->interface) {
     if (usb_debug >= 1)
       fprintf(stderr, "out of memory\n");
@@ -417,7 +419,7 @@ void usb_fetch_and_parse_descriptors(usb_dev_handle *udev)
   }
 
   memset(dev->config, 0, dev->descriptor.bNumConfigurations *
-	sizeof(struct usb_config_descriptor));
+         sizeof(struct usb_config_descriptor));
 
   for (i = 0; i < dev->descriptor.bNumConfigurations; i++) {
     char buffer[8], *bigbuffer;
@@ -472,7 +474,7 @@ void usb_fetch_and_parse_descriptors(usb_dev_handle *udev)
 
   return;
 
-err:
+ err:
   free(dev->config);
 
   dev->config = NULL;
