@@ -16,7 +16,7 @@ BEGIN
         BLOCK "040904b0"
         BEGIN
             VALUE "CompanyName", "http://libusb-win32.sourceforge.net"
-	    VALUE "FileDescription", "LibUSB-Win32 - Kernel Driver"
+	          VALUE "FileDescription", "LibUSB-Win32 - Kernel Driver"
             VALUE "FileVersion", "@VERSION@"
             VALUE "ProductVersion", "@VERSION@"
             VALUE "InternalName", "libusb-win32-driver"

@@ -5,7 +5,7 @@
 
 /* 
  * 'interface' is defined somewhere in the Windows header files. This macro 
- * is deleted here to avoid conflicts and compiler errors.
+ * is deleted here to avoid conflicts and compile errors.
  */
 
 #ifdef interface
@@ -191,29 +191,29 @@ struct usb_ctrl_setup {
 /*
  * Standard requests
  */
-#define USB_REQ_GET_STATUS		    0x00
-#define USB_REQ_CLEAR_FEATURE		  0x01
+#define USB_REQ_GET_STATUS		0x00
+#define USB_REQ_CLEAR_FEATURE		0x01
 /* 0x02 is reserved */
-#define USB_REQ_SET_FEATURE		    0x03
+#define USB_REQ_SET_FEATURE		0x03
 /* 0x04 is reserved */
-#define USB_REQ_SET_ADDRESS		    0x05
+#define USB_REQ_SET_ADDRESS		0x05
 #define USB_REQ_GET_DESCRIPTOR		0x06
 #define USB_REQ_SET_DESCRIPTOR		0x07
 #define USB_REQ_GET_CONFIGURATION	0x08
 #define USB_REQ_SET_CONFIGURATION	0x09
-#define USB_REQ_GET_INTERFACE		  0x0A
-#define USB_REQ_SET_INTERFACE		  0x0B
-#define USB_REQ_SYNCH_FRAME		    0x0C
+#define USB_REQ_GET_INTERFACE		0x0A
+#define USB_REQ_SET_INTERFACE		0x0B
+#define USB_REQ_SYNCH_FRAME		0x0C
 
 #define USB_TYPE_STANDARD		(0x00 << 5)
 #define USB_TYPE_CLASS			(0x01 << 5)
 #define USB_TYPE_VENDOR			(0x02 << 5)
 #define USB_TYPE_RESERVED		(0x03 << 5)
 
-#define USB_RECIP_DEVICE		  0x00
+#define USB_RECIP_DEVICE		0x00
 #define USB_RECIP_INTERFACE		0x01
 #define USB_RECIP_ENDPOINT		0x02
-#define USB_RECIP_OTHER			  0x03
+#define USB_RECIP_OTHER			0x03
 
 /*
  * Various libusb API related stuff
@@ -294,29 +294,29 @@ extern "C" {
   usb_dev_handle *usb_open(struct usb_device *dev);
   int usb_close(usb_dev_handle *dev);
   int usb_get_string(usb_dev_handle *dev, int index, int langid, char *buf,
-                     size_t buflen);
+		     size_t buflen);
   int usb_get_string_simple(usb_dev_handle *dev, int index, char *buf,
-                            size_t buflen);
+			    size_t buflen);
 
   /* descriptors.c */
   int usb_get_descriptor_by_endpoint(usb_dev_handle *udev, int ep,
-                                     unsigned char type, unsigned char index,
-                                     void *buf, int size);
+				     unsigned char type, unsigned char index,
+				     void *buf, int size);
   int usb_get_descriptor(usb_dev_handle *udev, unsigned char type,
-                         unsigned char index, void *buf, int size);
+			 unsigned char index, void *buf, int size);
 
   /* <arch>.c */
   int usb_bulk_write(usb_dev_handle *dev, int ep, char *bytes, int size,
-                     int timeout);
+		     int timeout);
   int usb_bulk_read(usb_dev_handle *dev, int ep, char *bytes, int size,
-                    int timeout);
+		    int timeout);
   int usb_interrupt_write(usb_dev_handle *dev, int ep, char *bytes, int size,
-                          int timeout);
+			  int timeout);
   int usb_interrupt_read(usb_dev_handle *dev, int ep, char *bytes, int size,
-                         int timeout);
+			 int timeout);
   int usb_control_msg(usb_dev_handle *dev, int requesttype, int request,
-                      int value, int index, char *bytes, int size, 
-                      int timeout);
+		      int value, int index, char *bytes, int size, 
+		      int timeout);
   int usb_set_configuration(usb_dev_handle *dev, int configuration);
   int usb_claim_interface(usb_dev_handle *dev, int interface);
   int usb_release_interface(usb_dev_handle *dev, int interface);
@@ -340,11 +340,11 @@ extern "C" {
   const struct usb_version *usb_get_version(void);
 
   int usb_isochronous_setup_async(usb_dev_handle *dev, void **context,
-                                  unsigned char ep, int pktsize);
+				  unsigned char ep, int pktsize);
   int usb_bulk_setup_async(usb_dev_handle *dev, void **context,
-                           unsigned char ep);
+			   unsigned char ep);
   int usb_interrupt_setup_async(usb_dev_handle *dev, void **context,
-                                unsigned char ep);
+				unsigned char ep);
 
   int usb_submit_async(void *context, char *bytes, int size);
   int usb_reap_async(void *context, int timeout);

@@ -19,7 +19,7 @@
 
 #include "libusb_driver.h"
 
-NTSTATUS __stdcall dispatch(DEVICE_OBJECT *device_object, IRP *irp)
+NTSTATUS DDKAPI dispatch(DEVICE_OBJECT *device_object, IRP *irp)
 {
   libusb_device_extension *device_extension = 
     (libusb_device_extension *)device_object->DeviceExtension;

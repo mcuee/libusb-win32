@@ -33,10 +33,10 @@
 #define LIBUSB_BORDER 10
 
 DEFINE_GUID(GUID_DEVINTERFACE_USB_HUB, 0xf18a0e88, 0xc30c, 0x11d0, 0x88, \
-	    0x15, 0x00, 0xa0, 0xc9, 0x06, 0xbe, 0xd8);
+            0x15, 0x00, 0xa0, 0xc9, 0x06, 0xbe, 0xd8);
 
 DEFINE_GUID(GUID_DEVINTERFACE_USB_DEVICE, 0xA5DCBF10L, 0x6530, 0x11D2, \
-	    0x90, 0x1F, 0x00, 0xC0, 0x4F, 0xB9, 0x51, 0xED);
+            0x90, 0x1F, 0x00, 0xC0, 0x4F, 0xB9, 0x51, 0xED);
 
 #define EDIT_BUF_INCREMENT 1024
 
@@ -58,12 +58,12 @@ static HWND edit_box;
 static HDEVNOTIFY notification_handle_hub, notification_handle_dev;
 
 LRESULT CALLBACK win_proc(HWND handle, UINT message, WPARAM w_param, 
-			  LPARAM l_param);
+                          LPARAM l_param);
 
 static void on_size(int width, int height);
 static void on_refresh(void);
 LRESULT CALLBACK on_about(HWND dialog, UINT message, WPARAM w_param, 
-			  LPARAM l_param);
+                          LPARAM l_param);
 
 static void edit_printf_init(void);
 static void edit_printf_free(void);
@@ -100,40 +100,40 @@ int APIENTRY WinMain(HINSTANCE instance, HINSTANCE prev_instance,
   RegisterClassEx(&win_class);
 
   main_win = CreateWindowEx(WS_EX_APPWINDOW| WS_EX_CONTROLPARENT,
-		       LIBUSB_WINDOW_CLASS, "TestLibUsb - Windows Version", 
-		       WS_OVERLAPPEDWINDOW | WS_CLIPCHILDREN | WS_DLGFRAME,
-		       CW_USEDEFAULT, 0, 500, 500, NULL, NULL, 
-		       instance, NULL);
+                            LIBUSB_WINDOW_CLASS, "TestLibUsb - Windows Version", 
+                            WS_OVERLAPPEDWINDOW | WS_CLIPCHILDREN | WS_DLGFRAME,
+                            CW_USEDEFAULT, 0, 500, 500, NULL, NULL, 
+                            instance, NULL);
   if(!main_win) 
     {
       return FALSE;
     }
 
   exit_button = CreateWindow("BUTTON", "Exit",
-			     WS_VISIBLE | WS_CHILD | BS_DEFPUSHBUTTON,
-			     10, 10, 
-			     LIBUSB_BUTTON_WIDTH, LIBUSB_BUTTON_HEIGHT, 
-			     main_win, (HMENU) ID_EXIT, instance, NULL);
+                             WS_VISIBLE | WS_CHILD | BS_DEFPUSHBUTTON,
+                             10, 10, 
+                             LIBUSB_BUTTON_WIDTH, LIBUSB_BUTTON_HEIGHT, 
+                             main_win, (HMENU) ID_EXIT, instance, NULL);
 
   refresh_button = CreateWindow("BUTTON", "Refresh",
-				WS_VISIBLE | WS_CHILD | BS_DEFPUSHBUTTON,
-				10, 100, 
-				LIBUSB_BUTTON_WIDTH, LIBUSB_BUTTON_HEIGHT, 
-				main_win, (HMENU) ID_REFRESH, instance, 
-				NULL);
+                                WS_VISIBLE | WS_CHILD | BS_DEFPUSHBUTTON,
+                                10, 100, 
+                                LIBUSB_BUTTON_WIDTH, LIBUSB_BUTTON_HEIGHT, 
+                                main_win, (HMENU) ID_REFRESH, instance, 
+                                NULL);
 
   edit_box = CreateWindowEx(WS_EX_CLIENTEDGE, "EDIT", NULL,
-			    WS_CHILD | WS_VISIBLE | WS_VSCROLL | 
-			    ES_LEFT | ES_MULTILINE | ES_AUTOVSCROLL 
-			    | ES_AUTOHSCROLL | ES_READONLY, 
-			    CW_USEDEFAULT, CW_USEDEFAULT, 
-			    CW_USEDEFAULT, CW_USEDEFAULT,
-			    main_win, (HMENU) ID_EDIT, instance, NULL); 
+                            WS_CHILD | WS_VISIBLE | WS_VSCROLL | 
+                            ES_LEFT | ES_MULTILINE | ES_AUTOVSCROLL 
+                            | ES_AUTOHSCROLL | ES_READONLY, 
+                            CW_USEDEFAULT, CW_USEDEFAULT, 
+                            CW_USEDEFAULT, CW_USEDEFAULT,
+                            main_win, (HMENU) ID_EDIT, instance, NULL); 
 
   SendMessage(edit_box, WM_SETFONT, (WPARAM) CreateFont(13, 8, 0, 0,
-							400, 0, 0, 0,
-							0, 1, 2, 1,
-							49, "Courier"), 0);
+                                                        400, 0, 0, 0,
+                                                        0, 1, 2, 1,
+                                                        49, "Courier"), 0);
 
   ShowWindow(main_win, cmd_show);
   UpdateWindow(main_win);
@@ -169,7 +169,7 @@ int APIENTRY WinMain(HINSTANCE instance, HINSTANCE prev_instance,
 
 
 LRESULT CALLBACK win_proc(HWND win, UINT message, WPARAM w_param, 
-			  LPARAM l_param)
+                          LPARAM l_param)
 {
   DEV_BROADCAST_HDR *hdr = (DEV_BROADCAST_HDR *) l_param;
 
@@ -177,9 +177,9 @@ LRESULT CALLBACK win_proc(HWND win, UINT message, WPARAM w_param,
     {
     case WM_DESTROY:
       if(notification_handle_hub)
-	UnregisterDeviceNotification(notification_handle_hub);
+        UnregisterDeviceNotification(notification_handle_hub);
       if(notification_handle_dev)
-	UnregisterDeviceNotification(notification_handle_dev);
+        UnregisterDeviceNotification(notification_handle_dev);
 
       PostQuitMessage(0);
       break;
@@ -188,33 +188,33 @@ LRESULT CALLBACK win_proc(HWND win, UINT message, WPARAM w_param,
       break;
     case WM_COMMAND:
       switch(LOWORD(w_param))
-	{
-	case ID_EXIT:
-	  PostQuitMessage(0);
-	  break;
-	case ID_REFRESH:
-	  on_refresh();
-	  break;
-	default:
-	  return DefWindowProc(win, message, w_param, l_param );
-	}
+        {
+        case ID_EXIT:
+          PostQuitMessage(0);
+          break;
+        case ID_REFRESH:
+          on_refresh();
+          break;
+        default:
+          return DefWindowProc(win, message, w_param, l_param );
+        }
       break;
 
     case WM_DEVICECHANGE:
       
       switch(w_param)
-	{
-	case DBT_DEVICEREMOVECOMPLETE:
-	  if(hdr->dbch_devicetype == DBT_DEVTYP_DEVICEINTERFACE) 
-	    on_refresh();
-	  break;
-	case DBT_DEVICEARRIVAL:
-	  if(hdr->dbch_devicetype == DBT_DEVTYP_DEVICEINTERFACE)
-	    on_refresh();
-	  break;
-	default:
-	  ;
-	}
+        {
+        case DBT_DEVICEREMOVECOMPLETE:
+          if(hdr->dbch_devicetype == DBT_DEVTYP_DEVICEINTERFACE) 
+            on_refresh();
+          break;
+        case DBT_DEVICEARRIVAL:
+          if(hdr->dbch_devicetype == DBT_DEVTYP_DEVICEINTERFACE)
+            on_refresh();
+          break;
+        default:
+          ;
+        }
       break;
     default:
       return DefWindowProc(win, message, w_param, l_param );
@@ -232,11 +232,11 @@ static void on_size(int width, int height)
   _y = height - LIBUSB_BORDER - LIBUSB_BUTTON_HEIGHT;
 
   SetWindowPos(exit_button, HWND_TOP, _x, _y, _width, _height, 
-	       SWP_SHOWWINDOW);
+               SWP_SHOWWINDOW);
 
   _x -= LIBUSB_BUTTON_WIDTH + LIBUSB_BORDER;
   SetWindowPos(refresh_button, HWND_TOP, _x, _y, _width, _height, 
-	       SWP_SHOWWINDOW);
+               SWP_SHOWWINDOW);
  
   _width = width - 2 * LIBUSB_BORDER;
   _height = height - 4 * LIBUSB_BORDER - LIBUSB_BUTTON_HEIGHT;
@@ -244,7 +244,7 @@ static void on_size(int width, int height)
   _x = LIBUSB_BORDER;
 
   SetWindowPos(edit_box, HWND_TOP, _x, _y, _width, _height, 
-	       SWP_SHOWWINDOW);
+               SWP_SHOWWINDOW);
 }
 
 static void on_refresh(void)
@@ -262,22 +262,22 @@ static void on_refresh(void)
   if(version)
     {
       edit_printf("DLL version:\t%d.%d.%d.%d\r\n",
-		  version->dll.major, version->dll.minor, 
-		  version->dll.micro, version->dll.nano);
+                  version->dll.major, version->dll.minor, 
+                  version->dll.micro, version->dll.nano);
 
       if(version->driver.major == -1)
-	{
-	  edit_printf("Driver version: not running!\r\n");
-	  SendMessage(edit_box, WM_SETTEXT, 0, (LPARAM) edit_buffer); 
-	  edit_printf_free();
-	  return;
-	}
+        {
+          edit_printf("Driver version: not running!\r\n");
+          SendMessage(edit_box, WM_SETTEXT, 0, (LPARAM) edit_buffer); 
+          edit_printf_free();
+          return;
+        }
       else
-	{
-	  edit_printf("Driver version:\t%d.%d.%d.%d\r\n\r\n",
-		      version->driver.major, version->driver.minor, 
-		      version->driver.micro, version->driver.nano);
-	}
+        {
+          edit_printf("Driver version:\t%d.%d.%d.%d\r\n\r\n",
+                      version->driver.major, version->driver.minor, 
+                      version->driver.micro, version->driver.nano);
+        }
     }
 
   edit_printf("bus/device  idVendor/idProduct\r\n");
@@ -289,13 +289,13 @@ static void on_refresh(void)
       usb_dev_handle *udev;
 
       edit_printf("%s/%s     %04X/%04X\r\n", bus->dirname, dev->filename,
-	dev->descriptor.idVendor, dev->descriptor.idProduct);
+                  dev->descriptor.idVendor, dev->descriptor.idProduct);
       udev = usb_open(dev);
       
       if (udev) {
         if (dev->descriptor.iManufacturer) {
           ret = usb_get_string_simple(udev, dev->descriptor.iManufacturer,
-				      string, sizeof(string));
+                                      string, sizeof(string));
           if (ret > 0)
             edit_printf("- Manufacturer : %s\r\n", string);
           else
@@ -304,7 +304,7 @@ static void on_refresh(void)
 
         if (dev->descriptor.iProduct) {
           ret = usb_get_string_simple(udev, dev->descriptor.iProduct, string,
-				      sizeof(string));
+                                      sizeof(string));
           if (ret > 0)
             edit_printf("- Product      : %s\r\n", string);
           else
@@ -313,14 +313,14 @@ static void on_refresh(void)
 
         if (dev->descriptor.iSerialNumber) {
           ret = usb_get_string_simple(udev, dev->descriptor.iSerialNumber, 
-				      string, sizeof(string));
+                                      string, sizeof(string));
           if (ret > 0)
             edit_printf("- Serial Number: %s\r\n", string);
           else
             edit_printf("- Unable to fetch serial number string\r\n");
         }
 
-	usb_close (udev);
+        usb_close (udev);
       }
 
       if (!dev->config) {
@@ -339,7 +339,7 @@ static void on_refresh(void)
 
 
 LRESULT CALLBACK on_about(HWND dialog, UINT message, WPARAM w_param, 
-			  LPARAM l_param)
+                          LPARAM l_param)
 {
   switch(message)
     {
@@ -347,10 +347,10 @@ LRESULT CALLBACK on_about(HWND dialog, UINT message, WPARAM w_param,
       return TRUE;
     case WM_COMMAND:
       if(LOWORD(w_param) == IDOK) 
-	{
-	  EndDialog(dialog, LOWORD(w_param));
-	  return TRUE;
-	}
+        {
+          EndDialog(dialog, LOWORD(w_param));
+          return TRUE;
+        }
       break;
     }
   return FALSE;
@@ -387,28 +387,28 @@ static void edit_printf_free(void)
 
 static void edit_printf(const char *s, ...)
 {
-    va_list args;
-    va_start(args, s);
+  va_list args;
+  va_start(args, s);
 
-    if(edit_buffer_size - edit_buffer_pos < EDIT_BUF_INCREMENT)
+  if(edit_buffer_size - edit_buffer_pos < EDIT_BUF_INCREMENT)
     {
-        char *tmp = realloc(edit_buffer, 
-			    edit_buffer_size + EDIT_BUF_INCREMENT);
+      char *tmp = realloc(edit_buffer, 
+                          edit_buffer_size + EDIT_BUF_INCREMENT);
 
-        if(tmp)
+      if(tmp)
         {
-	  edit_buffer = tmp;
-	  edit_buffer_size += EDIT_BUF_INCREMENT;
+          edit_buffer = tmp;
+          edit_buffer_size += EDIT_BUF_INCREMENT;
         }
-        else
+      else
         {
-	  return;
+          return;
         }
     }
 
-    edit_buffer_pos += vsnprintf(edit_buffer + edit_buffer_pos, 
-				 EDIT_BUF_INCREMENT - 1, s, args);
-    va_end(args);
+  edit_buffer_pos += vsnprintf(edit_buffer + edit_buffer_pos, 
+                               EDIT_BUF_INCREMENT - 1, s, args);
+  va_end(args);
 }
 
 
