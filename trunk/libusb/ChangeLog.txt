@@ -1,7 +1,23 @@
+Version 0.1.8.0:
+	
+	- ported version 0.1.8.0 of libusb to libusb-win32 
+	- filter driver: fixed two bugs which caused BSODs on some systems
+	  during powerdown and device removal.
+	- filter driver: fixed bug in composite device handling code.
+	- Services: added better handling of composite devices. These devices
+	  now appear as one single device instead of multiple devices for
+	  each interface.
+	- Sample inf-file: renamed to libusb.inf.
+	- Sample inf-file: added better support for composite devices
+	- Sample inf-file: included direct support for the Dakota and Walgreens
+	  digital cameras.
+	- Installer: improved installation speed.
+
+
 Version 0.1.7.10:
 
 	- DLL: fixed bug which caused the device detection to fail on some 
-	  systems
+	  systems.
 	- Filter driver: PNP and power management code improved. This will 
 	  hopefully remove the shutdown and hibernation problems reported by
 	  some users an XP systems.
@@ -11,8 +27,8 @@ Version 0.1.7.10:
 	  doesn't need the filter driver to be installed any more.
 	- Filter driver: the filter driver is now installed in a different way
 	  which will now allow access to all USB devices which weren't
-	  accessible in the past (mice, scanners, etc.). A Windows system service 
-	  (daemon) has been added to achive this.
+	  accessible in the past (mice, scanners, etc.). A Windows system 
+	  service (daemon) has been added to achive this.
 
  
 Version 0.1.7.9:

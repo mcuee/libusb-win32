@@ -1,7 +1,7 @@
 /*
  * Main API entry point
  *
- * Copyright (c) 2000-2002 Johannes Erdfelt <johannes@erdfelt.com>
+ * Copyright (c) 2000-2003 Johannes Erdfelt <johannes@erdfelt.com>
  *
  * This library is covered by the LGPL, read LICENSE for details.
  */
@@ -9,15 +9,11 @@
 #include <stdlib.h>	/* getenv */
 #include <stdio.h>	/* stderr */
 #include <errno.h>
-#include <string.h>
 
 #include "usbi.h"
 
 int usb_debug = 0;
 struct usb_bus *usb_busses = NULL;
-
-extern void usb_fetch_and_parse_descriptors(usb_dev_handle *udev);
-extern void usb_destroy_configuration(struct usb_device *dev);
 
 int usb_find_busses(void)
 {
@@ -205,8 +201,13 @@ usb_dev_handle *usb_open(struct usb_device *dev)
   return udev;
 }
 
-int usb_get_string(usb_dev_handle *dev, int index, int langid, char *buf, size_t buflen)
+int usb_get_string(usb_dev_handle *dev, int index, int langid, char *buf,
+	size_t buflen)
 {
+  /*
+   * We can't use usb_get_descriptor() because it's lacking the index
+   * parameter. This will be fixed in libusb 1.0
+   */
   return usb_control_msg(dev, USB_ENDPOINT_IN, USB_REQ_GET_DESCRIPTOR,
 			(USB_DT_STRING << 8) + index, langid, buf, buflen, 1000);
 }
@@ -216,7 +217,14 @@ int usb_get_string_simple(usb_dev_handle *dev, int index, char *buf, size_t bufl
   char tbuf[256];
   int ret, langid, si, di;
 
-  ret = usb_get_string(dev, index, 0, tbuf, sizeof(tbuf));
+  /*
+   * Asking for the zero'th index is special - it returns a string
+   * descriptor that contains all the language IDs supported by the
+   * device. Typically there aren't many - often only one. The
+   * language IDs are 16 bit numbers, and they start at the third byte
+   * in the descriptor. See USB 2.0 specification, section 9.6.7, for
+   * more information on this. */
+  ret = usb_get_string(dev, 0, 0, tbuf, sizeof(tbuf));
   if (ret < 0)
     return ret;
 
@@ -233,7 +241,7 @@ int usb_get_string_simple(usb_dev_handle *dev, int index, char *buf, size_t bufl
     return -EIO;
 
   if (tbuf[0] > ret)
-    return -EOVERFLOW;
+    return -EFBIG;
 
   for (di = 0, si = 2; si < tbuf[0]; si += 2) {
     if (di >= (buflen - 1))

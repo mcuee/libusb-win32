@@ -21,13 +21,8 @@
 #include <stdio.h>
 
 #include "service.h"
-
-
-typedef struct _stack_t {
-  struct _stack_t *next;
-  char text[1];
-} stack_t;
-
+#include "registry.h"
+#include "win_debug.h"
 
 
 static void create_kernel_service(void);
@@ -38,6 +33,7 @@ static void stop_system_service(void);
 static void stop_kernel_service(void);
 static void stop_kernel_service_full(void);
 static void restart_host_controllers(void);
+static void install_composite_filter(void);
 
 
  
@@ -45,14 +41,15 @@ static void libusb_usage(void);
 static void libusb_usage(void)
 {
   printf("Usage: libusb-nsis.exe [OPTION]\n");
-  printf("--create_kernel_service\n");
-  printf("--create_system_service\n");
-  printf("--delete_system_service\n");
-  printf("--start_system_service\n");
-  printf("--stop_system_service\n");
-  printf("--stop_kernel_service\n");
-  printf("--stop_kernel_service_full\n");
-  printf("--restart_host_controllers\n");
+  printf("--create-kernel-service\n");
+  printf("--create-system-service\n");
+  printf("--delete-system-service\n");
+  printf("--start-system-service\n");
+  printf("--stop-system-service\n");
+  printf("--stop-kernel-service\n");
+  printf("--stop-kernel-service_full\n");
+  printf("--restart-host-controllers\n");
+  printf("--install-composite-filter\n");
 }
 
 int main(int argc, char **argv)
@@ -70,44 +67,44 @@ int main(int argc, char **argv)
 
   do
     {
-      if(!strcmp(argv[1], "--create_kernel_service"))
+      if(!strcmp(argv[1], "--create-kernel-service"))
 	{ 
 	  create_kernel_service(); 
 	  break; 
 	}
-      if(!strcmp(argv[1], "--create_system_service"))
+      if(!strcmp(argv[1], "--create-system-service"))
 	{
 	  create_system_service(); 
 	  break;
 	}
-      if(!strcmp(argv[1], "--delete_system_service"))
+      if(!strcmp(argv[1], "--delete-system-service"))
 	{
 	  delete_system_service(); 
 	  break;
 	}
-      if(!strcmp(argv[1], "--start_system_service"))
+      if(!strcmp(argv[1], "--start-system-service"))
 	{
 	  start_system_service(); 
 	  break;
 	}
-      if(!strcmp(argv[1], "--stop_system_service"))
+      if(!strcmp(argv[1], "--stop-system-service"))
 	{
 	  stop_system_service(); 
 	  break;
 	}
-      if(!strcmp(argv[1], "--stop_kernel_service"))
+      if(!strcmp(argv[1], "--stop-kernel-service"))
 	{
 	  stop_kernel_service(); 
 	  break;
 	}
-      if(!strcmp(argv[1], "--stop_kernel_service_full"))
-	{
-	  stop_kernel_service_full(); 
-	  break;
-	}
-      if(!strcmp(argv[1], "--restart_host_controllers"))
+      if(!strcmp(argv[1], "--restart-host-controllers"))
 	{
 	  restart_host_controllers(); 
+	  break;
+	}
+      if(!strcmp(argv[1], "--install-composite-filter"))
+	{
+	  install_composite_filter(); 
 	  break;
 	}
 
@@ -166,7 +163,7 @@ static void stop_system_service(void)
 {
   HANDLE win; 
 
-  if(usb_service_is_nt())
+  if(usb_registry_is_nt())
     {
       usb_stop_service(LIBUSB_SERVICE_NAME); 
     }
@@ -187,13 +184,7 @@ static void stop_system_service(void)
 
 static void stop_kernel_service(void)
 {
-  usb_service_stop_filter(FALSE);
-}
-
-
-static void stop_kernel_service_full(void)
-{
-  usb_service_stop_filter(TRUE);
+  usb_service_stop_filter();
 }
 
 
@@ -202,7 +193,7 @@ static void restart_host_controllers(void)
   HDEVINFO dev_info;
   SP_DEVINFO_DATA dev_info_data;
   int dev_index = 0;
-  char *class;
+  char class[512];
 
   dev_info_data.cbSize = sizeof(SP_DEVINFO_DATA);
   dev_info = SetupDiGetClassDevs(NULL, "PCI", 0, 
@@ -210,27 +201,25 @@ static void restart_host_controllers(void)
 
   if(dev_info == INVALID_HANDLE_VALUE)
     {
-      usb_service_error("restart_host_controllers(): getting device info "
-			"failed");
+      usb_debug_error("restart_host_controllers(): getting device info "
+		      "failed");
       return;
     }
 
   while(SetupDiEnumDeviceInfo(dev_info, dev_index, &dev_info_data))
     {
-      class = usb_service_get_reg_property(SPDRP_CLASS, dev_info, 
-					   &dev_info_data);
-      if(class)
+      if(usb_registry_get_property(SPDRP_CLASS, dev_info, 
+				   &dev_info_data, class, sizeof(class)))
 	{
 	  if(strstr(class, "usb"))
 	    {
-	      if(!usb_service_set_device_state(DICS_PROPCHANGE, dev_info, 
-					       &dev_info_data))
+	      if(!usb_registry_set_device_state(DICS_PROPCHANGE, dev_info, 
+						&dev_info_data))
 		{
-		  usb_service_error("restart_host_controllers: setting "
-				    "device state failed");
+		  usb_debug_error("restart_host_controllers: setting "
+				  "device state failed");
 		}
 	    }
-	  free(class);
 	}
       dev_index++;
     }
@@ -238,3 +227,7 @@ static void restart_host_controllers(void)
   SetupDiDestroyDeviceInfoList(dev_info);
 }
 
+static void install_composite_filter(void)
+{
+  usb_registry_install_composite_filter();
+}

@@ -373,8 +373,6 @@ void control_object_delete(libusb_device_extension *device_extension)
 	  debug_printf(DEBUG_ERR, "control_object_delete(): "
 		       "IoDeleteSymbolicLink() failed\n");
 	}
-
-      IoDeleteDevice(device_extension->control_device_object);
       
       if(!control_extension->ref_count)
 	{
@@ -382,6 +380,8 @@ void control_object_delete(libusb_device_extension *device_extension)
 		       "id %d", device_extension->device_id);
 	  release_device_id(device_extension);
 	}
+
+      IoDeleteDevice(device_extension->control_device_object);
       device_extension->control_device_object = NULL;
     }
 }
@@ -487,7 +487,7 @@ NTSTATUS on_device_usage_notification_complete(DEVICE_OBJECT *device_object,
         device_object->Flags &= ~DO_POWER_PAGABLE;
     }
 
-    return STATUS_CONTINUE_COMPLETION;
+  return STATUS_SUCCESS;
 }
 
 NTSTATUS on_start_complete(DEVICE_OBJECT *device_object, IRP *irp, 

@@ -7,11 +7,19 @@
  */
 
 #include <stdio.h>
-#include <string.h>
-
 #include "usbi.h"
 
-int usb_get_descriptor(usb_dev_handle *udev, unsigned char type, unsigned char index, void *buf, int size)
+int usb_get_descriptor_by_endpoint(usb_dev_handle *udev, int ep,
+	unsigned char type, unsigned char index, void *buf, int size)
+{
+  memset(buf, 0, size);
+
+  return usb_control_msg(udev, ep | USB_ENDPOINT_IN, USB_REQ_GET_DESCRIPTOR,
+                        (type << 8) + index, 0, buf, size, 1000);
+}
+
+int usb_get_descriptor(usb_dev_handle *udev, unsigned char type,
+	unsigned char index, void *buf, int size)
 {
   memset(buf, 0, size);
 
@@ -112,7 +120,8 @@ static int usb_parse_endpoint(struct usb_endpoint_descriptor *endpoint, unsigned
   return parsed;
 }
 
-static int usb_parse_interface(struct usb_interface *interface, unsigned char *buffer, int size)
+static int usb_parse_interface(struct usb_interface *interface,
+	unsigned char *buffer, int size)
 {
   int i, len, numskipped, retval, parsed = 0;
   struct usb_descriptor_header *header;

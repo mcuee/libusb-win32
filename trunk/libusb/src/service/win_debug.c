@@ -17,32 +17,23 @@
  */
 
 
-
-#ifndef __USB_SERVICE_H__
-#define __USB_SERVICE_H__
-
-#include "registry.h"
+#include <windows.h>
+#include <stdio.h>
 
 
-#define LIBUSB_SERVICE_NAME   "libusbd"
-#define LIBUSB_SERVICE_PATH   "system32\\libusbd-nt.exe"
+void usb_debug_error(const char *s, ...)
+{
+  char tmp[512];
+  va_list args;
+  
+  memset(tmp, 0, sizeof(tmp));
 
+  int offset = sprintf(tmp, "LIBUSB: error: ");
+  va_start(args, s);
+  vsnprintf(tmp + offset, sizeof(tmp) - offset - 1, s, args);
+  va_end(args);
+  printf("%s\n",tmp);
 
-bool_t usb_service_load_dll();
-bool_t usb_service_free_dll();
+  OutputDebugString(tmp);
 
-
-void usb_service_start_filter(void);
-void usb_service_stop_filter(void);
-
-
-bool_t usb_create_service(const char *name, const char *display_name,
-			  const char *binary_path, unsigned long type,
-			  unsigned long start_type);
-bool_t usb_delete_service(const char *name);
-bool_t usb_start_service(const char *name);
-bool_t usb_stop_service(const char *name);
-
-
-
-#endif
+}

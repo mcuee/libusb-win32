@@ -15,8 +15,8 @@ INSTALL = install
 
 VERSION_MAJOR = 0
 VERSION_MINOR = 1
-VERSION_MICRO = 7
-VERSION_NANO = 10
+VERSION_MICRO = 8
+VERSION_NANO = 0
 
 VERSION = $(VERSION_MAJOR).$(VERSION_MINOR).$(VERSION_MICRO).$(VERSION_NANO)
 RC_VERSION = $(VERSION_MAJOR),$(VERSION_MINOR),$(VERSION_MICRO),$(VERSION_NANO)
@@ -46,7 +46,7 @@ VPATH = .:./src:./src/drivers/filter:./src/drivers/stub:./tests:./src/service
 
 INCLUDES = -I./src -I./src/drivers/filter -I./src/service
 
-CFLAGS = -O2 -g -Wall
+CFLAGS = -O2
 
 CPPFLAGS = -DEOVERFLOW=139 \
 	-DVERSION_MAJOR=$(VERSION_MAJOR) \
@@ -55,7 +55,7 @@ CPPFLAGS = -DEOVERFLOW=139 \
 	-DVERSION_NANO=$(VERSION_NANO)
 
 LDFLAGS = -shared -Wl,--output-def,$(DLL_TARGET).def \
-	-Wl,--out-implib,$(LIB_TARGET).a
+	-Wl,--add-stdcall-alias
 
 
 TEST_FILES = testlibusb.exe testlibusb-win.exe
@@ -68,15 +68,16 @@ ifndef DDK_ROOT_PATH
 endif
 
 .PHONY: all
-all: $(DLL_TARGET).dll $(TEST_FILES) libusbd-nt.exe libusbd-9x.exe \
-	libusb-nsis.exe $(DRIVER_TARGETS) $(TARGET)_sa.inf README.txt
+all: $(DLL_TARGET).dll $(TEST_FILES) libusbd-nt.exe \
+	libusbd-9x.exe libusbis.exe $(DRIVER_TARGETS) \
+	$(TARGET).inf README.txt
 
-$(DLL_TARGET).dll: $(OBJECTS)
-	$(CC) -o $@ $^ $(LDFLAGS)
+$(DLL_TARGET).dll: filter_api.h $(OBJECTS)
+	$(CC) -o $@ $(OBJECTS) $(LDFLAGS) -Wl,--out-implib,$(LIB_TARGET).a
 	$(STRIP) $@
 
-%.o:%.c
-	$(CC) -c $< -o $@ $(CFLAGS) $(CPPFLAGS) $(INCLUDES) 
+%.o: %.c
+	$(CC) -c $< -o $@ $(CFLAGS) -Wall $(CPPFLAGS) $(INCLUDES) 
 
 testlibusb.exe: testlibusb.o
 	$(CC) $(CFLAGS) -o $@ -I./src  $^ -lusb -L.
@@ -86,34 +87,43 @@ testlibusb-win.exe: testlibusb_win.o
 	$(CC) $(CFLAGS) -mwindows -o $@ -I./src  $^ -lusb -lgdi32 -L.
 	$(STRIP) $@
 
-libusbd-nt.exe: service_nt.o service.o registry.o resource.o
+libusbd-nt.exe: service_nt.o service.o registry.o resource.o win_debug.o
 	$(CC) $(CPPFLAGS) -mwindows -Wall $(CFLAGS) -o $@ $^ -lsetupapi
 	$(STRIP) $@
 
-libusbd-9x.exe: service_9x.o service.o registry.o resource.o
+libusbd-9x.exe: service_9x.o service.o registry.o resource.o win_debug.o
 	$(CC) $(CPPFLAGS) -mwindows -Wall $(CFLAGS) -o $@ $^ -lsetupapi
 	$(STRIP) $@
 
-libusb-nsis.exe: nsis.o service.o resource.o
+libusbis.exe: nsis.o service.o registry.o resource.o win_debug.o
 	$(CC) $(CPPFLAGS) -Wall $(CFLAGS) -o $@ $^ -lsetupapi
 	$(STRIP) $@
 
 README.txt: README.in
-	sed 's/@VERSION@/$(VERSION)/' $< > $@
+	sed -e 's/@VERSION@/$(VERSION)/' $< > $@
 
 %.o: %.rc.in
-	sed 's/@RC_VERSION@/$(RC_VERSION)/' $< | $(WINDRES) -o $@
+	sed -e 's/@RC_VERSION@/$(RC_VERSION)/' \
+	-e 's/@VERSION@/$(VERSION)/' $< | $(WINDRES) -o $@
 
 %.rc: %.rc.in
-	sed 's/@RC_VERSION@/$(RC_VERSION)/' $< > $(^D)/$@
+	sed -e 's/@RC_VERSION@/$(RC_VERSION)/' \
+	-e 's/@VERSION@/$(VERSION)/' $< > $(^D)/$@
+
+%.h: %.h.in
+	sed -e 's/@VERSION_MAJOR@/$(VERSION_MAJOR)/' \
+	-e 's/@VERSION_MINOR@/$(VERSION_MINOR)/' \
+	-e 's/@VERSION_MICRO@/$(VERSION_MICRO)/' \
+	-e 's/@VERSION_NANO@/$(VERSION_NANO)/' \
+	$< > $(^D)/$@
 
 %.inf: %.inf.in
-	sed 's/@INF_VERSION@/$(INF_VERSION)/' $< > $@
+	sed -e 's/@INF_VERSION@/$(INF_VERSION)/' $< > $@
 
 install.nsi: install.nsi.in
-	sed 's/@VERSION@/$(VERSION)/' $< > $@
+	sed -e 's/@VERSION@/$(VERSION)/' $< > $@
 
-$(TARGET)fl.sys: $(TARGET)_stub.rc $(TARGET)_filter.rc $(TARGET)_sa.inf
+$(TARGET)fl.sys: $(TARGET)_stub.rc $(TARGET)_filter.rc filter_api.h
 	$(MAKE) --win32 build_drivers
 
 .PHONY: build_drivers
@@ -140,7 +150,8 @@ bin_dist_dir: all
 	$(INSTALL) *.manifest $(BIN_DIST_DIR)/bin
 
 	$(INSTALL) $(DRIVER_TARGETS) $(BIN_DIST_DIR)/bin
-	$(INSTALL) $(TARGET)_sa.inf $(BIN_DIST_DIR)/bin
+	$(INSTALL) $(TARGET).inf $(BIN_DIST_DIR)/bin
+	$(INSTALL) $(TARGET)is.exe $(BIN_DIST_DIR)/bin
 	$(INSTALL) $(DLL_TARGET).dll $(BIN_DIST_DIR)/bin
 
 	$(INSTALL) $(SRC_DIR)/usb.h $(BIN_DIST_DIR)/include
@@ -204,6 +215,7 @@ clean:
 	$(RM) $(FILTER_SRC_DIR)/*~ $(FILTER_SRC_DIR)/*.rc
 	$(RM) $(FILTER_SRC_DIR)/*.log
 	$(RM) $(FILTER_SRC_DIR)/*_wxp_x86
+	$(RM) $(FILTER_SRC_DIR)/filter_api.h
 	$(RM) $(STUB_SRC_DIR)/*~ $(STUB_SRC_DIR)/*.rc $(STUB_SRC_DIR)/*.log
 	$(RM) $(STUB_SRC_DIR)/*_wxp_x86 README.txt
 	$(RM) $(SRC_DIST_DIR)
