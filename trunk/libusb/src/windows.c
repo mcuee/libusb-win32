@@ -32,19 +32,21 @@
 #include "error.h"
 #include "usbi.h"
 #include "driver_api.h"
+#include "service.h"
+#include "registry.h"
 
 
-#define USB_FEATURE_ENDPOINT_HALT 0
 
 #define LIBUSB_DEFAULT_TIMEOUT 5000
 #define LIBUSB_DEVICE_NAME "\\\\.\\libusb0-"
-#define LIBUSB_DEVICE_NAME_ZERO "\\\\.\\libusb0-0000"
 #define LIBUSB_BUS_NAME "bus-0"
 #define LIBUSB_MAX_DEVICES 256
 
-#ifdef USB_ERROR_STR
 #undef USB_ERROR_STR
-#endif
+
+/* Connection timed out */
+#define ETIMEDOUT 116	
+
 
 #define USB_ERROR_STR(x, format, args...) \
 	do { \
@@ -80,25 +82,14 @@ typedef struct {
   OVERLAPPED ol;
 } usb_context;
 
-static char __error_buf[512];
 
-static struct usb_version _usb_version= {
-  {
-    VERSION_MAJOR,
-    VERSION_MINOR,
-    VERSION_MICRO,
-    VERSION_NANO
-  },
-  {
-    -1,
-    -1,
-    -1,
-    -1
-  }
+static struct usb_version _usb_version = {
+  { VERSION_MAJOR, VERSION_MINOR, VERSION_MICRO, VERSION_NANO },
+  { -1, -1, -1, -1 }
 };
 
-static const char *win_error_to_string();
-static int win_error_to_errno();
+static const char *win_error_to_string(void);
+static int win_error_to_errno(void);
 static void output_debug_string(const char *s, ...);
 
 static int usb_setup_async(usb_dev_handle *dev, void **context, 
@@ -109,14 +100,19 @@ static int usb_transfer_sync(usb_dev_handle *dev, int control_code,
 			     int timeout);
 
 
-
+/* DLL main entry point */
 BOOL WINAPI DllMain(HANDLE module, DWORD reason, LPVOID reserved)
 {
   switch(reason)
     {
     case DLL_PROCESS_ATTACH:
+      if(!usb_service_load_dll())
+	{      
+	  return FALSE;
+	}
       break;
     case DLL_PROCESS_DETACH:
+      usb_service_free_dll();
       break;
     case DLL_THREAD_ATTACH:
       break;
@@ -127,7 +123,6 @@ BOOL WINAPI DllMain(HANDLE module, DWORD reason, LPVOID reserved)
     }
   return TRUE;
 }
-
 
 /* prints a message to the Windows debug system */
 static void output_debug_string(const char *s, ...)
@@ -140,19 +135,20 @@ static void output_debug_string(const char *s, ...)
   OutputDebugStringA(tmp);
 }
 
-/* returns Windows last error in a human readable form */
-static const char *win_error_to_string()
+/* returns Windows' last error in a human readable form */
+static const char *win_error_to_string(void)
 {
+  static char error_buf[512];
+
   FormatMessage(FORMAT_MESSAGE_FROM_SYSTEM, NULL, GetLastError(), 
-		LANG_USER_DEFAULT, __error_buf, 
-		sizeof (__error_buf) - 1, 
-		NULL);
-  return __error_buf;
+		LANG_USER_DEFAULT, error_buf, 
+		sizeof(error_buf) - 1, NULL);
+
+  return error_buf;
 }
 
-#define ETIMEDOUT 116		/* Connection timed out */
 
-static int win_error_to_errno()
+static int win_error_to_errno(void)
 {
   switch(GetLastError())
     {
@@ -171,7 +167,6 @@ static int win_error_to_errno()
 }
 
 
-
 int usb_os_open(usb_dev_handle *dev)
 {
   char dev_name[LIBUSB_PATH_MAX];
@@ -181,7 +176,7 @@ int usb_os_open(usb_dev_handle *dev)
 
   if(!dev->device->filename)
     {
-      USB_ERROR_STR(-ENOENT, "usb_os_open: invalid file name NULL");
+      USB_ERROR_STR(-ENOENT, "usb_os_open: invalid file name");
     }
 
   /* build the Windows file name from the unique device name */ 
@@ -353,7 +348,6 @@ int usb_set_altinterface(usb_dev_handle *dev, int alternate)
 
   if(dev->interface < 0)
     {
-      /* invalid interface */
       USB_ERROR_STR(-EINVAL, "could not set alt interface %d/%d: no interface "
 		    "claimed", dev->interface, alternate);
     }
@@ -407,12 +401,14 @@ static int usb_setup_async(usb_dev_handle *dev, void **context,
     }
 
   memset(*c, 0, sizeof(usb_context));
+
   (*c)->dev = dev;
   (*c)->req.endpoint.endpoint = ep;
   (*c)->req.endpoint.packet_size = pktsize;
   (*c)->control_code = control_code;
   (*c)->ol.Offset = 0;
   (*c)->ol.OffsetHigh = 0;
+
   (*c)->ol.hEvent = CreateEvent(NULL, TRUE, FALSE, NULL);
 
   if(!(*c)->ol.hEvent)
@@ -937,7 +933,7 @@ int usb_os_find_devices(struct usb_bus *bus, struct usb_device **devices)
       CloseHandle(handle);
 
       /* build a unique device name, this is necessary to detect new devices */
-      /* if an application calls 'usb_find_devices()' multiple times */
+      /* if an application calls usb_find_devices() multiple times */
       snprintf(dev->filename, LIBUSB_PATH_MAX - 1, "%s--0x%04x-0x%04x", 
 	       dev_name, dev->descriptor.idVendor, dev->descriptor.idProduct);
 
@@ -1036,14 +1032,14 @@ int usb_resetep(usb_dev_handle *dev, unsigned int ep)
   if(!DeviceIoControl(dev->impl_info, LIBUSB_IOCTL_ABORT_ENDPOINT, &req, 
 		      sizeof(libusb_request), NULL, 0, &ret, NULL))
     {
-      USB_ERROR_STR(-win_error_to_errno(), "could not abort ep 0x%x : win "
+      USB_ERROR_STR(-win_error_to_errno(), "could not abort ep 0x%02x : win "
 		    "error: %s", ep, win_error_to_string());
     }
 
   if(!DeviceIoControl(dev->impl_info, LIBUSB_IOCTL_RESET_ENDPOINT, &req, 
 		      sizeof(libusb_request), NULL, 0, &ret, NULL))
     {
-      USB_ERROR_STR(-win_error_to_errno(), "could not reset ep 0x%x : win "
+      USB_ERROR_STR(-win_error_to_errno(), "could not reset ep 0x%02x : win "
 		    "error: %s", ep, win_error_to_string());
     }
   
@@ -1065,7 +1061,7 @@ int usb_clear_halt(usb_dev_handle *dev, unsigned int ep)
   if(!DeviceIoControl(dev->impl_info, LIBUSB_IOCTL_RESET_ENDPOINT, &req, 
 		      sizeof(libusb_request), NULL, 0, &ret, NULL))
     {
-      USB_ERROR_STR(-win_error_to_errno(), "could not clear halt, ep 0x%x:"
+      USB_ERROR_STR(-win_error_to_errno(), "could not clear halt, ep 0x%02x:"
 		    " win error: %s", ep, win_error_to_string());
     }
   
@@ -1082,8 +1078,6 @@ int usb_reset(usb_dev_handle *dev)
     {
       USB_ERROR_STR(-EINVAL, "usb_reset: error: device not open");
     }
-
-  CancelIo(dev->impl_info);
 
   if(!DeviceIoControl(dev->impl_info, LIBUSB_IOCTL_RESET_DEVICE,
 		      &req, sizeof(libusb_request), NULL, 0, &ret, NULL))
@@ -1114,6 +1108,7 @@ void usb_set_debug(int level)
 
   usb_debug = level;
 
+  /* find a valid device */
   for(i = 0; i < LIBUSB_MAX_DEVICES; i++)
     {
       /* build the Windows file name */
@@ -1145,5 +1140,9 @@ void usb_set_debug(int level)
 
       break;
     }
+}
 
+int usb_os_determine_children(struct usb_bus *bus)
+{
+  return 0;
 }

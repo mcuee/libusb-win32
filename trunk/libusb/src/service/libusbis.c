@@ -86,7 +86,7 @@ int main(int argc, char **argv)
 static void create_service(void)
 {
   char display_name[REGISTRY_BUF_SIZE];
- 
+  
   usb_registry_stop_filter(TRUE); /* remove all filter drivers */
   usb_registry_stop_libusb_devices(); /* stop all libusb devices */
 
@@ -106,6 +106,7 @@ static void create_service(void)
     }
      
   usb_registry_start_libusb_devices(); /* restart libusb devices */
+  usb_registry_start_filter();
 
   if(usb_registry_is_nt())
     {
@@ -118,7 +119,6 @@ static void create_service(void)
 			 LIBUSB_SERVICE_PATH, 
 			 SERVICE_WIN32_OWN_PROCESS,
 			 SERVICE_AUTO_START); 
-
       usb_start_service(LIBUSB_SERVICE_NAME);
     }
 }
@@ -144,6 +144,8 @@ static void delete_service(void)
 	  }
       } while(win);
     } 
+
+  usb_registry_stop_filter(FALSE); /* remove filter drivers */
 }
 
 static void driver_post_install(void)
@@ -153,7 +155,7 @@ static void driver_post_install(void)
   /* if the service is running then temporaryly stop it */
   if(usb_registry_is_nt())
     {
-      usb_control_service(LIBUSB_SERVICE_NAME, LIBUSB_SERVICE_CONTROL_PAUSE);
+      usb_pause_service(LIBUSB_SERVICE_NAME);
     }
   else
     {
@@ -179,8 +181,7 @@ static void driver_post_install(void)
   /* if the service is running then restart it */
   if(usb_registry_is_nt())
     {
-      usb_control_service(LIBUSB_SERVICE_NAME,
-			  LIBUSB_SERVICE_CONTROL_CONTINUE);
+      usb_continue_service(LIBUSB_SERVICE_NAME);
     }
   else
     {

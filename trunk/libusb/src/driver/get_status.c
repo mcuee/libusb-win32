@@ -22,16 +22,17 @@
 
 
 NTSTATUS get_status(libusb_device_extension *device_extension, int recipient,
-		    int index, char *status, int timeout)
+                    int index, char *status, int *ret, int timeout)
 {
   NTSTATUS _status = STATUS_SUCCESS;
   URB urb;
-  short tmp;
 
   debug_print_nl();
   debug_printf(LIBUSB_DEBUG_MSG, "get_status(): recipient %02d", recipient);
   debug_printf(LIBUSB_DEBUG_MSG, "get_status(): index %04d", index);
   debug_printf(LIBUSB_DEBUG_MSG, "get_status(): timeout %d", timeout);
+
+  memset(&urb, 0, sizeof(URB));
 
   switch(recipient)
     {
@@ -55,18 +56,21 @@ NTSTATUS get_status(libusb_device_extension *device_extension, int recipient,
   urb.UrbHeader.Length = sizeof(struct _URB_CONTROL_GET_STATUS_REQUEST);
   urb.UrbControlGetStatusRequest.TransferBufferLength = 2;
   urb.UrbControlGetStatusRequest.TransferBuffer = status; 
-  urb.UrbControlGetStatusRequest.TransferBufferMDL = NULL;
-  urb.UrbControlGetStatusRequest.UrbLink = NULL;
   urb.UrbControlGetStatusRequest.Index = (USHORT)index; 
 	
   _status = call_usbd(device_extension, &urb, 
-		       IOCTL_INTERNAL_USB_SUBMIT_URB, timeout);
+                      IOCTL_INTERNAL_USB_SUBMIT_URB, timeout);
       
   if(!NT_SUCCESS(_status) || !USBD_SUCCESS(urb.UrbHeader.Status))
     {
       debug_printf(LIBUSB_DEBUG_ERR, "get_status(): getting status failed: "
-		   "status: 0x%x, urb-status: 0x%x", 
-		   status, urb.UrbHeader.Status);
+                   "status: 0x%x, urb-status: 0x%x", 
+                   _status, urb.UrbHeader.Status);
+      *ret = 0;
+    }
+  else
+    {
+      *ret = urb.UrbControlGetStatusRequest.TransferBufferLength;
     }
 
   return _status;

@@ -21,11 +21,30 @@
 #define __LIBUSB_FILTER_H__
 
 
-#include <wdm.h>
-#include <usbdi.h>
-#include <usbdlib.h>
+#include <ddk/usb.h>
+#include <ddk/usbioctl.h>
 
+#include "usbdlib.h"
 #include "driver_api.h"
+
+
+/* some define and typedefs that are missing in mingw's ddk headers */
+
+#define URB_FUNCTION_RESET_PIPE 0x001E
+
+
+typedef struct { 
+  UCHAR  bLength;
+  UCHAR  bDescriptorType;
+  USHORT wTotalLength;
+  UCHAR  bNumInterfaces;
+  UCHAR  bConfigurationValue; /* added, missing in mingw's ddk header */
+  UCHAR  iConfiguration;
+  UCHAR  bmAttributes;
+  UCHAR  MaxPower;
+} USB_CONFIGURATION_DESCRIPTOR_PATCHED;
+
+#define USB_CONFIGURATION_DESCRIPTOR USB_CONFIGURATION_DESCRIPTOR_PATCHED
 
 
 #define USB_RECIP_DEVICE    0x00
@@ -88,21 +107,24 @@ typedef struct
 
 void __stdcall unload(DRIVER_OBJECT *driver_object);
 NTSTATUS __stdcall add_device(DRIVER_OBJECT *driver_object, 
-			      DEVICE_OBJECT *physical_device_object);
-NTSTATUS dispatch(DEVICE_OBJECT *device_object, IRP *irp);
+                              DEVICE_OBJECT *physical_device_object);
+NTSTATUS __stdcall dispatch(DEVICE_OBJECT *device_object, IRP *irp);
 NTSTATUS dispatch_control(DEVICE_OBJECT *device_object, IRP *irp);
 NTSTATUS dispatch_pnp(libusb_device_extension *device_extension, IRP *irp);
+NTSTATUS dispatch_power(libusb_device_extension *device_extension, IRP *irp);
 NTSTATUS dispatch_ioctl(libusb_device_extension *device_extension, IRP *irp);
+NTSTATUS dispatch_internal_ioctl(libusb_device_extension *device_extension, 
+                                 IRP *irp);
 NTSTATUS complete_irp(IRP *irp, NTSTATUS status, ULONG info);
 
 NTSTATUS call_usbd(libusb_device_extension *device_extension, void *urb,
-		   ULONG control_code, int timeout);
+                   ULONG control_code, int timeout);
 
 int get_pipe_handle(libusb_device_extension *device_extension, 
-		    int endpoint_address, USBD_PIPE_HANDLE *pipe_handle);
+                    int endpoint_address, USBD_PIPE_HANDLE *pipe_handle);
 void clear_pipe_info(libusb_device_extension *device_extension);
 int update_pipe_info(libusb_device_extension *device_extension, int interface,
-		     USBD_INTERFACE_INFORMATION *interface_info);
+                     USBD_INTERFACE_INFORMATION *interface_info);
 
 int is_device_visible(libusb_device_extension *device_extension);
 NTSTATUS control_object_create(libusb_device_extension *device_extension);
@@ -117,49 +139,53 @@ int get_device_id(libusb_device_extension *device_extension);
 void release_device_id(libusb_device_extension *device_extension);
 
 NTSTATUS set_configuration(libusb_device_extension *device_extension,
-			   int configuration, int timeout);
+                           int configuration, int timeout);
 NTSTATUS get_configuration(libusb_device_extension *device_extension,
-			   char *configuration, int timeout);
+                           char *configuration, int *ret, int timeout);
 NTSTATUS set_interface(libusb_device_extension *device_extension,
-		       int interface, int altsetting, int timeout);
+                       int interface, int altsetting, int timeout);
 NTSTATUS get_interface(libusb_device_extension *device_extension,
-		       int interface, char *altsetting, int timeout);
+                       int interface, char *altsetting, int *ret, int timeout);
 NTSTATUS set_feature(libusb_device_extension *device_extension,
-		     int recipient, int index, int feature, int timeout);
+                     int recipient, int index, int feature, int timeout);
 NTSTATUS clear_feature(libusb_device_extension *device_extension,
-		       int recipient, int index, int feature, int timeout);
+                       int recipient, int index, int feature, int timeout);
 NTSTATUS get_status(libusb_device_extension *device_extension, int recipient,
-		    int index, char *status, int timeout);
+                    int index, char *status, int *ret, int timeout);
 NTSTATUS set_descriptor(libusb_device_extension *device_extension,
-			void *buffer, int size, 
-			int type, int index, int language_id, 
-			int *sent, int timeout);
+                        void *buffer, int size, 
+                        int type, int index, int language_id, 
+                        int *sent, int timeout);
 NTSTATUS get_descriptor(libusb_device_extension *device_extension,
-			void *buffer, int size, int type, 
-			int index, int language_id, int *sent, int timeout);
+                        void *buffer, int size, int type, 
+                        int index, int language_id, int *sent, int timeout);
 NTSTATUS transfer(IRP *irp, libusb_device_extension *device_extension,
-		  int direction, int urb_function, int endpoint, 
-		  int packet_size, MDL *buffer, int size);
+                  int direction, int urb_function, int endpoint, 
+                  int packet_size, MDL *buffer, int size);
 
 NTSTATUS vendor_class_request(libusb_device_extension *device_extension,
-			      int type, int recipient,
-			      int request, int value, int index,
-			      void *buffer, int size, int direction,
-			      int *sent, int timeout);
+                              int type, int recipient,
+                              int request, int value, int index,
+                              void *buffer, int size, int direction,
+                              int *sent, int timeout);
 NTSTATUS abort_endpoint(libusb_device_extension *device_extension,
-			int endpoint, int timeout);
+                        int endpoint, int timeout);
 NTSTATUS reset_endpoint(libusb_device_extension *device_extension,
-			int endpoint, int timeout);
+                        int endpoint, int timeout);
 NTSTATUS reset_device(libusb_device_extension *device_extension, int timeout);
 
 NTSTATUS claim_interface(libusb_device_extension *device_extension,
-			 int interface);
+                         int interface);
 NTSTATUS release_interface(libusb_device_extension *device_extension,
-			   int interface);
+                           int interface);
+int is_interface_claimed(libusb_device_extension *device_extension,
+                         int interface);
+int is_any_interface_claimed(libusb_device_extension *device_extension);
+
+int is_endpoint_claimed(libusb_device_extension *device_extension,
+                        USBD_PIPE_HANDLE *pipe_handle);
 NTSTATUS release_all_interfaces(libusb_device_extension *device_extension);
 
-NTSTATUS on_internal_ioctl_complete(DEVICE_OBJECT *device_object, IRP *irp,
-				    void *context);
 
 void debug_print_nl(void);
 void debug_set_level(int level);

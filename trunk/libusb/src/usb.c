@@ -9,11 +9,15 @@
 #include <stdlib.h>	/* getenv */
 #include <stdio.h>	/* stderr */
 #include <errno.h>
+#include <string.h>
 
 #include "usbi.h"
 
 int usb_debug = 0;
 struct usb_bus *usb_busses = NULL;
+
+extern void usb_fetch_and_parse_descriptors(usb_dev_handle *udev);
+extern void usb_destroy_configuration(struct usb_device *dev);
 
 int usb_find_busses(void)
 {
@@ -40,7 +44,7 @@ int usb_find_busses(void)
       struct usb_bus *tnbus = nbus->next;
 
       if (!strcmp(bus->dirname, nbus->dirname)) {
-        /* Remove it from the new devices list */
+        /* Remove it from the new busses list */
         LIST_DEL(busses, nbus);
 
         usb_free_bus(nbus);
@@ -52,22 +56,27 @@ int usb_find_busses(void)
     }
 
     if (!found) {
-      /* The device was removed from the system */
+      /* The bus was removed from the system */
       LIST_DEL(usb_busses, bus);
+      usb_free_bus(bus);
       changes++;
     }
 
     bus = tbus;
   }
 
-  /* Anything on the *busses list is new. So add them to usb_busses */
-  /*  and process them like the new bus they are */
+  /*
+   * Anything on the *busses list is new. So add them to usb_busses and
+   * process them like the new bus it is.
+   */
   bus = busses;
   while (bus) {
     struct usb_bus *tbus = bus->next;
 
-    /* Remove it from the temporary list first and add it to the real */
-    /*  usb_busses list */
+    /*
+     * Remove it from the temporary list first and add it to the real
+     * usb_busses list.
+     */
     LIST_DEL(busses, bus);
 
     LIST_ADD(usb_busses, bus);
@@ -123,26 +132,33 @@ int usb_find_devices(void)
       if (!found) {
         /* The device was removed from the system */
         LIST_DEL(bus->devices, dev);
+        usb_free_dev(dev);
         changes++;
       }
 
       dev = tdev;
     }
 
-    /* Anything on the *devices list is new. So add them to bus->devices */
-    /*  and process them like the new device they are */
+    /*
+     * Anything on the *devices list is new. So add them to bus->devices and
+     * process them like the new device it is.
+     */
     dev = devices;
     while (dev) {
       struct usb_device *tdev = dev->next;
 
-      /* Remove it from the temporary list first and add it to the real */
-      /*  bus->devices list */
+      /*
+       * Remove it from the temporary list first and add it to the real
+       * bus->devices list.
+       */
       LIST_DEL(devices, dev);
 
       LIST_ADD(bus->devices, dev);
 
-      /* Some ports fetch the descriptors on scanning (like Linux) so we */
-      /*  don't need to fetch them again */
+      /*
+       * Some ports fetch the descriptors on scanning (like Linux) so we don't
+       * need to fetch them again.
+       */
       if (!dev->config) {
         usb_dev_handle *udev;
 
@@ -158,6 +174,8 @@ int usb_find_devices(void)
 
       dev = tdev;
     }
+
+    usb_os_determine_children(bus);
   }
 
   return changes;
@@ -214,7 +232,7 @@ int usb_get_string(usb_dev_handle *dev, int index, int langid, char *buf,
 
 int usb_get_string_simple(usb_dev_handle *dev, int index, char *buf, size_t buflen)
 {
-  char tbuf[255];
+  char tbuf[255];	/* Some devices choke on size > 255 */
   int ret, langid, si, di;
 
   /*
@@ -288,3 +306,4 @@ void usb_free_bus(struct usb_bus *bus)
 {
   free(bus);
 }
+

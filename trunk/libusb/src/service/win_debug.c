@@ -1,3 +1,4 @@
+
 /* LIBUSB-WIN32, Generic Windows USB Driver
  * Copyright (C) 2002-2004 Stephan Meyer, <ste_meyer@web.de>
  *
@@ -20,6 +21,16 @@
 #include <windows.h>
 #include <stdio.h>
 
+static char __error_buf[512];
+
+const char *win_error_to_string(void)
+{
+  FormatMessage(FORMAT_MESSAGE_FROM_SYSTEM, NULL, GetLastError(), 
+		LANG_USER_DEFAULT, __error_buf, 
+		sizeof (__error_buf) - 1, 
+		NULL);
+  return __error_buf;
+}
 
 void usb_debug_error(const char *s, ...)
 {

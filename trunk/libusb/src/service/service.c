@@ -174,7 +174,7 @@ bool_t usb_create_service(const char *name, const char *display_name,
 	  service = create_service(scm,
 				   name,
 				   display_name,
-				   SERVICE_ALL_ACCESS,
+				   GENERIC_EXECUTE,
 				   type,
 				   start_type,
 				   SERVICE_ERROR_NORMAL, 
@@ -426,12 +426,23 @@ bool_t usb_stop_service(const char *name)
   return ret;
 }
 
+bool_t usb_pause_service(const char *name)
+{
+  return usb_control_service(name, SERVICE_CONTROL_PAUSE);
+}
+
+bool_t usb_continue_service(const char *name)
+{
+  return usb_control_service(name, SERVICE_CONTROL_CONTINUE);
+}
+
 bool_t usb_control_service(const char *name, int code)
 {
   bool_t ret = FALSE;
   SC_HANDLE scm = NULL;
   SC_HANDLE service = NULL;
   SERVICE_STATUS status;
+
   do 
     {
       scm = open_sc_manager(NULL, SERVICES_ACTIVE_DATABASE, 
@@ -444,7 +455,9 @@ bool_t usb_control_service(const char *name, int code)
 	  break;
 	}
       
-      service = open_service(scm, name, SERVICE_USER_DEFINED_CONTROL);
+      service = open_service(scm, name, 
+			     SERVICE_PAUSE_CONTINUE 
+			     | SERVICE_USER_DEFINED_CONTROL);
   
       if(!service)
 	{
@@ -460,6 +473,47 @@ bool_t usb_control_service(const char *name, int code)
 	  break;
 	}
       ret = TRUE;
+    } while(0);
+
+  if(service)
+    {
+      close_service_handle(service);
+    }
+  
+  if(scm)
+    {
+      close_service_handle(scm);
+    }
+  
+  return ret;
+}
+
+bool_t usb_is_service_running(const char *name)
+{
+  bool_t ret = FALSE;
+  SC_HANDLE scm = NULL;
+  SC_HANDLE service = NULL;
+
+  do 
+    {
+      scm = open_sc_manager(NULL, SERVICES_ACTIVE_DATABASE, 
+			    SC_MANAGER_ALL_ACCESS);
+      
+      if(!scm)
+	{
+	  usb_debug_error("usb_is_service_running(): opening service control "
+			  "manager failed");
+	  break;
+	}
+      
+      service = open_service(scm, name, 
+			     SERVICE_PAUSE_CONTINUE 
+			     | SERVICE_USER_DEFINED_CONTROL);
+  
+      if(service)
+	{
+	  ret = TRUE;
+	}
     } while(0);
 
   if(service)

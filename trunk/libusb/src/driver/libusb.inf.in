@@ -49,7 +49,7 @@ libusb-win32 = "http://libusb-win32.sourceforge.net"
 class_display_name = "LibUSB-Win32 Devices"
 
 ;------------------------------------------------------------------------------
-; Device descriptions, modify this section to match your device
+; Device descriptions, modify this section to match your device(s)
 ;------------------------------------------------------------------------------
 
 [libusb-win32]
@@ -84,8 +84,10 @@ class_display_name = "LibUSB-Win32 Devices"
 ;------------------------------------------------------------------------------
 ; Dakota Digital Camera
 ;------------------------------------------------------------------------------
-"Dakota Digital Camera, ISO Interface, Version @INF_VERSION@"=LIBUSB_DEV, USB\VID_04FC&PID_FFFF&MI_00
-"Dakota Digital Camera, Bulk Interface, Version @INF_VERSION@"=LIBUSB_DEV, USB\VID_04FC&PID_FFFF&MI_01
+;"Dakota Digital Camera, ISO Interface, Version @INF_VERSION@"=LIBUSB_DEV, USB\VID_04FC&PID_FFFF&MI_00
+;"Dakota Digital Camera, Bulk Interface, Version @INF_VERSION@"=LIBUSB_DEV, USB\VID_04FC&PID_FFFF&MI_01
+
+"Dakota Digital Camera, Version @INF_VERSION@"=LIBUSB_DEV, USB\VID_04FC&PID_FFFF
 
 ;------------------------------------------------------------------------------
 ; Walgreens Digital Camera
@@ -109,12 +111,10 @@ class_display_name = "LibUSB-Win32 Devices"
 [SourceDisksFiles]
 libusb0.sys = 1,, 
 libusb0.dll = 1,,
-libusbis.exe = 1,,
 
 [DestinationDirs]
 LIBUSB.Files.Sys = 10,System32\Drivers
 LIBUSB.Files.Dll = 10,System32
-LIBUSB.Files.Exe = 10,System32
 
 [LIBUSB.Files.Sys]
 libusb0.sys
@@ -122,21 +122,17 @@ libusb0.sys
 [LIBUSB.Files.Dll]
 libusb0.dll
 
-[LIBUSB.Files.Exe]
-libusbis.exe
-
 
 ;------------------------------------------------------------------------------
 ; Device driver
 ;------------------------------------------------------------------------------
 
 [LIBUSB_DEV]
-CopyFiles = LIBUSB.Files.Sys, LIBUSB.Files.Dll, LIBUSB.Files.Exe
+CopyFiles = LIBUSB.Files.Sys, LIBUSB.Files.Dll
 AddReg    = LIBUSB_DEV.AddReg
 
 [LIBUSB_DEV.NT]
-CopyFiles = LIBUSB.Files.Sys, LIBUSB.Files.Dll, LIBUSB.Files.Exe
-AddReg    = LIBUSB_DEV.AddReg.NT
+CopyFiles = LIBUSB.Files.Sys, LIBUSB.Files.Dll
 
 [LIBUSB_DEV.NT.Services]
 AddService = libusb0, 0x00000002, LIBUSB.AddService
@@ -144,10 +140,6 @@ AddService = libusb0, 0x00000002, LIBUSB.AddService
 [LIBUSB_DEV.AddReg]
 HKR,,DevLoader,,*ntkern
 HKR,,NTMPDriver,,libusb0.sys
-HKLM,Software\Microsoft\Windows\CurrentVersion\RunOnce,LibUsb-Win32-Autorun,, "libusbis.exe --driver-post-install"
-
-[LIBUSB_DEV.AddReg.NT]
-HKLM,Software\Microsoft\Windows\CurrentVersion\RunOnce,LibUsb-Win32-Autorun,, "libusbis.exe --driver-post-install"
 
 
 ;------------------------------------------------------------------------------

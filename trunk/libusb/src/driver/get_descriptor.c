@@ -37,10 +37,15 @@ NTSTATUS get_descriptor(libusb_device_extension *device_extension,
   debug_printf(LIBUSB_DEBUG_MSG, "get_descriptor(): timeout %d", timeout);
   
 
-  UsbBuildGetDescriptorRequest(&urb, 
-			       sizeof(struct _URB_CONTROL_DESCRIPTOR_REQUEST),
-			       (UCHAR)type, (UCHAR)index, (USHORT)language_id,
-			       buffer, NULL, size, NULL);
+  memset(&urb, 0, sizeof(struct _URB_CONTROL_DESCRIPTOR_REQUEST));
+
+  urb.UrbHeader.Function = URB_FUNCTION_GET_DESCRIPTOR_FROM_DEVICE;
+  urb.UrbHeader.Length = sizeof(struct _URB_CONTROL_DESCRIPTOR_REQUEST);
+  urb.UrbControlDescriptorRequest.TransferBufferLength = size;
+  urb.UrbControlDescriptorRequest.TransferBuffer = buffer;
+  urb.UrbControlDescriptorRequest.DescriptorType = (UCHAR)type;
+  urb.UrbControlDescriptorRequest.Index = (UCHAR)index;
+  urb.UrbControlDescriptorRequest.LanguageId = (USHORT)language_id;
   
   status = call_usbd(device_extension, &urb,
 		     IOCTL_INTERNAL_USB_SUBMIT_URB, timeout);

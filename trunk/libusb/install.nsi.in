@@ -64,12 +64,15 @@ install_start:
 	Quit
 
 	SetOutPath $INSTDIR
-  	File "*.txt"
+  	File "AUTHORS.txt"
+  	File "ChangeLog.txt"
+  	File "COPYING_GPL.txt"
+  	File "COPYING_LGPL.txt"
+
   	SetOutPath $INSTDIR\bin
   	File "testlibusb.exe"
 	File "testlibusb-win.exe"
 	File "testlibusb-win.exe.manifest"
-	File "libusbis.exe"
 
   	SetOutPath $SYSDIR
   	File "libusb0.dll"
@@ -92,10 +95,9 @@ install_start:
 
 	SetOutPath $SYSDIR
 	File "libusbd-nt.exe"
-	SetOutPath $INSTDIR\bin
 
 	DetailPrint "Creating service (this may take a few seconds) ..."
-	nsExec::ExecToLog "$INSTDIR\bin\libusbis.exe --create-service"
+	System::Call "libusb0.dll::usb_create_services() ?c"
 
 	Goto done
 
@@ -104,7 +106,7 @@ install_start:
 	File "libusbd-9x.exe"
 
 	DetailPrint "Creating service (this may take a few seconds) ..."
-	nsExec::ExecToLog "$INSTDIR\bin\libusbis.exe --create-service"
+	System::Call "libusb0.dll::usb_create_services() ?c"
 
 	WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\RunServices" "LibUsb-Win32 Daemon, Version ${VERSION}" "$SYSDIR\libusbd-9x.exe" 
 
@@ -112,6 +114,7 @@ install_start:
 	Exec "libusbd-9x.exe"
 
   done:
+	SetOutPath $INSTDIR
 
   	WriteUninstaller $INSTDIR\uninstall.exe
  	WriteRegExpandStr HKLM "${UNINSTALL_PATH}" "UninstallString" "$INSTDIR\uninstall.exe"
@@ -142,25 +145,19 @@ SectionEnd
 
 Section "Uninstall"
 
+	DetailPrint "Deleteting service (this may take a few seconds) ..."
+	System::Call "libusb0.dll::usb_delete_services() ?c"
+
 	SetShellVarContext all
    	ReadRegStr $R0 HKLM "SOFTWARE\Microsoft\Windows NT\CurrentVersion" CurrentVersion
    	StrCmp $R0 "" win9x winnt
 
   winnt:
-	SetOutPath $INSTDIR\bin
-
-	DetailPrint "Deleteting service (this may take a few seconds) ..."
-	nsExec::ExecToLog "$INSTDIR\bin\libusbis.exe --delete-service"
-
 	Delete $SYSDIR\libusbd-nt.exe
 
 	Goto done
+
   win9x:
-
-	SetOutPath $INSTDIR\bin
-
-	DetailPrint "Deleteting service (this may take a few seconds) ..."
-	nsExec::ExecToLog "$INSTDIR\bin\libusbis.exe --delete-service"
 
 	DeleteRegValue HKLM "Software\Microsoft\Windows\CurrentVersion\RunServices" "LibUsb-Win32 - Daemon, Version ${VERSION}"
 

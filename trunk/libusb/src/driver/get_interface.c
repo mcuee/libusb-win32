@@ -22,43 +22,46 @@
 
 
 NTSTATUS get_interface(libusb_device_extension *device_extension,
-		       int interface, char *altsetting, int timeout)
+                       int interface, char *altsetting, int *ret, int timeout)
 {
   NTSTATUS status = STATUS_SUCCESS;
   URB urb;
-  char tmp;
 
   debug_print_nl();
-  debug_printf(LIBUSB_DEBUG_MSG, "get_interface(): interface %d\n", interface);
+  debug_printf(LIBUSB_DEBUG_MSG, "get_interface(): interface %d", interface);
   debug_printf(LIBUSB_DEBUG_MSG, "get_interface(): timeout %d", timeout);
 
   if(!device_extension->current_configuration)
     {
       debug_printf(LIBUSB_DEBUG_ERR, "get_interface(): invalid "
-		   "configuration 0"); 
+                   "configuration 0"); 
       return STATUS_INVALID_DEVICE_STATE;
     }
-    
+
+  memset(&urb, 0, sizeof(struct _URB_CONTROL_GET_INTERFACE_REQUEST));
+
   urb.UrbHeader.Function = URB_FUNCTION_GET_INTERFACE;
   urb.UrbHeader.Length = sizeof(struct _URB_CONTROL_GET_INTERFACE_REQUEST);
   urb.UrbControlGetInterfaceRequest.TransferBufferLength = 1;
   urb.UrbControlGetInterfaceRequest.TransferBuffer = altsetting;
-  urb.UrbControlGetInterfaceRequest.TransferBufferMDL = NULL;
-  urb.UrbControlGetInterfaceRequest.UrbLink = NULL;
   urb.UrbControlGetInterfaceRequest.Interface = (USHORT)interface;
   
   status = call_usbd(device_extension, &urb, 
-		     IOCTL_INTERNAL_USB_SUBMIT_URB, timeout);
+                     IOCTL_INTERNAL_USB_SUBMIT_URB, timeout);
   
   if(!NT_SUCCESS(status) || !USBD_SUCCESS(urb.UrbHeader.Status))
     {
       debug_printf(LIBUSB_DEBUG_ERR, "get_interface(): getting interface "
-		   "failed: status: 0x%x, urb-status: 0x%x", 
-		   status, urb.UrbHeader.Status);
+                   "failed: status: 0x%x, urb-status: 0x%x", 
+                   status, urb.UrbHeader.Status);
+      *ret = 0;
     }
-
-  debug_printf(LIBUSB_DEBUG_MSG, "get_interface(): current altsetting is %d",
-	       *altsetting); 
+  else
+    {
+      *ret = urb.UrbControlGetInterfaceRequest.TransferBufferLength;
+      debug_printf(LIBUSB_DEBUG_MSG, "get_interface(): current altsetting "
+                   "is %d", *altsetting); 
+    }
 
   return status;
 }

@@ -22,41 +22,44 @@
 
 
 NTSTATUS reset_endpoint(libusb_device_extension *device_extension,
-			int endpoint, int timeout)
+                        int endpoint, int timeout)
 {
   NTSTATUS status = STATUS_SUCCESS;
   URB urb;
 
   debug_print_nl();
-  debug_printf(LIBUSB_DEBUG_MSG, "reset_endpoint(): endpoint %02xh", endpoint);
+  debug_printf(LIBUSB_DEBUG_MSG, "reset_endpoint(): endpoint 0x%02x", 
+               endpoint);
   debug_printf(LIBUSB_DEBUG_MSG, "reset_endpoint(): timeout %d", timeout);
 
   if(!device_extension->current_configuration)
     {
       debug_printf(LIBUSB_DEBUG_ERR, "reset_endpoint(): invalid "
-		   "configuration 0"); 
+                   "configuration 0"); 
       return STATUS_INVALID_DEVICE_STATE;
     }
   
-  if(!get_pipe_handle(device_extension, endpoint, 
-		      &urb.UrbPipeRequest.PipeHandle))
-    {
-      debug_printf(LIBUSB_DEBUG_ERR, "reset_endpoint(): getting endpoint pipe "
-		   "failed");
-      return STATUS_INVALID_PARAMETER;
-    }
-  
+  memset(&urb, 0, sizeof(struct _URB_PIPE_REQUEST));
+
   urb.UrbHeader.Length = (USHORT) sizeof(struct _URB_PIPE_REQUEST);
   urb.UrbHeader.Function = URB_FUNCTION_RESET_PIPE;
 
+  if(!get_pipe_handle(device_extension, endpoint, 
+                      &urb.UrbPipeRequest.PipeHandle))
+    {
+      debug_printf(LIBUSB_DEBUG_ERR, "reset_endpoint(): getting endpoint pipe "
+                   "failed");
+      return STATUS_INVALID_PARAMETER;
+    }
+  
   status = call_usbd(device_extension, (void *)&urb, 
-		       IOCTL_INTERNAL_USB_SUBMIT_URB, timeout);
+                     IOCTL_INTERNAL_USB_SUBMIT_URB, timeout);
   
   if(!NT_SUCCESS(status) || !USBD_SUCCESS(urb.UrbHeader.Status))
     {
       debug_printf(LIBUSB_DEBUG_ERR, "reset_endpoint(): request failed: "
-		   "status: 0x%x, urb-status: 0x%x", 
-		   status, urb.UrbHeader.Status);
+                   "status: 0x%x, urb-status: 0x%x", 
+                   status, urb.UrbHeader.Status);
     }
 
   return status;

@@ -22,7 +22,7 @@
 
 
 NTSTATUS set_feature(libusb_device_extension *device_extension,
-		     int recipient, int index, int feature, int timeout)
+                     int recipient, int index, int feature, int timeout)
 {
   NTSTATUS status = STATUS_SUCCESS;
   URB urb;
@@ -36,9 +36,11 @@ NTSTATUS set_feature(libusb_device_extension *device_extension,
   if(!device_extension->current_configuration && recipient != USB_RECIP_DEVICE)
     {
       debug_printf(LIBUSB_DEBUG_MSG, "set_feature(): invalid "
-		   "configuration 0"); 
+                   "configuration 0"); 
       return STATUS_INVALID_PARAMETER;
     }
+
+  memset(&urb, 0, sizeof(struct _URB_CONTROL_FEATURE_REQUEST));
 
   switch(recipient)
     {
@@ -62,17 +64,16 @@ NTSTATUS set_feature(libusb_device_extension *device_extension,
   
   urb.UrbHeader.Length = sizeof(struct _URB_CONTROL_FEATURE_REQUEST);
   urb.UrbControlFeatureRequest.FeatureSelector = (USHORT)feature;
-  urb.UrbControlFeatureRequest.UrbLink = NULL; 
   urb.UrbControlFeatureRequest.Index = (USHORT)index; 
   
   status = call_usbd(device_extension, &urb, 
-		     IOCTL_INTERNAL_USB_SUBMIT_URB, timeout);
+                     IOCTL_INTERNAL_USB_SUBMIT_URB, timeout);
   
   if(!NT_SUCCESS(status) || !USBD_SUCCESS(urb.UrbHeader.Status))
     {
       debug_printf(LIBUSB_DEBUG_ERR, "set_feature(): setting feature failed: "
-		   "status: 0x%x, urb-status: 0x%x", 
-		   status, urb.UrbHeader.Status);
+                   "status: 0x%x, urb-status: 0x%x", 
+                   status, urb.UrbHeader.Status);
     }
   
   return status;

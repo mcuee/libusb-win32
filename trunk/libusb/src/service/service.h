@@ -39,6 +39,9 @@ bool_t usb_create_service(const char *name, const char *display_name,
 bool_t usb_delete_service(const char *name);
 bool_t usb_start_service(const char *name);
 bool_t usb_stop_service(const char *name);
+bool_t usb_pause_service(const char *name);
+bool_t usb_continue_service(const char *name);
 bool_t usb_control_service(const char *name, int code);
+bool_t usb_is_service_running(const char *name);
 
 #endif
