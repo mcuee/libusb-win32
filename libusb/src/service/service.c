@@ -31,9 +31,10 @@
 
 typedef SC_HANDLE WINAPI (* open_sc_manager_t)(LPCTSTR, LPCTSTR, DWORD);
 typedef SC_HANDLE WINAPI (* open_service_t)(SC_HANDLE, LPCTSTR, DWORD);
-typedef BOOL WINAPI (* change_service_config_t)(SC_HANDLE, DWORD, DWORD, DWORD,
-						LPCTSTR, LPCTSTR, LPDWORD, LPCTSTR,
-						LPCTSTR, LPCTSTR, LPCTSTR);
+typedef BOOL WINAPI (* change_service_config_t)(SC_HANDLE, DWORD, DWORD, 
+						DWORD, LPCTSTR, LPCTSTR, 
+						LPDWORD, LPCTSTR, LPCTSTR, 
+						LPCTSTR, LPCTSTR);
 typedef BOOL WINAPI (* close_service_handle_t)(SC_HANDLE);
 typedef SC_HANDLE WINAPI (* create_service_t)(SC_HANDLE, LPCTSTR, LPCTSTR,
 					      DWORD, DWORD,DWORD, DWORD,
@@ -155,7 +156,8 @@ void usb_service_start_filter(void)
       
       while(SetupDiEnumDeviceInfo(dev_info, dev_index, &dev_info_data))
 	{
-	  if(!usb_registry_is_composite_interface(dev_info, &dev_info_data))
+	  if(!usb_registry_is_composite_interface(dev_info, &dev_info_data)
+	    && !usb_registry_is_root_hub(dev_info, &dev_info_data))
 	    {
 	      if(usb_registry_insert_filter(dev_info, &dev_info_data, 
 					    filter_name))
@@ -173,13 +175,13 @@ void usb_service_start_filter(void)
 }
 
 
-
 void usb_service_stop_filter()
 {
   HDEVINFO dev_info;
   SP_DEVINFO_DATA dev_info_data;
   int dev_index = 0;
   char *filter_name = NULL;
+  int filter_removed = 0;
 
   filter_name = usb_registry_is_nt() ? 
     LIBUSB_DRIVER_NAME_NT : LIBUSB_DRIVER_NAME_9X;
@@ -187,24 +189,36 @@ void usb_service_stop_filter()
   dev_info_data.cbSize = sizeof(SP_DEVINFO_DATA);
   dev_info = SetupDiGetClassDevs(NULL, "USB", 0, DIGCF_ALLCLASSES);
 
-  if(dev_info == INVALID_HANDLE_VALUE)
+  do 
     {
-      usb_debug_error("usb_service_stop_filter(): getting "
-		      "device info set failed");
-      return;
-    }
-
-  while(SetupDiEnumDeviceInfo(dev_info, dev_index, &dev_info_data))
-    {
-      if(!(usb_registry_is_composite_libusb(dev_info, &dev_info_data)
-	   || usb_registry_is_service_libusb(dev_info, &dev_info_data)))
+      filter_removed = 0;
+      dev_index = 0;
+      dev_info = SetupDiGetClassDevs(NULL, "USB", 0, DIGCF_ALLCLASSES);
+      
+      if(dev_info == INVALID_HANDLE_VALUE)
 	{
-	  usb_registry_remove_filter(dev_info, &dev_info_data, filter_name);
+	  usb_debug_error("usb_service_stop_filter(): getting "
+			  "device info set failed");
+	  return;
 	}
-      dev_index++;
-    }
-
-  SetupDiDestroyDeviceInfoList(dev_info);
+      
+      while(SetupDiEnumDeviceInfo(dev_info, dev_index, &dev_info_data))
+	{
+	  if(!(usb_registry_is_composite_libusb(dev_info, &dev_info_data)
+	       || usb_registry_is_service_libusb(dev_info, &dev_info_data)))
+	    {
+	      if(usb_registry_remove_filter(dev_info, &dev_info_data, filter_name))
+		{
+		  filter_removed = 1;
+		  usb_registry_set_device_state(DICS_PROPCHANGE, dev_info, 
+						&dev_info_data);
+		  break;
+		}
+	    }
+	  dev_index++;
+	}
+      SetupDiDestroyDeviceInfoList(dev_info);
+    } while(filter_removed);
 }
 
 
@@ -513,3 +527,44 @@ bool_t usb_stop_service(const char *name)
   return ret;
 }
 
+bool_t usb_service_reboot_required(void)
+{
+  int count = 0;
+  HDEVINFO dev_info;
+  SP_DEVINFO_DATA dev_info_data;
+  int dev_index = 0;
+  char *filter_name = NULL;
+
+  filter_name = usb_registry_is_nt() ? 
+    LIBUSB_DRIVER_NAME_NT : LIBUSB_DRIVER_NAME_9X;
+  
+  dev_info_data.cbSize = sizeof(SP_DEVINFO_DATA);
+
+  dev_info = SetupDiGetClassDevs(NULL, "USB", 0, 
+				 DIGCF_ALLCLASSES | DIGCF_PRESENT);
+  
+  if(dev_info == INVALID_HANDLE_VALUE)
+    {
+      usb_debug_error("usb_service_reboot_required(): getting "
+		      "device info set failed");
+      
+      return FALSE;
+    }
+      
+  while(SetupDiEnumDeviceInfo(dev_info, dev_index, &dev_info_data))
+    {
+      if(usb_registry_is_service_libusb(dev_info, &dev_info_data))
+	{
+	  count++;
+
+	  if(count == 2)
+	    {
+	      return TRUE;
+	    }
+	}
+      dev_index++;
+    }
+  SetupDiDestroyDeviceInfoList(dev_info);
+
+  return FALSE;
+}

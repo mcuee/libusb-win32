@@ -70,7 +70,9 @@ NTSTATUS get_status(libusb_device_extension *device_extension, int recipient,
       
   if(!NT_SUCCESS(_status) || !USBD_SUCCESS(urb.UrbHeader.Status))
     {
-      debug_printf(DEBUG_ERR, "get_status(): getting status failed");
+      debug_printf(DEBUG_ERR, "get_status(): getting status failed: "
+		   "status: 0x%x, urb-status: 0x%x", 
+		   status, urb.UrbHeader.Status);
     }
   else
     {

@@ -22,7 +22,7 @@
 
 
 NTSTATUS set_descriptor(libusb_device_extension *device_extension,
-			void *buffer, MDL *mdl_buffer, int size, int type, 
+			void *buffer, int size, int type, 
 			int index, int language_id, int *sent, int timeout)
 {
   NTSTATUS status = STATUS_SUCCESS;
@@ -38,7 +38,7 @@ NTSTATUS set_descriptor(libusb_device_extension *device_extension,
   urb.UrbHeader.Function =  URB_FUNCTION_SET_DESCRIPTOR_TO_DEVICE;
   urb.UrbHeader.Length = sizeof(struct _URB_CONTROL_DESCRIPTOR_REQUEST);
   urb.UrbControlDescriptorRequest.TransferBufferLength = size;
-  urb.UrbControlDescriptorRequest.TransferBufferMDL = mdl_buffer;
+  urb.UrbControlDescriptorRequest.TransferBufferMDL = NULL;
   urb.UrbControlDescriptorRequest.TransferBuffer = buffer;
   urb.UrbControlDescriptorRequest.DescriptorType = (UCHAR)type;
   urb.UrbControlDescriptorRequest.Index = (UCHAR)index;
@@ -50,7 +50,9 @@ NTSTATUS set_descriptor(libusb_device_extension *device_extension,
   
   if(!NT_SUCCESS(status) || !USBD_SUCCESS(urb.UrbHeader.Status))
     {
-      debug_printf(DEBUG_ERR, "set_descriptor(): setting descriptor failed");
+      debug_printf(DEBUG_ERR, "set_descriptor(): setting descriptor failed: "
+		   "status: 0x%x, urb-status: 0x%x", 
+		   status, urb.UrbHeader.Status);
     }
   else
     {

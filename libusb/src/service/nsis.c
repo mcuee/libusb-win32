@@ -18,6 +18,7 @@
 
 
 #include <windows.h>
+#include <setupapi.h>
 #include <stdio.h>
 
 #include "service.h"
@@ -31,25 +32,21 @@ static void delete_system_service(void);
 static void start_system_service(void);
 static void stop_system_service(void);
 static void stop_kernel_service(void);
-static void stop_kernel_service_full(void);
-static void restart_host_controllers(void);
-static void install_composite_filter(void);
-
+static void reboot_required(void);
 
  
-static void libusb_usage(void);
-static void libusb_usage(void)
+static void usage(void);
+static void usage(void)
 {
-  printf("Usage: libusb-nsis.exe [OPTION]\n");
+  printf("Usage: libusbis.exe [OPTION]\n");
+  printf("Options:\n");
   printf("--create-kernel-service\n");
   printf("--create-system-service\n");
   printf("--delete-system-service\n");
   printf("--start-system-service\n");
   printf("--stop-system-service\n");
   printf("--stop-kernel-service\n");
-  printf("--stop-kernel-service_full\n");
-  printf("--restart-host-controllers\n");
-  printf("--install-composite-filter\n");
+  printf("--reboot-required\n");
 }
 
 int main(int argc, char **argv)
@@ -59,9 +56,9 @@ int main(int argc, char **argv)
       return 0;
     }
 
-  if(argc != 2)
+  if(argc < 2)
     {
-      libusb_usage();
+      usage();
       return 0;
     }
 
@@ -97,18 +94,12 @@ int main(int argc, char **argv)
 	  stop_kernel_service(); 
 	  break;
 	}
-      if(!strcmp(argv[1], "--restart-host-controllers"))
+      if(!strcmp(argv[1], "--reboot-required"))
 	{
-	  restart_host_controllers(); 
+	  reboot_required(); 
 	  break;
 	}
-      if(!strcmp(argv[1], "--install-composite-filter"))
-	{
-	  install_composite_filter(); 
-	  break;
-	}
-
-      libusb_usage();
+      usage();
     } while(0);
 
   usb_service_free_dll();
@@ -128,7 +119,6 @@ static void create_kernel_service(void)
 		     LIBUSB_DRIVER_PATH,
 		     SERVICE_KERNEL_DRIVER,
 		     SERVICE_DEMAND_START);
-  
 }
 
 
@@ -187,47 +177,12 @@ static void stop_kernel_service(void)
   usb_service_stop_filter();
 }
 
-
-static void restart_host_controllers(void)
+static void reboot_required(void)
 {
-  HDEVINFO dev_info;
-  SP_DEVINFO_DATA dev_info_data;
-  int dev_index = 0;
-  char class[512];
-
-  dev_info_data.cbSize = sizeof(SP_DEVINFO_DATA);
-  dev_info = SetupDiGetClassDevs(NULL, "PCI", 0, 
-				 DIGCF_ALLCLASSES | DIGCF_PRESENT);
-
-  if(dev_info == INVALID_HANDLE_VALUE)
-    {
-      usb_debug_error("restart_host_controllers(): getting device info "
-		      "failed");
-      return;
-    }
-
-  while(SetupDiEnumDeviceInfo(dev_info, dev_index, &dev_info_data))
-    {
-      if(usb_registry_get_property(SPDRP_CLASS, dev_info, 
-				   &dev_info_data, class, sizeof(class)))
-	{
-	  if(strstr(class, "usb"))
-	    {
-	      if(!usb_registry_set_device_state(DICS_PROPCHANGE, dev_info, 
-						&dev_info_data))
-		{
-		  usb_debug_error("restart_host_controllers: setting "
-				  "device state failed");
-		}
-	    }
-	}
-      dev_index++;
-    }
-
-  SetupDiDestroyDeviceInfoList(dev_info);
+  if(usb_service_reboot_required())
+    printf("yes");
+  else
+    printf("no");
 }
 
-static void install_composite_filter(void)
-{
-  usb_registry_install_composite_filter();
-}
+

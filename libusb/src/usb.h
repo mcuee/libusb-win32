@@ -133,6 +133,7 @@ struct usb_interface_descriptor {
 };
 
 #define USB_MAXALTSETTING	128	/* Hard limit */
+
 struct usb_interface {
   struct usb_interface_descriptor *altsetting;
 
@@ -330,7 +331,7 @@ extern "C" {
   struct usb_bus *usb_get_busses(void);
 
   /* Windows specific functions */
-  struct usb_version *usb_get_version(void);
+  const struct usb_version *usb_get_version(void);
 
 
 #ifdef __cplusplus

@@ -68,6 +68,6 @@ bool_t usb_registry_is_service_libusb(HDEVINFO dev_info,
 				      SP_DEVINFO_DATA *dev_info_data);
 bool_t usb_registry_is_composite_libusb(HDEVINFO dev_info, 
 					SP_DEVINFO_DATA *dev_info_data);
-bool_t usb_registry_install_composite_filter(void);
+bool_t usb_registry_is_device_present(const char *hardware_id);
 
 #endif

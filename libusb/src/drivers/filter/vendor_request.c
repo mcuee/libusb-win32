@@ -20,39 +20,97 @@
 #include "libusb_filter.h"
 
 
-NTSTATUS vendor_request(libusb_device_extension *device_extension, 
+NTSTATUS vendor_class_request(libusb_device_extension *device_extension,
+			int type, int recipient,
 			int request, int value, int index, 
-			MDL *buffer, int size, int direction,
+			void *buffer, int size, int direction,
 			int *sent, int timeout)
 {
   NTSTATUS status = STATUS_SUCCESS;
   URB urb;
 
-  debug_printf(DEBUG_MSG, "vendor_request(): request 0x%02x", request);
-  debug_printf(DEBUG_MSG, "vendor_request(): value 0x%04x", value);
-  debug_printf(DEBUG_MSG, "vendor_request(): index 0x%04x", index);
-  debug_printf(DEBUG_MSG, "vendor_request(): size %d", size);
+
+  switch(type)
+    {
+    case BMREQUEST_CLASS:
+      debug_printf(DEBUG_MSG, "vendor_class_request(): type: class");
+      switch(recipient)
+	{
+	case BMREQUEST_TO_DEVICE:
+	  debug_printf(DEBUG_MSG, "vendor_class_request(): recipient: device");
+	  urb.UrbHeader.Function = URB_FUNCTION_CLASS_DEVICE;
+	  break;
+	case BMREQUEST_TO_INTERFACE:
+	  debug_printf(DEBUG_MSG, "vendor_class_request(): recipient: interface");
+	  urb.UrbHeader.Function = URB_FUNCTION_CLASS_INTERFACE;
+	  break;
+	case BMREQUEST_TO_ENDPOINT:
+	  debug_printf(DEBUG_MSG, "vendor_class_request(): recipient: endpoint");
+	  urb.UrbHeader.Function = URB_FUNCTION_CLASS_ENDPOINT;
+	  break;
+	case BMREQUEST_TO_OTHER:
+	  debug_printf(DEBUG_MSG, "vendor_class_request(): recipient: other");
+	  urb.UrbHeader.Function = URB_FUNCTION_CLASS_OTHER;
+	  break;
+	default:
+	  debug_printf(DEBUG_ERR, "vendor_class_request(): invalid recipient");
+	  return STATUS_INVALID_PARAMETER;
+	}
+      break;
+    case BMREQUEST_VENDOR:
+      debug_printf(DEBUG_MSG, "vendor_class_request(): type: vendor");
+      switch(recipient)
+	{
+	case BMREQUEST_TO_DEVICE:
+	  debug_printf(DEBUG_MSG, "vendor_class_request(): recipient: device");
+	  urb.UrbHeader.Function = URB_FUNCTION_VENDOR_DEVICE;
+	  break;
+	case BMREQUEST_TO_INTERFACE:
+	  debug_printf(DEBUG_MSG, "vendor_class_request(): recipient: interface");
+	  urb.UrbHeader.Function = URB_FUNCTION_VENDOR_INTERFACE;
+	  break;
+	case BMREQUEST_TO_ENDPOINT:
+	  debug_printf(DEBUG_MSG, "vendor_class_request(): recipient: endpoint");
+	  urb.UrbHeader.Function = URB_FUNCTION_VENDOR_ENDPOINT;
+	  break;
+	case BMREQUEST_TO_OTHER:
+	  debug_printf(DEBUG_MSG, "vendor_class_request(): recipient: other");
+	  urb.UrbHeader.Function = URB_FUNCTION_VENDOR_OTHER;
+	  break;
+	default:
+	  debug_printf(DEBUG_ERR, "vendor_class_request(): invalid recipient");
+	  return STATUS_INVALID_PARAMETER;
+	}
+      break;
+    default:
+      debug_printf(DEBUG_ERR, "vendor_class_request(): invalid type");
+      return STATUS_INVALID_PARAMETER;
+    }
+
+  debug_printf(DEBUG_MSG, "vendor_class_request(): request: 0x%02x", request);
+  debug_printf(DEBUG_MSG, "vendor_class_request(): value: 0x%04x", value);
+  debug_printf(DEBUG_MSG, "vendor_class_request(): index: 0x%04x", index);
+  debug_printf(DEBUG_MSG, "vendor_class_request(): size: %d", size);
 
   if(direction == USBD_TRANSFER_DIRECTION_IN)
     {
-      debug_printf(DEBUG_MSG, "vendor_request(): direction in");
+      debug_printf(DEBUG_MSG, "vendor_class_request(): direction: in");
     }
   else
     {
-      debug_printf(DEBUG_MSG, "vendor_request(): direction out");
+      debug_printf(DEBUG_MSG, "vendor_class_request(): direction: out");
     }
 
-  debug_printf(DEBUG_MSG, "vendor_request(): timeout %d", timeout);
+  debug_printf(DEBUG_MSG, "vendor_class_request(): timeout: %d", timeout);
 
-  urb.UrbHeader.Function = URB_FUNCTION_VENDOR_DEVICE;
   urb.UrbHeader.Length = 
     sizeof(struct _URB_CONTROL_VENDOR_OR_CLASS_REQUEST);
   urb.UrbControlVendorClassRequest.Reserved = 0;
   urb.UrbControlVendorClassRequest.TransferFlags 
     = direction | USBD_SHORT_TRANSFER_OK ;
   urb.UrbControlVendorClassRequest.TransferBufferLength = size;
-  urb.UrbControlVendorClassRequest.TransferBufferMDL = buffer;
-  urb.UrbControlVendorClassRequest.TransferBuffer = NULL;
+  urb.UrbControlVendorClassRequest.TransferBufferMDL = NULL;
+  urb.UrbControlVendorClassRequest.TransferBuffer = buffer;
   urb.UrbControlVendorClassRequest.RequestTypeReservedBits = 0;
   urb.UrbControlVendorClassRequest.Request = (UCHAR)request;
   urb.UrbControlVendorClassRequest.Value = (USHORT)value;
@@ -61,15 +119,20 @@ NTSTATUS vendor_request(libusb_device_extension *device_extension,
   urb.UrbControlVendorClassRequest.UrbLink = NULL;
   
   status = call_usbd(device_extension, (void *)&urb, 
-		       IOCTL_INTERNAL_USB_SUBMIT_URB, timeout);
+		     IOCTL_INTERNAL_USB_SUBMIT_URB, timeout);
   
   if(!NT_SUCCESS(status) || !USBD_SUCCESS(urb.UrbHeader.Status))
     {
-      debug_printf(DEBUG_ERR, "vendor_request(): request failed");
+      debug_printf(DEBUG_ERR, "vendor_class_request(): request failed: "
+		   "status: 0x%x, urb-status: 0x%x", 
+		   status, urb.UrbHeader.Status);
+      *sent = 0;
     }
   else
     {
       *sent = urb.UrbControlVendorClassRequest.TransferBufferLength;
+      debug_printf(DEBUG_MSG, "vendor_class_request(): %d bytes transmitted",
+		   *sent);
     }
   return status;
 }

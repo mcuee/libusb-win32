@@ -54,8 +54,9 @@ NTSTATUS set_configuration(libusb_device_extension *device_extension,
       
       if(!NT_SUCCESS(status) || !USBD_SUCCESS(urb.UrbHeader.Status))
 	{
-	  debug_printf(DEBUG_ERR, "set_configuration(): setting config %d "
-		       "failed", configuration);
+	  debug_printf(DEBUG_ERR, "set_configuration(): setting configuration "
+		       "%d failed: status: 0x%x, urb-status: 0x%x", 
+		       configuration, status, urb.UrbHeader.Status);
 	  return status;
 	}
 
@@ -209,8 +210,8 @@ NTSTATUS set_configuration(libusb_device_extension *device_extension,
   if(!NT_SUCCESS(status) || !USBD_SUCCESS(urb_ptr->UrbHeader.Status))
     {
       debug_printf(DEBUG_ERR, "set_configuration(): setting configuration "
-		   "%d %x %x failed", configuration, status, 
-		   urb_ptr->UrbHeader.Status);
+		   "%d failed: status: 0x%x, urb-status: 0x%x", 
+		    configuration, status, urb_ptr->UrbHeader.Status);
       ExFreePool(interfaces);
       ExFreePool(configuration_descriptor);
       ExFreePool(urb_ptr);

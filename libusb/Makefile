@@ -8,7 +8,6 @@ CD = cd
 MV = mv
 RM = -rm -fr
 TAR = tar
-STRIP = strip
 WINDRES = windres
 NSIS = makensis
 INSTALL = install
@@ -16,27 +15,28 @@ INSTALL = install
 VERSION_MAJOR = 0
 VERSION_MINOR = 1
 VERSION_MICRO = 8
-VERSION_NANO = 0
+VERSION_NANO = 1
 
 VERSION = $(VERSION_MAJOR).$(VERSION_MINOR).$(VERSION_MICRO).$(VERSION_NANO)
 RC_VERSION = $(VERSION_MAJOR),$(VERSION_MINOR),$(VERSION_MICRO),$(VERSION_NANO)
 INF_VERSION = $(shell date +"%m\/%d\/%Y"), $(VERSION)
+DATE = $(shell date +"%Y%m%d")
 
 TARGET = libusb
 DLL_TARGET = $(TARGET)$(VERSION_MAJOR)
 LIB_TARGET = $(TARGET)
 DRIVER_TARGETS = $(TARGET)fl.sys $(TARGET)st.sys
+INSTALLER_TARGET = libusb-win32-filter-bin-$(VERSION).exe
 
 INSTALL_DIR = /usr
 OBJECTS = usb.o error.o descriptors.o windows.o resource.o
 
 SRC_DIST_DIR = $(TARGET)-win32-src-$(VERSION)
 BIN_DIST_DIR = $(TARGET)-win32-device-bin-$(VERSION)
-BIN_DIST_DIR = $(TARGET)-win32-bin-$(VERSION)
+
 
 DIST_SOURCE_FILES = ./src
-DIST_MISC_FILES = COPYING_LGPL.txt COPYING_GPL.txt AUTHORS.txt \
-		ChangeLog.txt 
+DIST_MISC_FILES = COPYING_LGPL.txt COPYING_GPL.txt AUTHORS.txt ChangeLog.txt 
 
 SRC_DIR = ./src
 FILTER_SRC_DIR = $(SRC_DIR)/drivers/filter
@@ -46,7 +46,7 @@ VPATH = .:./src:./src/drivers/filter:./src/drivers/stub:./tests:./src/service
 
 INCLUDES = -I./src -I./src/drivers/filter -I./src/service
 
-CFLAGS = -O2
+CFLAGS = -O2 -s -mno-cygwin
 
 CPPFLAGS = -DEOVERFLOW=139 \
 	-DVERSION_MAJOR=$(VERSION_MAJOR) \
@@ -54,14 +54,11 @@ CPPFLAGS = -DEOVERFLOW=139 \
 	-DVERSION_MICRO=$(VERSION_MICRO) \
 	-DVERSION_NANO=$(VERSION_NANO)
 
-LDFLAGS = -shared -Wl,--output-def,$(DLL_TARGET).def \
-	-Wl,--add-stdcall-alias
+LDFLAGS = -s -shared -Wl,--output-def,$(DLL_TARGET).def  -mno-cygwin
 
 
 TEST_FILES = testlibusb.exe testlibusb-win.exe
 
-BUILD_MSVC_LIB = 0
-BUILD_BCC_LIB = 0
 
 ifndef DDK_ROOT_PATH
 	DDK_ROOT_PATH = C:/WINDDK/2600.1106
@@ -71,33 +68,28 @@ endif
 all: $(DLL_TARGET).dll $(TEST_FILES) libusbd-nt.exe \
 	libusbd-9x.exe libusbis.exe $(DRIVER_TARGETS) \
 	$(TARGET).inf README.txt
+	unix2dos *.txt *.inf
 
 $(DLL_TARGET).dll: filter_api.h $(OBJECTS)
 	$(CC) -o $@ $(OBJECTS) $(LDFLAGS) -Wl,--out-implib,$(LIB_TARGET).a
-	$(STRIP) $@
 
 %.o: %.c
 	$(CC) -c $< -o $@ $(CFLAGS) -Wall $(CPPFLAGS) $(INCLUDES) 
 
 testlibusb.exe: testlibusb.o
 	$(CC) $(CFLAGS) -o $@ -I./src  $^ -lusb -L.
-	$(STRIP) $@
 
 testlibusb-win.exe: testlibusb_win.o
 	$(CC) $(CFLAGS) -mwindows -o $@ -I./src  $^ -lusb -lgdi32 -L.
-	$(STRIP) $@
 
 libusbd-nt.exe: service_nt.o service.o registry.o resource.o win_debug.o
 	$(CC) $(CPPFLAGS) -mwindows -Wall $(CFLAGS) -o $@ $^ -lsetupapi
-	$(STRIP) $@
 
 libusbd-9x.exe: service_9x.o service.o registry.o resource.o win_debug.o
 	$(CC) $(CPPFLAGS) -mwindows -Wall $(CFLAGS) -o $@ $^ -lsetupapi
-	$(STRIP) $@
 
 libusbis.exe: nsis.o service.o registry.o resource.o win_debug.o
 	$(CC) $(CPPFLAGS) -Wall $(CFLAGS) -o $@ $^ -lsetupapi
-	$(STRIP) $@
 
 README.txt: README.in
 	sed -e 's/@VERSION@/$(VERSION)/' $< > $@
@@ -120,9 +112,6 @@ README.txt: README.in
 %.inf: %.inf.in
 	sed -e 's/@INF_VERSION@/$(INF_VERSION)/' $< > $@
 
-install.nsi: install.nsi.in
-	sed -e 's/@VERSION@/$(VERSION)/' $< > $@
-
 $(TARGET)fl.sys: $(TARGET)_stub.rc $(TARGET)_filter.rc filter_api.h
 	$(MAKE) --win32 build_drivers
 
@@ -139,8 +128,8 @@ msvc_lib:
 	$(DDK_ROOT_PATH)/bin/x86/lib.exe /machine:i386 /def:$(DLL_TARGET).def 
 	$(MV) $(DLL_TARGET).lib $(LIB_TARGET).lib
 
-.PHONY: bin_dist_dir
-bin_dist_dir: all
+.PHONY: bin_dist
+bin_dist: all
 	$(INSTALL) -d $(BIN_DIST_DIR)/lib/gcc
 	$(INSTALL) -d $(BIN_DIST_DIR)/lib/bcc
 	$(INSTALL) -d $(BIN_DIST_DIR)/lib/msvc
@@ -163,8 +152,8 @@ bin_dist_dir: all
 	$(INSTALL) $(DIST_MISC_FILES) README.txt $(BIN_DIST_DIR)
 
 
-.PHONY: src_dist_dir
-src_dist_dir:
+.PHONY: src_dist
+src_dist:
 	$(INSTALL) -d $(SRC_DIST_DIR)/src
 	$(INSTALL) -d $(SRC_DIST_DIR)/src/service
 	$(INSTALL) -d $(SRC_DIST_DIR)/src/drivers/stub
@@ -198,25 +187,34 @@ src_dist_dir:
 
 
 .PHONY: dist
-dist: bin_dist_dir src_dist_dir install.nsi
-	$(TAR) -czf $(TARGET)-win32-src-$(VERSION).tar.gz $(SRC_DIST_DIR) 
-	$(TAR) -czf $(TARGET)-win32-device-bin-$(VERSION).tar.gz \
-		$(BIN_DIST_DIR)
+dist: bin_dist src_dist
+	sed -e 's/@VERSION@/$(VERSION)/' \
+	-e 's/@BIN_DIST_DIR@/$(BIN_DIST_DIR)/' \
+	-e 's/@SRC_DIST_DIR@/$(SRC_DIST_DIR)/' \
+	-e 's/@INSTALLER_TARGET@/$(INSTALLER_TARGET)/' \
+	install.nsi.in > install.nsi
+	$(TAR) -czf $(SRC_DIST_DIR).tar.gz $(SRC_DIST_DIR) 
+	$(TAR) -czf $(BIN_DIST_DIR).tar.gz $(BIN_DIST_DIR)
 	$(NSIS) install.nsi
 	$(RM) $(SRC_DIST_DIR)
 	$(RM) $(BIN_DIST_DIR)
 
+.PHONY: snapshot
+snapshot: VERSION = $(DATE)
+snapshot: dist
+
 .PHONY: clean
 clean:	
 	$(RM) *.o *.dll *.a *.def *.exp *.lib *.exe *.tar.gz *.inf *~ *.nsi
-	$(RM) ./src/*~ *.sys
+	$(RM) ./src/*~ *.sys *.log
 	$(RM) $(SRC_DIR)/*.rc
 	$(RM) $(SRC_DIR)/drivers/*.log $(SRC_DIR)/drivers/i386
 	$(RM) $(FILTER_SRC_DIR)/*~ $(FILTER_SRC_DIR)/*.rc
 	$(RM) $(FILTER_SRC_DIR)/*.log
 	$(RM) $(FILTER_SRC_DIR)/*_wxp_x86
 	$(RM) $(FILTER_SRC_DIR)/filter_api.h
-	$(RM) $(STUB_SRC_DIR)/*~ $(STUB_SRC_DIR)/*.rc $(STUB_SRC_DIR)/*.log
-	$(RM) $(STUB_SRC_DIR)/*_wxp_x86 README.txt
-	$(RM) $(SRC_DIST_DIR)
-	$(RM) $(BIN_DIST_DIR)
+	$(RM) $(STUB_SRC_DIR)/*~ $(STUB_SRC_DIR)/*.rc 
+	$(RM) $(STUB_SRC_DIR)/*.log
+	$(RM) $(STUB_SRC_DIR)/*_wxp_x86 
+	$(RM) README.txt
+

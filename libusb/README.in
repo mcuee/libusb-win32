@@ -1,6 +1,6 @@
 
 This is libusb-win32 (http://libusb-win32.sourceforge.net) version @VERSION@. 
-Libusb-win32 is a library which allows userspace application access to USB devices
-on Windows operation systems (Win98, WinMe, Win2k, WinXP). 
+Libusb-win32 is a library which allows userspace application access to USB 
+devices on Windows operation systems (Win98, WinME, Win2k, WinXP). 
 It is derived from and fully API compatible to libusb available at 
 http://libusb.sourceforge.net.

@@ -69,7 +69,9 @@ NTSTATUS set_feature(libusb_device_extension *device_extension,
   
   if(!NT_SUCCESS(status) || !USBD_SUCCESS(urb.UrbHeader.Status))
     {
-      debug_printf(DEBUG_ERR, "set_feature(): setting feature failed");
+      debug_printf(DEBUG_ERR, "set_feature(): setting feature failed: "
+		   "status: 0x%x, urb-status: 0x%x", 
+		   status, urb.UrbHeader.Status);
     }
   
   return status;

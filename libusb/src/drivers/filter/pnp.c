@@ -43,7 +43,6 @@ NTSTATUS dispatch_pnp(libusb_device_extension *device_extension, IRP *irp)
       control_object_delete(device_extension);
       IoDetachDevice(device_extension->next_stack_device);
       IoDeleteDevice(device_extension->self);
-      debug_printf(DEBUG_MSG, "dispatch_pnp(): IRP_MN_REMOVE_DEVICE test");
       return status;
 
     case IRP_MN_SURPRISE_REMOVAL:

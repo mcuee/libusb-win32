@@ -1,9 +1,22 @@
+Version 0.1.8.1:
+
+	- Driver/DLL: improved usb_control_msg(), added better support for
+	  vendor and class specific requests.
+	- Service: removed support for USB root hubs. This results in much 
+	  faster initialization and much shorter startup times. 
+	- Driver: fixed a bug in the bulk and interrupt functions which caused
+	  a BSOD under some very rare conditions.
+	- Improved installer/uninstaller speed.
+	- Added Cygwin support. The whole package can now be build under 
+	  Cygwin and the latest MSys/MinGW.
+
+
 Version 0.1.8.0:
 	
-	- ported version 0.1.8.0 of libusb to libusb-win32 
-	- filter driver: fixed two bugs which caused BSODs on some systems
+	- Ported version 0.1.8.0 of libusb to libusb-win32 
+	- Filter driver: fixed two bugs which caused BSODs on some systems
 	  during powerdown and device removal.
-	- filter driver: fixed bug in composite device handling code.
+	- Filter driver: fixed bug in composite device handling code.
 	- Services: added better handling of composite devices. These devices
 	  now appear as one single device instead of multiple devices for
 	  each interface.
@@ -35,7 +48,6 @@ Version 0.1.7.9:
 
 	- Filter driver: support for Composite Devices (devices with multiple
 	  interfaces) improved.
-
 	- DLL: added function usb_get_version() which returns the version of
 	  the running driver and DLL.
 
@@ -43,13 +55,10 @@ Version 0.1.7.9:
 Version 0.1.7.8:
 
 	- DLL: removed a memory leak
-
 	- DLL: fixed bug which caused the DLL to detect an invalid number
 	  of root hubs on some systems which made some devices inaccessable.
-
 	- DLL: errors are now also printed to the Windows debug system. They
 	  can be captured using DebugView from http://www.sysinternals.com.
-
 	- Filter driver: the driver now reflects the DLL's debug setting
 	  (can be set using usb_set_debug()).
 	  This makes the distribution of two different driver versions 
@@ -66,19 +75,14 @@ Version 0.1.7.7:
 
 	- Filter driver: some control transfers (vendor specific request)
 	  failed or worked incorrectly, this bug has been fixed.
-
 	- all drivers: a bug in the inf-files which prevented the drivers
 	  to install on Win98 systems has been fixed.
-
 	- Filter driver: parameter validation and error handling has been
 	  improved.
-
 	- Filter driver, DLL: the maximum number of supported devices has
 	  been increased to 256.
-
 	- DLL: under some circumstances the DLL didn't detect newly connected
 	  devices correctly at runtime, this problem has been fixed.
-
 	- The build system now uses the 'lib' utility from the DDK to build
           the import library for Microsoft compilers. Visual C++ isn't required
           any more.
