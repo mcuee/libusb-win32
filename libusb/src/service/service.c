@@ -66,7 +66,7 @@ bool_t usb_service_load_dll()
 {
   if(usb_registry_is_nt())
     {
-      advapi32_dll = LoadLibrary("ADVAPI32.DLL");
+      advapi32_dll = LoadLibrary("advapi32.dll");
       
       if(!advapi32_dll)
 	{
@@ -124,117 +124,6 @@ bool_t usb_service_free_dll()
     }
   return TRUE;
 }
-
-
-void usb_service_start_filter(void)
-{
-  HDEVINFO dev_info;
-  SP_DEVINFO_DATA dev_info_data;
-  int dev_index = 0;
-  char *filter_name = NULL;
-
-  filter_name = usb_registry_is_nt() ? 
-    LIBUSB_DRIVER_NAME_NT : LIBUSB_DRIVER_NAME_9X;
-  
-  dev_info_data.cbSize = sizeof(SP_DEVINFO_DATA);
-
-  dev_index = 0;
-  dev_info = SetupDiGetClassDevs(NULL, "USB", 0, 
-				 DIGCF_ALLCLASSES | DIGCF_PRESENT);
-  
-  if(dev_info == INVALID_HANDLE_VALUE)
-    {
-      usb_debug_error("usb_service_start_filter(): getting "
-		      "device info set failed");
-      
-      return;
-    }
-  
-  while(SetupDiEnumDeviceInfo(dev_info, dev_index, &dev_info_data))
-    {
-      if(!usb_registry_is_composite_interface(dev_info, &dev_info_data)
-	 && !usb_registry_is_root_hub(dev_info, &dev_info_data))
-	{
-	  if(usb_registry_insert_filter(dev_info, &dev_info_data, 
-					filter_name))
-	    {
-	      usb_registry_set_device_state(DICS_PROPCHANGE, dev_info, 
-					    &dev_info_data);
-	    }
-	}
-      dev_index++;
-    }
-
-  SetupDiDestroyDeviceInfoList(dev_info);
-}
-
-
-void usb_service_stop_filter(int all)
-{
-  HDEVINFO dev_info;
-  SP_DEVINFO_DATA dev_info_data;
-  int dev_index = 0;
-  char *filter_name = NULL;
-
-  filter_name = usb_registry_is_nt() ? 
-    LIBUSB_DRIVER_NAME_NT : LIBUSB_DRIVER_NAME_9X;
-  
-  dev_info_data.cbSize = sizeof(SP_DEVINFO_DATA);
-  dev_index = 0;
-
-  dev_info = SetupDiGetClassDevs(NULL, "USB", 0, DIGCF_ALLCLASSES);
-  
-  if(dev_info == INVALID_HANDLE_VALUE)
-    {
-      usb_debug_error("usb_service_stop_filter(): getting "
-		      "device info set failed");
-      return;
-    }
-  
-  while(SetupDiEnumDeviceInfo(dev_info, dev_index, &dev_info_data))
-    {
-      if(usb_registry_remove_filter(dev_info, &dev_info_data, filter_name))
-	{
-	  usb_registry_set_device_state(DICS_PROPCHANGE, dev_info, 
-					&dev_info_data);
-	}
-      dev_index++;
-    }
-  
-  SetupDiDestroyDeviceInfoList(dev_info);
-
-  if(!all)
-    {
-      /* reinstall the filter for all devices that are handled by libusb's */
-      /* device driver */
-      dev_index = 0;
-      dev_info = SetupDiGetClassDevs(NULL, "USB", 0, DIGCF_ALLCLASSES);
-      
-      if(dev_info == INVALID_HANDLE_VALUE)
-	{
-	  usb_debug_error("usb_service_start_filter(): getting "
-			  "device info set failed");
-	  return;
-	}
-      
-      while(SetupDiEnumDeviceInfo(dev_info, dev_index, &dev_info_data))
-	{
-	  if((!usb_registry_is_composite_interface(dev_info, &dev_info_data)
-	      && usb_registry_is_service_libusb(dev_info, &dev_info_data))
-	     || usb_registry_is_composite_libusb(dev_info, &dev_info_data))
-	    { 
-	      usb_registry_insert_filter(dev_info, &dev_info_data, 
-					 filter_name);
-	      usb_registry_set_device_state(DICS_PROPCHANGE, dev_info, 
-					    &dev_info_data);
-	    }
-	  dev_index++;
-	}
-      
-      SetupDiDestroyDeviceInfoList(dev_info);
-    }
-}
-
 
 bool_t usb_create_service(const char *name, const char *display_name,
 			  const char *binary_path, unsigned long type,
@@ -537,44 +426,51 @@ bool_t usb_stop_service(const char *name)
   return ret;
 }
 
-bool_t usb_service_reboot_required(void)
+bool_t usb_control_service(const char *name, int code)
 {
-  int count = 0;
-  HDEVINFO dev_info;
-  SP_DEVINFO_DATA dev_info_data;
-  int dev_index = 0;
-  char *filter_name = NULL;
-
-  filter_name = usb_registry_is_nt() ? 
-    LIBUSB_DRIVER_NAME_NT : LIBUSB_DRIVER_NAME_9X;
-  
-  dev_info_data.cbSize = sizeof(SP_DEVINFO_DATA);
-
-  dev_info = SetupDiGetClassDevs(NULL, "USB", 0, 
-				 DIGCF_ALLCLASSES | DIGCF_PRESENT);
-  
-  if(dev_info == INVALID_HANDLE_VALUE)
+  bool_t ret = FALSE;
+  SC_HANDLE scm = NULL;
+  SC_HANDLE service = NULL;
+  SERVICE_STATUS status;
+  do 
     {
-      usb_debug_error("usb_service_reboot_required(): getting "
-		      "device info set failed");
+      scm = open_sc_manager(NULL, SERVICES_ACTIVE_DATABASE, 
+			    SC_MANAGER_ALL_ACCESS);
       
-      return FALSE;
-    }
-      
-  while(SetupDiEnumDeviceInfo(dev_info, dev_index, &dev_info_data))
-    {
-      if(usb_registry_is_service_libusb(dev_info, &dev_info_data))
+      if(!scm)
 	{
-	  count++;
-
-	  if(count == 2)
-	    {
-	      return TRUE;
-	    }
+	  usb_debug_error("usb_control_service(): opening service control "
+			  "manager failed");
+	  break;
 	}
-      dev_index++;
-    }
-  SetupDiDestroyDeviceInfoList(dev_info);
+      
+      service = open_service(scm, name, SERVICE_USER_DEFINED_CONTROL);
+  
+      if(!service)
+	{
+	  ret = TRUE;
+	  break;
+	}
+      
 
-  return FALSE;
+      if(!control_service(service, code, &status))
+	{
+	  usb_debug_error("usb_service_control(): controlling "
+			  "service '%s' failed", name);
+	  break;
+	}
+      ret = TRUE;
+    } while(0);
+
+  if(service)
+    {
+      close_service_handle(service);
+    }
+  
+  if(scm)
+    {
+      close_service_handle(scm);
+    }
+  
+  return ret;
 }

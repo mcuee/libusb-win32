@@ -17,23 +17,37 @@
  */
 
 
-
+#define WINVER 0x0500
 #include <windows.h>
+#include <dbt.h>
+#include <initguid.h>
+
 #include "service.h"
 
 
 #define LIBUSB_SERVICE_NAME "libusbd"
 
+DEFINE_GUID(GUID_DEVINTERFACE_USB_HUB, 0xf18a0e88, 0xc30c, 0x11d0, 0x88, \
+	    0x15, 0x00, 0xa0, 0xc9, 0x06, 0xbe, 0xd8);
+
+DEFINE_GUID(GUID_DEVINTERFACE_USB_DEVICE, 0xA5DCBF10L, 0x6530, 0x11D2, \
+	    0x90, 0x1F, 0x00, 0xC0, 0x4F, 0xB9, 0x51, 0xED);
+
 static SERVICE_STATUS service_status;       
 static SERVICE_STATUS_HANDLE service_status_handle;
+static HDEVNOTIFY notification_handle_hub, notification_handle_dev;
 
 static HANDLE service_stop_event;
 
+
 static void WINAPI usb_service_main(int argc, char **argv);
-static void WINAPI usb_service_control(DWORD code);
+static DWORD WINAPI usb_service_handler(DWORD code, DWORD event_type, 
+					VOID *event_data, VOID *context);
+
 static void usb_service_run(int argc, char **argv);
 static void usb_service_set_status(DWORD status, DWORD exit_code);
-
+static void usb_register_notifications(void);
+static void usb_unregister_notifications(void);
 
 int main(int argc, char **argv)
 {
@@ -50,7 +64,6 @@ int main(int argc, char **argv)
 
 static void WINAPI usb_service_main(int argc, char **argv)
 {
-  
   memset(&service_status, 0, sizeof(service_status));
 
   service_status.dwServiceType = SERVICE_WIN32_OWN_PROCESS;
@@ -58,39 +71,60 @@ static void WINAPI usb_service_main(int argc, char **argv)
   service_status.dwControlsAccepted = SERVICE_ACCEPT_STOP;
   service_status.dwWaitHint = 5000;
 
-  service_status_handle = RegisterServiceCtrlHandler(LIBUSB_SERVICE_NAME, 
-						     usb_service_control);
+  service_status_handle = RegisterServiceCtrlHandlerEx(LIBUSB_SERVICE_NAME, 
+						       usb_service_handler,
+						       NULL);
   
   if(!service_status_handle)
-    {
-      return;
-    }
+    return;
 
+  usb_registry_start_filter();
+  usb_register_notifications();
   usb_service_run(argc, argv);
 
   return;
 }
 
 
-void WINAPI usb_service_control(DWORD code)
+static DWORD WINAPI usb_service_handler(DWORD code, DWORD event_type, 
+					VOID *event_data, VOID *context)
 {
   switch(code)
     { 
     case SERVICE_CONTROL_STOP: 
       usb_service_set_status(SERVICE_STOP_PENDING, NO_ERROR); 
       
+      usb_unregister_notifications();
+      usb_registry_stop_filter(FALSE);
+      
       if(service_stop_event)
 	{ 
 	  SetEvent(service_stop_event);
 	}
-      return;
+      break;
+    case SERVICE_CONTROL_DEVICEEVENT:
+      if(event_type == DBT_DEVICEARRIVAL)
+	{
+	  usb_unregister_notifications();
+	  usb_registry_start_filter();
+	  usb_register_notifications();
+	}
+      break;
+    case LIBUSB_SERVICE_CONTROL_PAUSE:
+      OutputDebugString("LIBUSB_SERVICE_CONTROL_PAUSE");
+      usb_unregister_notifications();
+      break;
+    case LIBUSB_SERVICE_CONTROL_CONTINUE:
+      OutputDebugString("LIBUSB_SERVICE_CONTROL_CONTINUE");
+      usb_register_notifications();
+      break;
     default: 
       ;
     } 
  
   usb_service_set_status(service_status.dwCurrentState, NO_ERROR);
 
-  return; 
+  return NO_ERROR; 
 }
 
 static void usb_service_run(int argc, char **argv)
@@ -104,13 +138,9 @@ static void usb_service_run(int argc, char **argv)
       return;
     }
   
-  usb_service_start_filter();
   usb_service_set_status(SERVICE_RUNNING, NO_ERROR);
 
-  while(WaitForSingleObject(service_stop_event, 1000) == WAIT_TIMEOUT)
-    {
-      usb_service_start_filter();
-    } 
+  while(WaitForSingleObject(service_stop_event, INFINITE));
 
   CloseHandle(service_stop_event);
   usb_service_set_status(SERVICE_STOPPED, NO_ERROR);
@@ -122,4 +152,30 @@ static void usb_service_set_status(DWORD status, DWORD exit_code)
   service_status.dwWin32ExitCode = exit_code;
 
   SetServiceStatus(service_status_handle, &service_status); 
+}
+
+static void usb_register_notifications(void)
+{
+  DEV_BROADCAST_DEVICEINTERFACE dev_if;
+  dev_if.dbcc_size = sizeof(dev_if);
+  dev_if.dbcc_devicetype = DBT_DEVTYP_DEVICEINTERFACE;
+  dev_if.dbcc_classguid = GUID_DEVINTERFACE_USB_HUB;
+
+  notification_handle_hub 
+    = RegisterDeviceNotification((HANDLE)service_status_handle, &dev_if, 
+				 DEVICE_NOTIFY_SERVICE_HANDLE);
+
+  dev_if.dbcc_classguid = GUID_DEVINTERFACE_USB_DEVICE;
+
+  notification_handle_dev 
+    = RegisterDeviceNotification((HANDLE)service_status_handle, &dev_if, 
+				 DEVICE_NOTIFY_SERVICE_HANDLE);
+}
+
+static void usb_unregister_notifications(void)
+{
+  if(notification_handle_hub)
+    UnregisterDeviceNotification(notification_handle_hub);
+  if(notification_handle_dev)
+    UnregisterDeviceNotification(notification_handle_dev);
 }

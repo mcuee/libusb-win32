@@ -16,25 +16,44 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
-
+#define WINVER 0x0500
 #include <windows.h>
+#include <dbt.h>
+#include <initguid.h>
+
 #include "service.h"
 
+DEFINE_GUID(GUID_DEVINTERFACE_USB_HUB, 0xf18a0e88, 0xc30c, 0x11d0, 0x88, \
+	    0x15, 0x00, 0xa0, 0xc9, 0x06, 0xbe, 0xd8);
+
+DEFINE_GUID(GUID_DEVINTERFACE_USB_DEVICE, 0xA5DCBF10L, 0x6530, 0x11D2, \
+	    0x90, 0x1F, 0x00, 0xC0, 0x4F, 0xB9, 0x51, 0xED);
 
 #define LIBUSB_WINDOW_CLASS "LIBUSB_WINDOW_CLASS"
-#define LIBUSB_TIMER_ID 100
 
+
+static HDEVNOTIFY notification_handle_hub, notification_handle_dev;
+static HWND win_handle;
 typedef DWORD WINAPI (*register_service_process_t)(DWORD, DWORD);
+
+static void usb_register_notifications(void);
+static void usb_unregister_notifications(void);
 
 LRESULT CALLBACK window_proc(HWND handle, UINT message, WPARAM w_param, 
 			     LPARAM l_param);
-
 LRESULT CALLBACK window_proc(HWND handle, UINT message, WPARAM w_param, 
 			     LPARAM l_param)
 {
   switch(message)
     {
     case WM_DESTROY:
+      if(notification_handle_hub)
+	UnregisterDeviceNotification(notification_handle_hub);
+      if(notification_handle_dev)
+	UnregisterDeviceNotification(notification_handle_dev);
+      
+      usb_registry_stop_filter(FALSE);
+
       PostQuitMessage(0);
       break;
     case WM_ENDSESSION:
@@ -43,8 +62,19 @@ LRESULT CALLBACK window_proc(HWND handle, UINT message, WPARAM w_param,
 	  PostQuitMessage(0);
 	}
       break;
-    case WM_TIMER:
-      usb_service_start_filter();
+    case WM_DEVICECHANGE:      
+      if(w_param == DBT_DEVICEARRIVAL)
+	{
+	  usb_unregister_notifications();
+	  usb_registry_start_filter();
+	  usb_register_notifications();
+	}
+      break;
+    case WM_USER + LIBUSB_SERVICE_CONTROL_PAUSE:
+      usb_unregister_notifications();
+      break;
+    case WM_USER + LIBUSB_SERVICE_CONTROL_CONTINUE:
+      usb_register_notifications();
       break;
     default:
       return DefWindowProc(handle, message, w_param, l_param);
@@ -61,9 +91,7 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE prev_instance,
   WNDCLASS win_class = {0, window_proc, 0, 0, instance, 
 			NULL, NULL, NULL, NULL, 
 			LIBUSB_WINDOW_CLASS};
-  HWND win_handle;
   MSG win_message;
-  UINT win_timer;
 
   kernel32_dll = GetModuleHandle("kernel32.dll");
   
@@ -80,17 +108,15 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE prev_instance,
       return 1;
     }
 
+  usb_registry_start_filter();
 
   RegisterClass(&win_class);
   win_handle = CreateWindowEx(WS_EX_APPWINDOW, LIBUSB_WINDOW_CLASS, 
 			      NULL, WS_OVERLAPPEDWINDOW, -1, -1, -1, -1,
 			      NULL, NULL, instance, NULL);
 
+  usb_register_notifications();
   register_service_process(GetCurrentProcessId(), 1);
-
-  usb_service_start_filter();
-
-  win_timer = SetTimer(win_handle, LIBUSB_TIMER_ID, 1000, NULL);
 
   while(GetMessage(&win_message, NULL, 0, 0))
     {
@@ -98,7 +124,6 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE prev_instance,
       DispatchMessage(&win_message);
     }
   
-  KillTimer(win_handle, LIBUSB_TIMER_ID);
   DestroyWindow(win_handle);
   UnregisterClass(LIBUSB_WINDOW_CLASS, instance);
   register_service_process(GetCurrentProcessId(), 0);
@@ -106,3 +131,28 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE prev_instance,
   return 0;
 }
 
+static void usb_register_notifications(void)
+{
+  DEV_BROADCAST_DEVICEINTERFACE dev_if;
+  dev_if.dbcc_size = sizeof(dev_if);
+  dev_if.dbcc_devicetype = DBT_DEVTYP_DEVICEINTERFACE;
+  dev_if.dbcc_classguid = GUID_DEVINTERFACE_USB_HUB;
+
+  notification_handle_hub 
+    = RegisterDeviceNotification(win_handle, &dev_if, 
+				 DEVICE_NOTIFY_SERVICE_HANDLE);
+
+  dev_if.dbcc_classguid = GUID_DEVINTERFACE_USB_DEVICE;
+
+  notification_handle_dev 
+    = RegisterDeviceNotification(win_handle, &dev_if, 
+				 DEVICE_NOTIFY_SERVICE_HANDLE);
+}
+
+static void usb_unregister_notifications(void)
+{
+  if(notification_handle_hub)
+    UnregisterDeviceNotification(notification_handle_hub);
+  if(notification_handle_dev)
+    UnregisterDeviceNotification(notification_handle_dev);
+}
