@@ -8,16 +8,13 @@
 
 #include <stdlib.h>	/* getenv */
 #include <stdio.h>	/* stderr */
+#include <string.h>	/* strcmp */
 #include <errno.h>
-#include <string.h>
 
 #include "usbi.h"
 
 int usb_debug = 0;
 struct usb_bus *usb_busses = NULL;
-
-extern void usb_fetch_and_parse_descriptors(usb_dev_handle *udev);
-extern void usb_destroy_configuration(struct usb_device *dev);
 
 int usb_find_busses(void)
 {
@@ -180,6 +177,8 @@ int usb_find_devices(void)
 
   return changes;
 }
+
+/* reimplemented in windows.c */
 
 /* void usb_set_debug(int level) */
 /* { */
