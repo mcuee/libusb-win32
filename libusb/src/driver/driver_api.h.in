@@ -22,7 +22,6 @@
 
 enum {
   LIBUSB_DEBUG_ERR = 1,
-  LIBUSB_DEBUG_WARN,
   LIBUSB_DEBUG_MSG,
 };
 

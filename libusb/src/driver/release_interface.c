@@ -53,6 +53,8 @@ NTSTATUS release_interface(libusb_device_extension *device_extension,
 NTSTATUS release_all_interfaces(libusb_device_extension *device_extension)
 {
   int i;
+
+  DEBUG_MESSAGE("release_interface(): releasing all interfaces");
   
   for(i = 0; i < LIBUSB_MAX_NUMBER_OF_INTERFACES; i++)
     {

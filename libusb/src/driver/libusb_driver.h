@@ -60,7 +60,7 @@
 #define LIBUSB_DEFAULT_TIMEOUT  5000   
 
 #ifdef __LIBUSB_DRIVER_C__
-int debug_level = LIBUSB_DEBUG_ERR;
+int debug_level = 0;
 #else
 extern int debug_level;
 #endif
@@ -76,12 +76,6 @@ extern int debug_level;
         KdPrint(("LIBUSB-DRIVER - " format, ## args)); \
      } while(0)
 
-#define DEBUG_WARNING(format, args...) \
-  do { \
-     if(LIBUSB_DEBUG_WARN <= debug_level) \
-        KdPrint(("LIBUSB-DRIVER - " format, ## args)); \
-     } while(0)
-
 #define DEBUG_ERROR(format, args...) \
   do { \
      if(LIBUSB_DEBUG_ERR <= debug_level) \
@@ -93,7 +87,6 @@ extern int debug_level;
 #define DEBUG_PRINT_NL()
 #define DEBUG_SET_LEVEL(level)
 #define DEBUG_MESSAGE(format, args...)
-#define DEBUG_WARNING(format, args...)
 #define DEBUG_ERROR(format, args...)
 #endif
 
