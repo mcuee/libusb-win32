@@ -27,10 +27,14 @@
 
 #include "filter_api.h"
 
-#define USB_RECIP_DEVICE		0x00
-#define USB_RECIP_INTERFACE		0x01
-#define USB_RECIP_ENDPOINT		0x02
-#define USB_RECIP_OTHER			0x03
+#define USB_RECIP_DEVICE    0x00
+#define USB_RECIP_INTERFACE 0x01
+#define USB_RECIP_ENDPOINT  0x02
+#define USB_RECIP_OTHER     0x03
+
+#define USB_TYPE_STANDARD   0x00
+#define USB_TYPE_CLASS      0x01
+#define USB_TYPE_VENDOR	    0x02
 
 
 #define LIBUSB_NT_DEVICE_NAME L"\\Device\\libusb0"
