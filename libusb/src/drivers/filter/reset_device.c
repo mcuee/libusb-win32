@@ -1,5 +1,5 @@
 /* LIBUSB-WIN32, Generic Windows USB Driver
- * Copyright (C) 2002-2003 Stephan Meyer, <ste_meyer@web.de>
+ * Copyright (C) 2002-2004 Stephan Meyer, <ste_meyer@web.de>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -29,15 +29,17 @@ NTSTATUS reset_device(libusb_device_extension *device_extension, int timeout)
   debug_printf(LIBUSB_DEBUG_MSG, "reset_device()");
   debug_printf(LIBUSB_DEBUG_MSG, "reset_device(): timeout %d", timeout);
   
-  status = call_usbd(device_extension, NULL,
- 		     IOCTL_INTERNAL_USB_RESET_PORT, timeout);
+/* doesn't work somehow */
+
+/*   status = call_usbd(device_extension, NULL, */
+/*  		     IOCTL_INTERNAL_USB_RESET_PORT, timeout); */
   
-  if(!NT_SUCCESS(status))
-    {
-      debug_printf(LIBUSB_DEBUG_ERR, "reset_device(): "
-		   "IOCTL_INTERNAL_USB_RESET_PORT failed: status: 0x%x", 
-		   status);
-    }
+/*   if(!NT_SUCCESS(status)) */
+/*     { */
+/*       debug_printf(LIBUSB_DEBUG_ERR, "reset_device(): " */
+/* 		   "IOCTL_INTERNAL_USB_RESET_PORT failed: status: 0x%x",  */
+/* 		   status); */
+/*     } */
 
   status = call_usbd(device_extension, NULL,
  		     IOCTL_INTERNAL_USB_CYCLE_PORT, timeout);

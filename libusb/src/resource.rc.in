@@ -22,7 +22,7 @@ BEGIN
             VALUE "FileVersion",   "@VERSION@"
             VALUE "ProductVersion", "@VERSION@"
             VALUE "InternalName", "libusb-win32"
-            VALUE "LegalCopyright", "© 2003 S.Meyer, J.Erdfelt, T.Sailer"
+            VALUE "LegalCopyright", "© 2000-2004 S.Meyer, J.Erdfelt, T.Sailer"
             VALUE "ProductName", "LibUsb-Win32"
         END
     END

@@ -24,7 +24,7 @@ BEGIN
             VALUE "FileVersion", "@VERSION@"
             VALUE "ProductVersion", "@VERSION@"
             VALUE "InternalName", "libusb_stub"
-            VALUE "LegalCopyright", "© 2003 Stephan Meyer, <ste_meyer@web.de>"
+            VALUE "LegalCopyright", "© 2002-2004 S. Meyer, <ste_meyer@web.de>"
             VALUE "OriginalFilename", "libusbst.sys"
             VALUE "ProductName", "LibUSB-Win32"
         END

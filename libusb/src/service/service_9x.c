@@ -1,5 +1,5 @@
 /* LIBUSB-WIN32, Generic Windows USB Driver
- * Copyright (C) 2002-2003 Stephan Meyer, <ste_meyer@web.de>
+ * Copyright (C) 2002-2004 Stephan Meyer, <ste_meyer@web.de>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
