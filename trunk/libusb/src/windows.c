@@ -427,8 +427,7 @@ int usb_bulk_write(usb_dev_handle *dev, int ep, char *bytes, int size,
 	usb_cancel_io(dev);
 	CloseHandle(event);
 	USB_ERROR_STR(-ETIMEDOUT, "timeout error writing to bulk or interrupt "
-		      "endpoint 0x%02x: win error: %s", 
-		      ep, win_error_to_string());
+		      "endpoint 0x%02x", ep);
       }
 
     if(!GetOverlappedResult(dev->impl_info, &ol, &ret, FALSE))
@@ -523,8 +522,7 @@ int usb_bulk_read(usb_dev_handle *dev, int ep, char *bytes, int size,
 	usb_cancel_io(dev);
 	CloseHandle(event);
 	USB_ERROR_STR(-ETIMEDOUT, "timeout error reading from bulk or "
-		      "interrupt endpoint 0x%02x: win error: %s",
-		      ep, win_error_to_string());
+		      "interrupt endpoint 0x%02x", ep);
       }
 
     if(!GetOverlappedResult(dev->impl_info, &ol, &ret, FALSE))
@@ -817,8 +815,7 @@ int usb_os_find_devices(struct usb_bus *bus, struct usb_device **devices)
   for(i = 0; i < LIBUSB_MAX_DEVICES; i++)
     {
       /* build the Windows file name */
-      snprintf(dev_name, sizeof(dev_name) - 1,"%s%04d", 
-	       LIBUSB_DEVICE_NAME, i);
+      snprintf(dev_name, sizeof(dev_name) - 1,"%s%04d", LIBUSB_DEVICE_NAME, i);
 
       dev = malloc(sizeof(*dev));
       

@@ -32,6 +32,7 @@ static void delete_system_service(void);
 static void start_system_service(void);
 static void stop_system_service(void);
 static void stop_kernel_service(void);
+static void stop_kernel_service_full(void);
 static void reboot_required(void);
 
  
@@ -45,6 +46,7 @@ static void usage(void)
   printf("--delete-system-service\n");
   printf("--start-system-service\n");
   printf("--stop-system-service\n");
+  printf("--stop-kernel-service-full\n");
   printf("--stop-kernel-service\n");
   printf("--reboot-required\n");
 }
@@ -69,6 +71,16 @@ int main(int argc, char **argv)
 	  create_kernel_service(); 
 	  break; 
 	}
+      if(!strcmp(argv[1], "--stop-kernel-service-full"))
+	{
+	  stop_kernel_service_full(); 
+	  break;
+	}
+      if(!strcmp(argv[1], "--stop-kernel-service"))
+	{
+	  stop_kernel_service(); 
+	  break;
+	}
       if(!strcmp(argv[1], "--create-system-service"))
 	{
 	  create_system_service(); 
@@ -89,11 +101,6 @@ int main(int argc, char **argv)
 	  stop_system_service(); 
 	  break;
 	}
-      if(!strcmp(argv[1], "--stop-kernel-service"))
-	{
-	  stop_kernel_service(); 
-	  break;
-	}
       if(!strcmp(argv[1], "--reboot-required"))
 	{
 	  reboot_required(); 
@@ -110,8 +117,6 @@ int main(int argc, char **argv)
 static void create_kernel_service(void)
 {
   char display_name[128];
-
-  usb_service_stop_filter(1);
 
   snprintf(display_name, sizeof(display_name) - 1,
 	   "LibUsb-Win32 - Filter Driver, Version %d.%d.%d.%d", 
@@ -177,6 +182,11 @@ static void stop_system_service(void)
 static void stop_kernel_service(void)
 {
   usb_service_stop_filter(0);
+}
+
+static void stop_kernel_service_full(void)
+{
+  usb_service_stop_filter(1);
 }
 
 static void reboot_required(void)

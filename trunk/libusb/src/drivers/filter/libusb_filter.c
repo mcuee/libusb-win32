@@ -95,7 +95,7 @@ NTSTATUS __stdcall add_device(DRIVER_OBJECT *driver_object,
 
   device_extension->next_stack_device = 
     IoAttachDeviceToDeviceStack(device_object, physical_device_object);
-  
+
   device_object->DeviceType = device_extension->next_stack_device->DeviceType;
   device_object->Characteristics =
                           device_extension->next_stack_device->Characteristics;
@@ -154,6 +154,8 @@ NTSTATUS call_usbd(libusb_device_extension *device_extension, void *urb,
   next_irp_stack->Parameters.Others.Argument2 = NULL;
 
 
+  IoSetCompletionRoutine(irp, on_usbd_complete, (PVOID)&event, TRUE, TRUE,
+			 TRUE); 
   status = IoCallDriver(device_extension->next_stack_device, irp);
   
 
@@ -182,6 +184,9 @@ NTSTATUS call_usbd(libusb_device_extension *device_extension, void *urb,
 	}
     }
 
+  KeClearEvent(&event);
+  IoCompleteRequest(irp, IO_NO_INCREMENT);
+  KeWaitForSingleObject(&event, Executive, KernelMode, FALSE, NULL); 
   return status;
 }
 
@@ -511,4 +516,11 @@ NTSTATUS on_start_complete(DEVICE_OBJECT *device_object, IRP *irp,
     }
   
   return STATUS_SUCCESS;
+}
+
+NTSTATUS on_usbd_complete(DEVICE_OBJECT *device_object, IRP *irp, 
+			   void *context)
+{
+  KeSetEvent((KEVENT *) context, IO_NO_INCREMENT, FALSE);
+  return STATUS_MORE_PROCESSING_REQUIRED;
 }

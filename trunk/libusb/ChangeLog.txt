@@ -10,9 +10,11 @@ Version 0.1.8.1:
 	- Added Cygwin support. The whole package can now be build under 
 	  Cygwin and the latest MSys/MinGW.
 	- DLL: improved error handling (function return values).
-	- Installer: fixed minor bug.
+	- Installer: fixed minor bug. Improved speed.
 	- Driver: improved hotplug behavior.
 	- Driver: improved usb_reset().
+	- Driver: added device interface. This can be used for PNP 
+	  notications. The GUID is {798DC6FE-4216-48e2-A851-D67957A05C3A} 
 	- DLL: fixed bug in initialization code.
 
 Version 0.1.8.0:

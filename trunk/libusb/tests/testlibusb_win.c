@@ -18,8 +18,10 @@
  */
 
 
+#define WINVER 0x0500
 #include <windows.h>
 #include <stdio.h>
+#include <initguid.h>
 
 #include "usb.h"
 
@@ -34,7 +36,32 @@ enum {
 #define LIBUSB_BUTTON_WIDTH 70
 #define LIBUSB_BORDER 10
 
+DEFINE_GUID(GUID_DEVINTERFACE_USB_HUB, 0xf18a0e88, 0xc30c, 0x11d0, 0x88, \
+	    0x15, 0x00, 0xa0, 0xc9, 0x06, 0xbe, 0xd8);
+
+DEFINE_GUID(GUID_DEVINTERFACE_USB_DEVICE, 0xA5DCBF10L, 0x6530, 0x11D2, \
+	    0x90, 0x1F, 0x00, 0xC0, 0x4F, 0xB9, 0x51, 0xED);
+
 #define EDIT_BUF_INCREMENT 1024
+
+typedef struct _DEV_BROADCAST_DEVICEINTERFACE_A {
+    DWORD       dbcc_size;
+    DWORD       dbcc_devicetype;
+    DWORD       dbcc_reserved;
+    GUID        dbcc_classguid;
+    char        dbcc_name[1];
+} DEV_BROADCAST_DEVICEINTERFACE_A, *PDEV_BROADCAST_DEVICEINTERFACE_A;
+
+#define DBT_DEVTYP_DEVICEINTERFACE      0x00000005
+#define DBT_DEVICEARRIVAL               0x8000
+#define DBT_DEVICEREMOVECOMPLETE        0x8004
+
+typedef struct _DEV_BROADCAST_HDR {
+    DWORD       dbch_size;
+    DWORD       dbch_devicetype;
+    DWORD       dbch_reserved;
+} DEV_BROADCAST_HDR;
+
 
 static char *edit_buffer = NULL;
 static int edit_buffer_size = 0;
@@ -45,6 +72,7 @@ static HWND exit_button;
 static HWND refresh_button;
 static HWND edit_box;
 
+static HDEVNOTIFY notification_handle_hub, notification_handle_dev;
 
 LRESULT CALLBACK win_proc(HWND handle, UINT message, WPARAM w_param, 
 			  LPARAM l_param);
@@ -63,13 +91,12 @@ static void print_interface(struct usb_interface *interface);
 static void print_altsetting(struct usb_interface_descriptor *interface);
 static void print_endpoint(struct usb_endpoint_descriptor *endpoint);
 
-int APIENTRY WinMain(HINSTANCE instance,
-                     HINSTANCE prev_instance,
-                     LPSTR     cmd_line,
-                     int       cmd_show )
+int APIENTRY WinMain(HINSTANCE instance, HINSTANCE prev_instance,
+                     LPSTR cmd_line, int cmd_show)
 {
   MSG msg;
   WNDCLASSEX win_class;
+  DEV_BROADCAST_DEVICEINTERFACE_A dev_if;
 
   LoadLibrary("comctl32.dll");
 
@@ -120,11 +147,10 @@ int APIENTRY WinMain(HINSTANCE instance,
 			    CW_USEDEFAULT, CW_USEDEFAULT,
 			    main_win, (HMENU) ID_EDIT, instance, NULL); 
 
-  SendMessage(edit_box, WM_SETFONT,
-	      (WPARAM) CreateFont(13, 8, 0, 0,
-				  400, 0, 0, 0,
-				  0, 1, 2, 1,
-				  49, "Courier"), 0);
+  SendMessage(edit_box, WM_SETFONT, (WPARAM) CreateFont(13, 8, 0, 0,
+							400, 0, 0, 0,
+							0, 1, 2, 1,
+							49, "Courier"), 0);
 
   ShowWindow(main_win, cmd_show);
   UpdateWindow(main_win);
@@ -136,10 +162,20 @@ int APIENTRY WinMain(HINSTANCE instance,
 
   on_refresh();
 
+  dev_if.dbcc_size = sizeof(dev_if);
+  dev_if.dbcc_devicetype = DBT_DEVTYP_DEVICEINTERFACE;
+  dev_if.dbcc_classguid = GUID_DEVINTERFACE_USB_HUB;
+
+  notification_handle_hub = RegisterDeviceNotification(main_win, &dev_if, 0);
+
+  dev_if.dbcc_classguid = GUID_DEVINTERFACE_USB_DEVICE;
+
+  notification_handle_dev = RegisterDeviceNotification(main_win, &dev_if, 0);
+
   while(GetMessage(&msg, NULL, 0, 0) ) 
     {
-      TranslateMessage( &msg );
-      DispatchMessage( &msg );
+      TranslateMessage(&msg);
+      DispatchMessage(&msg);
     }
 
   DestroyWindow(main_win);
@@ -152,9 +188,13 @@ int APIENTRY WinMain(HINSTANCE instance,
 LRESULT CALLBACK win_proc(HWND win, UINT message, WPARAM w_param, 
 			  LPARAM l_param)
 {
+  DEV_BROADCAST_HDR *hdr = (DEV_BROADCAST_HDR *) l_param;
+
   switch(message) 
     {
     case WM_DESTROY:
+      /* UnregisterDeviceNotification(notification_handle_hub); */
+      /* UnregisterDeviceNotification(notification_handle_dev); */
       PostQuitMessage(0);
       break;
     case WM_SIZE:
@@ -171,6 +211,23 @@ LRESULT CALLBACK win_proc(HWND win, UINT message, WPARAM w_param,
 	  break;
 	default:
 	  return DefWindowProc(win, message, w_param, l_param );
+	}
+      break;
+
+    case WM_DEVICECHANGE:
+      
+      switch(w_param)
+	{
+	case DBT_DEVICEREMOVECOMPLETE:
+	  if(hdr->dbch_devicetype == DBT_DEVTYP_DEVICEINTERFACE) 
+	    on_refresh();
+	  break;
+	case DBT_DEVICEARRIVAL:
+	  if(hdr->dbch_devicetype == DBT_DEVTYP_DEVICEINTERFACE)
+	    on_refresh();
+	  break;
+	default:
+	  ;
 	}
       break;
     default:
@@ -218,7 +275,7 @@ static void on_refresh(void)
 
   if(version)
     {
-      edit_printf("DLL version:\t%i.%i.%i.%i\r\n",
+      edit_printf("DLL version:\t%d.%d.%d.%d\r\n",
 		  version->dll.major, version->dll.minor, 
 		  version->dll.micro, version->dll.nano);
 
@@ -231,7 +288,7 @@ static void on_refresh(void)
 	}
       else
 	{
-	  edit_printf("Driver version:\t%i.%i.%i.%i\r\n\r\n",
+	  edit_printf("Driver version:\t%d.%d.%d.%d\r\n\r\n",
 		      version->driver.major, version->driver.minor, 
 		      version->driver.micro, version->driver.nano);
 	}

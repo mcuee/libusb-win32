@@ -44,8 +44,7 @@ NTSTATUS set_configuration(libusb_device_extension *device_extension,
   if(!configuration)
     {
       UsbBuildSelectConfigurationRequest
-	(
-	 &urb,
+	(&urb,
 	 sizeof(struct _URB_SELECT_CONFIGURATION), 
 	 NULL);
 
