@@ -45,7 +45,10 @@ struct usb_dev_handle {
   void *impl_info;
 };
 
-void usb_fetch_descriptors(usb_dev_handle *udev);
+/* descriptors.c */
+int usb_parse_configuration(struct usb_config_descriptor *config, char *buffer);
+void usb_fetch_and_parse_descriptors(usb_dev_handle *udev);
+void usb_destroy_configuration(struct usb_device *dev);
 
 /* OS specific routines */
 int usb_os_find_busses(struct usb_bus **busses);

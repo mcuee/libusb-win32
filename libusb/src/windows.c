@@ -1000,6 +1000,9 @@ void usb_os_init(void)
         {
           USB_MESSAGE_STR(LIBUSB_DEBUG_ERR, "usb_os_init: getting driver "
                           "version failed");
+
+          CloseHandle(dev);
+          continue;
         }
       else 
         {
@@ -1012,23 +1015,22 @@ void usb_os_init(void)
                           "%d.%d.%d.%d",
                           req.version.major, req.version.minor, 
                           req.version.micro, req.version.nano);
+      
+          /* set debug level */
+          req.timeout = 0;
+          req.debug.level = usb_debug;
+          
+          if(!DeviceIoControl(dev, LIBUSB_IOCTL_SET_DEBUG_LEVEL, 
+                              &req, sizeof(libusb_request), 
+                              NULL, 0, &ret, NULL))
+            {
+              USB_MESSAGE_STR(LIBUSB_DEBUG_ERR, "usb_os_init: setting debug "
+                              "level failed");
+            }
+          
+          CloseHandle(dev);
+          break;
         }
-      
-      /* set debug level */
-      req.timeout = 0;
-      req.debug.level = usb_debug;
-      
-      if(!DeviceIoControl(dev, LIBUSB_IOCTL_SET_DEBUG_LEVEL, 
-                          &req, sizeof(libusb_request), 
-                          NULL, 0, &ret, NULL))
-        {
-          USB_MESSAGE_STR(LIBUSB_DEBUG_ERR, "usb_os_init: setting debug level "
-                          "failed");
-        }
-      
-      CloseHandle(dev);
-
-      break;
     }
 }
 
