@@ -191,7 +191,7 @@ NTSTATUS dispatch_ioctl(libusb_device_extension *device_extension, IRP *irp)
 
     case LIBUSB_IOCTL_SET_DESCRIPTOR:
 
-      if(!transfer_buffer_mdl || input_request_length < sizeof(libusb_request))
+      if(!output_buffer || input_request_length < sizeof(libusb_request))
 	{
 	  debug_printf(DEBUG_ERR, "dispatch_ioctl(), set_descriptor: invalid "
 		       "input or transfer buffer");
@@ -211,7 +211,8 @@ NTSTATUS dispatch_ioctl(libusb_device_extension *device_extension, IRP *irp)
 
     case LIBUSB_IOCTL_GET_DESCRIPTOR:
 
-      if(!output_buffer || input_request_length < sizeof(libusb_request))
+      if(!request || input_request_length < sizeof(libusb_request)
+	 || !output_buffer || !output_request_length)
 	{
 	  debug_printf(DEBUG_ERR, "dispatch_ioctl(), get_descriptor: invalid "
 		       "input or output buffer");

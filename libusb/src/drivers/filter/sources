@@ -28,4 +28,5 @@ SOURCES = \
 	get_status.c \
 	bulk_transfer.c \
 	vendor_request.c \
-	debug.c
+	debug.c \
+	internal_ioctl.c

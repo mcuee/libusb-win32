@@ -161,8 +161,7 @@ NTSTATUS call_usbd(libusb_device_extension *device_extension, void *urb,
 	{
 	  debug_printf(DEBUG_WARN, "call_usbd(): request timed out");
 	  IoCancelIrp(irp);
-	  KeWaitForSingleObject(&event, Executive, KernelMode,
-				FALSE, NULL);
+	  KeWaitForSingleObject(&event, Executive, KernelMode, FALSE, NULL);
 	}
       status = io_status.Status;
     }
@@ -235,7 +234,7 @@ int update_pipe_info(libusb_device_extension *device_extension, int interface,
 	{
 	  debug_printf(DEBUG_MSG, "update_pipe_info(): endpoint "
 		       "address %02xh",
-		   interface_info->Pipes[i].EndpointAddress);	  
+		       interface_info->Pipes[i].EndpointAddress);	  
 
 	  device_extension->pipe_info[interface][i].pipe_handle = 
 	    interface_info->Pipes[i].PipeHandle;	

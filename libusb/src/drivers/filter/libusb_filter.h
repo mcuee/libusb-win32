@@ -87,8 +87,8 @@ NTSTATUS __stdcall add_device(DRIVER_OBJECT *driver_object,
 NTSTATUS dispatch(DEVICE_OBJECT *device_object, IRP *irp);
 NTSTATUS dispatch_control(DEVICE_OBJECT *device_object, IRP *irp);
 NTSTATUS dispatch_pnp(libusb_device_extension *device_extension, IRP *irp);
-NTSTATUS  dispatch_ioctl(libusb_device_extension *device_extension, IRP *irp);
-NTSTATUS  complete_irp(IRP *irp, NTSTATUS status, ULONG info);
+NTSTATUS dispatch_ioctl(libusb_device_extension *device_extension, IRP *irp);
+NTSTATUS complete_irp(IRP *irp, NTSTATUS status, ULONG info);
 
 NTSTATUS call_usbd(libusb_device_extension *device_extension, void *urb,
 		   ULONG control_code, int timeout);
@@ -146,6 +146,8 @@ NTSTATUS reset_endpoint(libusb_device_extension *device_extension,
 			int endpoint, int timeout);
 NTSTATUS reset_device(libusb_device_extension *device_extension, int timeout);
 
+NTSTATUS on_internal_ioctl_complete(DEVICE_OBJECT *device_object, IRP *irp,
+				    void *context);
 
 void debug_print_nl(void);
 void debug_set_level(int level);
