@@ -39,9 +39,8 @@ Name: "{group}\LGPL License"; Filename: "{app}\COPYING_GPL.txt"
 
 
 [Run]
-Filename: "rundll32"; Parameters: "libusb0.dll,usb_uninstall_service_np_rundll"; StatusMsg: "Deleting old services (this may take a few seconds) ..." 
 Filename: "rundll32"; Parameters: "libusb0.dll,usb_install_service_np_rundll"; StatusMsg: "Creating services (this may take a few seconds) ..." 
-Filename: "{app}\bin\testlibusb-win"; Description: "Run test application"; Flags: postinstall
+Filename: "{app}\bin\testlibusb-win.exe"; Description: "Run test application"; Flags: postinstall
 
 
 [UninstallRun]
