@@ -1,7 +1,7 @@
 General Information
 ===================
 
-This is libusb-win32 version @VERSION@. libusb-win32 is a library which allows
+This is libusb-win32 version @VERSION@. Libusb-win32 is a library which allows
 userspace application access to USB devices on Windows operation systems 
 (Win98, WinMe, Win2k, WinXP). 
 It is derived from and fully API compatible to libusb available at 
@@ -13,8 +13,8 @@ The official ftp site is:
 The official web site is:
   http://libusb-win32.sourceforge.net/
 
-A mailing list is located at:
-  libusb-win32-devel@sourceforge.net
+The official project site is:
+  http://sourceforge.net/projects/libusb-win32
 
 
 The package consists of the following components:
@@ -24,9 +24,9 @@ The package consists of the following components:
 
 * An USB device driver stub (libusbst.sys) which does, as the name indicates,
   nothing really interresting. The only purpose of this driver is to install
-  USB devices for which no driver excists (self build/developed USB hardware,
-  etc.). All communication with these devices is done through the filter
-  driver. 
+  USB devices for which no vendor or system driver excists 
+  (self build/developed USB hardware,etc.). All communication with these 
+  devices is done through the filter driver. 
 
 * Two inf-files to install the above drivers.
 
@@ -36,9 +36,10 @@ The package consists of the following components:
 Copying
 =======
 
-* The DLL is distributed under the LGPL. See file COPYING.LGPL for details.
+* The DLL is distributed under the LGPL. See file COPYING_LGPL.txt for details.
 
-* The drivers are distributed under the GPL. See file COPYING.GPL for details.
+* The drivers are distributed under the GPL. See file COPYING_GPL.txt for 
+  details.
 
 
 Building
@@ -47,13 +48,14 @@ Building
 * Requirements
 
    - Win2k or XP system.
-   - The XP-DDK (Win2k-DDK could work, but has not been tested).
+   - The XP-DDK to build the drivers and import library for Microsoft 
+     compilers.
    - MinGW/Msys (http://www.mingw.org), Cygwin is not working yet.
-   - Microsoft Visual C++ and Borland C++ Builder to build the import libraries
-     for these compilers (optional). Make sure, that the compilers binary 
-     directories are in the systems search path. 
-     A free command line version of BCC can be downloaded from 
-     http://www.borland.com.
+   - Borland C++ to build the import library for this compiler 
+     (optional). A free command line version of BCC can be downloaded from 
+     http://www.borland.com. Make sure, that the compilers binary 
+     directory is in the systems search path. 
+     
 
 * Build process
 
@@ -65,8 +67,8 @@ Building
      'make DDK_PATH=c:/DDKDIR' to build the DLL, inf-files and 'free'
      versions of the drivers, or
      'make DDK_PATH=c:/DDKDIR DDK_BUILD_CHECKED=1' to build the same as above
-     but 'checked' versions of the drivers. These 'checked' produce useful
-     debug messages at runtime, which can be captured using 'DebugView'
+     but 'checked' versions of the drivers. These 'checked' versions produce 
+     useful debug messages at runtime, which can be captured using 'DebugView'
      available from http://www.sysinternals.com.
    - To build the distribution archives use 'make dist'. The options
      'BUILD_BCC_LIB=1' and/or 'BUILD_MSVC_LIB=1' can be added to build and
@@ -80,9 +82,12 @@ Installation
  
    - Build the package as described above, or download a binary package from
      the project site.
+   - Extract the packege to a temporary directory
    - Right click on the file 'libusb_fl.inf'. From the appearing popup menu 
-     choose "Install" to install the driver and it's DLL. 
-   - Reboot your system to make the driver work.
+     choose "Install" to install the driver and it's DLL. On Win2k and WinXP 
+     systems Windows will warn you, that the driver is not 'digitally signed'.
+     Ignore this stupid message and continue the installation.
+   - REBOOT YOUR SYSTEM TO MAKE THE DRIVER WORK!
    - Test the installation by running the supplied test programm 
      'testlibusb.exe' from a console window (Msys, Cygwin, cmd, command).
      If everything works, the program should print out the USB descriptors of 
@@ -106,6 +111,19 @@ Installation
    - Run the test program as decribed above. The device should now be included
      in the list.
 
+Usage
+=====
+
+For using this library in your own applications, the binary packages provide
+prebuild import libraries for the most common compilers (GCC, BCC, MSVC).
+
+IMPORTANT: To avoid any conflicts with future versions of libusb-win32:
+	DO NOT INCLUDE THE DLL IN YOUR APPLICATION'S DIRECTORY! 
+	The DLL is installed automaticaly by the driver's inf-files in 
+	Windows' system folders!	
+
+
+
 Documentation
 =============
 
@@ -114,45 +132,11 @@ documentation from the main libusb project site at
 http://libusb.sourceforge.net
 
 
-How to report bugs
-==================
-
-To report a bug, visit http://www.sourceforge.net/projects/libusb-win32/ 
-and fill out a bug report form.
-
-Please make sure to include:
-
-* The version of libusb-win32
-
-* Information about your system. For instance:
-
-   - What operating system and version
-   - What DDK version
-
-  And anything else you think is relevant.
-
-* How to reproduce the bug. 
-
-  If you can reproduce it with the 'testlibusb.exe' program that is built 
-  in the libusb-win32/ directory, that will be most convenient.  Otherwise, 
-  please include a short test program that exhibits the behavior. 
-  As a last resort, you can also provide a pointer to a larger piece 
-  of software that can be downloaded.
-
-* If the bug was a crash, the exact text that was printed out
-  when the crash occured.
-
-* Further information such as stack traces may be useful, but
-  is not necessary.
-
-
-Patches
+Support
 =======
 
-Patches can be sent to libusb-win32-devel@sourceforge.net.
-
-If the patch fixes a bug, it is usually a good idea to include
-all the information described in "How to Report Bugs".
-
+The project site (http://sourceforge.net/projects/libusb-win32) offers 
+several types of support (mailing list, discussion forum, support request,
+bug report).
 
 

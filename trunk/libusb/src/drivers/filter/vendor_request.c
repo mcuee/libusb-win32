@@ -25,24 +25,24 @@ NTSTATUS vendor_request(libusb_device_extension *device_extension,
 			MDL *buffer, int size, int direction,
 			int *sent, int timeout)
 {
-  NTSTATUS m_status = STATUS_SUCCESS;
+  NTSTATUS status = STATUS_SUCCESS;
   URB urb;
 
-  KdPrint(("LIBUSB_FILTER - vendor_request(): request 0x%02x\n", request));
-  KdPrint(("LIBUSB_FILTER - vendor_request(): value 0x%04x\n", value));
-  KdPrint(("LIBUSB_FILTER - vendor_request(): index 0x%04x\n", index));
-  KdPrint(("LIBUSB_FILTER - vendor_request(): size %d\n", size));
-  
+  debug_printf(DEBUG_MSG, "vendor_request(): request 0x%02x", request);
+  debug_printf(DEBUG_MSG, "vendor_request(): value 0x%04x", value);
+  debug_printf(DEBUG_MSG, "vendor_request(): index 0x%04x", index);
+  debug_printf(DEBUG_MSG, "vendor_request(): size %d", size);
+
   if(direction == USBD_TRANSFER_DIRECTION_IN)
     {
-      KdPrint(("LIBUSB_FILTER - vendor_request(): direction in\n"));
+      debug_printf(DEBUG_MSG, "vendor_request(): direction in");
     }
   else
     {
-      KdPrint(("LIBUSB_FILTER - vendor_request(): direction out\n"));
+      debug_printf(DEBUG_MSG, "vendor_request(): direction out");
     }
 
-  KdPrint(("LIBUSB_FILTER - vendor_request(): timeout %d\n", timeout));
+  debug_printf(DEBUG_MSG, "vendor_request(): timeout %d", timeout);
 
   urb.UrbHeader.Function = URB_FUNCTION_VENDOR_DEVICE;
   urb.UrbHeader.Length = 
@@ -60,17 +60,17 @@ NTSTATUS vendor_request(libusb_device_extension *device_extension,
   urb.UrbControlVendorClassRequest.Reserved1 = 0;
   urb.UrbControlVendorClassRequest.UrbLink = NULL;
   
-  m_status = call_usbd(device_extension, (void *)&urb, 
+  status = call_usbd(device_extension, (void *)&urb, 
 		       IOCTL_INTERNAL_USB_SUBMIT_URB, timeout);
   
-  if(!NT_SUCCESS(m_status) || !USBD_SUCCESS(urb.UrbHeader.Status))
+  if(!NT_SUCCESS(status) || !USBD_SUCCESS(urb.UrbHeader.Status))
     {
-      KdPrint(("LIBUSB_FILTER - vendor_request(): request failed\n"));
-      m_status = STATUS_UNSUCCESSFUL;
+      debug_printf(DEBUG_ERR, "vendor_request(): request failed");
     }
-  
-  *sent = urb.UrbControlVendorClassRequest.TransferBufferLength;
-  
-  return m_status;
+  else
+    {
+      *sent = urb.UrbControlVendorClassRequest.TransferBufferLength;
+    }
+  return status;
 }
 

@@ -1,13 +1,13 @@
 @echo on
 
-path %1%\bin
+path %PATH%;%1%\bin
 set current_dir=%cd%
 
-set DDKBUILDENV=
-call setenv.bat %1 %2
+call setenv.bat %1 checked
 cd %current_dir%
 cd src\drivers
-build -c
+@echo on
+build -c -g -w
 @echo on
 cd %current_dir%
 copy src\drivers\i386\libusbfl.sys libusbfl.sys

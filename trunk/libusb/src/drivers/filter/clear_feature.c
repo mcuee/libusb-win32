@@ -22,19 +22,19 @@
 NTSTATUS clear_feature(libusb_device_extension *device_extension,
 		       int recipient, int index, int feature, int timeout)
 {
-  NTSTATUS m_status = STATUS_SUCCESS;
+  NTSTATUS status = STATUS_SUCCESS;
   URB urb;
 
-  KdPrint(("LIBUSB_FILTER - clear_feature(): recipient %02d\n", recipient));
-  KdPrint(("LIBUSB_FILTER - clear_feature(): index %04d\n", index));
-  KdPrint(("LIBUSB_FILTER - clear_feature(): feature %04d\n", feature));
-  KdPrint(("LIBUSB_FILTER - clear_feature(): timeout %d\n", timeout));
+  debug_print_nl();
+  debug_printf(DEBUG_MSG, "clear_feature(): recipient %02d", recipient);
+  debug_printf(DEBUG_MSG, "clear_feature(): index %04d", index);
+  debug_printf(DEBUG_MSG, "clear_feature(): feature %04d", feature);
+  debug_printf(DEBUG_MSG, "clear_feature(): timeout %d", timeout);
 
-  if(!device_extension->current_configuration 
-     && (recipient != USB_RECIP_DEVICE))
+  if(!device_extension->current_configuration && recipient != USB_RECIP_DEVICE)
     {
-      KdPrint(("LIBUSB_FILTER - clear_feature(): invalid configuration 0")); 
-      return STATUS_UNSUCCESSFUL;
+      debug_printf(DEBUG_ERR, "clear_feature(): invalid configuration 0"); 
+      return STATUS_INVALID_DEVICE_STATE;
     }
 
   switch(recipient)
@@ -52,24 +52,22 @@ NTSTATUS clear_feature(libusb_device_extension *device_extension,
       urb.UrbHeader.Function = URB_FUNCTION_CLEAR_FEATURE_TO_OTHER;
       break;
     default:
-      KdPrint(("LIBUSB_FILTER - clear_feature(): invalid recipient\n"));
-      return STATUS_UNSUCCESSFUL;
+      debug_printf(DEBUG_ERR, "clear_feature(): invalid recipient");
+      return STATUS_INVALID_PARAMETER;
     }
   
-  urb.UrbHeader.Length = 
-    sizeof(struct _URB_CONTROL_FEATURE_REQUEST);
+  urb.UrbHeader.Length = sizeof(struct _URB_CONTROL_FEATURE_REQUEST);
   urb.UrbControlFeatureRequest.FeatureSelector = (USHORT)feature;
   urb.UrbControlFeatureRequest.UrbLink = NULL; 
   urb.UrbControlFeatureRequest.Index = (USHORT)index; 
   
-  m_status = call_usbd(device_extension, (void *)&urb, 
-		       IOCTL_INTERNAL_USB_SUBMIT_URB, timeout);
+  status = call_usbd(device_extension, (void *)&urb, 
+		     IOCTL_INTERNAL_USB_SUBMIT_URB, timeout);
   
-  if(!NT_SUCCESS(m_status) || !USBD_SUCCESS(urb.UrbHeader.Status))
+  if(!NT_SUCCESS(status) || !USBD_SUCCESS(urb.UrbHeader.Status))
     {
-      KdPrint(("LIBUSB_FILTER - set_feature(): clearing feature failed\n"));
-      return STATUS_UNSUCCESSFUL;
+      debug_printf(DEBUG_ERR, "set_feature(): clearing feature failed");
     }
   
-  return m_status;
+  return status;
 }

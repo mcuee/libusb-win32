@@ -24,19 +24,19 @@
 NTSTATUS get_status(libusb_device_extension *device_extension, int recipient,
 		    int index, int *status, int timeout)
 {
-  NTSTATUS m_status = STATUS_SUCCESS;
+  NTSTATUS _status = STATUS_SUCCESS;
   URB urb;
   short tmp;
 
-  KdPrint(("LIBUSB_FILTER - get_status(): recipient %02d\n", recipient));
-  KdPrint(("LIBUSB_FILTER - get_status(): index %04d\n", index));
-  KdPrint(("LIBUSB_FILTER - get_status(): timeout %d\n", timeout));
+  debug_print_nl();
+  debug_printf(DEBUG_MSG, "get_status(): recipient %02d", recipient);
+  debug_printf(DEBUG_MSG, "get_status(): index %04d", index);
+  debug_printf(DEBUG_MSG, "get_status(): timeout %d", timeout);
 
-  if(!device_extension->current_configuration 
-     && (recipient != USB_RECIP_DEVICE))
+  if(!device_extension->current_configuration && recipient != USB_RECIP_DEVICE)
     {
-      KdPrint(("LIBUSB_FILTER - get_status(): invalid configuration 0")); 
-      return STATUS_UNSUCCESSFUL;
+      debug_printf(DEBUG_ERR, "get_status(): invalid configuration 0"); 
+      return STATUS_INVALID_DEVICE_STATE;
     }
 
   switch(recipient)
@@ -54,8 +54,8 @@ NTSTATUS get_status(libusb_device_extension *device_extension, int recipient,
       urb.UrbHeader.Function = URB_FUNCTION_GET_STATUS_FROM_OTHER;
       break;
     default:
-      KdPrint(("LIBUSB_FILTER - get_status(): invalid recipient\n"));
-      return STATUS_UNSUCCESSFUL;
+      debug_printf(DEBUG_ERR, "get_status(): invalid recipient");
+      return STATUS_INVALID_PARAMETER;
     }
 
   urb.UrbHeader.Length = sizeof(struct _URB_CONTROL_GET_STATUS_REQUEST);
@@ -65,17 +65,17 @@ NTSTATUS get_status(libusb_device_extension *device_extension, int recipient,
   urb.UrbControlGetStatusRequest.UrbLink = NULL;
   urb.UrbControlGetStatusRequest.Index = (USHORT)index; 
 	
-  m_status = call_usbd(device_extension, &urb, 
+  _status = call_usbd(device_extension, &urb, 
 		       IOCTL_INTERNAL_USB_SUBMIT_URB, timeout);
       
-  if(!NT_SUCCESS(m_status) || !USBD_SUCCESS(urb.UrbHeader.Status))
+  if(!NT_SUCCESS(_status) || !USBD_SUCCESS(urb.UrbHeader.Status))
     {
-      KdPrint(("LIBUSB_FILTER - get_status(): getting status failed %x %x\n",
-	       m_status, urb.UrbHeader.Status));
-      return STATUS_UNSUCCESSFUL;
+      debug_printf(DEBUG_ERR, "get_status(): getting status failed");
     }
-  *status = (int)tmp;
-
-  return m_status;
+  else
+    {
+      *status = (int)tmp;
+    }
+  return _status;
 }
 

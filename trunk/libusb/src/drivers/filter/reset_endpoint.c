@@ -24,36 +24,37 @@
 NTSTATUS reset_endpoint(libusb_device_extension *device_extension,
 			int endpoint, int timeout)
 {
-  NTSTATUS m_status = STATUS_SUCCESS;
+  NTSTATUS status = STATUS_SUCCESS;
   URB urb;
 
-  KdPrint(("LIBUSB_FILTER - reset_endpoint(): endpoint %02xh\n", endpoint));
+  debug_print_nl();
+  debug_printf(DEBUG_MSG, "reset_endpoint(): endpoint %02xh", endpoint);
+  debug_printf(DEBUG_MSG, "reset_endpoint(): timeout %d", timeout);
 
   if(!device_extension->current_configuration)
     {
-      KdPrint(("LIBUSB_FILTER - reset_endpoint(): invalid configuration 0")); 
-      return STATUS_UNSUCCESSFUL;
+      debug_printf(DEBUG_ERR, "reset_endpoint(): invalid configuration 0"); 
+      return STATUS_INVALID_DEVICE_STATE;
     }
-
+  
   if(!get_pipe_handle(device_extension, endpoint, 
 		      &urb.UrbPipeRequest.PipeHandle))
     {
-      KdPrint(("LIBUSB_FILTER - reset_endpoint(): getting endpoint pipe "
-	       "failed\n"));
-      return STATUS_UNSUCCESSFUL;
+      debug_printf(DEBUG_ERR, "reset_endpoint(): getting endpoint pipe "
+		   "failed");
+      return STATUS_INVALID_PARAMETER;
     }
   
   urb.UrbHeader.Length = (USHORT) sizeof(struct _URB_PIPE_REQUEST);
   urb.UrbHeader.Function = URB_FUNCTION_RESET_PIPE;
 
-  m_status = call_usbd(device_extension, (void *)&urb, 
+  status = call_usbd(device_extension, (void *)&urb, 
 		       IOCTL_INTERNAL_USB_SUBMIT_URB, timeout);
   
-  if(!NT_SUCCESS(m_status) || !USBD_SUCCESS(urb.UrbHeader.Status))
+  if(!NT_SUCCESS(status) || !USBD_SUCCESS(urb.UrbHeader.Status))
     {
-      KdPrint(("LIBUSB_FILTER - reset_endpoint(): request failed\n"));
-      m_status = STATUS_UNSUCCESSFUL;
+      debug_printf(DEBUG_ERR, "reset_endpoint(): request failed");
     }
 
-  return m_status;
+  return status;
 }

@@ -26,53 +26,48 @@ NTSTATUS dispatch_pnp(libusb_device_extension *device_extension, IRP *irp)
   
   status = remove_lock_acquire(&device_extension->remove_lock);
   
+  if(!NT_SUCCESS(status))
+    { 
+      return complete_irp(irp, status, 0);
+    }
+
+  debug_print_nl();
 
   switch(IoGetCurrentIrpStackLocation(irp)->MinorFunction) 
     {     
-
     case IRP_MN_REMOVE_DEVICE:
-      KdPrint(("LIBUSB_FILTER - dispatch_pnp(): IRP_MN_REMOVE_DEVICE\n"));
-      remove_lock_release_and_wait(&device_extension->remove_lock);
-
+      debug_printf(DEBUG_MSG, "dispatch_pnp(): IRP_MN_REMOVE_DEVICE");
       irp->IoStatus.Status = STATUS_SUCCESS;
       IoSkipCurrentIrpStackLocation(irp);
       status = IoCallDriver(device_extension->next_stack_device, irp);
-
-      if(!NT_SUCCESS(status))
-	{ 
-	  KdPrint(("LIBUSB_FILTER - dispatch_pnp(): calling lower "
-		   "driver failed\n"));
-	  remove_lock_release(&device_extension->remove_lock);
-	  return status;
-	}
-
+      remove_lock_release_and_wait(&device_extension->remove_lock);
       control_object_delete(device_extension);
       IoDetachDevice(device_extension->next_stack_device);
       IoDeleteDevice(device_extension->self);
       return status;
 
     case IRP_MN_SURPRISE_REMOVAL:
-      KdPrint(("LIBUSB_FILTER - dispatch_pnp(): IRP_MN_SURPRISE_REMOVAL\n"));
+      debug_printf(DEBUG_MSG, "dispatch_pnp(): IRP_MN_SURPRISE_REMOVAL");
       irp->IoStatus.Status = STATUS_SUCCESS;
       break;
 
     case IRP_MN_START_DEVICE:
-      KdPrint(("LIBUSB_FILTER - dispatch_pnp(): IRP_MN_START_DEVICE\n"));
+      debug_printf(DEBUG_MSG, "dispatch_pnp(): IRP_MN_START_DEVICE");
       break;
     case IRP_MN_CANCEL_REMOVE_DEVICE:
-      KdPrint(("LIBUSB_FILTER - dispatch_pnp(): IRP_MN_CANCEL_REMOVE_DEVICE\n"));
+      debug_printf(DEBUG_MSG, "dispatch_pnp(): IRP_MN_CANCEL_REMOVE_DEVICE");
       break;
     case IRP_MN_CANCEL_STOP_DEVICE:
-      KdPrint(("LIBUSB_FILTER - dispatch_pnp(): IRP_MN_CANCEL_STOP_DEVICE\n"));
+      debug_printf(DEBUG_MSG, "dispatch_pnp(): IRP_MN_CANCEL_STOP_DEVICE");
       break;
     case IRP_MN_QUERY_STOP_DEVICE:
-      KdPrint(("LIBUSB_FILTER - dispatch_pnp(): IRP_MN_QUERY_STOP_DEVICE\n"));
+      debug_printf(DEBUG_MSG, "dispatch_pnp(): IRP_MN_QUERY_STOP_DEVICE");
       break;
     case IRP_MN_STOP_DEVICE:
-      KdPrint(("LIBUSB_FILTER - dispatch_pnp(): IRP_MN_STOP_DEVICE\n"));
+      debug_printf(DEBUG_MSG, "dispatch_pnp(): IRP_MN_STOP_DEVICE");
       break;
     case IRP_MN_QUERY_REMOVE_DEVICE:
-      KdPrint(("LIBUSB_FILTER - dispatch_pnp(): IRP_MN_QUERY_REMOVE_DEVICE\n"));
+      debug_printf(DEBUG_MSG, "dispatch_pnp(): IRP_MN_QUERY_REMOVE_DEVICE");
       break;
     default:
       ;
@@ -81,7 +76,7 @@ NTSTATUS dispatch_pnp(libusb_device_extension *device_extension, IRP *irp)
   IoSkipCurrentIrpStackLocation(irp);
   status = IoCallDriver(device_extension->next_stack_device, irp);
   remove_lock_release(&device_extension->remove_lock);
-
+  
   return status;
 }
 

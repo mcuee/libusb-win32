@@ -61,6 +61,7 @@ int main(void)
   struct usb_bus *bus;
   struct usb_device *dev;
 
+  usb_set_debug(3);
   usb_init();
   usb_find_busses();
   usb_find_devices();
@@ -75,7 +76,6 @@ int main(void)
 
       printf("%s/%s     %04X/%04X\n", bus->dirname, dev->filename,
 	dev->descriptor.idVendor, dev->descriptor.idProduct);
-
       udev = usb_open(dev);
       
       if (udev) {

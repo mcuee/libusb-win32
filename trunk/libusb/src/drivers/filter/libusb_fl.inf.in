@@ -1,17 +1,19 @@
 [Version]
-Signature="$Chicago$"
-Class=USB
-ClassGUID={36FC9E60-C465-11CF-8056-444553540000}
-provider = "http://libusb-win32.sourceforge.net"
-DriverVer=@INF_VERSION@
+Signature = "$Chicago$"
+Class     = USB
+ClassGUID = {36FC9E60-C465-11CF-8056-444553540000}
+provider  = %libusb-win32%
+DriverVer = @INF_VERSION@
 
+[Manufacturer]
+%libusb-win32%=libusb-win32
 
 [SourceDisksNames]
-0 = "Libusb-Win32 Filter Driver Installation Disk",,
+1 = "LibUsb-Win32 Filter Driver Installation Disk",,
 
 [SourceDisksFiles]
-libusbfl.sys = 0,, 
-libusb0.dll = 0,, 
+libusbfl.sys = 1,, 
+libusb0.dll  = 1,, 
 
 [DestinationDirs]
 LIBUSB_FILTER.Files.Sys = 10,System32\Drivers
@@ -25,26 +27,35 @@ libusb0.dll
 
 [DefaultInstall]
 CopyFiles = LIBUSB_FILTER.Files.Sys, LIBUSB_FILTER.Files.Dll
-AddReg = LIBUSB_FILTER_AddReg
+AddReg    = LIBUSB_FILTER.AddReg
 
 [DefaultInstall.NT]
 CopyFiles = LIBUSB_FILTER.Files.Sys, LIBUSB_FILTER.Files.Dll
-AddReg = LIBUSB_FILTER_AddReg_NT
+AddReg    = LIBUSB_FILTER.AddReg.NT
 
-[LIBUSB_FILTER_AddReg]
-HKLM, System\CurrentControlSet\Services\Class\USB,  LowerFilters, 0x00000000, libusbfl.sys
+[UnInstall]
+DelFiles   = LIBUSB_FILTER.Files.Sys, LIBUSB_FILTER.Files.Dll
+DelReg     = LIBUSB_FILTER.AddReg
+DelReg     = LIBUSB_FILTER.AddReg.NT
+DelService = libusbfl,, LIBUSB_FILTER.AddService
 
-[LIBUSB_FILTER_AddReg_NT]
+[LIBUSB_FILTER.AddReg]
+HKLM, System\CurrentControlSet\Services\Class\USB, LowerFilters, 0x00000000, libusbfl.sys
+HKLM, Software\LibUsb-Win32\, Version,, "@INF_VERSION@"
+
+[LIBUSB_FILTER.AddReg.NT]
 HKLM, System\CurrentControlSet\Control\Class\{36FC9E60-C465-11CF-8056-444553540000}, LowerFilters, 0x00010008, libusbfl
-
+HKLM, Software\LibUsb-Win32\, Version,, "@INF_VERSION@"
 
 [DefaultInstall.NT.Services]
-AddService = libusbfl, , libusbfltr_Service_Inst
+AddService = libusbfl,, LIBUSB_FILTER.AddService
 
-
-[libusbfltr_Service_Inst]
-DisplayName    = "LibUSB-Win32 - Filter Driver"
+[LIBUSB_FILTER.AddService]
+DisplayName    = "LibUsb-Win32 - Filter Driver @INF_VERSION@"
 ServiceType    = 1
 StartType      = 3
 ErrorControl   = 0
 ServiceBinary  = %12%\libusbfl.sys
+
+[Strings]
+libusb-win32 = "http://libusb-win32.sourceforge.net"

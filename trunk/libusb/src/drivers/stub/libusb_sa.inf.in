@@ -1,59 +1,54 @@
 [Version]
-Signature="$Chicago$"
-Class=USB
-ClassGUID={36FC9E60-C465-11CF-8056-444553540000}
-provider=%libusb-win32%
-DriverVer=@INF_VERSION@
+Signature = "$Chicago$"
+Class     = USB
+ClassGUID = {36FC9E60-C465-11CF-8056-444553540000}
+provider  = %libusb-win32%
+DriverVer = @INF_VERSION@
 
 [SourceDisksNames]
-0 = "Libusb-Win32 Stub Driver Installation Disk",,
+1 = "Libusb-Win32 Stub Driver Installation Disk",,
 
 [SourceDisksFiles]
-libusbst.sys = 0,, 
-libusb0.dll = 0,, 
+libusbst.sys = 1,, 
 
 [Manufacturer]
 %libusb-win32%=libusb-win32
 
 [libusb-win32]
-"LibUSB Sample Device"=LIBUSB_STUB.Dev, USB\VID_0547&PID_2131
+"LibUSB Sample Device" = LIBUSB_STUB.Dev, USB\VID_0547&PID_2131
 
 [PreCopySection]
 HKR,,NoSetupUI,,1
 
 [DestinationDirs]
 LIBUSB_STUB.Files.Sys = 10,System32\Drivers
-LIBUSB_STUB.Files.Dll = 10,System32
 
 [LIBUSB_STUB.Files.Sys]
 libusbst.sys
 
-[LIBUSB_STUB.Files.Dll]
-libusb0.dll
 
 [LIBUSB_STUB.Dev]
-CopyFiles=LIBUSB_STUB.Files.Sys, LIBUSB_STUB.Files.Dll
-AddReg=LIBUSB_STUB.AddReg
+CopyFiles = LIBUSB_STUB.Files.Sys, LIBUSB_STUB.Files.Dll
+AddReg    = LIBUSB_STUB.AddReg
 
 [LIBUSB_STUB.Dev.NT]
-CopyFiles=LIBUSB_STUB.Files.Sys, LIBUSB_STUB.Files.Dll
-AddReg=LIBUSB_STUB.AddReg
+CopyFiles = LIBUSB_STUB.Files.Sys, LIBUSB_STUB.Files.Dll
+AddReg    = LIBUSB_STUB.AddReg
 
 [LIBUSB_STUB.Dev.NT.Services]
-Addservice=LibUsbStub, 0x00000002, LIBUSB_STUB.AddService
+Addservice = libusbst, 0x00000002, LIBUSB_STUB.AddService
 
 [LIBUSB_STUB.AddService]
-DisplayName    = "LibUSB-Win32 - Stub Driver"
+DisplayName    = "LibUsb-Win32 - Stub Driver @INF_VERSION@"
 ServiceType    = 1
-StartType      = 2
+StartType      = 3
 ErrorControl   = 0
 ServiceBinary  = %12%\libusbst.sys
-LoadOrderGroup = Base
 
 [LIBUSB_STUB.AddReg]
 HKR,,DevLoader,,*ntkern
 HKR,,NTMPDriver,,libusbst.sys
 
 [Strings]
-libusb-win32="http://libusb-win32.sourceforge.net"
+libusb-win32 = "http://libusb-win32.sourceforge.net"
 

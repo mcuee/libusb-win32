@@ -41,8 +41,6 @@ NTSTATUS __stdcall DriverEntry(DRIVER_OBJECT *driver_object,
   PDRIVER_DISPATCH *dispatch_function = driver_object->MajorFunction;
   int i;
   
-  KdPrint(("LIBUSB_STUB - DriverEntry()\n"));
-      
   for(i = 0; i <= IRP_MJ_MAXIMUM_FUNCTION; i++, dispatch_function++) 
     {
       *dispatch_function = dispatch;
@@ -61,14 +59,11 @@ NTSTATUS __stdcall add_device(DRIVER_OBJECT *driver_object,
   DEVICE_OBJECT *device_object;
   libusb_device_extension *device_extension;
 
-  KdPrint(("LIBUSB_STUB - add_device(): creating device\n"));
-
   status = IoCreateDevice(driver_object, sizeof(libusb_device_extension), 
 			  NULL, FILE_DEVICE_UNKNOWN, 0, FALSE, 
 			  &device_object);
   if(!NT_SUCCESS(status))
     {
-      KdPrint(("LIBUSB_STUB - add_device(): creating device failed\n"));
       return status;
     }
 
@@ -122,21 +117,11 @@ NTSTATUS dispatch_pnp(libusb_device_extension *device_extension, IRP *irp)
   switch(stack_location->MinorFunction) 
     {      
     case IRP_MN_REMOVE_DEVICE:
-
       irp->IoStatus.Status = STATUS_SUCCESS;
       IoSkipCurrentIrpStackLocation(irp);
       status = IoCallDriver(device_extension->next_stack_device, irp);
-
-      if(!NT_SUCCESS(status))
-	{ 
-	  KdPrint(("LIBUSB_STUB - dispatch_pnp(): calling lower "
-		   "driver failed\n"));
-	  return status;
-	}
-
       IoDetachDevice(device_extension->next_stack_device);
       IoDeleteDevice(device_extension->self);
-
       return status;
 
     case IRP_MN_SURPRISE_REMOVAL:
@@ -159,6 +144,6 @@ NTSTATUS dispatch_pnp(libusb_device_extension *device_extension, IRP *irp)
 
 VOID __stdcall unload(DRIVER_OBJECT *driver_object)
 {
-  KdPrint(("LIBUSB_STUB - unload(): unloading driver\n"));
+
 }
 

@@ -20,9 +20,10 @@
 #include "libusb_filter.h"
 
 
+
 NTSTATUS dispatch_ioctl(libusb_device_extension *device_extension, IRP *irp)
 {
-  int byte_count = sizeof(libusb_request);
+  int byte_count = 0;
   NTSTATUS status = STATUS_SUCCESS;
 
   IO_STACK_LOCATION *stack_location = IoGetCurrentIrpStackLocation(irp);
@@ -35,10 +36,8 @@ NTSTATUS dispatch_ioctl(libusb_device_extension *device_extension, IRP *irp)
   ULONG transfer_buffer_length
     = stack_location->Parameters.DeviceIoControl.OutputBufferLength;
   libusb_request *request = (libusb_request *)irp->AssociatedIrp.SystemBuffer;
+  void *output_buffer = irp->AssociatedIrp.SystemBuffer;
   MDL *transfer_buffer_mdl = irp->MdlAddress;
-
-  URB urb, *urb1 = NULL;
-  USBD_PIPE_HANDLE pipe_handle = NULL;
 
   status = remove_lock_acquire(&device_extension->remove_lock);
 
@@ -50,21 +49,22 @@ NTSTATUS dispatch_ioctl(libusb_device_extension *device_extension, IRP *irp)
 
   if(!request)
     { 
-      KdPrint(("LIBUSB_FILTER - dispatch_ioctl(): "
-	       "invalid input or output buffer\n"));
+      debug_printf(DEBUG_ERR, "dispatch_ioctl(): "
+		   "invalid input or output buffer\n");
       remove_lock_release(&device_extension->remove_lock);
       return complete_irp(irp, STATUS_INVALID_PARAMETER, 0);
     }
   
+  debug_print_nl();
+
   switch(control_code) 
-    {      
-      
+    {     
     case LIBUSB_IOCTL_SET_CONFIGURATION:
 
       if(input_request_length < sizeof(libusb_request))
 	{	  
-	  KdPrint(("LIBUSB_FILTER - dispatch_ioctl(), set_configuration: "
-		   "invalid input buffer lenght\n"));
+	  debug_printf(DEBUG_ERR, "dispatch_ioctl(), set_configuration: "
+		       "invalid input buffer lenght");
 	  status = STATUS_INVALID_PARAMETER;
 	  break;
 	}
@@ -72,12 +72,6 @@ NTSTATUS dispatch_ioctl(libusb_device_extension *device_extension, IRP *irp)
       status = set_configuration(device_extension, 
 				 request->configuration.configuration,
 				 request->timeout);
-      if(!NT_SUCCESS(status))
-	{
-	  KdPrint(("LIBUSB_FILTER - dispatch_ioctl(), set_configuration "
-		   "failed\n"));
-	}
-
       break;
       
     case LIBUSB_IOCTL_GET_CONFIGURATION:
@@ -85,19 +79,18 @@ NTSTATUS dispatch_ioctl(libusb_device_extension *device_extension, IRP *irp)
       if(input_request_length < sizeof(libusb_request)
 	 || output_request_length < sizeof(libusb_request))
 	{
-	  KdPrint(("LIBUSB_FILTER - dispatch_ioctl(), get_configuration: "
-		   "invalid input or output buffer size\n"));
+	  debug_printf(DEBUG_ERR, "dispatch_ioctl(), get_configuration: "
+		       "invalid input or output buffer size");
 	  status = STATUS_INVALID_PARAMETER;
 	  break;
 	}
 
       status = get_configuration(device_extension, 
-				 &(request->configuration.configuration),
+				 &request->configuration.configuration,
 				 request->timeout);
-      if(!NT_SUCCESS(status))
+      if(NT_SUCCESS(status))
 	{
-	  KdPrint(("LIBUSB_FILTER - dispatch_ioctl(), get_configuration "
-		   "failed\n"));
+	  byte_count = sizeof(libusb_request);
 	}
       break;
 
@@ -105,8 +98,8 @@ NTSTATUS dispatch_ioctl(libusb_device_extension *device_extension, IRP *irp)
 
       if(input_request_length < sizeof(libusb_request))
 	{
-	  KdPrint(("LIBUSB_FILTER - dispatch_ioctl(), set_interface: "
-		   "invalid input buffer size\n"));
+	  debug_printf(DEBUG_ERR, "dispatch_ioctl(), set_interface: "
+		       "invalid input buffer size");
 	  status = STATUS_INVALID_PARAMETER;
 	  break;
 	}
@@ -114,12 +107,6 @@ NTSTATUS dispatch_ioctl(libusb_device_extension *device_extension, IRP *irp)
 			     request->interface.interface,
 			     request->interface.altsetting,
 			     request->timeout);
-      if(!NT_SUCCESS(status))
-	{
-	  KdPrint(("LIBUSB_FILTER - dispatch_ioctl(), set_interface "
-		   "failed\n"));
-	}
-
       break;
 
     case LIBUSB_IOCTL_GET_INTERFACE:
@@ -127,9 +114,8 @@ NTSTATUS dispatch_ioctl(libusb_device_extension *device_extension, IRP *irp)
       if(input_request_length < sizeof(libusb_request)
 	 || output_request_length < sizeof(libusb_request))
 	{
-	  KdPrint(("LIBUSB_FILTER - dispatch_ioctl(), get_interface: invalid "
-		   "input or output buffer size\n"));
-
+	  debug_printf(DEBUG_ERR, "dispatch_ioctl(), get_interface: invalid "
+		       "input or output buffer size");
 	  status =  STATUS_INVALID_PARAMETER;
 	  break;
 	}
@@ -138,10 +124,9 @@ NTSTATUS dispatch_ioctl(libusb_device_extension *device_extension, IRP *irp)
 			     request->interface.interface,
 			     &(request->interface.altsetting),
 			     request->timeout);
-      if(!NT_SUCCESS(status))
+      if(NT_SUCCESS(status))
 	{
-	  KdPrint(("LIBUSB_FILTER - dispatch_ioctl(), get_interface "
-		   "failed\n"));
+	  byte_count = sizeof(libusb_request);
 	}
       break;
 
@@ -149,30 +134,27 @@ NTSTATUS dispatch_ioctl(libusb_device_extension *device_extension, IRP *irp)
 
       if(input_request_length < sizeof(libusb_request))
 	{
-	  KdPrint(("LIBUSB_FILTER - dispatch_ioctl(), set_feature: invalid "
-		   "input buffer size\n"));
+	  debug_printf(DEBUG_ERR, "dispatch_ioctl(), set_feature: invalid "
+		       "input buffer size");
 	  status =  STATUS_INVALID_PARAMETER;
 	  break;
 	}
 
-      status = 	set_feature(device_extension,
-			    request->feature.recipient,
-			    request->feature.index,
-			    request->feature.feature,
-			    request->timeout);
-      if(!NT_SUCCESS(status))
-	{
-	  KdPrint(("LIBUSB_FILTER - dispatch_ioctl(), set_feature "
-		   "failed\n"));
-	}
+      status = set_feature(device_extension,
+			   request->feature.recipient,
+			   request->feature.index,
+			   request->feature.feature,
+			   request->timeout);
+      
       break;
 
     case LIBUSB_IOCTL_CLEAR_FEATURE:
+
       if(input_request_length < sizeof(libusb_request))
 	{
-	  KdPrint(("LIBUSB_FILTER - dispatch_ioctl(), clear_feature: invalid "
-		   "input buffer size\n"));
-	  status =  STATUS_INVALID_PARAMETER;
+	  debug_printf(DEBUG_ERR, "dispatch_ioctl(), clear_feature: invalid "
+		       "input buffer size");
+	  status = STATUS_INVALID_PARAMETER;
 	  break;
 	}
 
@@ -181,11 +163,7 @@ NTSTATUS dispatch_ioctl(libusb_device_extension *device_extension, IRP *irp)
 			     request->feature.index,
 			     request->feature.feature,
 			     request->timeout);
-      if(!NT_SUCCESS(status))
-	{
-	  KdPrint(("LIBUSB_FILTER - dispatch_ioctl(), clear_feature "
-		   "failed\n"));
-	}
+      
       break;
 
     case LIBUSB_IOCTL_GET_STATUS:
@@ -193,9 +171,9 @@ NTSTATUS dispatch_ioctl(libusb_device_extension *device_extension, IRP *irp)
       if(input_request_length < sizeof(libusb_request)
 	 || output_request_length < sizeof(libusb_request))
 	{
-	  KdPrint(("LIBUSB_FILTER - dispatch_ioctl(), get_status: invalid "
-		   "input or output buffer size\n"));
-	  status =  STATUS_INVALID_PARAMETER;
+	  debug_printf(DEBUG_ERR, "dispatch_ioctl(), get_status: invalid "
+		       "input or output buffer size");
+	  status = STATUS_INVALID_PARAMETER;
 	  break;
 	}
 
@@ -204,14 +182,19 @@ NTSTATUS dispatch_ioctl(libusb_device_extension *device_extension, IRP *irp)
 			  request->status.index, 
 			  &(request->status.status),
 			  request->timeout);
+      if(NT_SUCCESS(status))
+	{
+	  byte_count = sizeof(libusb_request);
+	}
+
       break;
 
     case LIBUSB_IOCTL_SET_DESCRIPTOR:
 
       if(!transfer_buffer_mdl || input_request_length < sizeof(libusb_request))
 	{
-	  KdPrint(("LIBUSB_FILTER - dispatch_ioctl(), set_descriptor: invalid "
-		   "input or transfer buffer\n"));
+	  debug_printf(DEBUG_ERR, "dispatch_ioctl(), set_descriptor: invalid "
+		       "input or transfer buffer");
 	  status = STATUS_INVALID_PARAMETER;
 	  break;
 	}
@@ -223,86 +206,69 @@ NTSTATUS dispatch_ioctl(libusb_device_extension *device_extension, IRP *irp)
 			      request->descriptor.language_id, 
 			      &byte_count,
 			      request->timeout);
-      if(!NT_SUCCESS(status))
-	{
-	  KdPrint(("LIBUSB_FILTER - dispatch_ioctl(), set_descriptor "
-		   "failed\n"));
-	}
+      
       break;
 
     case LIBUSB_IOCTL_GET_DESCRIPTOR:
 
-      if(!transfer_buffer_mdl || input_request_length < sizeof(libusb_request))
+      if(!output_buffer || input_request_length < sizeof(libusb_request))
 	{
-	  KdPrint(("LIBUSB_FILTER - dispatch_ioctl(), get_descriptor: invalid "
-		   "input or transfer buffer\n"));
+	  debug_printf(DEBUG_ERR, "dispatch_ioctl(), get_descriptor: invalid "
+		       "input or output buffer");
 	  status = STATUS_INVALID_PARAMETER;
 	  break;
 	}
-      status = get_descriptor(device_extension, NULL, transfer_buffer_mdl, 
-			      transfer_buffer_length,
+
+      status = get_descriptor(device_extension, output_buffer, 
+			      output_request_length,
 			      request->descriptor.type,
 			      request->descriptor.index,
 			      request->descriptor.language_id, 
 			      &byte_count, 
 			      request->timeout);
-      if(!NT_SUCCESS(status))
-	{
-	  KdPrint(("LIBUSB_FILTER - dispatch_ioctl(), get_descriptor "
-		   "failed\n"));
-	}
+      
       break;
       
     case LIBUSB_IOCTL_INTERRUPT_OR_BULK_READ:
 
       if(!transfer_buffer_mdl || input_request_length < sizeof(libusb_request))
 	{
-	  KdPrint(("LIBUSB_FILTER - dispatch_ioctl(), int_bulk_read: invalid "
-		   "input or transfer buffer\n"));
+	  debug_printf(DEBUG_ERR, "dispatch_ioctl(), bulk_read: invalid "
+		   "input or transfer buffer");
 	  status = STATUS_INVALID_PARAMETER;
 	  break;
 	}
 
-      status = bulk_transfer(irp, device_extension,
-			     request->endpoint.endpoint,
-			     transfer_buffer_mdl, transfer_buffer_length, 
-			     USBD_TRANSFER_DIRECTION_IN);
-
-      if(!NT_SUCCESS(status))
-	{
-	  KdPrint(("LIBUSB_FILTER - dispatch_ioctl(), int_bulk_write "
-		   "failed\n"));
-	}
-      return status;
+      return bulk_transfer(irp, device_extension,
+			   request->endpoint.endpoint,
+			   transfer_buffer_mdl, 
+			   transfer_buffer_length, 
+			   USBD_TRANSFER_DIRECTION_IN);
 
     case LIBUSB_IOCTL_INTERRUPT_OR_BULK_WRITE:
 
       if(!transfer_buffer_mdl || input_request_length < sizeof(libusb_request))
 	{
-	  KdPrint(("LIBUSB_FILTER - dispatch_ioctl(), int_bulk_write: invalid "
-		   "input or transfer buffer\n"));
+	  debug_printf(DEBUG_ERR, "dispatch_ioctl(), bulk_write: invalid "
+		       "input or transfer buffer");
 	  status = STATUS_INVALID_PARAMETER;
 	  break;
 	}
 
-      status = 	bulk_transfer(irp, device_extension,
-			      request->endpoint.endpoint,
-			      transfer_buffer_mdl, transfer_buffer_length, 
-			      USBD_TRANSFER_DIRECTION_OUT);
+      return bulk_transfer(irp, device_extension,
+			   request->endpoint.endpoint,
+			   transfer_buffer_mdl,
+			   transfer_buffer_length, 
+			   USBD_TRANSFER_DIRECTION_OUT);
 
-      if(!NT_SUCCESS(status))
-	{
-	  KdPrint(("LIBUSB_FILTER - dispatch_ioctl(), int_bulk_read "
-		   "failed\n"));
-	}
-      return status;
 
     case LIBUSB_IOCTL_VENDOR_READ:
 
-      if(!transfer_buffer_mdl || input_request_length < sizeof(libusb_request))
+      if(input_request_length < sizeof(libusb_request)
+	 || (transfer_buffer_length && !transfer_buffer_mdl))
 	{
-	  KdPrint(("LIBUSB_FILTER - dispatch_ioctl(), vendor_read: invalid "
-		   "input or transfer buffer\n"));
+	  debug_printf(DEBUG_ERR, "dispatch_ioctl(), vendor_read: invalid "
+		       "input or transfer buffer");
 	  status = STATUS_INVALID_PARAMETER;
 	  break;
 	}
@@ -316,21 +282,15 @@ NTSTATUS dispatch_ioctl(libusb_device_extension *device_extension, IRP *irp)
 			      USBD_TRANSFER_DIRECTION_IN,
 			      &byte_count,
 			      request->timeout);
-
-      if(!NT_SUCCESS(status))
-	{
-	  KdPrint(("LIBUSB_FILTER - dispatch_ioctl(), vendor_read "
-		   "failed\n"));
-	}
-
       break;
 
     case LIBUSB_IOCTL_VENDOR_WRITE:
       
-      if(!transfer_buffer_mdl || input_request_length < sizeof(libusb_request))
+      if(input_request_length < sizeof(libusb_request)
+	 || (transfer_buffer_length && !transfer_buffer_mdl))
 	{
-	  KdPrint(("LIBUSB_FILTER - dispatch_ioctl(), vendor_write: invalid "
-		   "input or transfer buffer\n"));
+	  debug_printf(DEBUG_ERR, "dispatch_ioctl(), vendor_write: invalid "
+		       "input or transfer buffer");
 	  status = STATUS_INVALID_PARAMETER;
 	  break;
 	}
@@ -344,20 +304,14 @@ NTSTATUS dispatch_ioctl(libusb_device_extension *device_extension, IRP *irp)
 			      USBD_TRANSFER_DIRECTION_OUT, 
 			      &byte_count,
 			      request->timeout);
-
-      if(!NT_SUCCESS(status))
-	{
-	  KdPrint(("LIBUSB_FILTER - dispatch_ioctl(), vendor_read "
-		   "failed\n"));
-	}
       break;
 
     case LIBUSB_IOCTL_RESET_ENDPOINT:
 
       if(input_request_length < sizeof(libusb_request))
 	{
-	  KdPrint(("LIBUSB_FILTER - dispatch_ioctl(), reset_endpoint: invalid "
-		   "input buffer\n"));
+	  debug_printf(DEBUG_ERR, "dispatch_ioctl(), reset_endpoint: invalid "
+		       "input buffer");
 	  status = STATUS_INVALID_PARAMETER;
 	  break;
 	}
@@ -365,52 +319,66 @@ NTSTATUS dispatch_ioctl(libusb_device_extension *device_extension, IRP *irp)
       status = reset_endpoint(device_extension, 
 			      request->endpoint.endpoint,
 			      request->timeout);
-      if(!NT_SUCCESS(status))
-	{
-	  KdPrint(("LIBUSB_FILTER - dispatch_ioctl(), reset_endpoint "
-		   "failed\n"));
-	}
       break;
       
     case LIBUSB_IOCTL_ABORT_ENDPOINT:
 	 
       if(input_request_length < sizeof(libusb_request))
 	{
-	  KdPrint(("LIBUSB_FILTER - dispatch_ioctl(), abort_endpoint: invalid "
-		   "input buffer\n"));
+	  debug_printf(DEBUG_ERR, "dispatch_ioctl(), abort_endpoint: invalid "
+		   "input buffer");
 	  status = STATUS_INVALID_PARAMETER;
 	  break;
 	}
 
-      status = reset_endpoint(device_extension, 
+      status = abort_endpoint(device_extension, 
 			      request->endpoint.endpoint,
 			      request->timeout);
-
-      if(!NT_SUCCESS(status))
-	{
-	  KdPrint(("LIBUSB_FILTER - dispatch_ioctl(), abort_endpoint "
-		   "failed\n"));
-	}
       break;
 
     case LIBUSB_IOCTL_RESET_DEVICE: 
       
       if(input_request_length < sizeof(libusb_request))
 	{
-	  KdPrint(("LIBUSB_FILTER - dispatch_ioctl(), reset_device: invalid "
-		   "input buffer\n"));
+	  debug_printf(DEBUG_ERR, "dispatch_ioctl(), reset_device: invalid "
+		       "input buffer");
 	  status = STATUS_INVALID_PARAMETER;
 	  break;
 	}
       
       status = reset_device(device_extension, request->timeout);
-      
-      if(!NT_SUCCESS(status))
-	{
-	  KdPrint(("LIBUSB_FILTER - dispatch_ioctl(), reset_device failed\n"));
-	}
       break;
-  
+
+    case LIBUSB_IOCTL_SET_DEBUG_LEVEL:
+
+      if(input_request_length < sizeof(libusb_request))
+	{
+	  debug_printf(DEBUG_ERR, "dispatch_ioctl(), set_debug_level: "
+		       "invalid input buffer size");
+	  status = STATUS_INVALID_PARAMETER;
+	  break;
+	}
+      
+      debug_set_level(request->debug.level);
+      break;
+
+    case LIBUSB_IOCTL_GET_VERSION:
+
+      if(output_request_length < sizeof(libusb_request))
+	{
+	  debug_printf(DEBUG_ERR, "dispatch_ioctl(), get_version: "
+		       "invalid output buffer size");
+	  status = STATUS_INVALID_PARAMETER;
+	  break;
+	}
+      request->version.major = LIBUSB_VERSION_MAJOR;
+      request->version.minor = LIBUSB_VERSION_MINOR;
+      request->version.micro = LIBUSB_VERSION_MICRO;
+      request->version.nano  = LIBUSB_VERSION_NANO;
+
+      byte_count = sizeof(libusb_request);
+      break;
+
     default:
       
       IoSkipCurrentIrpStackLocation(irp);
@@ -420,11 +388,7 @@ NTSTATUS dispatch_ioctl(libusb_device_extension *device_extension, IRP *irp)
       return status;
     }
 
-  complete_irp(irp, status, byte_count);
-  
-  KdPrint(("LIBUSB_FILTER - dispatch_ioctl(): %d bytes transfered\n", 
-	   byte_count));
-  
+  complete_irp(irp, status, byte_count);  
   remove_lock_release(&device_extension->remove_lock);
 
   return status;
