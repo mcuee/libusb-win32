@@ -21,7 +21,7 @@
 
 
 typedef struct {
-  URB urb;
+  URB *urb;
   IRP *main_irp;
   IRP *sub_irp;
   ULONG completing;
@@ -29,33 +29,39 @@ typedef struct {
 } Context;
 
 
-NTSTATUS on_bulk_int_complete(DEVICE_OBJECT *device_object, 
-			  IRP *irp,  void *context);
-void on_bulk_int_cancel(DEVICE_OBJECT *device_object, IRP *irp);
+NTSTATUS on_isochronous_complete(DEVICE_OBJECT *device_object, 
+				 IRP *irp, void *context);
+void on_isochronous_cancel(DEVICE_OBJECT *device_object, IRP *irp);
 
 
-NTSTATUS bulk_int_transfer(IRP *irp, libusb_device_extension *device_extension,
-			   int endpoint, MDL *buffer, 
-			   int size, int direction)
+NTSTATUS isochronous_transfer(IRP *irp, 
+			      libusb_device_extension *device_extension,
+			      int endpoint, int packet_size, MDL *buffer,
+			      int size, int direction)
 {
   NTSTATUS m_status = STATUS_SUCCESS;
   USBD_PIPE_HANDLE pipe_handle = NULL;
   IO_STACK_LOCATION *next_irp_stack = NULL;
   Context *context;
+  int num_packets;
+  int tmp, i;
 
   debug_print_nl();
-  debug_printf(LIBUSB_DEBUG_MSG, "bulk_int_transfer(): endpoint %02xh", 
+  debug_printf(LIBUSB_DEBUG_MSG, "isochronous_transfer(): endpoint %02xh", 
 	       endpoint);
-  debug_printf(LIBUSB_DEBUG_MSG, "bulk_int_transfer(): size %d", size);
+  debug_printf(LIBUSB_DEBUG_MSG, "isochronous_transfer(): packet_size %xh", 
+	       packet_size);
+  debug_printf(LIBUSB_DEBUG_MSG, "isochronous_transfer(): size %d", size);
 
   if(direction == USBD_TRANSFER_DIRECTION_IN)
-    debug_printf(LIBUSB_DEBUG_MSG, "bulk_int_transfer(): direction in");
+    debug_printf(LIBUSB_DEBUG_MSG, "isochronous_transfer(): direction in");
   else
-    debug_printf(LIBUSB_DEBUG_MSG, "bulk_int_transfer(): direction out");
+    debug_printf(LIBUSB_DEBUG_MSG, "isochronous_transfer(): direction out");
+
 
   if(!device_extension->current_configuration)
     {
-      debug_printf(LIBUSB_DEBUG_ERR, "bulk_int_transfer(): invalid "
+      debug_printf(LIBUSB_DEBUG_ERR, "isochronous_transfer(): invalid "
 		   "configuration 0");
       remove_lock_release(&device_extension->remove_lock);
       return complete_irp(irp, STATUS_INVALID_DEVICE_STATE, 0);
@@ -63,29 +69,64 @@ NTSTATUS bulk_int_transfer(IRP *irp, libusb_device_extension *device_extension,
   
   if(!get_pipe_handle(device_extension, endpoint, &pipe_handle))
     {
-      debug_printf(LIBUSB_DEBUG_ERR, "bulk_int_transfer(): getting endpoint "
-		   "pipe failed");
+      debug_printf(LIBUSB_DEBUG_ERR, "isochronous_transfer(): getting "
+		   "endpoint pipe failed");
       remove_lock_release(&device_extension->remove_lock);
       return complete_irp(irp, STATUS_INVALID_PARAMETER, 0);
     }
       
+
   context = (Context *)ExAllocatePool(NonPagedPool, sizeof(Context));
   
   if(!context)
     {
-      debug_printf(LIBUSB_DEBUG_ERR, "bulk_int_transfer(): memory allocation "
-		   "error");
+      debug_printf(LIBUSB_DEBUG_ERR, "isochronous_transfer(): memory "
+		   "allocation error");
       remove_lock_release(&device_extension->remove_lock);
       return complete_irp(irp, STATUS_NO_MEMORY, 0);
     }
 
-  RtlZeroMemory(context, sizeof(Context));
+  num_packets = (size + packet_size - 1) / packet_size;
 
-  UsbBuildInterruptOrBulkTransferRequest
-    (&(context->urb), sizeof(struct _URB_BULK_OR_INTERRUPT_TRANSFER),
-     pipe_handle, NULL, buffer, size, 
-     direction | USBD_SHORT_TRANSFER_OK, NULL);
+  if(num_packets > 255)
+    {
+      debug_printf(LIBUSB_DEBUG_ERR, "isochronous_transfer(): transfer size "
+		   "too large");
+      remove_lock_release(&device_extension->remove_lock);
+      return complete_irp(irp, STATUS_NO_MEMORY, 0);
+    }
+
+  tmp = GET_ISO_URB_SIZE(num_packets);
+  context->urb = (URB *)ExAllocatePool(NonPagedPool, tmp);
   
+  if(!context->urb)
+    {
+      debug_printf(LIBUSB_DEBUG_ERR, "isochronous_transfer(): memory "
+		   "allocation error");
+      ExFreePool(context);
+      remove_lock_release(&device_extension->remove_lock);
+      return complete_irp(irp, STATUS_NO_MEMORY, 0);
+    }
+
+      
+  RtlZeroMemory(context->urb, tmp);
+
+  context->urb->UrbIsochronousTransfer.Hdr.Length = (USHORT)tmp;
+  context->urb->UrbIsochronousTransfer.Hdr.Function =
+    URB_FUNCTION_ISOCH_TRANSFER;
+  context->urb->UrbIsochronousTransfer.PipeHandle = pipe_handle;
+  context->urb->UrbIsochronousTransfer.TransferFlags = 
+    direction | USBD_SHORT_TRANSFER_OK | USBD_START_ISO_TRANSFER_ASAP;
+  context->urb->UrbIsochronousTransfer.TransferBufferLength = size;
+  context->urb->UrbIsochronousTransfer.TransferBufferMDL = buffer;
+  context->urb->UrbIsochronousTransfer.NumberOfPackets = num_packets;
+
+  for(i = 0; i < num_packets; i++)
+  {
+    context->urb->UrbIsochronousTransfer.IsoPacket[i].Offset = i * packet_size;
+    context->urb->UrbIsochronousTransfer.IsoPacket[i].Length = packet_size;
+  }
+
   context->completing = 0;
   context->main_irp = irp;
   context->remove_lock = &device_extension->remove_lock;
@@ -96,16 +137,16 @@ NTSTATUS bulk_int_transfer(IRP *irp, libusb_device_extension *device_extension,
 				  NULL, NULL);
 
   next_irp_stack = IoGetNextIrpStackLocation(context->sub_irp);
-  next_irp_stack->Parameters.Others.Argument1 = &(((Context *)context)->urb);
+  next_irp_stack->Parameters.Others.Argument1 = ((Context *)context)->urb;
   next_irp_stack->Parameters.Others.Argument2 = NULL;
 
   irp->Tail.Overlay.DriverContext[0] = context;
 
   IoAcquireCancelSpinLock(&irp->CancelIrql);
-  IoSetCancelRoutine(irp, on_bulk_int_cancel);
+  IoSetCancelRoutine(irp, on_isochronous_cancel);
   IoReleaseCancelSpinLock(irp->CancelIrql);
 
-  IoSetCompletionRoutine(context->sub_irp, on_bulk_int_complete, 
+  IoSetCompletionRoutine(context->sub_irp, on_isochronous_complete, 
 			 context, TRUE, TRUE, TRUE);   
 
   IoMarkIrpPending(context->main_irp);
@@ -115,10 +156,10 @@ NTSTATUS bulk_int_transfer(IRP *irp, libusb_device_extension *device_extension,
 }
 
 
-NTSTATUS on_bulk_int_complete(DEVICE_OBJECT *device_object, 
-			      IRP *irp, void *context)
+NTSTATUS on_isochronous_complete(DEVICE_OBJECT *device_object, 
+				 IRP *irp, void *context)
 {
-  URB *urb = &(((Context *)context)->urb);
+  URB *urb = ((Context *)context)->urb;
   libusb_remove_lock *lock = ((Context *)context)->remove_lock;
   int transmitted = 0;
   KIRQL irql;
@@ -131,13 +172,13 @@ NTSTATUS on_bulk_int_complete(DEVICE_OBJECT *device_object,
 
   if(NT_SUCCESS(irp->IoStatus.Status) && USBD_SUCCESS(urb->UrbHeader.Status))
     {
-      transmitted = urb->UrbBulkOrInterruptTransfer.TransferBufferLength;
-      debug_printf(LIBUSB_DEBUG_MSG, "on_bulk_int_complete(): %d bytes "
+      transmitted = urb->UrbIsochronousTransfer.TransferBufferLength;
+      debug_printf(LIBUSB_DEBUG_MSG, "on_isochronous_complete(): %d bytes "
 		   "transmitted", transmitted);
     }
   else
     {
-      debug_printf(LIBUSB_DEBUG_ERR, "on_bulk_int_complete(): transfer "
+      debug_printf(LIBUSB_DEBUG_ERR, "on_isochronous_complete(): transfer "
 		   "failed: status: 0x%x, urb-status: 0x%x", 
 		   irp->IoStatus.Status, urb->UrbHeader.Status);
     }
@@ -145,6 +186,7 @@ NTSTATUS on_bulk_int_complete(DEVICE_OBJECT *device_object,
   complete_irp(((Context *)context)->main_irp, irp->IoStatus.Status,
 	       transmitted);
 
+  ExFreePool(urb);
   ExFreePool(context);
   remove_lock_release(lock);
 
@@ -152,7 +194,7 @@ NTSTATUS on_bulk_int_complete(DEVICE_OBJECT *device_object,
 }
 
 
-void on_bulk_int_cancel(DEVICE_OBJECT *device_object, IRP *irp)
+void on_isochronous_cancel(DEVICE_OBJECT *device_object, IRP *irp)
 {
   Context *context = (Context *)irp->Tail.Overlay.DriverContext[0];
   IoReleaseCancelSpinLock(irp->CancelIrql);
@@ -160,7 +202,8 @@ void on_bulk_int_cancel(DEVICE_OBJECT *device_object, IRP *irp)
   if(!InterlockedExchange(&(((Context *)context)->completing), 0))
     {
       IoCancelIrp(context->sub_irp);
-      debug_printf(LIBUSB_DEBUG_WARN, "on_bulk_int_cancel(): IRP cancelled");
+      debug_printf(LIBUSB_DEBUG_WARN, "on_isochronous_cancel(): IRP "
+		   "cancelled");
     }
 }
 

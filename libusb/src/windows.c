@@ -76,6 +76,12 @@ typedef struct {
   HANDLE if_mutex;
 } win_impl_info_t;
 
+typedef struct {
+  libusb_request req;
+  char *bytes;
+  int size;
+  OVERLAPPED ol;
+} usb_iso_context;
 
 static char __error_buf[512];
 
@@ -98,6 +104,10 @@ static const char *win_error_to_string();
 static int win_error_to_errno();
 static void output_debug_string(const char *s, ...);
 static void usb_cancel_io(usb_dev_handle *dev);
+static int usb_bulk_int_transfer(usb_dev_handle *dev, int ep, int direction,
+				 char *bytes, int size, int timeout);
+static int usb_isochronous_transfer(usb_dev_handle *dev, void *context,
+				    int direction);
 
 
 typedef BOOL (* cancel_io_t)(HANDLE);
@@ -431,12 +441,12 @@ int usb_set_altinterface(usb_dev_handle *dev, int alternate)
   return 0;
 }
 
-
-int usb_bulk_write(usb_dev_handle *dev, int ep, char *bytes, int size,
-		   int timeout)
+static int usb_bulk_int_transfer(usb_dev_handle *dev, int ep, int direction,
+			     char *bytes, int size, int timeout)
 {
   libusb_request req;
   DWORD ret, requested;
+  BOOL tmp;
   int sent = 0;
   HANDLE event;
   OVERLAPPED ol;
@@ -444,38 +454,43 @@ int usb_bulk_write(usb_dev_handle *dev, int ep, char *bytes, int size,
 
   if(!info || info->handle == INVALID_HANDLE_VALUE)
     {
-      USB_ERROR_STR(-EINVAL, "usb_bulk_write/usb_interrupt_write: error: "
-		    "device not open");
+      USB_ERROR_STR(-EINVAL, "usb_bulk_int_transfer: error: device not open");
     }
 
   if(dev->config <= 0)
     {
-      USB_ERROR_STR(-EINVAL, "error writing to bulk or interrupt endpoint "
-		    "0x%02x: invalid configuration %d", ep, dev->config);
+      USB_ERROR_STR(-EINVAL, "usb_bulk_int_transfer: error: "
+		    "invalid configuration %d", dev->config);
     }
 
   if(dev->interface < 0)
     {
-      USB_ERROR_STR(-EINVAL, "error writing to bulk or interrupt endpoint "
-		    "0x%02x: invalid interface %d", ep, dev->interface);
+      USB_ERROR_STR(-EINVAL, "usb_bulk_int_transfer: error: "
+		    "invalid interface %d", dev->interface);
     }
   
-  if(ep & USB_ENDPOINT_IN)
+  if((direction == USB_ENDPOINT_OUT) && (ep & USB_ENDPOINT_IN))
     {
-      USB_ERROR_STR(-EINVAL, "error writing to bulk or interrupt endpoint "
-		    "0x02%x: invalid endpoint", ep);
+      USB_ERROR_STR(-EINVAL, "usb_bulk_int_transfer: error: "
+		    "invalid endpoint 0x%02x", ep);
+    }
+
+  if((direction == USB_ENDPOINT_IN) && !(ep & USB_ENDPOINT_IN))
+    {
+      USB_ERROR_STR(-EINVAL, "usb_bulk_int_transfer: error: "
+		    "invalid endpoint 0x%02x", ep);
     }
 
   event = CreateEvent(NULL, TRUE, FALSE, NULL);
 
   if(!event)
     {
-      USB_ERROR_STR(-win_error_to_errno(), "creating event failed: win "
-		    "error: %s", win_error_to_string());
+      USB_ERROR_STR(-win_error_to_errno(), "usb_bulk_int_transfer: error: "
+		    "creating event failed: win error: %s", 
+		    win_error_to_string());
     }
 
   req.endpoint.endpoint = ep;
-  req.timeout = timeout;
 
   ol.Offset = 0;
   ol.OffsetHigh = 0;
@@ -487,16 +502,28 @@ int usb_bulk_write(usb_dev_handle *dev, int ep, char *bytes, int size,
     ResetEvent(event);
     requested = size > LIBUSB_MAX_READ_WRITE ? LIBUSB_MAX_READ_WRITE : size;
 
-    if(!DeviceIoControl(info->handle, LIBUSB_IOCTL_INTERRUPT_OR_BULK_WRITE, 
-		    	&req, sizeof(libusb_request), bytes, 
-			requested, &ret, &ol))
+    if(direction == USB_ENDPOINT_IN)
+      {
+	tmp = DeviceIoControl(info->handle, 
+			      LIBUSB_IOCTL_INTERRUPT_OR_BULK_READ, 
+			      &req, sizeof(libusb_request), bytes, 
+			      requested, &ret, &ol);
+      }
+    else
+      {
+	tmp = DeviceIoControl(info->handle, 
+			      LIBUSB_IOCTL_INTERRUPT_OR_BULK_WRITE, 
+			      &req, sizeof(libusb_request), bytes, 
+			      requested, &ret, &ol);
+      }
+
+    if(!tmp)
       {
 	if(GetLastError() != ERROR_IO_PENDING)
 	  {
 	    CloseHandle(event);
-	    USB_ERROR_STR(-win_error_to_errno(), "error writing to bulk or "
-			  "interrupt endpoint 0x%02x: win error: %s",
-			  ep, win_error_to_string());
+	    USB_ERROR_STR(-win_error_to_errno(), "usb_bulk_int_transfer: "
+			  "error: %s", win_error_to_string());
 	  }
       }
 
@@ -505,16 +532,14 @@ int usb_bulk_write(usb_dev_handle *dev, int ep, char *bytes, int size,
 	/* request timed out */
 	usb_cancel_io(dev);
 	CloseHandle(event);
-	USB_ERROR_STR(-ETIMEDOUT, "timeout error writing to bulk or interrupt "
-		      "endpoint 0x%02x", ep);
+	USB_ERROR_STR(-ETIMEDOUT, "usb_bulk_int_transfer: timeout error");
       }
 
     if(!GetOverlappedResult(info->handle, &ol, &ret, TRUE))
       {
 	CloseHandle(event);
-	USB_ERROR_STR(-win_error_to_errno(), "error writing to bulk or "
-		      "interrupt endpoint 0x%02x: win error: %s", 
-		      ep, win_error_to_string());
+	USB_ERROR_STR(-win_error_to_errno(), "usb_bulk_int_transfer: error: "
+		      "%s", win_error_to_string());
       }
 
     sent += ret;
@@ -527,111 +552,205 @@ int usb_bulk_write(usb_dev_handle *dev, int ep, char *bytes, int size,
   return sent;
 }
 
-int usb_bulk_read(usb_dev_handle *dev, int ep, char *bytes, int size,
-		  int timeout)
+static int usb_isochronous_transfer(usb_dev_handle *dev, void *context,
+				    int direction)
 {
-  libusb_request req;
-  DWORD ret, requested;
-  int retrieved = 0;
-  HANDLE event;
-  OVERLAPPED ol;
+  DWORD ret;
+  BOOL tmp;
+  usb_iso_context *iso_context = (usb_iso_context *)context;
   win_impl_info_t *info = (win_impl_info_t *)(dev->impl_info);
 
+  if(!iso_context)
+    {
+      USB_ERROR_STR(-EINVAL, "isochronous_transfer: error: invalid context");
+    }
+    
   if(!info || info->handle == INVALID_HANDLE_VALUE)
     {
-      USB_ERROR_STR(-EINVAL, "usb_bulk_read/usb_interrupt_read: error: device "
-		    "not open");
+      USB_ERROR_STR(-EINVAL, "isochronous_transfer: error: device not open");
     }
 
   if(dev->config <= 0)
     {
-      USB_ERROR_STR(-EINVAL, "error reading from bulk or interrupt endpoint "
-		    "0x%02x: invalid configuration %d", ep, dev->config);
+      USB_ERROR_STR(-EINVAL, "isochronous_transfer: error: "
+		    "invalid configuration %d", dev->config);
     }
 
   if(dev->interface < 0)
     {
-      USB_ERROR_STR(-EINVAL, "error reading from bulk endpoint or interrupt "
-		    "0x%02x: invalid interface %d", ep, dev->interface);
+      USB_ERROR_STR(-EINVAL, "isochronous_transfer: error: "
+		    "invalid interface %d", dev->interface);
+    }
+  
+  if((direction == USB_ENDPOINT_OUT) 
+     && (iso_context->req.endpoint.endpoint & USB_ENDPOINT_IN))
+    {
+      USB_ERROR_STR(-EINVAL, "isochronous_transfer: error: "
+		    "invalid endpoint 0x%02x",
+		    iso_context->req.endpoint.endpoint);
     }
 
-  if(!(ep & USB_ENDPOINT_IN))
+  if((direction == USB_ENDPOINT_IN) 
+     && !(iso_context->req.endpoint.endpoint & USB_ENDPOINT_IN))
     {
-      USB_ERROR_STR(-EINVAL, "error reading from bulk or interrupt endpoint "
-		    "0x%02x: invalid endpoint", ep);
+      USB_ERROR_STR(-EINVAL, "isochronous_transfer: error: "
+		    "invalid endpoint 0x%02x", 
+		    iso_context->req.endpoint.endpoint);
     }
 
-  event = CreateEvent(NULL, TRUE, FALSE, NULL);
+  iso_context->ol.Offset = 0;
+  iso_context->ol.OffsetHigh = 0;
 
-  if(!event)
+  ResetEvent(iso_context->ol.hEvent);
+
+  if(direction == USB_ENDPOINT_IN)
     {
-      USB_ERROR_STR(-win_error_to_errno(), "creating event failed: win error: "
+      tmp = DeviceIoControl(info->handle, 
+			    LIBUSB_IOCTL_ISOCHRONOUS_READ, 
+			    &(iso_context->req), sizeof(libusb_request), 
+			    iso_context->bytes, 
+			    iso_context->size, &ret, &(iso_context->ol));
+    }
+  else
+    {
+      tmp = DeviceIoControl(info->handle, 
+			    LIBUSB_IOCTL_ISOCHRONOUS_WRITE, 
+			    &(iso_context->req), sizeof(libusb_request), 
+			    iso_context->bytes, 
+			    iso_context->size, &ret, &(iso_context->ol));
+    }
+  
+  if(!tmp)
+    {
+      if(GetLastError() != ERROR_IO_PENDING)
+	{
+	  USB_ERROR_STR(-win_error_to_errno(), "isochronous_transfer: error: "
+			"%s", win_error_to_string());
+	}
+    }
+
+  return 0;
+}
+
+int usb_isochronous_reap(usb_dev_handle *dev, void *context, int timeout)
+
+{
+  ULONG ret = 0;
+  usb_iso_context *iso_context = (usb_iso_context *)context;
+  win_impl_info_t *info = (win_impl_info_t *)(dev->impl_info);
+  timeout = timeout ? timeout : INFINITE;
+    
+  if(!context)
+    {
+      USB_ERROR_STR(-EINVAL, "isochronous_reap: invalid context");
+    }
+
+  if(WaitForSingleObject(iso_context->ol.hEvent, timeout) == WAIT_TIMEOUT)
+    {
+      /* request timed out */
+      usb_cancel_io(dev);
+      USB_ERROR_STR(-ETIMEDOUT, "isochronous_reap: timeout error");
+    }
+  
+  if(!GetOverlappedResult(info->handle, &(iso_context->ol), &ret, TRUE))
+    {
+      USB_ERROR_STR(-win_error_to_errno(), "isochronous_reap: error: "
 		    "%s", win_error_to_string());
     }
 
-  req.endpoint.endpoint = ep;
-  req.timeout = timeout;
+  return ret;
+}
 
-  ol.Offset = 0;
-  ol.OffsetHigh = 0;
-  ol.hEvent = event;
+int usb_bulk_write(usb_dev_handle *dev, int ep, char *bytes, int size,
+		   int timeout)
+{
+  return usb_bulk_int_transfer(dev, ep, USB_ENDPOINT_OUT, bytes, size, 
+			       timeout);
 
-  timeout = timeout ? timeout : INFINITE;
+}
 
-  do {
-    ResetEvent(event);
-    requested = size > LIBUSB_MAX_READ_WRITE ? LIBUSB_MAX_READ_WRITE : size;
-
-    if(!DeviceIoControl(info->handle, LIBUSB_IOCTL_INTERRUPT_OR_BULK_READ, 
-			&req, sizeof(libusb_request), bytes, 
-			requested, &ret, &ol))
-      {
-	if(GetLastError() != ERROR_IO_PENDING)
-	  {
-	    CloseHandle(event);
-	    USB_ERROR_STR(-win_error_to_errno(), "error reading from bulk or "
-			  "interrupt endpoint 0x%02x: win error: %s",
-			  ep, win_error_to_string());
-	  }
-      }
-
-    if(WaitForSingleObject(event, timeout) == WAIT_TIMEOUT)
-      {
-	/* request timed out */
-	usb_cancel_io(dev);
-	CloseHandle(event);
-	USB_ERROR_STR(-ETIMEDOUT, "timeout error reading from bulk or "
-		      "interrupt endpoint 0x%02x", ep);
-      }
-
-    if(!GetOverlappedResult(info->handle, &ol, &ret, TRUE))
-      {
-	CloseHandle(event);
-	USB_ERROR_STR(-win_error_to_errno(), "error reading from bulk or "
-		      "interrupt endpoint 0x%02x: win error: %s",
-		      ep, win_error_to_string());
-      }
-
-    retrieved += ret;
-    bytes += ret;
-    size -= ret;
-  } while(ret > 0 && size && ret == requested);
-  
-  CloseHandle(event);
-
-  return retrieved;
+int usb_bulk_read(usb_dev_handle *dev, int ep, char *bytes, int size,
+		  int timeout)
+{
+  return usb_bulk_int_transfer(dev, ep, USB_ENDPOINT_IN, bytes, size, timeout);
 }
 
 int usb_interrupt_write(usb_dev_handle *dev, int ep, char *bytes, int size,
 			int timeout)
 {
-  return usb_bulk_write(dev, ep, bytes, size, timeout);
+  return usb_bulk_int_transfer(dev, ep, USB_ENDPOINT_OUT, bytes, size, 
+			       timeout);
 }
 
 int usb_interrupt_read(usb_dev_handle *dev, int ep, char *bytes, int size,
 		       int timeout)
 {
-  return usb_bulk_read(dev, ep, bytes, size, timeout);
+  return usb_bulk_int_transfer(dev, ep, USB_ENDPOINT_IN, bytes, size, timeout);
+}
+
+int usb_isochronous_write(usb_dev_handle *dev, void *context)
+{
+  return usb_isochronous_transfer(dev, context, USB_ENDPOINT_OUT);
+}
+
+int usb_isochronous_read(usb_dev_handle *dev, void *context)
+{
+  return usb_isochronous_transfer(dev, context, USB_ENDPOINT_IN);
+}
+
+int usb_isochronous_setup(void **context, unsigned char ep,
+			  int pktsize, char *bytes, int size)
+{
+  usb_iso_context *iso_context;
+
+  if(*context)
+    {
+      usb_isochronous_free(context);
+    }
+  
+  *context = malloc(sizeof(usb_iso_context));
+  iso_context = (usb_iso_context *)(*context);
+  
+  iso_context->req.endpoint.endpoint = ep;
+  iso_context->req.endpoint.packet_size = pktsize;  
+  iso_context->ol.Offset = 0;
+  iso_context->ol.OffsetHigh = 0;
+  iso_context->ol.hEvent = CreateEvent(NULL, TRUE, FALSE, NULL);
+
+  if(!iso_context->ol.hEvent)
+    {
+      free(*context);
+      *context = NULL;
+      USB_ERROR_STR(-win_error_to_errno(), "creating event failed: win "
+		    "error: %s", win_error_to_string());
+    }
+
+  iso_context->size = size > LIBUSB_MAX_READ_WRITE ? 
+    LIBUSB_MAX_READ_WRITE : size;
+
+  iso_context->bytes = bytes;
+  iso_context->size = size;
+
+  return 0;
+}
+
+int usb_isochronous_free(void **context)
+{
+  usb_iso_context *iso_context;
+
+  if(!*context)
+    {
+      USB_ERROR_STR(-EINVAL, "isochronous_free: invalid context");
+    }
+
+  iso_context = (usb_iso_context *)(*context);
+
+  CloseHandle(iso_context->ol.hEvent);
+
+  free(*context);
+  *context = NULL;
+
+  return 0;
 }
 
 int usb_control_msg(usb_dev_handle *dev, int requesttype, int request,

@@ -27,6 +27,7 @@ SOURCES = \
 	clear_feature.c \
 	get_status.c \
 	bulk_transfer.c \
+	isochronous_transfer.c \
 	vendor_request.c \
 	debug.c \
 	internal_ioctl.c

@@ -93,6 +93,11 @@ enum {
 #define LIBUSB_IOCTL_GET_VERSION CTL_CODE(FILE_DEVICE_UNKNOWN,\
 0x812, METHOD_BUFFERED, FILE_ANY_ACCESS)
 
+#define LIBUSB_IOCTL_ISOCHRONOUS_WRITE CTL_CODE(FILE_DEVICE_UNKNOWN,\
+0x813, METHOD_IN_DIRECT, FILE_ANY_ACCESS)
+
+#define LIBUSB_IOCTL_ISOCHRONOUS_READ CTL_CODE(FILE_DEVICE_UNKNOWN,\
+0x814, METHOD_OUT_DIRECT, FILE_ANY_ACCESS)
 
 #include <pshpack1.h> 
 
@@ -112,6 +117,7 @@ typedef struct {
     struct
     {
       unsigned int endpoint;
+      unsigned int packet_size;
     } endpoint;    
     struct
     {

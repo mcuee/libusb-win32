@@ -1,4 +1,4 @@
-/* LIBUSB-WIN32, Generic Windows USB Driver
+#/* LIBUSB-WIN32, Generic Windows USB Driver
  * Copyright (C) 2002-2004 Stephan Meyer, <ste_meyer@web.de>
  *
  * This program is free software; you can redistribute it and/or modify
@@ -312,6 +312,40 @@ NTSTATUS dispatch_ioctl(libusb_device_extension *device_extension, IRP *irp)
 
       ret = sizeof(libusb_request);
       break;
+
+    case LIBUSB_IOCTL_ISOCHRONOUS_READ:
+      if(!transfer_buffer_mdl)
+	{
+	  debug_printf(LIBUSB_DEBUG_ERR, "dispatch_ioctl(), isochronous_read: "
+		       "invalid transfer buffer");
+	  status = STATUS_INVALID_PARAMETER;
+	  break;
+	}
+
+      return isochronous_transfer(irp, device_extension,
+				  request->endpoint.endpoint,
+				  request->endpoint.packet_size,
+				  transfer_buffer_mdl, 
+				  transfer_buffer_length, 
+				  USBD_TRANSFER_DIRECTION_IN);
+
+    case LIBUSB_IOCTL_ISOCHRONOUS_WRITE:
+
+      if(!transfer_buffer_mdl)
+	{
+	  debug_printf(LIBUSB_DEBUG_ERR, 
+		       "dispatch_ioctl(), isochronous_write: "
+		       "invalid transfer buffer");
+	  status = STATUS_INVALID_PARAMETER;
+	  break;
+	}
+
+      return isochronous_transfer(irp, device_extension,
+				  request->endpoint.endpoint,
+				  request->endpoint.packet_size,
+				  transfer_buffer_mdl, 
+				  transfer_buffer_length, 
+				  USBD_TRANSFER_DIRECTION_OUT);
 
     default:
       
