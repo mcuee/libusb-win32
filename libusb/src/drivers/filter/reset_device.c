@@ -28,14 +28,26 @@ NTSTATUS reset_device(libusb_device_extension *device_extension, int timeout)
   debug_print_nl();
   debug_printf(LIBUSB_DEBUG_MSG, "reset_device()");
   debug_printf(LIBUSB_DEBUG_MSG, "reset_device(): timeout %d", timeout);
-
-  status = call_usbd(device_extension, NULL, 
-		     IOCTL_INTERNAL_USB_RESET_PORT, timeout);
+  
+  status = call_usbd(device_extension, NULL,
+ 		     IOCTL_INTERNAL_USB_RESET_PORT, timeout);
   
   if(!NT_SUCCESS(status))
     {
-      debug_printf(LIBUSB_DEBUG_ERR, "reset_device(): request failed: "
-		   "status: 0x%x", status);
+      debug_printf(LIBUSB_DEBUG_ERR, "reset_device(): "
+		   "IOCTL_INTERNAL_USB_RESET_PORT failed: status: 0x%x", 
+		   status);
     }
+
+  status = call_usbd(device_extension, NULL,
+ 		     IOCTL_INTERNAL_USB_CYCLE_PORT, timeout);
+  
+  if(!NT_SUCCESS(status))
+    {
+      debug_printf(LIBUSB_DEBUG_ERR, "reset_device(): "
+		   "IOCTL_INTERNAL_USB_CYCLE_PORT failed: status: 0x%x", 
+		   status);
+    }
+
   return status;
 }

@@ -22,7 +22,7 @@
 
 
 static struct {
-  FAST_MUTEX mutex;
+  KMUTEX mutex;
   int is_used[LIBUSB_MAX_NUMBER_OF_DEVICES];
 } device_ids;
 
@@ -32,7 +32,7 @@ NTSTATUS __stdcall DriverEntry(DRIVER_OBJECT *driver_object,
   PDRIVER_DISPATCH *dispatch_function = driver_object->MajorFunction;
   int i;
 
-  ExInitializeFastMutex(&device_ids.mutex);
+  KeInitializeMutex(&device_ids.mutex, 0);
 
   for(i = 0; i < LIBUSB_MAX_NUMBER_OF_DEVICES; i++)
     {
@@ -436,7 +436,8 @@ int get_device_id(libusb_device_extension *device_extension)
   
   device_extension->device_id = -1;
 
-  ExAcquireFastMutex(&device_ids.mutex);
+  KeWaitForSingleObject(&device_ids.mutex, Executive, KernelMode,
+			FALSE, NULL);
 
   for(i = 0; i < LIBUSB_MAX_NUMBER_OF_DEVICES; i++)
     {
@@ -449,7 +450,7 @@ int get_device_id(libusb_device_extension *device_extension)
 	}
     }
 
-  ExReleaseFastMutex(&device_ids.mutex);
+  KeReleaseMutex(&device_ids.mutex, FALSE);
   return ret;
 }
 
@@ -457,14 +458,15 @@ void release_device_id(libusb_device_extension *device_extension)
 {
   if(device_extension->device_id >= 0)
     {
-      ExAcquireFastMutex(&device_ids.mutex);
+      KeWaitForSingleObject(&device_ids.mutex, Executive, KernelMode,
+			    FALSE, NULL);
       
       if(device_extension->device_id < LIBUSB_MAX_NUMBER_OF_DEVICES)
 	{
 	  device_ids.is_used[device_extension->device_id] = FALSE;
 	}
 
-      ExReleaseFastMutex(&device_ids.mutex);
+      KeReleaseMutex(&device_ids.mutex, FALSE);
     }
 }
 

@@ -852,7 +852,7 @@ int usb_os_find_devices(struct usb_bus *bus, struct usb_device **devices)
 			    USB_DT_DEVICE_SIZE,
 			    LIBUSB_DEFAULT_TIMEOUT);
 
-      if(ret < USB_DT_DEVICE_SIZE) 
+      if((ret < USB_DT_DEVICE_SIZE) | !dev->descriptor.idVendor) 
 	{
 	  USB_MESSAGE_STR(LIBUSB_DEBUG_ERR, "usb_os_find_devices: couldn't "
 			  "read device descriptor");
@@ -887,55 +887,64 @@ void usb_os_init(void)
   DWORD ret;
   HANDLE dev;
   libusb_request req;
+  int i;
+  char dev_name[LIBUSB_PATH_MAX];
 
   USB_MESSAGE_STR(LIBUSB_DEBUG_MSG, "usb_os_init: dll version: %d.%d.%d.%d",
 		  LIBUSB_VERSION_MAJOR, LIBUSB_VERSION_MINOR,
 		  LIBUSB_VERSION_MICRO, LIBUSB_VERSION_NANO);
 
-  dev = CreateFile(LIBUSB_DEVICE_NAME_ZERO, 
-		   GENERIC_READ, FILE_SHARE_READ,
-		   NULL, OPEN_EXISTING, FILE_FLAG_OVERLAPPED,
-		   NULL);
-  
-  if(dev == INVALID_HANDLE_VALUE) 
-    {
-      USB_MESSAGE_STR(LIBUSB_DEBUG_ERR, "usb_os_init: open driver failed");
-      return;
-    }
-  
-  if(!DeviceIoControl(dev, LIBUSB_IOCTL_GET_VERSION, &req, 
-		      sizeof(libusb_request), &req, sizeof(libusb_request), 
-		      &ret, NULL))
-    {
-      USB_MESSAGE_STR(LIBUSB_DEBUG_ERR, "usb_os_init: getting driver "
-		      "version failed");
-    }
-  else 
-    {
-      _usb_version.driver.major = req.version.major;
-      _usb_version.driver.minor = req.version.minor;
-      _usb_version.driver.micro = req.version.micro;
-      _usb_version.driver.nano = req.version.nano;
 
-      USB_MESSAGE_STR(LIBUSB_DEBUG_MSG, "usb_os_init: driver version: "
-		      "%d.%d.%d.%d",
-		      req.version.major, req.version.minor, 
-		      req.version.micro, req.version.nano);
-    }
 
-  /* set debug level */
-  req.timeout = 0;
-  req.debug.level = usb_debug;
+  for(i = 0; i < LIBUSB_MAX_DEVICES; i++)
+    {
+      /* build the Windows file name */
+      snprintf(dev_name, sizeof(dev_name) - 1,"%s%04d", LIBUSB_DEVICE_NAME, i);
+
+      dev = CreateFile(dev_name, 
+		       GENERIC_READ, FILE_SHARE_READ,
+		       NULL, OPEN_EXISTING, FILE_FLAG_OVERLAPPED,
+		       NULL);
+  
+      if(dev == INVALID_HANDLE_VALUE) 
+	{
+	  continue;
+	}
       
-  if(!DeviceIoControl(dev, LIBUSB_IOCTL_SET_DEBUG_LEVEL, 
-		      &req, sizeof(libusb_request), 
-		      NULL, 0, &ret, NULL))
-    {
-      USB_MESSAGE_STR(LIBUSB_DEBUG_ERR, "usb_os_init: setting debug level "
-		      "failed");
+      if(!DeviceIoControl(dev, LIBUSB_IOCTL_GET_VERSION, &req, 
+			  sizeof(libusb_request), &req, 
+			  sizeof(libusb_request), &ret, NULL))
+	{
+	  USB_MESSAGE_STR(LIBUSB_DEBUG_ERR, "usb_os_init: getting driver "
+			  "version failed");
+	}
+      else 
+	{
+	  _usb_version.driver.major = req.version.major;
+	  _usb_version.driver.minor = req.version.minor;
+	  _usb_version.driver.micro = req.version.micro;
+	  _usb_version.driver.nano = req.version.nano;
+	  
+	  USB_MESSAGE_STR(LIBUSB_DEBUG_MSG, "usb_os_init: driver version: "
+			  "%d.%d.%d.%d",
+			  req.version.major, req.version.minor, 
+			  req.version.micro, req.version.nano);
+	}
+      
+      /* set debug level */
+      req.timeout = 0;
+      req.debug.level = usb_debug;
+      
+      if(!DeviceIoControl(dev, LIBUSB_IOCTL_SET_DEBUG_LEVEL, 
+			  &req, sizeof(libusb_request), 
+			  NULL, 0, &ret, NULL))
+	{
+	  USB_MESSAGE_STR(LIBUSB_DEBUG_ERR, "usb_os_init: setting debug level "
+			  "failed");
+	}
+      
+      CloseHandle(dev);
     }
-
-  CloseHandle(dev);
 }
 
 

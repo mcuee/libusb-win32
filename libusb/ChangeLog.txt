@@ -11,6 +11,9 @@ Version 0.1.8.1:
 	  Cygwin and the latest MSys/MinGW.
 	- DLL: improved error handling (function return values).
 	- Installer: fixed minor bug.
+	- Driver: improved hotplug behavior.
+	- Driver: improved usb_reset().
+	- DLL: fixed bug in initialization code.
 
 Version 0.1.8.0:
 	
