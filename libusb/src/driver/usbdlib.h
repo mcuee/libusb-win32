@@ -11,8 +11,6 @@ extern "C" {
 
 #pragma pack(push,4)
 
-#include <ddk/usb.h>
-
 
   typedef struct _USBD_INTERFACE_LIST_ENTRY {
     PUSB_INTERFACE_DESCRIPTOR InterfaceDescriptor;

@@ -50,6 +50,10 @@ bool_t usb_registry_get_property(DWORD which, HDEVINFO dev_info,
       val_name = "LowerFilters";
       key_type = DIREG_DEV; 
       break;
+    case SPDRP_UPPERFILTERS:
+      val_name = "UpperFilters";
+      key_type = DIREG_DEV; 
+      break;
     case SPDRP_SERVICE:
       val_name = "NTMPDriver";
       key_type = DIREG_DRV;
@@ -144,6 +148,10 @@ bool_t usb_registry_set_property(DWORD which, HDEVINFO dev_info,
       reg_type = usb_registry_is_nt() ? REG_MULTI_SZ : REG_SZ;
       val_name = "LowerFilters";
       break;
+    case SPDRP_UPPERFILTERS:
+      reg_type = usb_registry_is_nt() ? REG_MULTI_SZ : REG_SZ;
+      val_name = "UpperFilters";
+      break;
     default:
       return 0;
     }
@@ -228,14 +236,16 @@ bool_t usb_registry_insert_filter(HDEVINFO dev_info,
 {
   char filters[MAX_PATH];
   
-  usb_registry_get_property(SPDRP_LOWERFILTERS, dev_info, dev_info_data, 
+  usb_registry_get_property(SPDRP_UPPERFILTERS, dev_info, dev_info_data, 
                             filters, sizeof(filters));
 
   usb_registry_mz_string_lower(filters);
 
-  if(usb_registry_mz_string_insert(filters, filter_name))
+  if(!usb_registry_mz_string_find(filters, filter_name))
     {
-      if(!usb_registry_set_property(SPDRP_LOWERFILTERS, dev_info, 
+      usb_registry_mz_string_insert(filters, filter_name);
+      
+      if(!usb_registry_set_property(SPDRP_UPPERFILTERS, dev_info, 
                                     dev_info_data, filters,
                                     usb_registry_mz_string_size(filters)))
         {
@@ -254,14 +264,16 @@ bool_t usb_registry_remove_filter(HDEVINFO dev_info,
 {
   char filters[MAX_PATH];
 
-  usb_registry_get_property(SPDRP_LOWERFILTERS, dev_info, dev_info_data, 
+  usb_registry_get_property(SPDRP_UPPERFILTERS, dev_info, dev_info_data, 
                             filters, sizeof(filters));
 
   usb_registry_mz_string_lower(filters);
 
-  if(usb_registry_mz_string_remove(filters, filter_name))
+  if(usb_registry_mz_string_find(filters, filter_name))
     {
-      if(!usb_registry_set_property(SPDRP_LOWERFILTERS, dev_info, 
+      usb_registry_mz_string_remove(filters, filter_name);
+      
+      if(!usb_registry_set_property(SPDRP_UPPERFILTERS, dev_info, 
                                     dev_info_data, filters,
                                     usb_registry_mz_string_size(filters)))
         {
@@ -376,8 +388,7 @@ void usb_registry_start_filter(void)
       if(usb_registry_match(dev_info, &dev_info_data)
          && !usb_registry_is_service_libusb(dev_info, &dev_info_data))
         {
-          if(usb_registry_insert_filter(dev_info, &dev_info_data,
-                                        filter_name))
+          if(usb_registry_insert_filter(dev_info, &dev_info_data, filter_name))
             {
               usb_registry_restart_device(dev_info, &dev_info_data);
             }
@@ -554,11 +565,6 @@ char *usb_registry_mz_string_find(char *src, char *str)
 
 bool_t usb_registry_mz_string_insert(char *src, char *str)
 {
-  if(usb_registry_mz_string_find(src, str))
-    {
-      return FALSE;
-    }
-
   while(*src)
     {
       src += (strlen(src) + 1);
@@ -605,3 +611,4 @@ void usb_registry_mz_string_lower(char *src)
       src += (strlen(src) + 1);
     }
 }
+

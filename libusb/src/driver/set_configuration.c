@@ -67,12 +67,13 @@ NTSTATUS set_configuration(libusb_device_extension *device_extension,
      
       device_extension->configuration = configuration;
 
+      release_all_interfaces(device_extension);
       clear_pipe_info(device_extension);
+
       return status;
     }
 
-  status = get_descriptor(device_extension,
-                          &device_descriptor,
+  status = get_descriptor(device_extension, &device_descriptor,
                           sizeof(USB_DEVICE_DESCRIPTOR), 
                           USB_DEVICE_DESCRIPTOR_TYPE,
                           0, 0, &junk, LIBUSB_DEFAULT_TIMEOUT);  
@@ -228,6 +229,7 @@ NTSTATUS set_configuration(libusb_device_extension *device_extension,
   
   device_extension->configuration = configuration;
 
+  release_all_interfaces(device_extension);
   clear_pipe_info(device_extension);
 
   for(i = 0; i < configuration_descriptor->bNumInterfaces; i++)

@@ -44,7 +44,6 @@ typedef int bool_t;
 
 bool_t usb_registry_is_nt(void);
 
-
 bool_t usb_registry_get_property(DWORD which, HDEVINFO dev_info, 
                                  SP_DEVINFO_DATA *dev_info_data,
                                  char *buf, int size);
@@ -84,5 +83,6 @@ char *usb_registry_mz_string_find_sub(char *src, char *str);
 bool_t usb_registry_mz_string_insert(char *src, char *str);
 bool_t usb_registry_mz_string_remove(char *src, char *str);
 void usb_registry_mz_string_lower(char *src);
+
 
 #endif

@@ -24,8 +24,6 @@
 #include "registry.h"
 
 
-#define LIBUSB_SERVICE_NAME   "libusbd"
-#define LIBUSB_SERVICE_PATH   "system32\\libusbd-nt.exe"
 
 #define LIBUSB_SERVICE_CONTROL_PAUSE 128
 #define LIBUSB_SERVICE_CONTROL_CONTINUE 129

@@ -19,6 +19,8 @@
 
 
 #define WINVER 0x0500
+#define INITGUID
+
 #include <windows.h>
 #include <dbt.h>
 #include <stdio.h>
@@ -62,8 +64,6 @@ LRESULT CALLBACK win_proc(HWND handle, UINT message, WPARAM w_param,
 
 static void on_size(int width, int height);
 static void on_refresh(void);
-LRESULT CALLBACK on_about(HWND dialog, UINT message, WPARAM w_param, 
-                          LPARAM l_param);
 
 static void edit_printf_init(void);
 static void edit_printf_free(void);
@@ -100,8 +100,10 @@ int APIENTRY WinMain(HINSTANCE instance, HINSTANCE prev_instance,
   RegisterClassEx(&win_class);
 
   main_win = CreateWindowEx(WS_EX_APPWINDOW| WS_EX_CONTROLPARENT,
-                            LIBUSB_WINDOW_CLASS, "TestLibUsb - Windows Version", 
-                            WS_OVERLAPPEDWINDOW | WS_CLIPCHILDREN | WS_DLGFRAME,
+                            LIBUSB_WINDOW_CLASS, 
+                            "TestLibUsb - Windows Version", 
+                            WS_OVERLAPPEDWINDOW | WS_CLIPCHILDREN 
+                            | WS_DLGFRAME,
                             CW_USEDEFAULT, 0, 500, 500, NULL, NULL, 
                             instance, NULL);
   if(!main_win) 
@@ -137,7 +139,7 @@ int APIENTRY WinMain(HINSTANCE instance, HINSTANCE prev_instance,
 
   ShowWindow(main_win, cmd_show);
   UpdateWindow(main_win);
-  SetForegroundWindow(main_win);
+  BringWindowToTop(main_win);
 
   usb_set_debug(4);
   usb_init();
@@ -336,26 +338,6 @@ static void on_refresh(void)
   SendMessage(edit_box, WM_SETTEXT, 0, (LPARAM) edit_buffer); 
   edit_printf_free();
 }
-
-
-LRESULT CALLBACK on_about(HWND dialog, UINT message, WPARAM w_param, 
-                          LPARAM l_param)
-{
-  switch(message)
-    {
-    case WM_INITDIALOG:
-      return TRUE;
-    case WM_COMMAND:
-      if(LOWORD(w_param) == IDOK) 
-        {
-          EndDialog(dialog, LOWORD(w_param));
-          return TRUE;
-        }
-      break;
-    }
-  return FALSE;
-}
-
 
 static void edit_printf_init(void)
 {

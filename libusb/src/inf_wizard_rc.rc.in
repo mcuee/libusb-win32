@@ -1,3 +1,6 @@
+
+#define _WIN32_IE 0x0400
+
 #include <windows.h>
 #include <commctrl.h>
 
@@ -72,8 +75,8 @@ BEGIN
     GROUPBOX        "Device Selection",ID_DUMMY,10,10,285,155
     LTEXT           0,ID_LIST_HEADER_TEXT,20,25,270,30
     CONTROL         "List2",ID_LIST,WC_LISTVIEW, 
-                    WS_BORDER | WS_TABSTOP | LVS_REPORT | LVS_SINGLESEL | LVS_SHOWSELALWAYS, 
-                    20,60,265,95
+                    WS_BORDER | WS_TABSTOP | LVS_REPORT | LVS_SINGLESEL 
+                    | LVS_SHOWSELALWAYS, 20,60,265,95
 END
 
 ID_DIALOG_2 DIALOG DISCARDABLE  0, 0, 310, 200

@@ -19,15 +19,11 @@
 
 #include "libusb_driver.h"
 
+
 NTSTATUS DDKAPI dispatch(DEVICE_OBJECT *device_object, IRP *irp)
 {
   libusb_device_extension *device_extension = 
     (libusb_device_extension *)device_object->DeviceExtension;
-
-  if(device_extension->is_control_object)
-    {
-      return dispatch_control(device_object, irp);
-    }
 
   switch(IoGetCurrentIrpStackLocation(irp)->MajorFunction) 
     {
@@ -38,60 +34,45 @@ NTSTATUS DDKAPI dispatch(DEVICE_OBJECT *device_object, IRP *irp)
       return dispatch_power(device_extension, irp);
 
     case IRP_MJ_DEVICE_CONTROL:
-      return dispatch_ioctl(device_extension, irp);
-
-    case IRP_MJ_INTERNAL_DEVICE_CONTROL:
-      return dispatch_internal_ioctl(device_extension, irp);
-
-    default:
-      IoSkipCurrentIrpStackLocation(irp);
-      return IoCallDriver(device_extension->next_stack_device, irp);
-    }
-}
-
-
-NTSTATUS dispatch_control(DEVICE_OBJECT *device_object, IRP *irp)
-{
-  libusb_device_extension *device_extension = 
-    (libusb_device_extension *)device_object->DeviceExtension;
-  libusb_device_extension *main_device_extension = NULL;
-
-  switch(IoGetCurrentIrpStackLocation(irp)->MajorFunction)
-    {
-    case IRP_MJ_DEVICE_CONTROL:
-      if(device_extension->main_device_object)
-        return dispatch(device_extension->main_device_object, irp);
-      else
-        return complete_irp(irp, STATUS_DELETE_PENDING, 0);
+      if(is_irp_for_us(device_extension, irp))
+        {
+          return dispatch_ioctl(device_extension, irp);
+        }
+      break;
 
     case IRP_MJ_CREATE:
-      InterlockedIncrement(&device_extension->ref_count);
-      return complete_irp(irp, STATUS_SUCCESS, 0);
+      if(is_irp_for_us(device_extension, irp))
+        {
+          InterlockedIncrement(&device_extension->ref_count);
+          return complete_irp(irp, STATUS_SUCCESS, 0);
+        }
+      break;
 
     case IRP_MJ_CLOSE:
-      if(!InterlockedDecrement(&device_extension->ref_count))
+      if(is_irp_for_us(device_extension, irp))
         {
-          if(device_extension->main_device_object)
-            {	      
-              main_device_extension = (libusb_device_extension *)
-                device_extension->main_device_object->DeviceExtension;
-              release_all_interfaces(main_device_extension);
-            }
-          else
+          if(!InterlockedIncrement(&device_extension->ref_count))
             {
-              debug_printf(LIBUSB_DEBUG_MSG, "dispatch_control(): releasing "
-                           "device id %d", device_extension->device_id);
-              release_device_id(device_extension);
+              release_all_interfaces(device_extension);
             }
+          return complete_irp(irp, STATUS_SUCCESS, 0);
         }
-      return complete_irp(irp, STATUS_SUCCESS, 0);
+      break;
 
     case IRP_MJ_CLEANUP:
-      return complete_irp(irp, STATUS_SUCCESS, 0);
+      if(is_irp_for_us(device_extension, irp))
+        {
+          return complete_irp(irp, STATUS_SUCCESS, 0);
+        }
+      break;
 
     default:
-      return complete_irp(irp, STATUS_NOT_SUPPORTED, 0);
+      if(is_irp_for_us(device_extension, irp))
+        {
+          return complete_irp(irp, STATUS_NOT_SUPPORTED, 0);
+        }
     }
-}
 
+  return pass_irp_down(device_extension, irp);
+}
 
