@@ -13,7 +13,7 @@
 
 [Setup]
 AppName=TestDrivers
-AppVerName=TestDrivers 1.1.3
+AppVerName=TestDrivers 1.2.3
 AppPublisher=TestDrivers
 AppPublisherURL=http://test.url.com/
 AppVersion=1.2.3
@@ -28,9 +28,9 @@ PrivilegesRequired=admin
 [Files]
 ; copy the file to the App folder
 Source: "*.sys"; DestDir: "{app}\driver"
-Source: "*.cab"; DestDir: "{app}\driver"
+Source: "*.cat"; DestDir: "{app}\driver"
 Source: "*.dll"; DestDir: "{app}\driver"
-Source: "<your_inf_file.inf>"; DestDir: "{app}\driver"
+Source: "*.inf"; DestDir: "{app}\driver"
 
 ; also copy the DLL to the system folders so that rundll32.exe will find it
 Source: "*.dll"; DestDir: "{win}\system32"; FLags: replacesameversion restartreplace
