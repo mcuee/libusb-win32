@@ -20,7 +20,6 @@ VERSION_NANO = 0
 
 VERSION = $(VERSION_MAJOR).$(VERSION_MINOR).$(VERSION_MICRO).$(VERSION_NANO)
 RC_VERSION = $(VERSION_MAJOR),$(VERSION_MINOR),$(VERSION_MICRO),$(VERSION_NANO)
-#INF_DATE = $(shell date +"%m\/%d\/%Y")
 INF_DATE = $(shell date +"%m/%d/%Y")
 DATE = $(shell date +"%Y%m%d")
 
@@ -35,7 +34,7 @@ OBJECTS = usb.o error.o descriptors.o windows.o resource.o install.o \
 	registry.o service.o win_debug.o
 
 DRIVER_OBJECTS = abort_endpoint.o claim_interface.o clear_feature.o \
-	debug.o dispatch.o get_configuration.o \
+	dispatch.o get_configuration.o \
 	get_descriptor.o get_interface.o get_status.o \
 	ioctl.o libusb_driver.o pnp.o release_interface.o reset_device.o \
 	reset_endpoint.o set_configuration.o set_descriptor.o \
@@ -66,10 +65,10 @@ CPPFLAGS = -DVERSION_MAJOR=$(VERSION_MAJOR) \
 	-DVERSION_NANO=$(VERSION_NANO) \
 	-DINF_DATE="$(INF_DATE)" \
 	-DVERSION="$(VERSION)" \
-	-DDBG
+  -DDBG
 
 LDFLAGS = -s -mno-cygwin -L. -lusb -lgdi32 -luser32 -lsetupapi \
-	 -lcfgmgr32 -lcomctl32
+	 				-lcfgmgr32 -lcomctl32
 WIN_LDFLAGS = $(LDFLAGS) -mwindows
 
 DLL_LDFLAGS = -s -mwindows -shared -mno-cygwin \
@@ -99,7 +98,7 @@ $(DRIVER_TARGET): $(TARGET)_driver_rc.rc driver_api.h $(DRIVER_OBJECTS)
 	--output-lib libusbd.a
 	$(CC) -o $@ $(DRIVER_OBJECTS) $(DRIVER_LDFLAGS)
 
-inf-wizard.exe: inf_wizard.o inf_wizard_rc.o registry.o win_debug.o
+inf-wizard.exe: inf_wizard_rc.o inf_wizard.o registry.o win_debug.o
 	$(CC) $(CFLAGS) -o $@ -I./src  $^ $(WIN_LDFLAGS)
 
 testlibusb.exe: testlibusb.o resource.o 
@@ -117,9 +116,8 @@ libusbd-9x.exe: service_9x.o service.o registry.o resource.o win_debug.o
 %.o: %.c
 	$(CC) -c $< -o $@ $(CFLAGS) -Wall $(CPPFLAGS) $(INCLUDES) 
 
-%.o: %.rc.in
-	sed -e 's/@RC_VERSION@/$(RC_VERSION)/' \
-	-e 's/@VERSION@/$(VERSION)/' $< | $(WINDRES) -o $@
+%.o: %.rc
+	$(WINDRES) $< -o $@
 
 %.rc: %.rc.in
 	sed -e 's/@RC_VERSION@/$(RC_VERSION)/' \
