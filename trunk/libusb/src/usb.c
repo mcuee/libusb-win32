@@ -214,7 +214,7 @@ int usb_get_string(usb_dev_handle *dev, int index, int langid, char *buf,
 
 int usb_get_string_simple(usb_dev_handle *dev, int index, char *buf, size_t buflen)
 {
-  char tbuf[256];
+  char tbuf[255];
   int ret, langid, si, di;
 
   /*

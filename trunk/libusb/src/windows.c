@@ -430,7 +430,7 @@ int usb_bulk_write(usb_dev_handle *dev, int ep, char *bytes, int size,
 		      "endpoint 0x%02x", ep);
       }
 
-    if(!GetOverlappedResult(dev->impl_info, &ol, &ret, FALSE))
+    if(!GetOverlappedResult(dev->impl_info, &ol, &ret, TRUE))
       {
 	CloseHandle(event);
 	USB_ERROR_STR(-win_error_to_errno(), "error writing to bulk or "
@@ -525,7 +525,7 @@ int usb_bulk_read(usb_dev_handle *dev, int ep, char *bytes, int size,
 		      "interrupt endpoint 0x%02x", ep);
       }
 
-    if(!GetOverlappedResult(dev->impl_info, &ol, &ret, FALSE))
+    if(!GetOverlappedResult(dev->impl_info, &ol, &ret, TRUE))
       {
 	CloseHandle(event);
 	USB_ERROR_STR(-win_error_to_errno(), "error reading from bulk or "
@@ -957,6 +957,13 @@ int usb_resetep(usb_dev_handle *dev, unsigned int ep)
       USB_ERROR_STR(-EINVAL, "usb_resetep: error: device not open");
     }
 
+  if(!DeviceIoControl(dev->impl_info, LIBUSB_IOCTL_ABORT_ENDPOINT, &req, 
+		      sizeof(libusb_request), NULL, 0, &ret, NULL))
+    {
+      USB_ERROR_STR(-win_error_to_errno(), "could not abort ep 0x%x : win "
+		    "error: %s", ep, win_error_to_string());
+    }
+
   if(!DeviceIoControl(dev->impl_info, LIBUSB_IOCTL_RESET_ENDPOINT, &req, 
 		      sizeof(libusb_request), NULL, 0, &ret, NULL))
     {
@@ -969,23 +976,23 @@ int usb_resetep(usb_dev_handle *dev, unsigned int ep)
 
 int usb_clear_halt(usb_dev_handle *dev, unsigned int ep)
 {
-  int ret;
+  DWORD ret;
+  libusb_request req;
+  req.endpoint.endpoint = (int)ep;
+  req.timeout = LIBUSB_DEFAULT_TIMEOUT;
 
   if(dev->impl_info == INVALID_HANDLE_VALUE)
     {
       USB_ERROR_STR(-EINVAL, "usb_clear_halt: error: device not open");
     }
 
-  ret = usb_control_msg(dev, USB_RECIP_ENDPOINT, USB_REQ_CLEAR_FEATURE,
-			USB_FEATURE_ENDPOINT_HALT, (int)ep, NULL, 0, 
-			LIBUSB_DEFAULT_TIMEOUT);
-
-  if(ret < 0)
+  if(!DeviceIoControl(dev->impl_info, LIBUSB_IOCTL_RESET_ENDPOINT, &req, 
+		      sizeof(libusb_request), NULL, 0, &ret, NULL))
     {
-      USB_ERROR_STR(ret, "could not clear/halt ep 0x%x: win error: %s", ep,
-		    win_error_to_string());
+      USB_ERROR_STR(-win_error_to_errno(), "could not clear halt, ep 0x%x:"
+		    " win error: %s", ep, win_error_to_string());
     }
-
+  
   return 0;
 }
 
@@ -999,6 +1006,8 @@ int usb_reset(usb_dev_handle *dev)
     {
       USB_ERROR_STR(-EINVAL, "usb_reset: error: device not open");
     }
+
+  usb_cancel_io(dev);
 
   if(!DeviceIoControl(dev->impl_info, LIBUSB_IOCTL_RESET_DEVICE,
 		      &req, sizeof(libusb_request), NULL, 0, &ret, NULL))

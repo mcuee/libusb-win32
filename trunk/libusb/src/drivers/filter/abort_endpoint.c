@@ -1,5 +1,5 @@
 /* LIBUSB-WIN32, Generic Windows USB Driver
- * Copyright (C) 2002-2003 Stephan Meyer, <ste_meyer@web.de>
+ * Copyright (C) 2002-2004 Stephan Meyer, <ste_meyer@web.de>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -30,7 +30,7 @@ NTSTATUS abort_endpoint(libusb_device_extension *device_extension,
   debug_print_nl();
   debug_printf(LIBUSB_DEBUG_MSG, "abort_endpoint(): endpoint %02x\n", 
 	       endpoint);
-  debug_printf(LIBUSB_DEBUG_MSG, "abort_endpoint(): endpoint %d\n", timeout);
+  debug_printf(LIBUSB_DEBUG_MSG, "abort_endpoint(): timeout %d\n", timeout);
 
   if(!device_extension->current_configuration)
     {
@@ -58,7 +58,6 @@ NTSTATUS abort_endpoint(libusb_device_extension *device_extension,
       debug_printf(LIBUSB_DEBUG_ERR, "abort_endpoint(): request failed: "
 		   "status: 0x%x, urb-status: 0x%x", 
 		   status, urb.UrbHeader.Status);
-
     }
   
   return status;
