@@ -400,8 +400,6 @@ static int usb_setup_async(usb_dev_handle *dev, void **context,
   (*c)->req.endpoint.endpoint = ep;
   (*c)->req.endpoint.packet_size = pktsize;
   (*c)->control_code = control_code;
-  (*c)->ol.Offset = 0;
-  (*c)->ol.OffsetHigh = 0;
 
   (*c)->ol.hEvent = CreateEvent(NULL, TRUE, FALSE, NULL);
 
@@ -530,7 +528,6 @@ static int usb_transfer_sync(usb_dev_handle *dev, int control_code,
 
   if(ret < 0)
     {
-      usb_free_async(&context);
       return ret;
     }
 
@@ -847,8 +844,6 @@ int usb_os_find_busses(struct usb_bus **busses)
   int i;
 
   num_busses = usb_registry_get_num_busses();
-
-  printf("found %d busses\n", num_busses);
 
   for(i = 0; i < num_busses; i++)
     {

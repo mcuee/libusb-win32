@@ -60,7 +60,7 @@
 #define LIBUSB_DEFAULT_TIMEOUT  5000   
 
 #ifdef __LIBUSB_DRIVER_C__
-int debug_level = 0;
+int debug_level = LIBUSB_DEBUG_ERR;
 #else
 extern int debug_level;
 #endif
@@ -118,7 +118,6 @@ typedef struct
   libusb_remove_lock_t remove_lock; 
   USBD_CONFIGURATION_HANDLE configuration_handle;
   LONG ref_count;
-  int is_started;
   int is_root_hub;
   int configuration;
   int device_id;

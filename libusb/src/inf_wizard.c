@@ -134,6 +134,7 @@ const char inf_body[] =
 "\n"
 "[LIBUSB_DEV.DelReg.HW]\n"
 "HKR,,\"LowerFilters\"\n"
+"HKR,,\"UpperFilters\"\n"
 "\n"
 ";--------------------------------------------------------------------------\n"
 "; Services\n"
@@ -152,7 +153,13 @@ STRINGIFYVALUE(INF_DATE) ", " STRINGIFYVALUE(VERSION) "\"\n"
 ";--------------------------------------------------------------------------\n"
 "\n";
 
-
+const char strings_header[] =
+"\n"
+";--------------------------------------------------------------------------\n"
+"; Strings\n"
+";--------------------------------------------------------------------------\n"
+"\n"
+"[Strings]\n\n";
 
 typedef struct {
   int vid;
@@ -649,8 +656,8 @@ static int save_file(HWND dialog, device_context_t *device)
                   device->description,
                   device->vid, device->pid);
 
-          fprintf(file, "[Strings]\n%s\"%s\"\n\n", "manufacturer = ", 
-                  device->manufacturer);
+          fprintf(file, strings_header);
+          fprintf(file, "manufacturer = \"%s\"\n", device->manufacturer);
 
           fclose(file);
         }

@@ -56,7 +56,6 @@ NTSTATUS dispatch_pnp(libusb_device_extension *device_extension, IRP *irp)
     case IRP_MN_REMOVE_DEVICE:
 
       DEBUG_MESSAGE("dispatch_pnp(): IRP_MN_REMOVE_DEVICE");
-      device_extension->is_started = 0;
 
       IoSkipCurrentIrpStackLocation(irp);
       status = IoCallDriver(device_extension->next_stack_device, irp);
@@ -80,7 +79,6 @@ NTSTATUS dispatch_pnp(libusb_device_extension *device_extension, IRP *irp)
     case IRP_MN_SURPRISE_REMOVAL:
 
       DEBUG_MESSAGE("dispatch_pnp(): IRP_MN_SURPRISE_REMOVAL");
-      device_extension->is_started = 0;
       break;
 
     case IRP_MN_START_DEVICE:
@@ -95,7 +93,6 @@ NTSTATUS dispatch_pnp(libusb_device_extension *device_extension, IRP *irp)
     case IRP_MN_STOP_DEVICE:
 
       DEBUG_MESSAGE("dispatch_pnp(): IRP_MN_STOP_DEVICE");
-      device_extension->is_started = 0;
       break;
 
     case IRP_MN_DEVICE_USAGE_NOTIFICATION:
@@ -115,7 +112,8 @@ NTSTATUS dispatch_pnp(libusb_device_extension *device_extension, IRP *irp)
     case IRP_MN_QUERY_CAPABILITIES: 
 
       DEBUG_MESSAGE("dispatch_pnp(): IRP_MN_QUERY_CAPABILITIES");
-      if(!device_extension->self->AttachedDevice)
+      if(device_extension->next_stack_device
+         == device_extension->physical_device_object)
         {
           stack_location->Parameters.DeviceCapabilities.Capabilities
             ->SurpriseRemovalOK = TRUE;
@@ -153,7 +151,6 @@ on_start_complete(DEVICE_OBJECT *device_object, IRP *irp, void *context)
   libusb_device_extension *device_extension
     = (libusb_device_extension *)device_object->DeviceExtension;
 
-
   if(irp->PendingReturned)
     {
       IoMarkIrpPending(irp);
@@ -165,15 +162,8 @@ on_start_complete(DEVICE_OBJECT *device_object, IRP *irp, void *context)
       device_object->Characteristics |= FILE_REMOVABLE_MEDIA;
     }
   
-  if(NT_SUCCESS(irp->IoStatus.Status))
-    {
-      device_extension->is_started = 1;
-    }
-  
   device_extension->is_root_hub = is_root_hub(device_extension);
-
   get_topology_info(device_extension);
-
   remove_lock_release(&device_extension->remove_lock);
   
   return STATUS_SUCCESS;
@@ -215,7 +205,8 @@ on_query_capabilities_complete(DEVICE_OBJECT *device_object,
 
   if(NT_SUCCESS(irp->IoStatus.Status))
     {
-      if(!device_extension->self->AttachedDevice)
+      if(device_extension->next_stack_device
+         == device_extension->physical_device_object)
         {
           IoGetCurrentIrpStackLocation(irp)
             ->Parameters.DeviceCapabilities.Capabilities

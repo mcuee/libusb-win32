@@ -34,6 +34,8 @@
 #define LIBUSB_DRIVER_PATH  "system32\\drivers\\libusb0.sys"
 
 
+#define INSTALLFLAG_FORCE 0x00000001
+
 void CALLBACK usb_install_service_np_rundll(HWND wnd, HINSTANCE instance,
                                             LPSTR cmd_line, int cmd_show);
 void CALLBACK usb_uninstall_service_np_rundll(HWND wnd, HINSTANCE instance,
@@ -105,8 +107,7 @@ int usb_install_service_np(void)
       /* create the system service */
       if(!usb_create_service(LIBUSB_SERVICE_NAME, display_name,
                              LIBUSB_SERVICE_PATH, 
-                             SERVICE_WIN32_OWN_PROCESS,
-                             SERVICE_AUTO_START))
+                             SERVICE_WIN32_OWN_PROCESS, SERVICE_AUTO_START))
         ret = -1;
 
       /* start the system service */
@@ -271,13 +272,13 @@ int usb_install_driver_np(const char *inf_file)
     reboot = FALSE;
 
     /* force to update all connected devices matching this ID */
-    /* UpdateDriverForPlugAndPlayDevices(NULL, id, inf_file,  */
-    /*      					  INSTALLFLAG_FORCE , &reboot); */
+/*     UpdateDriverForPlugAndPlayDevices(NULL, id, inf_path,  */
+/*                                       INSTALLFLAG_FORCE, &reboot); */
 
 
     /* update all connected devices matching this ID, but only if this */
     /* driver is better or newer */
-    UpdateDriverForPlugAndPlayDevices(NULL, id, inf_path, 0, &reboot);
+    UpdateDriverForPlugAndPlayDevices(NULL, id, inf_path, INSTALLFLAG_FORCE, &reboot);
     
 
     /* copy the .inf file to the system directory so that is will be found */
