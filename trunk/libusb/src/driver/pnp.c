@@ -49,12 +49,13 @@ NTSTATUS dispatch_pnp(libusb_device_extension *device_extension, IRP *irp)
       return complete_irp(irp, status, 0);
     }
 
-  debug_print_nl();
+  DEBUG_PRINT_NL();
 
   switch(stack_location->MinorFunction) 
     {     
     case IRP_MN_REMOVE_DEVICE:
 
+      DEBUG_MESSAGE("dispatch_pnp(): IRP_MN_REMOVE_DEVICE");
       device_extension->is_started = 0;
 
       IoSkipCurrentIrpStackLocation(irp);
@@ -62,8 +63,8 @@ NTSTATUS dispatch_pnp(libusb_device_extension *device_extension, IRP *irp)
 
       remove_lock_release_and_wait(&device_extension->remove_lock);
 
-      debug_printf(LIBUSB_DEBUG_ERR, "dispatch_pnp(): deleting "
-                   "device %d", device_extension->device_id);
+      DEBUG_MESSAGE("dispatch_pnp(): deleting device %d", 
+                    device_extension->device_id);
       
       _snwprintf(tmp_name, sizeof(tmp_name)/sizeof(WCHAR), L"%s%04d", 
                  LIBUSB_SYMBOLIC_LINK_NAME,
@@ -77,10 +78,14 @@ NTSTATUS dispatch_pnp(libusb_device_extension *device_extension, IRP *irp)
       return status;
 
     case IRP_MN_SURPRISE_REMOVAL:
+
+      DEBUG_MESSAGE("dispatch_pnp(): IRP_MN_SURPRISE_REMOVAL");
       device_extension->is_started = 0;
       break;
 
     case IRP_MN_START_DEVICE:
+
+      DEBUG_MESSAGE("dispatch_pnp(): IRP_MN_START_DEVICE");
 
       IoCopyCurrentIrpStackLocationToNext(irp);
       IoSetCompletionRoutine(irp, on_start_complete, NULL, TRUE, TRUE, TRUE);
@@ -88,11 +93,14 @@ NTSTATUS dispatch_pnp(libusb_device_extension *device_extension, IRP *irp)
       return IoCallDriver(device_extension->next_stack_device, irp);
 
     case IRP_MN_STOP_DEVICE:
+
+      DEBUG_MESSAGE("dispatch_pnp(): IRP_MN_STOP_DEVICE");
       device_extension->is_started = 0;
       break;
 
     case IRP_MN_DEVICE_USAGE_NOTIFICATION:
 
+      DEBUG_MESSAGE("dispatch_pnp(): IRP_MN_DEVICE_USAGE_NOTIFICATION");
       if(!device_extension->self->AttachedDevice
          || (device_extension->self->AttachedDevice->Flags & DO_POWER_PAGABLE))
         {
@@ -106,6 +114,7 @@ NTSTATUS dispatch_pnp(libusb_device_extension *device_extension, IRP *irp)
 
     case IRP_MN_QUERY_CAPABILITIES: 
 
+      DEBUG_MESSAGE("dispatch_pnp(): IRP_MN_QUERY_CAPABILITIES");
       if(!device_extension->self->AttachedDevice)
         {
           stack_location->Parameters.DeviceCapabilities.Capabilities
@@ -119,6 +128,7 @@ NTSTATUS dispatch_pnp(libusb_device_extension *device_extension, IRP *irp)
 
     case IRP_MN_QUERY_DEVICE_RELATIONS:
 
+      DEBUG_MESSAGE("dispatch_pnp(): IRP_MN_QUERY_DEVICE_RELATIONS");
       if(stack_location->Parameters.QueryDeviceRelations.Type == BusRelations)
         { 
           IoCopyCurrentIrpStackLocationToNext(irp);

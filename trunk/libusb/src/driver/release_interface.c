@@ -24,27 +24,24 @@
 NTSTATUS release_interface(libusb_device_extension *device_extension,
                            int interface)
 {
-  debug_printf(LIBUSB_DEBUG_MSG, "release_interface(): interface %d",
-               interface);
+  DEBUG_MESSAGE("release_interface(): interface %d", interface);
 
   if(interface >= LIBUSB_MAX_NUMBER_OF_INTERFACES)
     {
-      debug_printf(LIBUSB_DEBUG_ERR, "release_interface(): invalid interface "
-                   "%d", interface);
+      DEBUG_ERROR("release_interface(): invalid interface %d", interface);
       return STATUS_INVALID_PARAMETER;
     }
 
   if(!device_extension->interfaces[interface].valid)
     {
-      debug_printf(LIBUSB_DEBUG_ERR, "release_interface(): invalid interface "
-                   "%02d", interface);
+      DEBUG_ERROR("release_interface(): invalid interface %02d", interface);
       return STATUS_INVALID_PARAMETER;
     }
 
   if(!device_extension->interfaces[interface].claimed)
     {
-      debug_printf(LIBUSB_DEBUG_ERR, "claim_interface(): could not release "
-                   "interface %d, interface is not claimed", interface);
+      DEBUG_ERROR("claim_interface(): could not release interface %d, "
+                  "interface is not claimed", interface);
       return STATUS_INVALID_DEVICE_STATE;
     }
 

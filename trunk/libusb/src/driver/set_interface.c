@@ -32,15 +32,14 @@ NTSTATUS set_interface(libusb_device_extension *device_extension,
   USB_INTERFACE_DESCRIPTOR *interface_descriptor = NULL;
   USBD_INTERFACE_INFORMATION *interface_information = NULL;
 
-  debug_print_nl();
-  debug_printf(LIBUSB_DEBUG_MSG, "set_interface(): interface %d", interface);
-  debug_printf(LIBUSB_DEBUG_MSG, "set_interface(): altsetting %d", altsetting);
-  debug_printf(LIBUSB_DEBUG_MSG, "set_interface(): timeout %d", timeout);
+  DEBUG_PRINT_NL();
+  DEBUG_MESSAGE("set_interface(): interface %d", interface);
+  DEBUG_MESSAGE("set_interface(): altsetting %d", altsetting);
+  DEBUG_MESSAGE("set_interface(): timeout %d", timeout);
 
   if(!device_extension->configuration)
     {
-      debug_printf(LIBUSB_DEBUG_ERR, "set_interface(): invalid "
-                   "configuration 0"); 
+      DEBUG_ERROR("set_interface(): invalid configuration 0"); 
       return STATUS_INVALID_DEVICE_STATE;
     }
 
@@ -49,8 +48,7 @@ NTSTATUS set_interface(libusb_device_extension *device_extension,
 
   if(!configuration_descriptor)
     {
-      debug_printf(LIBUSB_DEBUG_ERR, "set_interface(): memory_allocation "
-                   "error");
+      DEBUG_ERROR("set_interface(): memory_allocation error");
       return STATUS_NO_MEMORY;
     }
 
@@ -63,8 +61,7 @@ NTSTATUS set_interface(libusb_device_extension *device_extension,
 
   if(!NT_SUCCESS(status))
     {
-      debug_printf(LIBUSB_DEBUG_ERR, "set_interface(): getting configuration "
-                   "descriptor failed");
+      DEBUG_ERROR("set_interface(): getting configuration descriptor failed");
       ExFreePool(configuration_descriptor);
       return status;
     }
@@ -78,8 +75,7 @@ NTSTATUS set_interface(libusb_device_extension *device_extension,
   
   if(!configuration_descriptor)
     {
-      debug_printf(LIBUSB_DEBUG_ERR, "set_interface(): memory_allocation "
-                   "error");
+      DEBUG_ERROR("set_interface(): memory_allocation error");
       return STATUS_NO_MEMORY;
     }
 
@@ -91,8 +87,7 @@ NTSTATUS set_interface(libusb_device_extension *device_extension,
                           0, &junk, LIBUSB_DEFAULT_TIMEOUT);
   if(!NT_SUCCESS(status))
     {
-      debug_printf(LIBUSB_DEBUG_ERR, "set_interface(): getting configuration "
-                   "descriptor failed");
+      DEBUG_ERROR("set_interface(): getting configuration descriptor failed");
       ExFreePool(configuration_descriptor);
       return status;
     }
@@ -104,8 +99,8 @@ NTSTATUS set_interface(libusb_device_extension *device_extension,
 
   if(!interface_descriptor)
     {
-      debug_printf(LIBUSB_DEBUG_ERR, "set_interface(): interface %d or "
-                   "altsetting %d invalid", interface, altsetting);
+      DEBUG_ERROR("set_interface(): interface %d or altsetting %d invalid", 
+                  interface, altsetting);
       ExFreePool(configuration_descriptor);
       return STATUS_UNSUCCESSFUL;
     }
@@ -119,8 +114,7 @@ NTSTATUS set_interface(libusb_device_extension *device_extension,
 
   if(!urb)
     {
-      debug_printf(LIBUSB_DEBUG_ERR, "set_interface(): memory_allocation "
-                   "error");
+      DEBUG_ERROR("set_interface(): memory_allocation error");
       ExFreePool(configuration_descriptor);
       return STATUS_NO_MEMORY;
     }
@@ -159,9 +153,8 @@ NTSTATUS set_interface(libusb_device_extension *device_extension,
 
   if(!NT_SUCCESS(status) || !USBD_SUCCESS(urb->UrbHeader.Status))
     {
-      debug_printf(LIBUSB_DEBUG_ERR, "set_interface(): setting interface "
-                   "failed: status: 0x%x, urb-status: 0x%x", 
-                   status, urb->UrbHeader.Status);
+      DEBUG_ERROR("set_interface(): setting interface failed: status: 0x%x, "
+                  "urb-status: 0x%x", status, urb->UrbHeader.Status);
       ExFreePool(configuration_descriptor);
       ExFreePool(urb);
       return STATUS_UNSUCCESSFUL;

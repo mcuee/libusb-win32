@@ -16,6 +16,7 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
+#define __LIBUSB_DRIVER_C__
 
 #include "libusb_driver.h"
 
@@ -45,7 +46,7 @@ NTSTATUS DDKAPI DriverEntry(DRIVER_OBJECT *driver_object,
   driver_object->DriverExtension->AddDevice = add_device;
   driver_object->DriverUnload = unload;
 
-  debug_printf(LIBUSB_DEBUG_MSG, "DriverEntry(): loading driver");
+  DEBUG_MESSAGE("DriverEntry(): loading driver");
 
   return STATUS_SUCCESS;
 }
@@ -87,14 +88,14 @@ NTSTATUS DDKAPI add_device(DRIVER_OBJECT *driver_object,
 
       if(NT_SUCCESS(status))
         {
-          debug_printf(LIBUSB_DEBUG_MSG, "add_device(): device %d created", i);
+          DEBUG_MESSAGE("add_device(): device %d created", i);
           break;
         }
     }
 
   if(!device_object)
     {
-      debug_printf(LIBUSB_DEBUG_ERR, "add_device(): creating device failed");
+      DEBUG_ERROR("add_device(): creating device failed");
       return status;
     }
 
@@ -110,8 +111,7 @@ NTSTATUS DDKAPI add_device(DRIVER_OBJECT *driver_object,
   
   if(!NT_SUCCESS(status))
     {
-      debug_printf(LIBUSB_DEBUG_ERR, "add_device(): creating "
-                   "symbolic link failed");
+      DEBUG_ERROR("add_device(): creating symbolic link failed");
       IoDeleteDevice(device_object);
       return status;
     }
@@ -139,7 +139,7 @@ NTSTATUS DDKAPI add_device(DRIVER_OBJECT *driver_object,
 
 VOID DDKAPI unload(DRIVER_OBJECT *driver_object)
 {
-  debug_printf(LIBUSB_DEBUG_MSG, "unload(): unloading driver");
+  DEBUG_MESSAGE("unload(): unloading driver");
 }
 
 
@@ -200,7 +200,7 @@ NTSTATUS call_usbd(libusb_device_extension *device_extension, void *urb,
 
       if(status == STATUS_TIMEOUT)
         {
-          debug_printf(LIBUSB_DEBUG_ERR, "call_usbd(): request timed out");
+          DEBUG_ERROR("call_usbd(): request timed out");
           IoCancelIrp(irp);
           KeWaitForSingleObject(&event, Executive, KernelMode, FALSE, NULL);
           status = STATUS_CANCELLED;
@@ -296,8 +296,7 @@ int update_pipe_info(libusb_device_extension *device_extension, int interface,
       return FALSE;
     }
 
-  debug_printf(LIBUSB_DEBUG_MSG, "update_pipe_info(): interface %d",
-               interface);
+  DEBUG_MESSAGE("update_pipe_info(): interface %d", interface);
 
   device_extension->interfaces[interface].valid = TRUE;
   
@@ -312,9 +311,8 @@ int update_pipe_info(libusb_device_extension *device_extension, int interface,
       for(i = 0; i < (int)interface_info->NumberOfPipes
             && i < LIBUSB_MAX_NUMBER_OF_ENDPOINTS; i++) 
         {
-          debug_printf(LIBUSB_DEBUG_MSG, "update_pipe_info(): endpoint "
-                       "address 0x%02x",
-                       interface_info->Pipes[i].EndpointAddress);	  
+          DEBUG_MESSAGE("update_pipe_info(): endpoint address 0x%02x",
+                        interface_info->Pipes[i].EndpointAddress);	  
 
           device_extension->interfaces[interface].endpoints[i].handle
             = interface_info->Pipes[i].PipeHandle;	
