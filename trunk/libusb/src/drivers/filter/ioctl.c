@@ -23,7 +23,7 @@
 
 NTSTATUS dispatch_ioctl(libusb_device_extension *device_extension, IRP *irp)
 {
-  int ret = 0;
+  int ret = 0, interface;
   NTSTATUS status = STATUS_SUCCESS;
 
   IO_STACK_LOCATION *stack_location = IoGetCurrentIrpStackLocation(irp);
@@ -69,7 +69,7 @@ NTSTATUS dispatch_ioctl(libusb_device_extension *device_extension, IRP *irp)
       
     case LIBUSB_IOCTL_GET_CONFIGURATION:
       
-      if(!output_buffer || output_buffer_length < sizeof(libusb_request))
+      if(!output_buffer || output_buffer_length < 1)
 	{
 	  debug_printf(LIBUSB_DEBUG_ERR, "dispatch_ioctl(), "
 		       "get_configuration: invalid output buffer");
@@ -78,12 +78,12 @@ NTSTATUS dispatch_ioctl(libusb_device_extension *device_extension, IRP *irp)
 	}
 
       status = get_configuration(device_extension, 
-				 &request->configuration.configuration,
+				 output_buffer,
 				 request->timeout);
 
       if(NT_SUCCESS(status))
 	{
-	  ret = sizeof(libusb_request);
+	  ret = 1;
 	}
       break;
 
@@ -97,7 +97,7 @@ NTSTATUS dispatch_ioctl(libusb_device_extension *device_extension, IRP *irp)
 
     case LIBUSB_IOCTL_GET_INTERFACE:
 
-      if(!output_buffer || output_buffer_length < sizeof(libusb_request))
+      if(!output_buffer || output_buffer_length < 1)
 	{
 	  debug_printf(LIBUSB_DEBUG_ERR, "dispatch_ioctl(), get_interface: "
 		       "invalid output buffer");
@@ -107,12 +107,12 @@ NTSTATUS dispatch_ioctl(libusb_device_extension *device_extension, IRP *irp)
 
       status = get_interface(device_extension,
 			     request->interface.interface,
-			     &(request->interface.altsetting),
+			     output_buffer,
 			     request->timeout);
 
       if(NT_SUCCESS(status))
 	{
-	  ret = sizeof(libusb_request);
+	  ret = 1;
 	}
       break;
 
@@ -138,7 +138,7 @@ NTSTATUS dispatch_ioctl(libusb_device_extension *device_extension, IRP *irp)
 
     case LIBUSB_IOCTL_GET_STATUS:
 
-      if(!output_buffer || output_buffer_length < sizeof(libusb_request))
+      if(!output_buffer || output_buffer_length < 2)
 	{
 	  debug_printf(LIBUSB_DEBUG_ERR, "dispatch_ioctl(), get_status: "
 		       "invalid output buffer");
@@ -149,12 +149,12 @@ NTSTATUS dispatch_ioctl(libusb_device_extension *device_extension, IRP *irp)
       status = get_status(device_extension,
 			  request->status.recipient,
 			  request->status.index, 
-			  &(request->status.status),
+			  output_buffer,
 			  request->timeout);
 
       if(NT_SUCCESS(status))
 	{
-	  ret = sizeof(libusb_request);
+	  ret = 2;
 	}
 
       break;
@@ -308,7 +308,7 @@ NTSTATUS dispatch_ioctl(libusb_device_extension *device_extension, IRP *irp)
       request->version.major = LIBUSB_VERSION_MAJOR;
       request->version.minor = LIBUSB_VERSION_MINOR;
       request->version.micro = LIBUSB_VERSION_MICRO;
-      request->version.nano  = LIBUSB_VERSION_NANO;
+      request->version.nano = LIBUSB_VERSION_NANO;
 
       ret = sizeof(libusb_request);
       break;

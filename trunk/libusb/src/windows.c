@@ -71,6 +71,11 @@
 	} while (0)
 
 
+typedef struct {
+  HANDLE handle;
+  HANDLE if_mutex;
+} win_impl_info_t;
+
 
 static char __error_buf[512];
 
@@ -170,6 +175,13 @@ static int win_error_to_errno()
 
 static void usb_cancel_io(usb_dev_handle *dev)
 {
+  win_impl_info_t *info = (win_impl_info_t *)dev->impl_info;
+
+  if(!info)
+    {
+      return;
+    }
+
   if(!_cancel_io)
     {
       /* Win95 compatibility (wincore 4) */
@@ -179,7 +191,7 @@ static void usb_cancel_io(usb_dev_handle *dev)
   else
     {
       /* wincore 5 or greater... */
-      _cancel_io(dev->impl_info);
+      _cancel_io(info->handle);
     }
 }
 
@@ -187,6 +199,18 @@ int usb_os_open(usb_dev_handle *dev)
 {
   char dev_name[LIBUSB_PATH_MAX];
   char *p;
+  win_impl_info_t *info;
+
+  dev->impl_info = (win_impl_info_t *) malloc(sizeof(win_impl_info_t));
+
+  if(!dev->impl_info)
+    {
+      USB_ERROR(-ENOMEM);
+    }
+
+  info = (win_impl_info_t *)(dev->impl_info);
+  info->handle = INVALID_HANDLE_VALUE;
+  info->if_mutex = INVALID_HANDLE_VALUE;
 
   if(!dev->device->filename)
     {
@@ -206,12 +230,12 @@ int usb_os_open(usb_dev_handle *dev)
   
   *p = 0;
 
-  dev->impl_info = CreateFile(dev_name, GENERIC_READ | GENERIC_WRITE,
-			      FILE_SHARE_READ | FILE_SHARE_WRITE,
-			      NULL, OPEN_EXISTING, FILE_FLAG_OVERLAPPED,
-			      NULL);
+  info->handle = CreateFile(dev_name, GENERIC_READ | GENERIC_WRITE,
+			    FILE_SHARE_READ | FILE_SHARE_WRITE,
+			    NULL, OPEN_EXISTING, FILE_FLAG_OVERLAPPED,
+			    NULL);
       
-  if(dev->impl_info == INVALID_HANDLE_VALUE) 
+  if(info->handle == INVALID_HANDLE_VALUE) 
     {
       USB_ERROR_STR(-ENOENT, "usb_os_open: failed to open %s: win error: %s",
 		    dev->device->filename, win_error_to_string());
@@ -222,18 +246,27 @@ int usb_os_open(usb_dev_handle *dev)
 
 int usb_os_close(usb_dev_handle *dev)
 {
-  if(dev->impl_info == INVALID_HANDLE_VALUE)
+  win_impl_info_t *info = (win_impl_info_t *)(dev->impl_info);
+
+  if(!info)
     {
       return 0;
     }
   
-  if(!CloseHandle(dev->impl_info)) 
+  if(info->handle != INVALID_HANDLE_VALUE)
     {
-      USB_ERROR_STR(-ENOENT, "usb_os_close: tried to close device %s: win "
-		    "error: %s", dev->device->filename, win_error_to_string());
+      CloseHandle(info->handle);
+      info->handle = INVALID_HANDLE_VALUE;
     }
 
-  dev->impl_info = INVALID_HANDLE_VALUE;
+  if(info->if_mutex != INVALID_HANDLE_VALUE)
+    {
+      CloseHandle(info->if_mutex);
+      info->if_mutex = INVALID_HANDLE_VALUE;
+    }
+
+  free(dev->impl_info);
+  dev->impl_info = NULL;
 
   return 0;
 }
@@ -242,8 +275,9 @@ int usb_set_configuration(usb_dev_handle *dev, int configuration)
 {
   DWORD sent;
   libusb_request req;
-  
-  if(dev->impl_info == INVALID_HANDLE_VALUE)
+  win_impl_info_t *info = (win_impl_info_t *)(dev->impl_info);
+
+  if(!info || info->handle == INVALID_HANDLE_VALUE)
     {
       USB_ERROR_STR(-EINVAL, "usb_set_configuration: error: device not open");
     }
@@ -251,7 +285,7 @@ int usb_set_configuration(usb_dev_handle *dev, int configuration)
   req.configuration.configuration = configuration;
   req.timeout = LIBUSB_DEFAULT_TIMEOUT;
 
-  if(!DeviceIoControl(dev->impl_info, LIBUSB_IOCTL_SET_CONFIGURATION, 
+  if(!DeviceIoControl(info->handle, LIBUSB_IOCTL_SET_CONFIGURATION, 
 		      &req, sizeof(libusb_request), 
 		      NULL, 0, &sent, NULL))
     {
@@ -268,7 +302,10 @@ int usb_set_configuration(usb_dev_handle *dev, int configuration)
 
 int usb_claim_interface(usb_dev_handle *dev, int interface)
 {
-  if(dev->impl_info == INVALID_HANDLE_VALUE)
+  win_impl_info_t *info = (win_impl_info_t *)(dev->impl_info);
+  char tmp[512];
+
+  if(!info || info->handle == INVALID_HANDLE_VALUE)
     {
       USB_ERROR_STR(-EINVAL, "usb_claim_interface: error: device not open");
     }
@@ -285,6 +322,33 @@ int usb_claim_interface(usb_dev_handle *dev, int interface)
 		    "invalid", interface);
     }
 
+  if(info->if_mutex != INVALID_HANDLE_VALUE)
+    {
+      USB_ERROR_STR(-EINVAL, "could not claim interface %d, an interface "
+		    "has already been claimed", interface);
+    }
+  
+  memset(tmp, 0, sizeof(tmp));
+  snprintf(tmp, sizeof(tmp), "%s-interface-%d-mutex", dev->device->filename,
+	   interface);
+
+  info->if_mutex = CreateMutex(NULL, FALSE, tmp + 4);
+
+  if(info->if_mutex == INVALID_HANDLE_VALUE)
+    {
+      dev->interface = -1;
+      USB_ERROR_STR(-1, "could not claim interface %d", interface);
+    }
+
+  if(GetLastError() == ERROR_ALREADY_EXISTS)
+    {
+      CloseHandle(info->if_mutex);
+      info->if_mutex = INVALID_HANDLE_VALUE;
+      dev->interface = -1;
+      USB_ERROR_STR(-EBUSY, "could not claim interface %d, the interface "
+		    "is busy", interface);
+    }
+
   dev->interface = interface;
   dev->altsetting = 0;
 
@@ -293,7 +357,9 @@ int usb_claim_interface(usb_dev_handle *dev, int interface)
 
 int usb_release_interface(usb_dev_handle *dev, int interface)
 {
-  if(dev->impl_info == INVALID_HANDLE_VALUE)
+  win_impl_info_t *info = (win_impl_info_t *)(dev->impl_info);
+
+  if(!info || info->handle == INVALID_HANDLE_VALUE)
     {
       USB_ERROR_STR(-EINVAL, "usb_release_interface: error: device not open");
     }
@@ -312,6 +378,17 @@ int usb_release_interface(usb_dev_handle *dev, int interface)
 		    "invalid", interface);
     }
 
+  if(info->if_mutex != INVALID_HANDLE_VALUE)
+    {
+      CloseHandle(info->if_mutex);
+      info->if_mutex = INVALID_HANDLE_VALUE;
+    }
+  else
+    {
+      USB_ERROR_STR(-EINVAL, "could not release interface %d, no "
+		    "interface claimed", interface);
+    }
+
   dev->interface = -1;
   dev->altsetting = -1;
   
@@ -322,8 +399,9 @@ int usb_set_altinterface(usb_dev_handle *dev, int alternate)
 {
   DWORD sent;
   libusb_request req;
+  win_impl_info_t *info = (win_impl_info_t *)(dev->impl_info);
 
-  if(dev->impl_info == INVALID_HANDLE_VALUE)
+  if(!info || info->handle == INVALID_HANDLE_VALUE)
     {
       USB_ERROR_STR(-EINVAL, "usb_set_altinterface: error: device not open");
     }
@@ -339,7 +417,7 @@ int usb_set_altinterface(usb_dev_handle *dev, int alternate)
   req.interface.altsetting = alternate;
   req.timeout = LIBUSB_DEFAULT_TIMEOUT;
   
-  if(!DeviceIoControl(dev->impl_info, LIBUSB_IOCTL_SET_INTERFACE, 
+  if(!DeviceIoControl(info->handle, LIBUSB_IOCTL_SET_INTERFACE, 
 		      &req, sizeof(libusb_request), 
 		      NULL, 0, &sent, NULL))
     {
@@ -362,8 +440,9 @@ int usb_bulk_write(usb_dev_handle *dev, int ep, char *bytes, int size,
   int sent = 0;
   HANDLE event;
   OVERLAPPED ol;
+  win_impl_info_t *info = (win_impl_info_t *)(dev->impl_info);
 
-  if(dev->impl_info == INVALID_HANDLE_VALUE)
+  if(!info || info->handle == INVALID_HANDLE_VALUE)
     {
       USB_ERROR_STR(-EINVAL, "usb_bulk_write/usb_interrupt_write: error: "
 		    "device not open");
@@ -408,7 +487,7 @@ int usb_bulk_write(usb_dev_handle *dev, int ep, char *bytes, int size,
     ResetEvent(event);
     requested = size > LIBUSB_MAX_READ_WRITE ? LIBUSB_MAX_READ_WRITE : size;
 
-    if(!DeviceIoControl(dev->impl_info, LIBUSB_IOCTL_INTERRUPT_OR_BULK_WRITE, 
+    if(!DeviceIoControl(info->handle, LIBUSB_IOCTL_INTERRUPT_OR_BULK_WRITE, 
 		    	&req, sizeof(libusb_request), bytes, 
 			requested, &ret, &ol))
       {
@@ -430,7 +509,7 @@ int usb_bulk_write(usb_dev_handle *dev, int ep, char *bytes, int size,
 		      "endpoint 0x%02x", ep);
       }
 
-    if(!GetOverlappedResult(dev->impl_info, &ol, &ret, TRUE))
+    if(!GetOverlappedResult(info->handle, &ol, &ret, TRUE))
       {
 	CloseHandle(event);
 	USB_ERROR_STR(-win_error_to_errno(), "error writing to bulk or "
@@ -456,9 +535,9 @@ int usb_bulk_read(usb_dev_handle *dev, int ep, char *bytes, int size,
   int retrieved = 0;
   HANDLE event;
   OVERLAPPED ol;
+  win_impl_info_t *info = (win_impl_info_t *)(dev->impl_info);
 
-
-  if(dev->impl_info == INVALID_HANDLE_VALUE)
+  if(!info || info->handle == INVALID_HANDLE_VALUE)
     {
       USB_ERROR_STR(-EINVAL, "usb_bulk_read/usb_interrupt_read: error: device "
 		    "not open");
@@ -503,7 +582,7 @@ int usb_bulk_read(usb_dev_handle *dev, int ep, char *bytes, int size,
     ResetEvent(event);
     requested = size > LIBUSB_MAX_READ_WRITE ? LIBUSB_MAX_READ_WRITE : size;
 
-    if(!DeviceIoControl(dev->impl_info, LIBUSB_IOCTL_INTERRUPT_OR_BULK_READ, 
+    if(!DeviceIoControl(info->handle, LIBUSB_IOCTL_INTERRUPT_OR_BULK_READ, 
 			&req, sizeof(libusb_request), bytes, 
 			requested, &ret, &ol))
       {
@@ -525,7 +604,7 @@ int usb_bulk_read(usb_dev_handle *dev, int ep, char *bytes, int size,
 		      "interrupt endpoint 0x%02x", ep);
       }
 
-    if(!GetOverlappedResult(dev->impl_info, &ol, &ret, TRUE))
+    if(!GetOverlappedResult(info->handle, &ol, &ret, TRUE))
       {
 	CloseHandle(event);
 	USB_ERROR_STR(-win_error_to_errno(), "error reading from bulk or "
@@ -563,8 +642,9 @@ int usb_control_msg(usb_dev_handle *dev, int requesttype, int request,
   char *tmp = NULL;
   libusb_request req;
   req.timeout = timeout;
+  win_impl_info_t *info = (win_impl_info_t *)(dev->impl_info);
 
-  if(dev->impl_info == INVALID_HANDLE_VALUE)
+  if(!info || info->handle == INVALID_HANDLE_VALUE)
     {
       USB_ERROR_STR(-EINVAL, "usb_control_msg: error: device not open");
     }
@@ -580,16 +660,13 @@ int usb_control_msg(usb_dev_handle *dev, int requesttype, int request,
 	  req.status.recipient = requesttype & 0x1F;
 	  req.status.index = index;
 	  
-	  if(!DeviceIoControl(dev->impl_info, LIBUSB_IOCTL_GET_STATUS, 
+	  if(!DeviceIoControl(info->handle, LIBUSB_IOCTL_GET_STATUS, 
 			      &req, sizeof(libusb_request), 
-			      &req, sizeof(libusb_request), 
-			      &ret, NULL))
+			      bytes, size, &ret, NULL))
 	    {
 	      error = 1;
 	      break;
 	    }
-
-	  *((unsigned short *)bytes) = (unsigned short) req.status.status;
 
 	  break;
       
@@ -598,7 +675,7 @@ int usb_control_msg(usb_dev_handle *dev, int requesttype, int request,
 	  req.feature.feature = value;
 	  req.feature.index = index;
 
-	  if(!DeviceIoControl(dev->impl_info, LIBUSB_IOCTL_CLEAR_FEATURE, 
+	  if(!DeviceIoControl(info->handle, LIBUSB_IOCTL_CLEAR_FEATURE, 
 			      &req, sizeof(libusb_request), 
 			      NULL, 0, &ret, NULL))
 	    {
@@ -612,7 +689,7 @@ int usb_control_msg(usb_dev_handle *dev, int requesttype, int request,
 	  req.feature.feature = value;
 	  req.feature.index = index;
 	  
-	  if(!DeviceIoControl(dev->impl_info, LIBUSB_IOCTL_SET_FEATURE, 
+	  if(!DeviceIoControl(info->handle, LIBUSB_IOCTL_SET_FEATURE, 
 			      &req, sizeof(libusb_request), 
 			      NULL, 0, &ret, NULL))
 	    {
@@ -626,7 +703,7 @@ int usb_control_msg(usb_dev_handle *dev, int requesttype, int request,
 	  req.descriptor.index = value & 0xFF;
 	  req.descriptor.language_id = index;
 	  
-	  if(!DeviceIoControl(dev->impl_info, LIBUSB_IOCTL_GET_DESCRIPTOR, 
+	  if(!DeviceIoControl(info->handle, LIBUSB_IOCTL_GET_DESCRIPTOR, 
 			      &req, sizeof(libusb_request), 
 			      bytes, size, &ret, NULL))
 	    {
@@ -650,7 +727,7 @@ int usb_control_msg(usb_dev_handle *dev, int requesttype, int request,
 	  memcpy(tmp + sizeof(libusb_request), bytes, size);
 
 
-	  if(!DeviceIoControl(dev->impl_info, LIBUSB_IOCTL_SET_DESCRIPTOR, 
+	  if(!DeviceIoControl(info->handle, LIBUSB_IOCTL_SET_DESCRIPTOR, 
 			      tmp, sizeof(libusb_request) + size, 
 			      NULL, 0, &ret, NULL))
 	    {
@@ -663,23 +740,20 @@ int usb_control_msg(usb_dev_handle *dev, int requesttype, int request,
 	  
 	case USB_REQ_GET_CONFIGURATION:
 
-	  if(!DeviceIoControl(dev->impl_info, LIBUSB_IOCTL_GET_CONFIGURATION, 
+	  if(!DeviceIoControl(info->handle, LIBUSB_IOCTL_GET_CONFIGURATION, 
 			      &req, sizeof(libusb_request), 
-			      &req, sizeof(libusb_request),
-			      &ret, NULL))
+			      bytes, size, &ret, NULL))
 	    {
 	      error = 1;
 	      break;
 	    }
-
-	  *bytes = (char)req.configuration.configuration;
 	  
 	  break;
       
 	case USB_REQ_SET_CONFIGURATION:	  
 	  req.configuration.configuration = value;
 
-	  if(!DeviceIoControl(dev->impl_info, LIBUSB_IOCTL_SET_CONFIGURATION, 
+	  if(!DeviceIoControl(info->handle, LIBUSB_IOCTL_SET_CONFIGURATION, 
 			      &req, sizeof(libusb_request), 
 			      NULL, 0, &ret, NULL))
 	    {
@@ -691,16 +765,13 @@ int usb_control_msg(usb_dev_handle *dev, int requesttype, int request,
 	case USB_REQ_GET_INTERFACE:
 	  req.interface.interface = index;
 	  
-	  if(!DeviceIoControl(dev->impl_info, LIBUSB_IOCTL_GET_INTERFACE, 
+	  if(!DeviceIoControl(info->handle, LIBUSB_IOCTL_GET_INTERFACE, 
 			      &req, sizeof(libusb_request),
-			      &req, sizeof(libusb_request),
-			      &ret, NULL))
+			      bytes, 1, &ret, NULL))
 	    {
 	      error = 1;
 	      break;
 	    }
-
-	  *bytes = (char)req.interface.altsetting;
 	  
 	  break;
       
@@ -708,7 +779,7 @@ int usb_control_msg(usb_dev_handle *dev, int requesttype, int request,
 	  req.interface.interface = index;
 	  req.interface.altsetting = value;
 	  
-	  if(!DeviceIoControl(dev->impl_info, LIBUSB_IOCTL_SET_INTERFACE, 
+	  if(!DeviceIoControl(info->handle, LIBUSB_IOCTL_SET_INTERFACE, 
 			      &req, sizeof(libusb_request), 
 			      NULL, 0, &ret, NULL))
 	    {
@@ -734,7 +805,7 @@ int usb_control_msg(usb_dev_handle *dev, int requesttype, int request,
 
       if(requesttype & 0x80)
 	{
-	  if(!DeviceIoControl(dev->impl_info, LIBUSB_IOCTL_VENDOR_READ, 
+	  if(!DeviceIoControl(info->handle, LIBUSB_IOCTL_VENDOR_READ, 
 			      &req, sizeof(libusb_request), 
 			      bytes, size, &ret, NULL))
 	    {
@@ -753,7 +824,7 @@ int usb_control_msg(usb_dev_handle *dev, int requesttype, int request,
 	  memcpy(tmp, &req, sizeof(libusb_request));
 	  memcpy(tmp + sizeof(libusb_request), bytes, size);
 
-	  if(!DeviceIoControl(dev->impl_info, LIBUSB_IOCTL_VENDOR_WRITE, 
+	  if(!DeviceIoControl(info->handle, LIBUSB_IOCTL_VENDOR_WRITE, 
 			      tmp, sizeof(libusb_request) + size, 
 			      NULL, 0, &ret, NULL))
 	    {
@@ -810,10 +881,15 @@ int usb_os_find_devices(struct usb_bus *bus, struct usb_device **devices)
   struct usb_device *dev, *fdev = NULL;
   struct usb_dev_handle dev_handle;
   char dev_name[LIBUSB_PATH_MAX];
-  DWORD ret = 0;
+  DWORD ret;
+  HANDLE handle;
+  libusb_request req;
+
 
   for(i = 0; i < LIBUSB_MAX_DEVICES; i++)
     {
+      ret = 0;
+
       /* build the Windows file name */
       snprintf(dev_name, sizeof(dev_name) - 1,"%s%04d", LIBUSB_DEVICE_NAME, i);
 
@@ -829,38 +905,38 @@ int usb_os_find_devices(struct usb_bus *bus, struct usb_device **devices)
       strcpy(dev->filename, dev_name);
       dev_handle.device = dev;
 
-      dev_handle.impl_info = CreateFile(dev->filename, 
-					GENERIC_READ | GENERIC_WRITE,
-					FILE_SHARE_READ | FILE_SHARE_WRITE,
-					NULL, OPEN_EXISTING, 
-					FILE_ATTRIBUTE_NORMAL,
-					NULL);
+      handle = CreateFile(dev->filename, 
+			  GENERIC_READ | GENERIC_WRITE,
+			  FILE_SHARE_READ | FILE_SHARE_WRITE,
+			  NULL, OPEN_EXISTING, 
+			  FILE_ATTRIBUTE_NORMAL,
+			  NULL);
 
-      if(dev_handle.impl_info == INVALID_HANDLE_VALUE) 
+      if(handle == INVALID_HANDLE_VALUE) 
 	{
 	  free(dev);
 	  continue;
 	}
 
-      ret = usb_control_msg(&dev_handle, USB_ENDPOINT_IN | USB_TYPE_STANDARD 
-			    | USB_RECIP_DEVICE,
-			    USB_REQ_GET_DESCRIPTOR, USB_DT_DEVICE << 8 , 0,
-			    (char *)&(dev->descriptor), 
-			    USB_DT_DEVICE_SIZE,
-			    LIBUSB_DEFAULT_TIMEOUT);
-
+      req.descriptor.type = USB_DT_DEVICE;
+      req.descriptor.index = 0;
+      req.descriptor.language_id = 0;
+      req.timeout = LIBUSB_DEFAULT_TIMEOUT;
+      
+      DeviceIoControl(handle, LIBUSB_IOCTL_GET_DESCRIPTOR, 
+		      &req, sizeof(libusb_request), 
+		      &(dev->descriptor), USB_DT_DEVICE_SIZE, &ret, NULL);
+      
       if((ret < USB_DT_DEVICE_SIZE) | !dev->descriptor.idVendor) 
 	{
 	  USB_MESSAGE_STR(LIBUSB_DEBUG_ERR, "usb_os_find_devices: couldn't "
 			  "read device descriptor");
 	  free(dev);
-	  CloseHandle(dev_handle.impl_info);
-	  dev_handle.impl_info = INVALID_HANDLE_VALUE;
+	  CloseHandle(handle);
 	  continue;
 	}
       
-      CloseHandle(dev_handle.impl_info);
-      dev_handle.impl_info = INVALID_HANDLE_VALUE;
+      CloseHandle(handle);
 
       /* build a unique device name, this is necessary to detect new devices */
       /* if an application calls 'usb_find_devices()' multiple times */
@@ -951,20 +1027,21 @@ int usb_resetep(usb_dev_handle *dev, unsigned int ep)
   libusb_request req;
   req.endpoint.endpoint = (int)ep;
   req.timeout = LIBUSB_DEFAULT_TIMEOUT;
+  win_impl_info_t *info = (win_impl_info_t *)(dev->impl_info);
 
-  if(dev->impl_info == INVALID_HANDLE_VALUE)
+  if(!info || info->handle == INVALID_HANDLE_VALUE)
     {
       USB_ERROR_STR(-EINVAL, "usb_resetep: error: device not open");
     }
 
-  if(!DeviceIoControl(dev->impl_info, LIBUSB_IOCTL_ABORT_ENDPOINT, &req, 
+  if(!DeviceIoControl(info->handle, LIBUSB_IOCTL_ABORT_ENDPOINT, &req, 
 		      sizeof(libusb_request), NULL, 0, &ret, NULL))
     {
       USB_ERROR_STR(-win_error_to_errno(), "could not abort ep 0x%x : win "
 		    "error: %s", ep, win_error_to_string());
     }
 
-  if(!DeviceIoControl(dev->impl_info, LIBUSB_IOCTL_RESET_ENDPOINT, &req, 
+  if(!DeviceIoControl(info->handle, LIBUSB_IOCTL_RESET_ENDPOINT, &req, 
 		      sizeof(libusb_request), NULL, 0, &ret, NULL))
     {
       USB_ERROR_STR(-win_error_to_errno(), "could not reset ep 0x%x : win "
@@ -981,12 +1058,14 @@ int usb_clear_halt(usb_dev_handle *dev, unsigned int ep)
   req.endpoint.endpoint = (int)ep;
   req.timeout = LIBUSB_DEFAULT_TIMEOUT;
 
-  if(dev->impl_info == INVALID_HANDLE_VALUE)
+  win_impl_info_t *info = (win_impl_info_t *)(dev->impl_info);
+
+  if(!info || info->handle == INVALID_HANDLE_VALUE)
     {
       USB_ERROR_STR(-EINVAL, "usb_clear_halt: error: device not open");
     }
 
-  if(!DeviceIoControl(dev->impl_info, LIBUSB_IOCTL_RESET_ENDPOINT, &req, 
+  if(!DeviceIoControl(info->handle, LIBUSB_IOCTL_RESET_ENDPOINT, &req, 
 		      sizeof(libusb_request), NULL, 0, &ret, NULL))
     {
       USB_ERROR_STR(-win_error_to_errno(), "could not clear halt, ep 0x%x:"
@@ -1001,15 +1080,16 @@ int usb_reset(usb_dev_handle *dev)
   DWORD ret;
   libusb_request req;
   req.timeout = LIBUSB_DEFAULT_TIMEOUT;
+  win_impl_info_t *info = (win_impl_info_t *)(dev->impl_info);
 
-  if(dev->impl_info == INVALID_HANDLE_VALUE)
+  if(!info || info->handle == INVALID_HANDLE_VALUE)
     {
       USB_ERROR_STR(-EINVAL, "usb_reset: error: device not open");
     }
 
   usb_cancel_io(dev);
 
-  if(!DeviceIoControl(dev->impl_info, LIBUSB_IOCTL_RESET_DEVICE,
+  if(!DeviceIoControl(info->handle, LIBUSB_IOCTL_RESET_DEVICE,
 		      &req, sizeof(libusb_request), NULL, 0, &ret, NULL))
     {
       USB_ERROR_STR(-win_error_to_errno(), "could not reset device: win "

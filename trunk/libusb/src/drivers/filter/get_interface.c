@@ -22,7 +22,7 @@
 
 
 NTSTATUS get_interface(libusb_device_extension *device_extension,
-		       int interface, int *altsetting, int timeout)
+		       int interface, char *altsetting, int timeout)
 {
   NTSTATUS status = STATUS_SUCCESS;
   URB urb;
@@ -42,7 +42,7 @@ NTSTATUS get_interface(libusb_device_extension *device_extension,
   urb.UrbHeader.Function = URB_FUNCTION_GET_INTERFACE;
   urb.UrbHeader.Length = sizeof(struct _URB_CONTROL_GET_INTERFACE_REQUEST);
   urb.UrbControlGetInterfaceRequest.TransferBufferLength = 1;
-  urb.UrbControlGetInterfaceRequest.TransferBuffer = &tmp;
+  urb.UrbControlGetInterfaceRequest.TransferBuffer = altsetting;
   urb.UrbControlGetInterfaceRequest.TransferBufferMDL = NULL;
   urb.UrbControlGetInterfaceRequest.UrbLink = NULL;
   urb.UrbControlGetInterfaceRequest.Interface = (USHORT)interface;
@@ -56,10 +56,10 @@ NTSTATUS get_interface(libusb_device_extension *device_extension,
 		   "failed: status: 0x%x, urb-status: 0x%x", 
 		   status, urb.UrbHeader.Status);
     }
-  else
-    {
-      *altsetting = (int)tmp;
-    }
+
+  debug_printf(LIBUSB_DEBUG_MSG, "get_interface(): current altsetting is %d",
+	       *altsetting); 
+
   return status;
 }
 
