@@ -1,6 +1,6 @@
 /* LIBUSB-WIN32, Generic Windows USB Library
- * Copyright (c) 2002-2003 Stephan Meyer <ste_meyer@web.de>
- * Copyright (c) 2000-2002 Johannes Erdfelt <johannes@erdfelt.com>
+ * Copyright (c) 2002-2004 Stephan Meyer <ste_meyer@web.de>
+ * Copyright (c) 2000-2004 Johannes Erdfelt <johannes@erdfelt.com>
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -16,7 +16,6 @@
  * License along with this library; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
-
 
 #include <stdlib.h>
 #include <string.h>
@@ -41,11 +40,7 @@
 #define LIBUSB_DEVICE_NAME "\\\\.\\libusb0-"
 #define LIBUSB_DEVICE_NAME_ZERO "\\\\.\\libusb0-0000"
 #define LIBUSB_BUS_NAME "bus-0"
-#define LIBUSB_REG_KEY "SOFTWARE\\LibUsb-Win32"
 #define WIN_MAX_DEVICES 256
-
-
-static char __error_buf[512];
 
 #ifdef USB_ERROR_STR
 #undef USB_ERROR_STR
@@ -76,12 +71,59 @@ static char __error_buf[512];
 	} while (0)
 
 
+
+static char __error_buf[512];
+
+static struct usb_version _usb_version= {
+  {
+    VERSION_MAJOR,
+    VERSION_MINOR,
+    VERSION_MICRO,
+    VERSION_NANO
+  },
+  {
+    -1,
+    -1,
+    -1,
+    -1
+  }
+};
+
 static const char *last_win_error();
-static int usb_get_devs_to_skip(void);
-void output_debug_string(const char *s, ...);
+static void output_debug_string(const char *s, ...);
+static void usb_cancel_io(usb_dev_handle *dev);
+
+
+typedef BOOL (* cancel_io_t)(HANDLE);
+
+static HANDLE _kernel32_dll = NULL;
+static cancel_io_t _cancel_io = NULL;
+
+
+BOOL APIENTRY DllMain(HANDLE module, DWORD reason, LPVOID reserved)
+{
+  switch(reason)
+    {
+    case DLL_PROCESS_ATTACH:
+      _kernel32_dll = LoadLibrary("KERNEL32.DLL");
+      _cancel_io = (cancel_io_t)GetProcAddress(_kernel32_dll, "CancelIo");
+      break;
+    case DLL_THREAD_ATTACH:
+      break;
+    case DLL_THREAD_DETACH:
+      break;
+    case DLL_PROCESS_DETACH:
+      FreeLibrary(_kernel32_dll);
+      break;
+    default:
+      ;
+    }
+  return TRUE;
+}
+
 
 /* prints a message to the Windows debug system */
-void output_debug_string(const char *s, ...)
+static void output_debug_string(const char *s, ...)
 {
   char tmp[512];
   va_list args;
@@ -100,92 +142,26 @@ static const char *last_win_error()
   return __error_buf;
 }
 
-/* retrieves the number of devices to skip (root-hubs and host-controllers) */
-static int usb_get_devs_to_skip(void)
+
+static void usb_cancel_io(usb_dev_handle *dev)
 {
-  HDEVINFO dev_info;
-  SP_DEVINFO_DATA dev_info_data;
-  int dev_index = 0;
-  int ret = 0;
-  DWORD reg_type, size = 0;
-  LPTSTR hardware_id = NULL;
-
-  dev_info_data.cbSize = sizeof(SP_DEVINFO_DATA);
-
-  /* get the device information set from the registry */
-  dev_info = SetupDiGetClassDevs(NULL, "USB", 0, 
-				 DIGCF_ALLCLASSES | DIGCF_PRESENT);
-
-  if(dev_info == INVALID_HANDLE_VALUE)
+  if(!_cancel_io)
     {
-      USB_ERROR_STR(-1, "usb_get_devs_to_skip: getting device info failed");
-    }
-
-  /* iterate through the device information set */
-  while(SetupDiEnumDeviceInfo(dev_info, dev_index, &dev_info_data))
+      /* Win95 compatibility (wincore 4) */
+      usb_os_close(dev);
+      usb_os_open(dev);
+    } 
+  else
     {
-      hardware_id = NULL;
-
-      /* retrieve the size of the hardware identification string */
-      SetupDiGetDeviceRegistryProperty(dev_info, &dev_info_data,
-				       SPDRP_HARDWAREID, 
-				       &reg_type, NULL, 
-				       0, &size);
-      if(!size)
-	{
-	  SetupDiDestroyDeviceInfoList(dev_info);
-	  USB_ERROR_STR(-1, "usb_get_devs_to_skip: getting "
-			"hardware identification string failed");
-	}
-      
-      hardware_id = (LPTSTR) malloc(size + 2 * sizeof(TCHAR));
-      
-      if(!hardware_id)
-	{
-	  SetupDiDestroyDeviceInfoList(dev_info);
-	  USB_ERROR_STR(-ENOMEM, "usb_get_devs_to_skip: memory "
-			"allocation error");
-	}
-      
-      /* this function always fails on Win98, so we don't check it's return 
-	 value */
-      SetupDiGetDeviceRegistryProperty(dev_info, &dev_info_data,
-				       SPDRP_HARDWAREID,
-				       &reg_type,
-				       (BYTE *)hardware_id, 
-				       size, NULL);
-
-      if(strstr(hardware_id, "ROOT_HUB"))
-	{
-	  /* this is a root hub */
-	  ret++;
-	}
-      free(hardware_id);
-      dev_index++;
+      /* wincore 5 or greater... */
+      _cancel_io(dev->impl_info);
     }
-
-  SetupDiDestroyDeviceInfoList(dev_info);
-  
-  /* return the number of devices to skip (one root-hub has exactly one  */
-  /* host-controller) */
-  return ret * 2;
 }
-
 
 int usb_os_open(usb_dev_handle *dev)
 {
   char dev_name[LIBUSB_PATH_MAX];
   char *p;
-  int ret;
-  libusb_request req;
-  req.timeout = 0;
-  req.debug.level = usb_debug;
-
-/*   if(dev->impl_info != INVALID_HANDLE_VALUE)  */
-/*     { */
-/*       USB_ERROR_STR(-1, "usb_os_open: error: device %s is already open", */
-/* 		    dev->device->filename); */
-/*     } */
 
   /* build the Windows file name from the unique device name */ 
   strcpy(dev_name, dev->device->filename);
@@ -200,8 +176,7 @@ int usb_os_open(usb_dev_handle *dev)
   
   *p = 0;
 
-  dev->impl_info = CreateFile(dev_name, 
-			      GENERIC_READ | GENERIC_WRITE,
+  dev->impl_info = CreateFile(dev_name, GENERIC_READ | GENERIC_WRITE,
 			      FILE_SHARE_READ | FILE_SHARE_WRITE,
 			      NULL, OPEN_EXISTING, FILE_FLAG_OVERLAPPED,
 			      NULL);
@@ -212,11 +187,6 @@ int usb_os_open(usb_dev_handle *dev)
 		    dev->device->filename, last_win_error());
     }
   
-  /* set debug level */
-  DeviceIoControl(dev->impl_info, LIBUSB_IOCTL_SET_DEBUG_LEVEL, 
-		  &req, sizeof(libusb_request), 
-		  NULL, 0, (DWORD *)&ret, NULL);
-
   return 0;
 }
 
@@ -375,7 +345,6 @@ int usb_bulk_write(usb_dev_handle *dev, int ep, char *bytes, int size,
 		    "invalid interface %d", ep, dev->interface);
     }
   
-  ep &= ~USB_ENDPOINT_IN;
   req.endpoint.endpoint = ep;
   req.timeout = timeout;
 
@@ -413,7 +382,7 @@ int usb_bulk_write(usb_dev_handle *dev, int ep, char *bytes, int size,
     if(WaitForSingleObject(event, timeout) == WAIT_TIMEOUT)
       {
 	/* requested timed out */
-	CancelIo(dev->impl_info);
+	usb_cancel_io(dev);
 	CloseHandle(event);
 	USB_ERROR_STR(-1, "timeout error writing to bulk endpoint 0x%x: "
 		      "win error: %s", ep, last_win_error());
@@ -451,16 +420,15 @@ int usb_bulk_read(usb_dev_handle *dev, int ep, char *bytes, int size,
   if(dev->config <= 0)
     {
       USB_ERROR_STR(-EINVAL, "error reading from bulk endpoint 0x%x: "
-		    "invalid configuration", ep);
+		    "invalid configuration %d", ep, dev->config);
     }
 
   if(dev->interface < 0)
     {
       USB_ERROR_STR(-EINVAL, "error reading from bulk endpoint 0x%x: "
-		    "invalid interface", ep);
+		    "invalid interface %d", ep, dev->interface);
     }
 
-  ep |= USB_ENDPOINT_IN;
   req.endpoint.endpoint = ep;
   req.timeout = timeout;
 
@@ -498,7 +466,7 @@ int usb_bulk_read(usb_dev_handle *dev, int ep, char *bytes, int size,
     if(WaitForSingleObject(event, timeout) == WAIT_TIMEOUT)
       {
 	/* requested timed out */
-	CancelIo(dev->impl_info);
+	usb_cancel_io(dev);
 	CloseHandle(event);
 	USB_ERROR_STR(-1, "timeout error reading from bulk endpoint "
 		      "0x%x: win error: %s", ep, last_win_error());
@@ -746,29 +714,22 @@ int usb_os_find_busses(struct usb_bus **busses)
 
 int usb_os_find_devices(struct usb_bus *bus, struct usb_device **devices)
 {
-  int dev_number;
+  int i;
   struct usb_device *dev, *fdev = NULL;
   struct usb_dev_handle dev_handle;
   char dev_name[LIBUSB_PATH_MAX];
-  int ret;
+  int ret = 0;
+  int usb_old_debug = usb_debug;
+  libusb_request req;
+  req.timeout = 0;
+  req.debug.level = usb_debug;
+  
 
-  /* retrieve the first valid device number */
-  dev_number = usb_get_devs_to_skip();
-
-  if(dev_number < 0)
-    {
-      return -1;
-    }
-    
-
-  USB_MESSAGE_STR(DEBUG_MSG, "usb_os_find_devices: skipping %d devices "
-		  "(root hubs and host controllers)", dev_number);
-
-  for(; dev_number < WIN_MAX_DEVICES; dev_number++)
+  for(i = 0; i < WIN_MAX_DEVICES; i++)
     {
       /* build the Windows file name */
       snprintf(dev_name, sizeof(dev_name) - 1,"%s%04d", 
-	       LIBUSB_DEVICE_NAME, dev_number);
+	       LIBUSB_DEVICE_NAME, i);
 
       dev = malloc(sizeof(*dev));
       
@@ -798,38 +759,63 @@ int usb_os_find_devices(struct usb_bus *bus, struct usb_device **devices)
 	  continue;
 	}
 
-
+      usb_debug = 0;
       ret = usb_control_msg(&dev_handle, USB_ENDPOINT_IN | USB_TYPE_STANDARD 
 			    | USB_RECIP_DEVICE,
 			    USB_REQ_GET_DESCRIPTOR, USB_DT_DEVICE << 8 , 0,
 			    (char *)&(dev->descriptor), 
 			    USB_DT_DEVICE_SIZE,
 			    WIN_DEFAULT_TIMEOUT);
+
       if(ret < USB_DT_DEVICE_SIZE) 
 	{
 	  USB_MESSAGE_STR(DEBUG_ERR, "usb_os_find_devices: Couldn't read"
 			  " device descriptor");
 	  free(dev);
 	  CloseHandle(dev_handle.impl_info);
-	  return -1;
+	  dev_handle.impl_info = INVALID_HANDLE_VALUE;
+	  usb_debug = usb_old_debug;
+	  continue;
 	}
-
+      
+      usb_debug = usb_old_debug;
       CloseHandle(dev_handle.impl_info);
       dev_handle.impl_info = INVALID_HANDLE_VALUE;
 
       /* build a unique device name, this is necessary to detect new devices */
       /* if an application calls 'usb_find_devices()' multiple times */
-      snprintf(dev->filename, LIBUSB_PATH_MAX - 1, "%s--%04x-%04x", 
+      snprintf(dev->filename, LIBUSB_PATH_MAX - 1, "%s--0x%04x-0x%04x", 
 	       dev_name, dev->descriptor.idVendor, dev->descriptor.idProduct);
-
 
       LIST_ADD(fdev, dev);
 
       USB_MESSAGE_STR(DEBUG_MSG, "usb_os_find_devices: found %s on %s",
 		      dev->filename, bus->dirname);
-    } while(0);
+    }
   
   *devices = fdev;
+
+  if(devices)
+    {
+      snprintf(dev_name, sizeof(dev_name) - 1,"%s%04d", 
+	       LIBUSB_DEVICE_NAME, 0);
+      
+      dev_handle.impl_info = CreateFile(dev_name, GENERIC_READ | GENERIC_WRITE,
+					FILE_SHARE_READ | FILE_SHARE_WRITE,
+					NULL, OPEN_EXISTING, 
+					FILE_ATTRIBUTE_NORMAL,
+					NULL);
+      
+      if(dev_handle.impl_info != INVALID_HANDLE_VALUE) 
+	{
+	  /* set debug level */
+	  DeviceIoControl(dev_handle.impl_info, LIBUSB_IOCTL_SET_DEBUG_LEVEL, 
+			  &req, sizeof(libusb_request), 
+			  NULL, 0, (DWORD *)&ret, NULL); 
+	  CloseHandle(dev_handle.impl_info);
+	  dev_handle.impl_info = INVALID_HANDLE_VALUE;
+	}
+    }
 
   return 0;
 }
@@ -837,9 +823,7 @@ int usb_os_find_devices(struct usb_bus *bus, struct usb_device **devices)
 
 void usb_os_init(void)
 {
-  char tmp[64];
-  HKEY key;
-  DWORD ret, size = 64;
+  DWORD ret;
   HANDLE dev_0;
   libusb_request req;
 
@@ -847,28 +831,6 @@ void usb_os_init(void)
 		  LIBUSB_VERSION_MAJOR, LIBUSB_VERSION_MINOR,
 		  LIBUSB_VERSION_MICRO, LIBUSB_VERSION_NANO);
 
-  if(RegOpenKeyEx(HKEY_LOCAL_MACHINE, LIBUSB_REG_KEY, 0, 
-		  KEY_READ | KEY_QUERY_VALUE, &key) 
-     == ERROR_SUCCESS)
-    {
-      if(RegQueryValueEx(key, "Version", NULL, NULL, tmp, &size) 
-	 == ERROR_SUCCESS)
-	{
-	  USB_MESSAGE_STR(DEBUG_MSG, "usb_os_init: installed driver version: "
-			  "%s", tmp);
-	}
-      else
-	{
-	  USB_MESSAGE_STR(DEBUG_ERR, "usb_os_init: getting installed driver "
-			  "version failed");
-	}
-      RegCloseKey(key);
-    }
-  else
-    {
-      USB_MESSAGE_STR(DEBUG_ERR, "usb_os_init: getting installed driver "
-		      "version failed");
-    }
 
   dev_0 = CreateFile(LIBUSB_DEVICE_NAME_ZERO, 
 		     GENERIC_READ, FILE_SHARE_READ,
@@ -889,7 +851,12 @@ void usb_os_init(void)
     }
   else 
     {
-      USB_MESSAGE_STR(DEBUG_MSG, "usb_os_init: running driver version: "
+      _usb_version.driver.major = req.version.major;
+      _usb_version.driver.minor = req.version.minor;
+      _usb_version.driver.micro = req.version.micro;
+      _usb_version.driver.nano = req.version.nano;
+
+      USB_MESSAGE_STR(DEBUG_MSG, "usb_os_init: driver version: "
 		      "%d.%d.%d.%d",
 		      req.version.major, req.version.minor, 
 		      req.version.micro, req.version.nano);
@@ -960,4 +927,9 @@ int usb_reset(usb_dev_handle *dev)
       USB_ERROR_STR(-1, "could not reset: win error: %s", last_win_error());
     }
   return 0;
+}
+
+struct usb_version *usb_get_version(void)
+{
+  return &_usb_version;
 }

@@ -26,7 +26,7 @@ NTSTATUS __stdcall dispatch(DEVICE_OBJECT *device_object, IRP *irp)
     (libusb_device_extension *)device_object->DeviceExtension;
 
 
-  if(!device_extension->control_device_object)
+  if(device_extension->is_control_object)
     {
       return dispatch_control(device_object, irp);
     }
@@ -41,12 +41,7 @@ NTSTATUS __stdcall dispatch(DEVICE_OBJECT *device_object, IRP *irp)
       PoStartNextPowerIrp(irp);
       IoSkipCurrentIrpStackLocation(irp);
       return PoCallDriver(device_extension->next_stack_device, irp);
-      
-    case IRP_MJ_CREATE:      
-    case IRP_MJ_CLOSE:
-      status = complete_irp(irp, STATUS_SUCCESS,0);
-      break;
-      
+            
     case IRP_MJ_DEVICE_CONTROL:
       status = dispatch_ioctl(device_extension, irp);
       break;
@@ -73,23 +68,55 @@ NTSTATUS __stdcall dispatch(DEVICE_OBJECT *device_object, IRP *irp)
 
 NTSTATUS dispatch_control(DEVICE_OBJECT *device_object, IRP *irp)
 {
-  NTSTATUS status = STATUS_SUCCESS;
+  NTSTATUS status = STATUS_NOT_SUPPORTED;
   libusb_device_extension *device_extension = 
     (libusb_device_extension *)device_object->DeviceExtension;
 
-  if(IoGetCurrentIrpStackLocation(irp)->MajorFunction 
-     == IRP_MJ_DEVICE_CONTROL) 
+  switch(IoGetCurrentIrpStackLocation(irp)->MajorFunction)
     {
+    case IRP_MJ_DEVICE_CONTROL:
       if(device_extension->main_device_object)
-	status = dispatch(device_extension->main_device_object, irp);
+	{
+	  return dispatch(device_extension->main_device_object, irp);
+	}
       else
-	status = complete_irp(irp, STATUS_DELETE_PENDING, 0);
+	{
+	  return complete_irp(irp, STATUS_DELETE_PENDING, 0);
+	}
+      break;
+
+    case IRP_MJ_CREATE:
+      debug_printf(DEBUG_MSG, "dispatch_control(): device %d: CREATE",
+		   device_extension->device_id);
+      InterlockedIncrement(&device_extension->ref_count);
+      status = STATUS_SUCCESS;
+      break;
+    case IRP_MJ_CLOSE:
+      debug_printf(DEBUG_MSG, "dispatch_control(): device %d: CLOSE",
+		   device_extension->device_id);
+      if(!InterlockedDecrement(&device_extension->ref_count))
+	{
+	  if(!device_extension->main_device_object)
+	    {
+	      debug_printf(DEBUG_MSG, "dispatch_control(): releasing device "
+		       "id %d", device_extension->device_id);
+	      release_device_id(device_extension);
+	    }
+	}
+      status = STATUS_SUCCESS;
+      break;
+    case IRP_MJ_CLEANUP:
+      debug_printf(DEBUG_MSG, "dispatch_control(): device %d: CLEANUP",
+		   device_extension->device_id);
+      status = STATUS_SUCCESS;
+      break;
+
+    default:
+      debug_printf(DEBUG_MSG, "dispatch_control(): device %d: other IRP",
+		   device_extension->device_id);
     }
-  else 
-    {
-      status = complete_irp(irp, status, 0);
-    }
-  return status;
+
+  return complete_irp(irp, status, 0);
 }
 
 

@@ -3,7 +3,8 @@
 path %PATH%;%1%\bin
 set current_dir=%cd%
 
-call setenv.bat %1 checked
+call setenv.bat  %1 chk
+
 cd %current_dir%
 cd src\drivers
 @echo on

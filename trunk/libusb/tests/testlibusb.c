@@ -68,7 +68,7 @@ int main(void)
 
 
   printf("bus/device  idVendor/idProduct\n");
-  for (bus = usb_busses; bus; bus = bus->next) {
+  for (bus = usb_get_busses(); bus; bus = bus->next) {
     for (dev = bus->devices; dev; dev = dev->next) {
       int ret, i;
       char string[256];
