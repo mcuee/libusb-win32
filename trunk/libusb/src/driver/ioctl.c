@@ -277,7 +277,7 @@ NTSTATUS dispatch_ioctl(libusb_device_extension *device_extension, IRP *irp)
 
     case LIBUSB_IOCTL_GET_VERSION:
 
-      if(!output_buffer || output_buffer_length < sizeof(libusb_request))
+      if(!request || output_buffer_length < sizeof(libusb_request))
         {
           debug_printf(LIBUSB_DEBUG_ERR, "dispatch_ioctl(), get_version: "
                        "invalid output buffer");
@@ -331,6 +331,20 @@ NTSTATUS dispatch_ioctl(libusb_device_extension *device_extension, IRP *irp)
                       URB_FUNCTION_ISOCH_TRANSFER, request->endpoint.endpoint,
                       request->endpoint.packet_size, transfer_buffer_mdl, 
                       transfer_buffer_length);
+
+    case LIBUSB_IOCTL_GET_DEVICE_INFO:
+
+      if(!request || output_buffer_length < sizeof(libusb_request))
+        {
+          debug_printf(LIBUSB_DEBUG_ERR, "dispatch_ioctl(), get_version: "
+                       "invalid output buffer");
+          status = STATUS_INVALID_PARAMETER;
+          break;
+        }
+
+      status = get_device_info(device_extension, request, &ret);
+
+      break;
 
     default:
       

@@ -36,6 +36,7 @@ enum {
 #define LIBUSB_MAX_READ_WRITE 0x10000
 
 #define LIBUSB_MAX_NUMBER_OF_DEVICES 256
+#define LIBUSB_MAX_NUMBER_OF_CHILDREN 32
 
 #define LIBUSB_IOCTL_SET_CONFIGURATION CTL_CODE(FILE_DEVICE_UNKNOWN,\
 0x801, METHOD_BUFFERED, FILE_ANY_ACCESS)
@@ -103,6 +104,9 @@ enum {
 #define LIBUSB_IOCTL_RELEASE_INTERFACE CTL_CODE(FILE_DEVICE_UNKNOWN,\
 0x816, METHOD_BUFFERED, FILE_ANY_ACCESS)
 
+#define LIBUSB_IOCTL_GET_DEVICE_INFO CTL_CODE(FILE_DEVICE_UNKNOWN,\
+0x817, METHOD_BUFFERED, FILE_ANY_ACCESS)
+
 #include <pshpack1.h> 
 
 
@@ -160,6 +164,13 @@ typedef struct {
       unsigned int micro;
       unsigned int nano;
     } version;
+    struct
+    {
+      unsigned int bus;
+      unsigned int port;
+      unsigned int id;
+      unsigned int parent_id;
+    } device_info;
   };
 } libusb_request;
     

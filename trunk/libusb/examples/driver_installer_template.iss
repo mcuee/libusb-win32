@@ -21,7 +21,7 @@ DefaultDirName={pf}\TestApp
 DefaultGroupName=TestDrivers
 Compression=lzma
 SolidCompression=yes
-; Win98 and higher
+; Win98 or higher
 MinVersion=4,5
 PrivilegesRequired=admin
 
@@ -33,12 +33,12 @@ Source: "*.dll"; DestDir: "{app}\driver"
 Source: "<your_inf_file.inf>"; DestDir: "{app}\driver"
 
 ; also copy the DLL to the system folders so that rundll32.exe will find it
-Source: "*.dll"; DestDir: "{sys}"; FLags: replacesameversion restartreplace
+Source: "*.dll"; DestDir: "{win}\system32"; FLags: replacesameversion restartreplace
 
 [Icons]
 Name: "{group}\Uninstall TestDrivers"; Filename: "{uninstallexe}"
 
 [Run]
 ; invoke libusb's DLL to install the .inf file
-Filename: "rundll32"; Parameters: "libusb0.dll,usb_install_driver_rundll {app}\driver\<your_inf_file.inf>"; StatusMsg: "Installing driver (this may take a few seconds) ..."
+Filename: "rundll32"; Parameters: "libusb0.dll,usb_install_driver_np_rundll {app}\driver\<your_inf_file.inf>"; StatusMsg: "Installing driver (this may take a few seconds) ..."
 

@@ -22,7 +22,8 @@
 
 
 NTSTATUS get_interface(libusb_device_extension *device_extension,
-                       int interface, char *altsetting, int *ret, int timeout)
+                       int interface, unsigned char *altsetting, 
+                       int *ret, int timeout)
 {
   NTSTATUS status = STATUS_SUCCESS;
   URB urb;

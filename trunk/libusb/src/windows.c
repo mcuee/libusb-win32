@@ -1,8 +1,7 @@
 /* LIBUSB-WIN32, Generic Windows USB Library
  * Copyright (c) 2002-2004 Stephan Meyer <ste_meyer@web.de>
  * Copyright (c) 2000-2004 Johannes Erdfelt <johannes@erdfelt.com>
- *
- * This library is free software; you can redistribute it and/or
+ * * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2 of the License, or (at your option) any later version.
@@ -37,7 +36,7 @@
 
 #define LIBUSB_DEFAULT_TIMEOUT 5000
 #define LIBUSB_DEVICE_NAME "\\\\.\\libusb0-"
-#define LIBUSB_BUS_NAME "bus-0"
+#define LIBUSB_BUS_NAME "bus-"
 #define LIBUSB_MAX_DEVICES 256
 
 #undef USB_ERROR_STR
@@ -843,25 +842,35 @@ int usb_control_msg(usb_dev_handle *dev, int requesttype, int request,
 int usb_os_find_busses(struct usb_bus **busses)
 {
   struct usb_bus *fbus = NULL;
-  struct usb_bus *bus;
-  
-  /* windows doesn't support busses, so we just create one manually */
-  bus = malloc(sizeof(struct usb_bus));
+  struct usb_bus *bus = NULL;
+  int num_busses;
+  int i;
 
-  if(!bus)
+  num_busses = usb_registry_get_num_busses();
+
+  printf("found %d busses\n", num_busses);
+
+  for(i = 0; i < num_busses; i++)
     {
-      USB_ERROR(-ENOMEM);
+      bus = malloc(sizeof(struct usb_bus));
+
+      if(!bus)
+        {
+          USB_ERROR(-ENOMEM);
+        }
+
+      memset(bus, 0, sizeof(*bus));
+      sprintf(bus->dirname, "%s%d", LIBUSB_BUS_NAME, i);
+      
+      bus->location = i;
+
+      USB_MESSAGE_STR(LIBUSB_DEBUG_MSG, "usb_os_find_busses: found %s",
+                      bus->dirname);
+
+      LIST_ADD(fbus, bus);
     }
-
-  memset(bus, 0, sizeof(*bus));
-  strcpy(bus->dirname, LIBUSB_BUS_NAME);
-
-  LIST_ADD(fbus, bus);
-
+  
   *busses = fbus;
-
-  USB_MESSAGE_STR(LIBUSB_DEBUG_MSG, "usb_os_find_busses: found %s",
-                  bus->dirname);
 
   return 0;
 }
@@ -891,6 +900,7 @@ int usb_os_find_devices(struct usb_bus *bus, struct usb_device **devices)
       
       memset(dev, 0, sizeof(*dev));
       dev->bus = bus;
+      dev->devnum = (unsigned char)i;
       strcpy(dev->filename, dev_name);
       dev_handle.device = dev;
 
@@ -899,6 +909,25 @@ int usb_os_find_devices(struct usb_bus *bus, struct usb_device **devices)
 
       if(handle == INVALID_HANDLE_VALUE) 
         {
+          free(dev);
+          continue;
+        }
+
+      if(!DeviceIoControl(handle, LIBUSB_IOCTL_GET_DEVICE_INFO, 
+                          &req, sizeof(libusb_request), 
+                          &req, sizeof(libusb_request), 
+                          &ret, NULL))
+        {
+          USB_MESSAGE_STR(LIBUSB_DEBUG_ERR, "usb_os_find_devices: getting "
+                          "device info failed");
+          CloseHandle(handle);
+          free(dev);
+          continue;
+        }
+
+      if(req.device_info.bus != bus->location)
+        {
+          CloseHandle(handle);
           free(dev);
           continue;
         }
@@ -912,7 +941,7 @@ int usb_os_find_devices(struct usb_bus *bus, struct usb_device **devices)
                       &req, sizeof(libusb_request), 
                       &(dev->descriptor), USB_DT_DEVICE_SIZE, &ret, NULL);
       
-      if((ret < USB_DT_DEVICE_SIZE) | !dev->descriptor.idVendor) 
+      if(ret < USB_DT_DEVICE_SIZE) 
         {
           USB_MESSAGE_STR(LIBUSB_DEBUG_ERR, "usb_os_find_devices: couldn't "
                           "read device descriptor");
@@ -964,9 +993,10 @@ void usb_os_init(void)
           continue;
         }
       
-      if(!DeviceIoControl(dev, LIBUSB_IOCTL_GET_VERSION, &req, 
-                          sizeof(libusb_request), &req, 
-                          sizeof(libusb_request), &ret, NULL))
+      if(!DeviceIoControl(dev, LIBUSB_IOCTL_GET_VERSION, 
+                          &req, sizeof(libusb_request), 
+                          &req, sizeof(libusb_request), 
+                          &ret, NULL))
         {
           USB_MESSAGE_STR(LIBUSB_DEBUG_ERR, "usb_os_init: getting driver "
                           "version failed");
@@ -1131,5 +1161,90 @@ void usb_set_debug(int level)
 
 int usb_os_determine_children(struct usb_bus *bus)
 {
+  libusb_request req;
+  struct usb_device *dev;
+  int i = 0, j = 0, dev_count = 0;
+  DWORD ret;
+  usb_dev_handle *hdev;
+
+  struct {
+    struct usb_device *device;
+    unsigned long id;
+    unsigned long parent_id;
+    int child_index;
+  } dev_info[256];
+
+  memset(dev_info, 0, sizeof(dev_info));
+
+  /* get device info for all devices */
+  for(dev = bus->devices; dev; dev = dev->next, i++)
+    {
+      hdev = usb_open(dev);
+
+      if(!hdev)
+        continue;
+
+      if(!DeviceIoControl(hdev->impl_info, LIBUSB_IOCTL_GET_DEVICE_INFO, 
+                          &req, sizeof(libusb_request), 
+                          &req, sizeof(libusb_request), 
+                          &ret, NULL))
+        {
+          usb_close(hdev);
+          continue;
+        }
+
+      dev_info[i].device = dev;
+      dev_info[i].id = req.device_info.id;
+      dev_info[i].parent_id = req.device_info.parent_id;
+      dev_info[i].device->num_children = 0;
+      dev_info[i].child_index = 0;
+      
+      dev_count++;
+
+      usb_close(hdev);
+    }
+
+  /* determine the number of children */
+  for(i = 0; i < dev_count; i++)
+    {
+      for(j = 0; j < dev_count; j++)
+        {
+          if(dev_info[i].id == dev_info[j].parent_id)
+            dev_info[i].device->num_children++;
+        }
+    }
+
+  /* allocate memory for child device pointers */
+  for(i = 0; i < dev_count; i++)
+    {
+      if(dev_info[i].device->num_children)
+        dev_info[i].device->children = malloc(dev_info[i].device->num_children
+                                              * sizeof(struct usb_device *));
+    }
+
+  /* find the children */
+  for(i = 0; i < dev_count; i++)
+    {
+      for(j = 0; j < dev_count; j++)
+        {
+          if(dev_info[i].id == dev_info[j].parent_id)
+            {
+              dev_info[i].device->children[dev_info[i].child_index++]
+                = dev_info[j].device;
+            }
+        }
+    }
+
+
+  /* search for the root device */
+  for(i = 0; i < dev_count; i++)
+    {
+      if(!dev_info[i].parent_id)
+        {
+          bus->root_dev = dev_info[i].device;
+          break;
+        }
+    }
+
   return 0;
 }

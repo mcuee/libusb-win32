@@ -36,8 +36,8 @@
 #define ID_DIALOG_3 10003
 
 #define ID_BUTTON_CANCEL 10003
-#define ID_BUTTON_NEXT 10004
-#define ID_BUTTON_BACK 10005
+#define ID_BUTTON_NEXT   10004
+#define ID_BUTTON_BACK   10005
 
 #define ID_LIST 10006
 
@@ -69,10 +69,9 @@ const char cat_file_content[] =
 "drivers.\n";
 
 const char info_text_0[] = 
-"This program will create will create an .inf and a .cat file for your\n"
-"device.\n\n"
-"Before clicking \"Next\" make sure that your device is connected and "
-"installed.\n";
+"This program will create an .inf file for your device.\n\n"
+"Before clicking \"Next\" make sure that your device is connected to the "
+"system.\n";
 
 const char info_text_1[] = 
 "An .inf and .cat file has been created successfully for the following "
@@ -593,7 +592,7 @@ static void device_list_refresh(HWND list)
   
   while(SetupDiEnumDeviceInfo(dev_info, dev_index, &dev_info_data))
     {
-      if(usb_registry_match(dev_info, &dev_info_data))
+      if(usb_registry_match_no_root_hubs(dev_info, &dev_info_data))
         {
           device = (device_context_t *) malloc(sizeof(device_context_t));
           memset(device, 0, sizeof(*device));

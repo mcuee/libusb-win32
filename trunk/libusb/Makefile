@@ -15,8 +15,8 @@ IMPLIB = implib
 
 VERSION_MAJOR = 0
 VERSION_MINOR = 1
-VERSION_MICRO = 8
-VERSION_NANO = 1
+VERSION_MICRO = 10
+VERSION_NANO = 0
 
 VERSION = $(VERSION_MAJOR).$(VERSION_MINOR).$(VERSION_MICRO).$(VERSION_NANO)
 RC_VERSION = $(VERSION_MAJOR),$(VERSION_MINOR),$(VERSION_MICRO),$(VERSION_NANO)
@@ -68,8 +68,9 @@ CPPFLAGS = -DVERSION_MAJOR=$(VERSION_MAJOR) \
 	-DVERSION="$(VERSION)" \
 	-DDBG
 
-LDFLAGS = -s -mwindows -mno-cygwin -L. -lusb -lgdi32 -luser32 -lsetupapi \
+LDFLAGS = -s -mno-cygwin -L. -lusb -lgdi32 -luser32 -lsetupapi \
 	 -lcfgmgr32 -lcomctl32
+WIN_LDFLAGS = $(LDFLAGS) -mwindows
 
 DLL_LDFLAGS = -s -mwindows -shared -mno-cygwin \
 	-Wl,--output-def,$(DLL_TARGET).def \
@@ -99,19 +100,19 @@ $(DRIVER_TARGET): $(TARGET)_driver_rc.rc driver_api.h $(DRIVER_OBJECTS)
 	$(CC) -o $@ $(DRIVER_OBJECTS) $(DRIVER_LDFLAGS)
 
 inf-wizard.exe: inf_wizard.o inf_wizard_rc.o registry.o win_debug.o
-	$(CC) $(CFLAGS) -o $@ -I./src  $^ $(LDFLAGS)
+	$(CC) $(CFLAGS) -o $@ -I./src  $^ $(WIN_LDFLAGS)
 
 testlibusb.exe: testlibusb.o resource.o 
 	$(CC) $(CFLAGS) -o $@ -I./src  $^ $(LDFLAGS)
 
 testlibusb-win.exe: testlibusb_win.o resource.o 
-	$(CC) $(CFLAGS) -o $@ -I./src  $^ $(LDFLAGS)
+	$(CC) $(CFLAGS) -o $@ -I./src  $^ $(WIN_LDFLAGS)
 
 libusbd-nt.exe: service_nt.o service.o registry.o resource.o win_debug.o
-	$(CC) $(CPPFLAGS) -Wall $(CFLAGS) -o $@ $^ $(LDFLAGS)
+	$(CC) $(CPPFLAGS) -Wall $(CFLAGS) -o $@ $^ $(WIN_LDFLAGS)
 
 libusbd-9x.exe: service_9x.o service.o registry.o resource.o win_debug.o
-	$(CC) $(CPPFLAGS) -Wall $(CFLAGS) -o $@ $^ $(LDFLAGS)
+	$(CC) $(CPPFLAGS) -Wall $(CFLAGS) -o $@ $^ $(WIN_LDFLAGS)
 
 %.o: %.c
 	$(CC) -c $< -o $@ $(CFLAGS) -Wall $(CPPFLAGS) $(INCLUDES) 
