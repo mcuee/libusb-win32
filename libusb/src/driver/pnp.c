@@ -71,8 +71,6 @@ NTSTATUS dispatch_pnp(libusb_device_extension *device_extension, IRP *irp)
       
       RtlInitUnicodeString(&symbolic_link_name, tmp_name);
       IoDeleteSymbolicLink(&symbolic_link_name);
-      
-      release_device_id(device_extension->device_id);
 
       IoDetachDevice(device_extension->next_stack_device);
       IoDeleteDevice(device_extension->self);
