@@ -193,8 +193,9 @@ NTSTATUS set_interface(libusb_device_extension *device_extension,
 
   if(!NT_SUCCESS(status) || !USBD_SUCCESS(urb->UrbHeader.Status))
     {
-      debug_printf(DEBUG_ERR, "set_interface(): setting interface failed "
-		   "%x %x", status, urb->UrbHeader.Status);
+      debug_printf(DEBUG_ERR, "set_interface(): setting interface failed: "
+		   "status: 0x%x, urb-status: 0x%x", 
+		   status, urb->UrbHeader.Status);
       ExFreePool(configuration_descriptor);
       ExFreePool(urb);
       return STATUS_UNSUCCESSFUL;

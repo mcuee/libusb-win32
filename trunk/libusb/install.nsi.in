@@ -4,20 +4,24 @@
 !include "MUI.nsh"
 
 !define PRODUCT "LibUsb-Win32"
+
 !define VERSION "@VERSION@"
-!define UNINSTALL_PATH "Software\Microsoft\Windows\CurrentVersion\Uninstall\${PRODUCT}-${VERSION}"
+!define BIN_DIST_DIR "@BIN_DIST_DIR@"
+!define SRC_DIST_DIR "@SRC_DIST_DIR@"
+
+!define UNINSTALL_PATH "Software\Microsoft\Windows\CurrentVersion\Uninstall\${PRODUCT}"
 
 
 Name "LibUsb-Win32"
 Caption "LibUsb-Win32 Version ${VERSION} Setup"
 
 
-OutFile "libusb-win32-filter-bin-${VERSION}.exe"
+OutFile "@INSTALLER_TARGET@"
 InstallDir $PROGRAMFILES\LibUsb-Win32-${VERSION}
 SetCompressor lzma
 
 !define MUI_ABORTWARNING
-!define MUI_WELCOMEPAGE_TEXT "This wizard will guide you through the installation of ${PRODUCT}.\n\r\n\rPlease close all applications which use USB devices before installing ${PRODUCT}!\n\r\n\rDuring the installation process all USB devices will become temporaryly unavailable!"
+!define MUI_WELCOMEPAGE_TEXT "This wizard will guide you through the installation of ${PRODUCT}.\n\r\n\rPlease close all applications that use USB devices before installing ${PRODUCT}!\n\r\n\rDuring the installation process all USB devices will become temporaryly unavailable!"
 !insertmacro MUI_PAGE_WELCOME
 !insertmacro MUI_PAGE_LICENSE ".\license_nsis.txt"
 !insertmacro MUI_PAGE_COMPONENTS
@@ -29,7 +33,6 @@ SetCompressor lzma
 !define MUI_FINISHPAGE_RUN_TEXT "Run test program"
 !define MUI_FINISHPAGE_RUN "$INSTDIR\bin\testlibusb-win.exe"
 !insertmacro MUI_PAGE_FINISH
-;!insertmacro MUI_UNPAGE_WELCOME
 !insertmacro MUI_UNPAGE_CONFIRM
 !insertmacro MUI_UNPAGE_INSTFILES
 !insertmacro MUI_LANGUAGE "English"
@@ -91,36 +94,47 @@ install_start:
 	File "libusbd-nt.exe"
 	SetOutPath $INSTDIR\bin
 
+	ReadRegStr $R0 HKLM "System\CurrentControlSet\Control\Class\{36FC9E60-C465-11CF-8056-444553540000}" "LowerFilters"
+   	StrCmp $R0 "" +3 0
+	SetRebootFlag true
 	DeleteRegValue HKLM "System\CurrentControlSet\Control\Class\{36FC9E60-C465-11CF-8056-444553540000}" "LowerFilters"
 
 	DetailPrint "Creating kernel service ..."
 	nsExec::ExecToLog "$INSTDIR\bin\libusbis.exe --create-kernel-service"
-
-	DetailPrint "Restarting USB host controllers (this can take several seconds) ..."
-	nsExec::ExecToLog "$INSTDIR\bin\libusbis.exe --restart-host-controllers"
 
 	DetailPrint "Creating system service ..."
 	nsExec::ExecToLog "$INSTDIR\bin\libusbis.exe --create-system-service"  
 
 	DetailPrint "Starting system service (this can take several seconds) ..."
 	nsExec::ExecToLog "$INSTDIR\bin\libusbis.exe --start-system-service"
-	
+
+	nsExec::ExecToStack "$INSTDIR\bin\libusbis.exe --reboot-required"
+	Pop $0
+	Pop $0
+  	StrCmp $0 "yes" 0 +2
+	SetRebootFlag true
 	Goto done
 
   win9x:
 	SetOutPath $SYSDIR
 	File "libusbd-9x.exe"
 
+	ReadRegStr $R0 HKLM "System\CurrentControlSet\Services\Class\USB" "LowerFilters"
+   	StrCmp $R0 "" +3 0
+	SetRebootFlag true
 	DeleteRegValue HKLM "System\CurrentControlSet\Services\Class\USB" "LowerFilters"
-
-	DetailPrint "Restarting USB host controllers (this can take several seconds) ..."
-	nsExec::ExecToLog "$INSTDIR\bin\libusbis.exe --restart-host-controllers"
 
 	DetailPrint "Creating system service ..."
 	WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\RunServices" "LibUsb-Win32 Daemon, Version ${VERSION}" "$SYSDIR\libusbd-9x.exe" 
 
 	DetailPrint "Starting system service (this can take several seconds) ..."
 	Exec "libusbd-9x.exe"
+
+	nsExec::ExecToStack "$INSTDIR\bin\libusbis.exe --reboot-required"
+	Pop $0
+	Pop $0
+  	StrCmp $0 "yes" 0 +2
+	SetRebootFlag true
 
   done:
 
@@ -138,8 +152,8 @@ SectionEnd
 Section "SDK (optional)" sec_sdk
 
   	SetOutPath $INSTDIR
-  	File /r "libusb-win32-bin-${VERSION}\lib"	
-  	File /r "libusb-win32-bin-${VERSION}\include"	
+  	File /r "${BIN_DIST_DIR}\lib"	
+  	File /r "${BIN_DIST_DIR}\include"	
 
 SectionEnd
 
@@ -147,7 +161,7 @@ SectionEnd
 Section "Source Code (optional)" sec_source
 
   	SetOutPath $INSTDIR\src
-  	File /r "libusb-win32-src-${VERSION}\*"
+  	File /r "${SRC_DIST_DIR}\*"
 
 SectionEnd
 
@@ -169,9 +183,6 @@ Section "Uninstall"
 	DetailPrint "Stopping kernel service ..."
 	nsExec::ExecToLog "$INSTDIR\bin\libusbis.exe --stop-kernel-service"
 
-	DetailPrint "Restarting USB host controllers (this can take several seconds) ..."
-	nsExec::ExecToLog "$INSTDIR\bin\libusbis.exe --restart-host-controllers"
-
 	Delete $SYSDIR\libusbd-nt.exe
 
 	Goto done
@@ -183,13 +194,10 @@ Section "Uninstall"
 	nsExec::ExecToLog "$INSTDIR\bin\libusbis.exe --stop-system-service"
 
 	DetailPrint "Deleting system service ..."
-	DeleteRegValue HKLM "Software\Microsoft\Windows\CurrentVERSION\RunServices" "LibUsb-Win32 - Daemon, Version ${VERSION}"
+	DeleteRegValue HKLM "Software\Microsoft\Windows\CurrentVersion\RunServices" "LibUsb-Win32 - Daemon, Version ${VERSION}"
 
 	DetailPrint "Stopping kernel service ..."
 	nsExec::ExecToLog "$INSTDIR\bin\libusbis.exe --stop-kernel-service"
-
-	DetailPrint "Restarting USB host controllers (this can take several seconds) ..."
-	nsExec::ExecToLog "$INSTDIR\bin\libusbis.exe --restart-host-controllers"
 
 	Delete $SYSDIR\libusbd-9x.exe
 done:
@@ -202,7 +210,7 @@ done:
 SectionEnd
 
 !insertmacro MUI_FUNCTION_DESCRIPTION_BEGIN
-!insertmacro MUI_DESCRIPTION_TEXT ${sec_driver} "The driver and Dll"
-!insertmacro MUI_DESCRIPTION_TEXT ${sec_sdk} "The Software Development Kit"
-!insertmacro MUI_DESCRIPTION_TEXT ${sec_source} "The full source code of all components"
+!insertmacro MUI_DESCRIPTION_TEXT ${sec_driver} "Driver and Dll"
+!insertmacro MUI_DESCRIPTION_TEXT ${sec_sdk} "Software Development Kit"
+!insertmacro MUI_DESCRIPTION_TEXT ${sec_source} "Full source code of all components"
 !insertmacro MUI_FUNCTION_DESCRIPTION_END

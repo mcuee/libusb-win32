@@ -142,8 +142,6 @@ int APIENTRY WinMain(HINSTANCE instance,
       DispatchMessage( &msg );
     }
 
-  usb_set_debug(0);
-
   DestroyWindow(main_win);
   UnregisterClass(LIBUSB_WINDOW_CLASS, instance);
 
@@ -210,7 +208,7 @@ static void on_refresh(void)
 {
   struct usb_bus *bus;
   struct usb_device *dev;
-  struct usb_version *version;
+  const struct usb_version *version;
 
   edit_printf_init();
 

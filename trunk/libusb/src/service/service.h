@@ -42,7 +42,7 @@ bool_t usb_create_service(const char *name, const char *display_name,
 bool_t usb_delete_service(const char *name);
 bool_t usb_start_service(const char *name);
 bool_t usb_stop_service(const char *name);
-
+bool_t usb_service_reboot_required(void);
 
 
 #endif

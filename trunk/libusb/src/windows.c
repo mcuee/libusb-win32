@@ -33,14 +33,14 @@
 #include "usbi.h"
 #include "filter_api.h"
 
-#define WIN_DEFAULT_TIMEOUT 5000
 
 #define USB_FEATURE_ENDPOINT_HALT 0
 
+#define LIBUSB_DEFAULT_TIMEOUT 1000
 #define LIBUSB_DEVICE_NAME "\\\\.\\libusb0-"
 #define LIBUSB_DEVICE_NAME_ZERO "\\\\.\\libusb0-0000"
 #define LIBUSB_BUS_NAME "bus-0"
-#define WIN_MAX_DEVICES 256
+#define LIBUSB_MAX_DEVICES 256
 
 #ifdef USB_ERROR_STR
 #undef USB_ERROR_STR
@@ -106,7 +106,18 @@ BOOL WINAPI DllMain(HANDLE module, DWORD reason, LPVOID reserved)
     {
     case DLL_PROCESS_ATTACH:
       _kernel32_dll = LoadLibrary("KERNEL32.DLL");
+      if(!_kernel32_dll)
+	{ 
+	  return FALSE;
+	}
+      
       _cancel_io = (cancel_io_t)GetProcAddress(_kernel32_dll, "CancelIo");
+      
+      if(!_cancel_io)
+	{
+	  FreeLibrary(_kernel32_dll);
+	  return FALSE;
+	}
       break;
     case DLL_PROCESS_DETACH:
       FreeLibrary(_kernel32_dll);
@@ -133,7 +144,7 @@ static void output_debug_string(const char *s, ...)
   OutputDebugStringA(tmp);
 }
 
-/* returns Windows' last error in a human readable form */
+/* returns Windows last error in a human readable form */
 static const char *last_win_error()
 {
   FormatMessage(FORMAT_MESSAGE_FROM_SYSTEM, NULL, GetLastError(), 
@@ -162,6 +173,11 @@ int usb_os_open(usb_dev_handle *dev)
 {
   char dev_name[LIBUSB_PATH_MAX];
   char *p;
+
+  if(!dev->device->filename)
+    {
+      USB_ERROR_STR(-1, "usb_os_open: invalid file name NULL");
+    }
 
   /* build the Windows file name from the unique device name */ 
   strcpy(dev_name, dev->device->filename);
@@ -210,20 +226,20 @@ int usb_os_close(usb_dev_handle *dev)
 
 int usb_set_configuration(usb_dev_handle *dev, int configuration)
 {
-  int sent;
+  DWORD sent;
   libusb_request req;
   
-  req.configuration.configuration = configuration;
-  req.timeout = WIN_DEFAULT_TIMEOUT;
-
   if(dev->impl_info == INVALID_HANDLE_VALUE)
     {
       USB_ERROR_STR(-1, "usb_set_configuration: error: device not open");
     }
 
+  req.configuration.configuration = configuration;
+  req.timeout = LIBUSB_DEFAULT_TIMEOUT;
+
   if(!DeviceIoControl(dev->impl_info, LIBUSB_IOCTL_SET_CONFIGURATION, 
 		      &req, sizeof(libusb_request), 
-		      NULL, 0, (DWORD *)&sent, NULL))
+		      NULL, 0, &sent, NULL))
     {
       USB_ERROR_STR(-1, "could not set config %d: win error: %s", 
 		    configuration, last_win_error());
@@ -257,6 +273,7 @@ int usb_claim_interface(usb_dev_handle *dev, int interface)
 
   dev->interface = interface;
   dev->altsetting = 0;
+
   return 0;
 }
 
@@ -274,7 +291,8 @@ int usb_release_interface(usb_dev_handle *dev, int interface)
 		    interface, dev->config);
     }
 
-  if(interface >= dev->device->config[dev->config - 1].bNumInterfaces)
+  if((interface >= dev->device->config[dev->config - 1].bNumInterfaces)
+     || (dev->interface != interface))
     {
       USB_ERROR_STR(-EINVAL, "could not release interface %d, interface "
 		    "invalid", interface);
@@ -288,7 +306,7 @@ int usb_release_interface(usb_dev_handle *dev, int interface)
 
 int usb_set_altinterface(usb_dev_handle *dev, int alternate)
 {
-  int sent;
+  DWORD sent;
   libusb_request req;
 
   if(dev->impl_info == INVALID_HANDLE_VALUE)
@@ -305,11 +323,11 @@ int usb_set_altinterface(usb_dev_handle *dev, int alternate)
 
   req.interface.interface = dev->interface;
   req.interface.altsetting = alternate;
-  req.timeout = WIN_DEFAULT_TIMEOUT;
+  req.timeout = LIBUSB_DEFAULT_TIMEOUT;
   
   if(!DeviceIoControl(dev->impl_info, LIBUSB_IOCTL_SET_INTERFACE, 
 		      &req, sizeof(libusb_request), 
-		      NULL, 0, (DWORD *)&sent, NULL))
+		      NULL, 0, &sent, NULL))
     {
       USB_ERROR_STR(-1, "could not set alt interface %d/%d: win error: %s",
 		    dev->interface, alternate, last_win_error());
@@ -325,30 +343,45 @@ int usb_bulk_write(usb_dev_handle *dev, int ep, char *bytes, int size,
 		   int timeout)
 {
   libusb_request req;
-  int ret, requested, sent = 0;
+  DWORD ret, requested;
+  int sent = 0;
   HANDLE event;
   OVERLAPPED ol;
 
   if(dev->impl_info == INVALID_HANDLE_VALUE)
     {
-      USB_ERROR_STR(-ENODEV, "usb_bulk_write: error: device not open");
+      USB_ERROR_STR(-ENODEV, "usb_bulk_write/usb_interrupt_write: error: "
+		    "device not open");
     }
 
   if(dev->config <= 0)
     {
-      USB_ERROR_STR(-EINVAL, "error writing to bulk endpoint 0x%x: "
-		    "invalid configuration %d", ep, dev->config);
+      USB_ERROR_STR(-EINVAL, "error writing to bulk or interrupt endpoint "
+		    "0x%x: invalid configuration %d", ep, dev->config);
     }
+
   if(dev->interface < 0)
     {
-      USB_ERROR_STR(-EINVAL, "error writing to bulk endpoint 0x%x: "
-		    "invalid interface %d", ep, dev->interface);
+      USB_ERROR_STR(-EINVAL, "error writing to bulk or interrupt endpoint "
+		    "0x%x: invalid interface %d", ep, dev->interface);
     }
   
-  req.endpoint.endpoint = ep;
-  req.timeout = timeout;
+  if(ep & USB_ENDPOINT_IN)
+    {
+      USB_ERROR_STR(-EINVAL, "error writing to bulk or interrupt endpoint "
+		    "0x%x: invalid endpoint", ep);
+    }
 
   event = CreateEvent(NULL, TRUE, FALSE, NULL);
+
+  if(!event)
+    {
+      USB_ERROR_STR(-1, "creating event failed: win error: %s", 
+		    last_win_error());
+    }
+
+  req.endpoint.endpoint = ep;
+  req.timeout = timeout;
 
   ol.Offset = 0;
   ol.OffsetHigh = 0;
@@ -356,42 +389,36 @@ int usb_bulk_write(usb_dev_handle *dev, int ep, char *bytes, int size,
 
   timeout = timeout ? timeout : INFINITE;
   
-  if(!event)
-    {
-      USB_ERROR_STR(-1, "error creating event: win error: %s", 
-		    last_win_error());
-    }
-
   do {
     ResetEvent(event);
-
     requested = size > LIBUSB_MAX_READ_WRITE ? LIBUSB_MAX_READ_WRITE : size;
 
     if(!DeviceIoControl(dev->impl_info, LIBUSB_IOCTL_INTERRUPT_OR_BULK_WRITE, 
-			&req, sizeof(libusb_request), bytes, 
-			(DWORD)requested, (DWORD *)&ret, &ol))
+		    	&req, sizeof(libusb_request), bytes, 
+			requested, &ret, &ol))
       {
 	if(GetLastError() != ERROR_IO_PENDING)
 	  {
 	    CloseHandle(event);
-	    USB_ERROR_STR(-1, "error writing to bulk endpoint 0x%x: "
-			  "win error: %s", ep, last_win_error());
+	    USB_ERROR_STR(-1, "error writing to bulk or interrupt endpoint "
+			  "0x%x: win error: %s", ep, last_win_error());
 	  }
       }
 
     if(WaitForSingleObject(event, timeout) == WAIT_TIMEOUT)
       {
-	/* requested timed out */
+	/* request timed out */
 	usb_cancel_io(dev);
 	CloseHandle(event);
-	USB_ERROR_STR(-1, "timeout error writing to bulk endpoint 0x%x: "
-		      "win error: %s", ep, last_win_error());
+	USB_ERROR_STR(-1, "timeout error writing to bulk or interrupt "
+		      "endpoint 0x%x: win error: %s", ep, last_win_error());
       }
-    if(!GetOverlappedResult(dev->impl_info, &ol, (DWORD *)&ret, FALSE))
+
+    if(!GetOverlappedResult(dev->impl_info, &ol, &ret, FALSE))
       {
 	CloseHandle(event);
-	USB_ERROR_STR(-1, "error writing to bulk endpoint 0x%x: win error: %s",
-		      ep, last_win_error());
+	USB_ERROR_STR(-1, "error writing to bulk or interrupt endpoint 0x%x: "
+		      "win error: %s", ep, last_win_error());
       }
 
     sent += ret;
@@ -408,31 +435,46 @@ int usb_bulk_read(usb_dev_handle *dev, int ep, char *bytes, int size,
 		  int timeout)
 {
   libusb_request req;
-  int ret, requested, retrieved = 0;
+  DWORD ret, requested;
+  int retrieved = 0;
   HANDLE event;
   OVERLAPPED ol;
 
+
   if(dev->impl_info == INVALID_HANDLE_VALUE)
     {
-      USB_ERROR_STR(-ENODEV, "usb_bulk_read: error: device not open");
+      USB_ERROR_STR(-ENODEV, "usb_bulk_read/usb_interrupt_read: error: device "
+		    "not open");
     }
 
   if(dev->config <= 0)
     {
-      USB_ERROR_STR(-EINVAL, "error reading from bulk endpoint 0x%x: "
-		    "invalid configuration %d", ep, dev->config);
+      USB_ERROR_STR(-EINVAL, "error reading from bulk or interrupt endpoint "
+		    "0x%x: invalid configuration %d", ep, dev->config);
     }
 
   if(dev->interface < 0)
     {
-      USB_ERROR_STR(-EINVAL, "error reading from bulk endpoint 0x%x: "
-		    "invalid interface %d", ep, dev->interface);
+      USB_ERROR_STR(-EINVAL, "error reading from bulk endpoint or interrupt "
+		    "0x%x: invalid interface %d", ep, dev->interface);
+    }
+
+  if(!(ep & USB_ENDPOINT_IN))
+    {
+      USB_ERROR_STR(-EINVAL, "error reading from bulk or interrupt endpoint "
+		    "0x%x: invalid endpoint", ep);
+    }
+
+  event = CreateEvent(NULL, TRUE, FALSE, NULL);
+
+  if(!event)
+    {
+      USB_ERROR_STR(-1, "creating event failed: win error: %s", 
+		    last_win_error());
     }
 
   req.endpoint.endpoint = ep;
   req.timeout = timeout;
-
-  event = CreateEvent(NULL, TRUE, FALSE, NULL);
 
   ol.Offset = 0;
   ol.OffsetHigh = 0;
@@ -440,43 +482,36 @@ int usb_bulk_read(usb_dev_handle *dev, int ep, char *bytes, int size,
 
   timeout = timeout ? timeout : INFINITE;
 
-  if(!event)
-    {
-      USB_ERROR_STR(-1, "error creating event: win error: %s", 
-		    last_win_error());
-    }
-
   do {
     ResetEvent(event);
-
     requested = size > LIBUSB_MAX_READ_WRITE ? LIBUSB_MAX_READ_WRITE : size;
 
     if(!DeviceIoControl(dev->impl_info, LIBUSB_IOCTL_INTERRUPT_OR_BULK_READ, 
 			&req, sizeof(libusb_request), bytes, 
-			(DWORD)requested, (DWORD *)&ret, &ol))
+			requested, &ret, &ol))
       {
 	if(GetLastError() != ERROR_IO_PENDING)
 	  {
 	    CloseHandle(event);
-	    USB_ERROR_STR(-1, "error reading from bulk endpoint 0x%x: "
-			  "win error: %s", ep, last_win_error());
+	    USB_ERROR_STR(-1, "error reading from bulk or interrupt endpoint "
+			  "0x%x: win error: %s", ep, last_win_error());
 	  }
       }
 
     if(WaitForSingleObject(event, timeout) == WAIT_TIMEOUT)
       {
-	/* requested timed out */
+	/* request timed out */
 	usb_cancel_io(dev);
 	CloseHandle(event);
-	USB_ERROR_STR(-1, "timeout error reading from bulk endpoint "
-		      "0x%x: win error: %s", ep, last_win_error());
+	USB_ERROR_STR(-1, "timeout error reading from bulk endpoint or "
+		      "interrupt 0x%x: win error: %s", ep, last_win_error());
       }
 
-    if(!GetOverlappedResult(dev->impl_info, &ol, (DWORD *)&ret, FALSE))
+    if(!GetOverlappedResult(dev->impl_info, &ol, &ret, FALSE))
       {
 	CloseHandle(event);
-	USB_ERROR_STR(-1, "error reading from bulk endpoint 0x%x: "
-		      "win error: %s", ep, last_win_error());
+	USB_ERROR_STR(-1, "error reading from bulk or interrupt endpoint "
+		      "0x%x: win error: %s", ep, last_win_error());
       }
 
     retrieved += ret;
@@ -490,7 +525,7 @@ int usb_bulk_read(usb_dev_handle *dev, int ep, char *bytes, int size,
 }
 
 int usb_interrupt_write(usb_dev_handle *dev, int ep, char *bytes, int size,
-	int timeout)
+			int timeout)
 {
   return usb_bulk_write(dev, ep, bytes, size, timeout);
 }
@@ -504,8 +539,9 @@ int usb_interrupt_read(usb_dev_handle *dev, int ep, char *bytes, int size,
 int usb_control_msg(usb_dev_handle *dev, int requesttype, int request,
 		    int value, int index, char *bytes, int size, int timeout)
 {
-  int ret = 0;
+  DWORD ret = 0;
   int error = 0;
+  char *tmp = NULL;
   libusb_request req;
   req.timeout = timeout;
 
@@ -528,13 +564,13 @@ int usb_control_msg(usb_dev_handle *dev, int requesttype, int request,
 	  if(!DeviceIoControl(dev->impl_info, LIBUSB_IOCTL_GET_STATUS, 
 			      &req, sizeof(libusb_request), 
 			      &req, sizeof(libusb_request), 
-			      (DWORD *)&ret, NULL))
+			      &ret, NULL))
 	    {
 	      error = 1;
 	      break;
 	    }
 
-	  (unsigned short)*bytes = (unsigned short) req.status.status;
+	  *((unsigned short *)bytes) = (unsigned short) req.status.status;
 
 	  break;
       
@@ -545,7 +581,7 @@ int usb_control_msg(usb_dev_handle *dev, int requesttype, int request,
 
 	  if(!DeviceIoControl(dev->impl_info, LIBUSB_IOCTL_CLEAR_FEATURE, 
 			      &req, sizeof(libusb_request), 
-			      NULL, 0, (DWORD *)&ret, NULL))
+			      NULL, 0, &ret, NULL))
 	    {
 	      error = 1;
 	    }
@@ -559,7 +595,7 @@ int usb_control_msg(usb_dev_handle *dev, int requesttype, int request,
 	  
 	  if(!DeviceIoControl(dev->impl_info, LIBUSB_IOCTL_SET_FEATURE, 
 			      &req, sizeof(libusb_request), 
-			      NULL, 0, (DWORD *)&ret, NULL))
+			      NULL, 0, &ret, NULL))
 	    {
 	      error = 1;
 	    }
@@ -567,29 +603,42 @@ int usb_control_msg(usb_dev_handle *dev, int requesttype, int request,
 	  break;
 
 	case USB_REQ_GET_DESCRIPTOR:     	  
-	  req.descriptor.type = (value >> 8) & 0x000000FF;
-	  req.descriptor.index = value & 0x000000FF;
+	  req.descriptor.type = (value >> 8) & 0xFF;
+	  req.descriptor.index = value & 0xFF;
 	  req.descriptor.language_id = index;
 	  
 	  if(!DeviceIoControl(dev->impl_info, LIBUSB_IOCTL_GET_DESCRIPTOR, 
 			      &req, sizeof(libusb_request), 
-			      bytes, size,(DWORD *)&ret, NULL))
+			      bytes, size, &ret, NULL))
 	    {
 	      error = 1;
 	    }
 	  break;
 	  
 	case USB_REQ_SET_DESCRIPTOR:
-	  req.descriptor.type = (value >> 8) & 0x000000FF;
-	  req.descriptor.index = value & 0x000000FF;
+	  req.descriptor.type = (value >> 8) & 0xFF;
+	  req.descriptor.index = value & 0xFF;
 	  req.descriptor.language_id = index;
 	  
+	  tmp = malloc(sizeof(libusb_request) + size);
+
+	  if(!tmp)
+	    {
+	      USB_ERROR(-ENOMEM);
+	    }
+
+	  memcpy(tmp, &req, sizeof(libusb_request));
+	  memcpy(tmp + sizeof(libusb_request), bytes, size);
+
+
 	  if(!DeviceIoControl(dev->impl_info, LIBUSB_IOCTL_SET_DESCRIPTOR, 
-			      &req, sizeof(libusb_request), 
-			      bytes, size, (DWORD *)&ret, NULL))
+			      tmp, sizeof(libusb_request) + size, 
+			      NULL, 0, &ret, NULL))
 	    {
 	      error = 1;
 	    }
+
+	  free(tmp);
 
 	  break;
 	  
@@ -598,13 +647,13 @@ int usb_control_msg(usb_dev_handle *dev, int requesttype, int request,
 	  if(!DeviceIoControl(dev->impl_info, LIBUSB_IOCTL_GET_CONFIGURATION, 
 			      &req, sizeof(libusb_request), 
 			      &req, sizeof(libusb_request),
-			      (DWORD *)&ret, NULL))
+			      &ret, NULL))
 	    {
 	      error = 1;
 	      break;
 	    }
 
-	  *bytes = (unsigned char)req.configuration.configuration;
+	  *bytes = (char)req.configuration.configuration;
 	  
 	  break;
       
@@ -613,7 +662,7 @@ int usb_control_msg(usb_dev_handle *dev, int requesttype, int request,
 
 	  if(!DeviceIoControl(dev->impl_info, LIBUSB_IOCTL_SET_CONFIGURATION, 
 			      &req, sizeof(libusb_request), 
-			      NULL, 0, (DWORD *)&ret, NULL))
+			      NULL, 0, &ret, NULL))
 	    {
 	      error = 1;
 	    }
@@ -626,13 +675,13 @@ int usb_control_msg(usb_dev_handle *dev, int requesttype, int request,
 	  if(!DeviceIoControl(dev->impl_info, LIBUSB_IOCTL_GET_INTERFACE, 
 			      &req, sizeof(libusb_request),
 			      &req, sizeof(libusb_request),
-			      (DWORD *)&ret, NULL))
+			      &ret, NULL))
 	    {
 	      error = 1;
 	      break;
 	    }
 
-	  *bytes = (unsigned char)req.interface.altsetting;
+	  *bytes = (char)req.interface.altsetting;
 	  
 	  break;
       
@@ -642,7 +691,7 @@ int usb_control_msg(usb_dev_handle *dev, int requesttype, int request,
 	  
 	  if(!DeviceIoControl(dev->impl_info, LIBUSB_IOCTL_SET_INTERFACE, 
 			      &req, sizeof(libusb_request), 
-			      NULL, 0, (DWORD *)&ret, NULL))
+			      NULL, 0, &ret, NULL))
 	    {
 	      error = 1;
 	    }
@@ -650,34 +699,48 @@ int usb_control_msg(usb_dev_handle *dev, int requesttype, int request,
 	  break;
 	  
 	default:
-	  USB_ERROR_STR(-1, "usb_control_msg: invalid request %x", request);
+	  USB_ERROR_STR(-1, "usb_control_msg: invalid request 0x%x", request);
 	}
       break;
 
     case USB_TYPE_VENDOR:  
     case USB_TYPE_CLASS:
-    
+
+      req.vendor.type = (requesttype >> 5) & 0x03;
+      req.vendor.recipient = requesttype & 0x1F;
       req.vendor.request = request;
       req.vendor.value = value;
       req.vendor.index = index;
 
-      if((unsigned char) requesttype & 0x80)
+      if(requesttype & 0x80)
 	{
 	  if(!DeviceIoControl(dev->impl_info, LIBUSB_IOCTL_VENDOR_READ, 
 			      &req, sizeof(libusb_request), 
-			      bytes, size, (DWORD *)&ret, NULL))
+			      bytes, size, &ret, NULL))
 	    {
 	      error = 1;
 	    }
 	}
       else
 	{
+	  tmp = malloc(sizeof(libusb_request) + size);
+
+	  if(!tmp)
+	    {
+	      USB_ERROR(-ENOMEM);
+	    }
+
+	  memcpy(tmp, &req, sizeof(libusb_request));
+	  memcpy(tmp + sizeof(libusb_request), bytes, size);
+
 	  if(!DeviceIoControl(dev->impl_info, LIBUSB_IOCTL_VENDOR_WRITE, 
-			      &req, sizeof(libusb_request), 
-			      bytes, size, (DWORD *)&ret, NULL))
+			      tmp, sizeof(libusb_request) + size, 
+			      NULL, 0, &ret, NULL))
 	    {
 	      error = 1;
 	    }
+
+	  free(tmp);
 	}
       break;
     case USB_TYPE_RESERVED:
@@ -709,15 +772,12 @@ int usb_os_find_busses(struct usb_bus **busses)
       USB_ERROR(-ENOMEM);
     }
 
-  memset((void *)bus, 0, sizeof(*bus));
-  
+  memset(bus, 0, sizeof(*bus));
   strcpy(bus->dirname, LIBUSB_BUS_NAME);
-  
   LIST_ADD(fbus, bus);
-  
-  USB_MESSAGE_STR(DEBUG_MSG, "usb_os_find_busses: found %s", bus->dirname);
-  
   *busses = fbus;
+
+  USB_MESSAGE_STR(DEBUG_MSG, "usb_os_find_busses: found %s", bus->dirname);
 
   return 0;
 }
@@ -729,14 +789,9 @@ int usb_os_find_devices(struct usb_bus *bus, struct usb_device **devices)
   struct usb_device *dev, *fdev = NULL;
   struct usb_dev_handle dev_handle;
   char dev_name[LIBUSB_PATH_MAX];
-  int ret = 0;
-  int usb_old_debug = usb_debug;
-  libusb_request req;
-  req.timeout = 0;
-  req.debug.level = usb_debug;
-  
+  DWORD ret = 0;
 
-  for(i = 0; i < WIN_MAX_DEVICES; i++)
+  for(i = 0; i < LIBUSB_MAX_DEVICES; i++)
     {
       /* build the Windows file name */
       snprintf(dev_name, sizeof(dev_name) - 1,"%s%04d", 
@@ -750,15 +805,12 @@ int usb_os_find_devices(struct usb_bus *bus, struct usb_device **devices)
 	}
       
       memset(dev, 0, sizeof(*dev));
-      
       dev->bus = bus;
-
       strcpy(dev->filename, dev_name);
-
       dev_handle.device = dev;
 
-      dev_handle.impl_info = CreateFile(dev->filename, GENERIC_READ
-					| GENERIC_WRITE,
+      dev_handle.impl_info = CreateFile(dev->filename, 
+					GENERIC_READ | GENERIC_WRITE,
 					FILE_SHARE_READ | FILE_SHARE_WRITE,
 					NULL, OPEN_EXISTING, 
 					FILE_ATTRIBUTE_NORMAL,
@@ -770,13 +822,12 @@ int usb_os_find_devices(struct usb_bus *bus, struct usb_device **devices)
 	  continue;
 	}
 
-      usb_debug = 0;
       ret = usb_control_msg(&dev_handle, USB_ENDPOINT_IN | USB_TYPE_STANDARD 
 			    | USB_RECIP_DEVICE,
 			    USB_REQ_GET_DESCRIPTOR, USB_DT_DEVICE << 8 , 0,
 			    (char *)&(dev->descriptor), 
 			    USB_DT_DEVICE_SIZE,
-			    WIN_DEFAULT_TIMEOUT);
+			    LIBUSB_DEFAULT_TIMEOUT);
 
       if(ret < USB_DT_DEVICE_SIZE) 
 	{
@@ -785,11 +836,9 @@ int usb_os_find_devices(struct usb_bus *bus, struct usb_device **devices)
 	  free(dev);
 	  CloseHandle(dev_handle.impl_info);
 	  dev_handle.impl_info = INVALID_HANDLE_VALUE;
-	  usb_debug = usb_old_debug;
 	  continue;
 	}
       
-      usb_debug = usb_old_debug;
       CloseHandle(dev_handle.impl_info);
       dev_handle.impl_info = INVALID_HANDLE_VALUE;
 
@@ -806,28 +855,6 @@ int usb_os_find_devices(struct usb_bus *bus, struct usb_device **devices)
   
   *devices = fdev;
 
-  if(devices)
-    {
-      snprintf(dev_name, sizeof(dev_name) - 1,"%s%04d", 
-	       LIBUSB_DEVICE_NAME, 0);
-      
-      dev_handle.impl_info = CreateFile(dev_name, GENERIC_READ | GENERIC_WRITE,
-					FILE_SHARE_READ | FILE_SHARE_WRITE,
-					NULL, OPEN_EXISTING, 
-					FILE_ATTRIBUTE_NORMAL,
-					NULL);
-      
-      if(dev_handle.impl_info != INVALID_HANDLE_VALUE) 
-	{
-	  /* set debug level */
-	  DeviceIoControl(dev_handle.impl_info, LIBUSB_IOCTL_SET_DEBUG_LEVEL, 
-			  &req, sizeof(libusb_request), 
-			  NULL, 0, (DWORD *)&ret, NULL); 
-	  CloseHandle(dev_handle.impl_info);
-	  dev_handle.impl_info = INVALID_HANDLE_VALUE;
-	}
-    }
-
   return 0;
 }
 
@@ -835,28 +862,27 @@ int usb_os_find_devices(struct usb_bus *bus, struct usb_device **devices)
 void usb_os_init(void)
 {
   DWORD ret;
-  HANDLE dev_0;
+  HANDLE dev;
   libusb_request req;
 
   USB_MESSAGE_STR(DEBUG_MSG, "usb_os_init: dll version: %d.%d.%d.%d",
 		  LIBUSB_VERSION_MAJOR, LIBUSB_VERSION_MINOR,
 		  LIBUSB_VERSION_MICRO, LIBUSB_VERSION_NANO);
 
-
-  dev_0 = CreateFile(LIBUSB_DEVICE_NAME_ZERO, 
-		     GENERIC_READ, FILE_SHARE_READ,
-		     NULL, OPEN_EXISTING, FILE_FLAG_OVERLAPPED,
-		     NULL);
-      
-  if(dev_0 == INVALID_HANDLE_VALUE) 
+  dev = CreateFile(LIBUSB_DEVICE_NAME_ZERO, 
+		   GENERIC_READ, FILE_SHARE_READ,
+		   NULL, OPEN_EXISTING, FILE_FLAG_OVERLAPPED,
+		   NULL);
+  
+  if(dev == INVALID_HANDLE_VALUE) 
     {
       USB_MESSAGE_STR(DEBUG_ERR, "usb_os_init: open driver failed");
       return;
     }
   
-  if(!DeviceIoControl(dev_0, LIBUSB_IOCTL_GET_VERSION, 
-		      NULL, 0, &req, sizeof(libusb_request), 
-		      (DWORD *)&ret, NULL))
+  if(!DeviceIoControl(dev, LIBUSB_IOCTL_GET_VERSION, &req, 
+		      sizeof(libusb_request), &req, sizeof(libusb_request), 
+		      &ret, NULL))
     {
       USB_MESSAGE_STR(DEBUG_ERR, "usb_os_init: getting driver version failed");
     }
@@ -872,27 +898,38 @@ void usb_os_init(void)
 		      req.version.major, req.version.minor, 
 		      req.version.micro, req.version.nano);
     }
-  CloseHandle(dev_0);
+
+  /* set debug level */
+  req.timeout = 0;
+  req.debug.level = usb_debug;
+      
+  if(!DeviceIoControl(dev, LIBUSB_IOCTL_SET_DEBUG_LEVEL, 
+		      &req, sizeof(libusb_request), 
+		      NULL, 0, &ret, NULL))
+    {
+      USB_MESSAGE_STR(DEBUG_ERR, "usb_os_init: setting debug level failed");
+    }
+
+  CloseHandle(dev);
 }
 
 
 int usb_resetep(usb_dev_handle *dev, unsigned int ep)
 {
-  int ret;
+  DWORD ret;
   libusb_request req;
   req.endpoint.endpoint = (int)ep;
-  req.timeout = WIN_DEFAULT_TIMEOUT;
+  req.timeout = LIBUSB_DEFAULT_TIMEOUT;
 
   if(dev->impl_info == INVALID_HANDLE_VALUE)
     {
       USB_ERROR_STR(-ENODEV, "usb_resetep: error: device not open");
     }
 
-  if(!DeviceIoControl(dev->impl_info, LIBUSB_IOCTL_RESET_ENDPOINT, 
-		      &req, sizeof(libusb_request),
-		      NULL, 0, (DWORD *)&ret, NULL))
+  if(!DeviceIoControl(dev->impl_info, LIBUSB_IOCTL_RESET_ENDPOINT, &req, 
+		      sizeof(libusb_request), NULL, 0, &ret, NULL))
     {
-      USB_ERROR_STR(-1, "could not reset ep %d : win error: %s", ep, 
+      USB_ERROR_STR(-1, "could not reset ep 0x%x : win error: %s", ep, 
 		    last_win_error());
     }
   
@@ -910,21 +947,22 @@ int usb_clear_halt(usb_dev_handle *dev, unsigned int ep)
 
   ret = usb_control_msg(dev, USB_RECIP_ENDPOINT, USB_REQ_CLEAR_FEATURE,
 			USB_FEATURE_ENDPOINT_HALT, (int)ep, NULL, 0, 
-			WIN_DEFAULT_TIMEOUT);
+			LIBUSB_DEFAULT_TIMEOUT);
 
   if(ret < 0)
     {
-      USB_ERROR_STR(ret, "could not clear/halt ep %d: win error: %s", ep,
+      USB_ERROR_STR(ret, "could not clear/halt ep 0x%x: win error: %s", ep,
 		    last_win_error());
     }
+
   return 0;
 }
 
 int usb_reset(usb_dev_handle *dev)
 {
-  int ret;
+  DWORD ret;
   libusb_request req;
-  req.timeout = WIN_DEFAULT_TIMEOUT;
+  req.timeout = LIBUSB_DEFAULT_TIMEOUT;
 
   if(dev->impl_info == INVALID_HANDLE_VALUE)
     {
@@ -932,15 +970,16 @@ int usb_reset(usb_dev_handle *dev)
     }
 
   if(!DeviceIoControl(dev->impl_info, LIBUSB_IOCTL_RESET_DEVICE,
-		      &req, sizeof(libusb_request), NULL, 0,
-		      (DWORD *)&ret, NULL))
+		      &req, sizeof(libusb_request), NULL, 0, &ret, NULL))
     {
-      USB_ERROR_STR(-1, "could not reset: win error: %s", last_win_error());
+      USB_ERROR_STR(-1, "could not reset device: win error: %s", 
+		    last_win_error());
     }
+
   return 0;
 }
 
-struct usb_version *usb_get_version(void)
+const struct usb_version *usb_get_version(void)
 {
   return &_usb_version;
 }

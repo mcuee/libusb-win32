@@ -47,7 +47,10 @@ NTSTATUS get_descriptor(libusb_device_extension *device_extension,
       
   if(!NT_SUCCESS(status) || !USBD_SUCCESS(urb.UrbHeader.Status))
     {
-      debug_printf(DEBUG_ERR, "get_descriptor(): getting descriptor failed");
+      debug_printf(DEBUG_ERR, "get_descriptor(): getting descriptor failed: "
+		   "status: 0x%x, urb-status: 0x%x", 
+		   status, urb.UrbHeader.Status);
+      *sent = 0;
     }
   else
     {

@@ -288,4 +288,3 @@ void usb_free_bus(struct usb_bus *bus)
 {
   free(bus);
 }
-

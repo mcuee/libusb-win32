@@ -120,19 +120,20 @@ NTSTATUS clear_feature(libusb_device_extension *device_extension,
 NTSTATUS get_status(libusb_device_extension *device_extension, int recipient,
 		    int index, int *status, int timeout);
 NTSTATUS set_descriptor(libusb_device_extension *device_extension,
-			void *buffer, MDL *mdl_buffer, int size, 
+			void *buffer, int size, 
 			int type, int index, int language_id, 
 			int *sent, int timeout);
 NTSTATUS get_descriptor(libusb_device_extension *device_extension,
 			void *buffer, int size, int type, 
 			int index, int language_id, int *sent, int timeout);
-NTSTATUS bulk_transfer(IRP *irp, libusb_device_extension *device_extension,
-		       int endpoint, MDL *buffer,
-		       int size, int direction);
-NTSTATUS vendor_request(libusb_device_extension *device_extension,
-			int request, int value, int index,
-			MDL *buffer, int size, int direction,
-			int *sent, int timeout);
+NTSTATUS bulk_int_transfer(IRP *irp, libusb_device_extension *device_extension,
+			   int endpoint, MDL *buffer,
+			   int size, int direction);
+NTSTATUS vendor_class_request(libusb_device_extension *device_extension,
+			      int type, int recipient,
+			      int request, int value, int index,
+			      void *buffer, int size, int direction,
+			      int *sent, int timeout);
 NTSTATUS abort_endpoint(libusb_device_extension *device_extension,
 			int endpoint, int timeout);
 NTSTATUS reset_endpoint(libusb_device_extension *device_extension,

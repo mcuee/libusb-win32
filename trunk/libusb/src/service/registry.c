@@ -66,7 +66,6 @@ bool_t usb_registry_get_property(DWORD which, HDEVINFO dev_info,
 					   &reg_type, (BYTE *)buf, 
 					   size, &length))
 	{
-	  RegCloseKey(reg_key);
 	  return FALSE;
 	}
 
@@ -83,7 +82,7 @@ bool_t usb_registry_get_property(DWORD which, HDEVINFO dev_info,
       
       if(reg_key == INVALID_HANDLE_VALUE)
 	{
-	  usb_debug_error("usb_reg_get_reg_property(): reading "
+	  usb_debug_error("usb_registry_get_property(): reading "
 			  "registry key failed");
 	  return FALSE;
 	}
@@ -96,6 +95,7 @@ bool_t usb_registry_get_property(DWORD which, HDEVINFO dev_info,
 	  return FALSE;
 	}
     }
+
   p = buf;
   
   if((REG_MULTI_SZ == reg_type))
@@ -171,12 +171,25 @@ bool_t usb_registry_set_property(DWORD which, HDEVINFO dev_info,
 
   if(usb_registry_is_nt())
     {
-      if(!SetupDiSetDeviceRegistryProperty(dev_info, dev_info_data,
-					   which, (BYTE *)tmp, size))
+      if(size > 3)
 	{
-	  usb_debug_error("usb_reg_set_reg_property(): setting "
-			  "property '%s' failed", val_name);
-	  return FALSE;
+	  if(!SetupDiSetDeviceRegistryProperty(dev_info, dev_info_data,
+					       which, (BYTE *)tmp, size))
+	    {
+	      usb_debug_error("usb_registry_set_property(): setting "
+			      "property '%s' failed", val_name);
+	      return FALSE;
+	    }
+	}
+      else
+	{
+	  if(!SetupDiSetDeviceRegistryProperty(dev_info, dev_info_data,
+					       which, NULL, 0))
+	    {
+	      usb_debug_error("usb_registry_set_property(): deleting "
+			      "property '%s' failed", val_name);
+	      return FALSE;
+	    }
 	}
     }
   else
@@ -187,18 +200,33 @@ bool_t usb_registry_set_property(DWORD which, HDEVINFO dev_info,
       
       if(reg_key == INVALID_HANDLE_VALUE)
 	{
-	  usb_debug_error("usb_reg_get_reg_property(): reading "
+	  usb_debug_error("usb_registry_set_property(): reading "
 			  "registry key failed");
 	  return FALSE;
 	}
       
-      if(RegSetValueEx(reg_key, val_name, 0, reg_type, (BYTE *)buf, 
-		       size) != ERROR_SUCCESS)
+      if(size > 3)
 	{
-	  usb_debug_error("usb_reg_set_reg_property(): setting "
-			  "property '%s' failed", val_name);
-	  return FALSE;
+	  if(RegSetValueEx(reg_key, val_name, 0, reg_type, (BYTE *)buf, 
+			   size) != ERROR_SUCCESS)
+	    {
+	      usb_debug_error("usb_registry_set_property(): setting "
+			      "property '%s' failed", val_name);
+	      RegCloseKey(reg_key);
+	      return FALSE;
+	    }
 	}
+      else
+	{
+	  if(RegDeleteValue(reg_key, val_name) != ERROR_SUCCESS)
+	    {
+	      usb_debug_error("usb_registry_set_property(): deleting "
+			      "property '%s' failed", val_name);
+	      RegCloseKey(reg_key);
+	      return FALSE;
+	    }
+	}
+      RegCloseKey(reg_key);
     }
 
   return TRUE;
@@ -288,7 +316,7 @@ bool_t usb_registry_set_device_state(DWORD state, HDEVINFO dev_info,
   params.ClassInstallHeader.cbSize = sizeof(SP_CLASSINSTALL_HEADER);
   params.ClassInstallHeader.InstallFunction = DIF_PROPERTYCHANGE;
   params.StateChange = state;
-  params.Scope = DICS_FLAG_CONFIGSPECIFIC;
+  params.Scope = DICS_FLAG_GLOBAL;//DICS_FLAG_CONFIGSPECIFIC;
   params.HwProfile = 0;
 	  
   if(!SetupDiSetClassInstallParams(dev_info, dev_info_data,
@@ -363,7 +391,7 @@ bool_t usb_registry_is_service_libusb(HDEVINFO dev_info,
   if(!usb_registry_get_property(SPDRP_SERVICE, dev_info, dev_info_data,
 				service_name, sizeof(service_name)))
     {
-      /* found device in the registry with VID_0000/PID_0000 which have */
+      /* found device in the registry with VID_0000/PID_0000 which has */
       /* no service */
       return FALSE;
     }
@@ -443,41 +471,44 @@ bool_t usb_registry_is_composite_libusb(HDEVINFO dev_info,
 
 }
 
-bool_t usb_registry_install_composite_filter(void)
+bool_t usb_registry_is_device_present(const char *hardware_id)
 {
   HDEVINFO dev_info;
   SP_DEVINFO_DATA dev_info_data;
   int dev_index = 0;
-  char *filter_name = NULL;
+  char tmp[REGISTRY_BUF_SIZE];
+  bool_t ret = FALSE;
 
-  filter_name = usb_registry_is_nt() ? 
-    LIBUSB_DRIVER_NAME_NT : LIBUSB_DRIVER_NAME_9X;
-  
   dev_info_data.cbSize = sizeof(SP_DEVINFO_DATA);
-  dev_info = SetupDiGetClassDevs(NULL, "USB", 0, DIGCF_ALLCLASSES);
+
+  dev_info = SetupDiGetClassDevs(NULL, "USB", 0, DIGCF_ALLCLASSES
+				 | DIGCF_PRESENT);
 
   if(dev_info == INVALID_HANDLE_VALUE)
     {
-      usb_debug_error("usb_registry_install_composite_filter(): getting "
+      usb_debug_error("usb_registry_is_device_present(): getting "
 		      "device info set failed");
       return FALSE;
     }
 
   while(SetupDiEnumDeviceInfo(dev_info, dev_index, &dev_info_data))
     {
-      if(usb_registry_is_composite_libusb(dev_info, &dev_info_data))
+      if(!usb_registry_get_property(SPDRP_HARDWAREID, dev_info, &dev_info_data,
+				    tmp, sizeof(tmp)))
 	{
-	  if(usb_registry_insert_filter(dev_info, &dev_info_data, 
-					filter_name))
-	    {
-	      usb_registry_set_device_state(DICS_PROPCHANGE, dev_info, 
-					    &dev_info_data);
-	    }
+	  usb_debug_error("usb_registry_is_device_present(): getting "
+			  "hardware id failed");
+	  break;
+	}
+    
+      if(strstr(tmp, hardware_id))
+	{
+	  ret = TRUE;
 	}
       dev_index++;
     }
 
   SetupDiDestroyDeviceInfoList(dev_info);
 
-  return TRUE;
+  return ret;
 }

@@ -1,5 +1,6 @@
 @echo on
 
+set MAKEFLAGS=
 path %PATH%;%1%\bin
 set current_dir=%cd%
 
@@ -7,6 +8,7 @@ call setenv.bat  %1 chk
 
 cd %current_dir%
 cd src\drivers
+rem lib /DEF:usbd.def
 @echo on
 build -c -g -w
 @echo on
