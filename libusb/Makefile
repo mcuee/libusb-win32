@@ -3,7 +3,7 @@
 CC = gcc
 LD = ld
 MAKE = make
-CP = cp -a
+CP = cp
 CD = cd
 MV = mv
 RM = -rm -fr
@@ -57,7 +57,7 @@ DRIVER_SRC_DIR = $(SRC_DIR)/driver
 
 VPATH = .:./src:./src/driver:./tests
 
-INCLUDES = -I./src -I./src/driver
+INCLUDES = -I./src -I./src/driver -I.
 
 CFLAGS = -O2 -Wall -mno-cygwin
 
@@ -116,15 +116,15 @@ README.txt: README.in
 
 %.rc: %.rc.in
 	sed -e 's/@RC_VERSION@/$(RC_VERSION)/' \
-	-e 's/@VERSION@/$(VERSION)/' $< > $(^D)/$@
+	-e 's/@VERSION@/$(VERSION)/' $< > $@
 
 %.h: %.h.in
 	sed -e 's/@VERSION_MAJOR@/$(VERSION_MAJOR)/' \
 	-e 's/@VERSION_MINOR@/$(VERSION_MINOR)/' \
 	-e 's/@VERSION_MICRO@/$(VERSION_MICRO)/' \
 	-e 's/@VERSION_NANO@/$(VERSION_NANO)/' \
-	$< > $(^D)/$@
-
+	$< > $@
+#$(^D)/
 %.inf: %.inf.in
 	sed -e 's/@INF_VERSION@/$(INF_VERSION)/' $< > $@
 
@@ -149,6 +149,8 @@ bin_dist: all
 	$(INSTALL) -d $(BIN_DIST_DIR)/lib/msvc
 	$(INSTALL) -d $(BIN_DIST_DIR)/include
 	$(INSTALL) -d $(BIN_DIST_DIR)/bin
+	$(INSTALL) -d $(BIN_DIST_DIR)/examples
+
 	$(INSTALL) $(TEST_FILES) $(BIN_DIST_DIR)/bin
 	$(INSTALL) *.manifest $(BIN_DIST_DIR)/bin
 
@@ -168,23 +170,14 @@ bin_dist: all
 .PHONY: src_dist
 src_dist:
 	$(INSTALL) -d $(SRC_DIST_DIR)/src
-	$(INSTALL) -d $(SRC_DIST_DIR)/src/service
 	$(INSTALL) -d $(SRC_DIST_DIR)/src/driver
 	$(INSTALL) -d $(SRC_DIST_DIR)/tests
+	$(INSTALL) -d $(SRC_DIST_DIR)/examples
 
-	$(INSTALL) $(SRC_DIR)/*.c $(SRC_DIST_DIR)/src
-	$(INSTALL) $(SRC_DIR)/*.h $(SRC_DIST_DIR)/src
-	$(INSTALL) $(SRC_DIR)/*.in $(SRC_DIST_DIR)/src
-	$(INSTALL) $(SRC_DIR)/*.def $(SRC_DIST_DIR)/src
-	$(INSTALL) ./tests/*.c $(SRC_DIST_DIR)/tests
+	$(CP) $(SRC_DIR)/* $(SRC_DIST_DIR)/src
+	$(INSTALL) ./tests/* $(SRC_DIST_DIR)/tests
 
-	$(INSTALL) $(SRC_DIR)/service/*.c $(SRC_DIST_DIR)/src/service
-	$(INSTALL) $(SRC_DIR)/service/*.h $(SRC_DIST_DIR)/src/service
-
-	$(INSTALL) $(DRIVER_SRC_DIR)/*.def $(SRC_DIST_DIR)/src/driver
-	$(INSTALL) $(DRIVER_SRC_DIR)/libusb_driver.h $(SRC_DIST_DIR)/src/driver
-	$(INSTALL) $(DRIVER_SRC_DIR)/*.c $(SRC_DIST_DIR)/src/driver
-	$(INSTALL) $(DRIVER_SRC_DIR)/*.in $(SRC_DIST_DIR)/src/driver
+	$(INSTALL) $(DRIVER_SRC_DIR)/* $(SRC_DIST_DIR)/src/driver
 
 	$(INSTALL) $(DIST_MISC_FILES) *.in Makefile *.manifest \
 		installer_license.txt $(SRC_DIST_DIR)
@@ -212,10 +205,8 @@ snapshot: dist
 
 .PHONY: clean
 clean:	
-	$(RM) *.o *.dll *.a *.exp *.lib *.exe *.def *.tar.gz *.inf *~ *.iss
+	$(RM) *.o *.dll *.a *.exp *.lib *.exe *.def *.tar.gz *.inf *~ *.iss *.rc *.h
 	$(RM) ./src/*~ *.sys *.log
-	$(RM) $(SRC_DIR)/*.rc
-	$(RM) $(DRIVER_SRC_DIR)/*~ $(DRIVER_SRC_DIR)/*.rc
-	$(RM) $(DRIVER_SRC_DIR)/driver_api.h
+	$(RM) $(DRIVER_SRC_DIR)/*~
 	$(RM) README.txt
 
