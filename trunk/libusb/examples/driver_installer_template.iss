@@ -3,26 +3,27 @@
 ;
 ; Requirements: Inno Setup (http://www.jrsoftware.org/isdl.php)
 ;
-; To test this script do the following:
+; To use this script, do the following:
 ; - copy libusb's driver (libusb0.sys, libusb0.dll) to this folder
 ; - create an .inf and .cab file using libusb's 'inf-wiward.exe'
 ;   and save the generated files in this folder.
 ; - in this script replace <your_inf_file.inf> with the name of your .inf file
+; - customize other settings (strings)
 ; - open this scipt with Inno Setup
 ; - compile and run
 
 [Setup]
 AppName=TestDrivers
-AppVerName=TestDrivers 1.2.3
+AppVerName=TestDrivers 0.1.10.1
 AppPublisher=TestDrivers
 AppPublisherURL=http://test.url.com/
-AppVersion=1.2.3
+AppVersion=0.1.10.1
 DefaultDirName={pf}\TestApp
 DefaultGroupName=TestDrivers
 Compression=lzma
 SolidCompression=yes
-; Win98 or higher
-MinVersion=4,5
+; WinMe or higher
+MinVersion=4.9,5
 PrivilegesRequired=admin
 
 [Files]
@@ -33,7 +34,7 @@ Source: "*.dll"; DestDir: "{app}\driver"
 Source: "*.inf"; DestDir: "{app}\driver"
 
 ; also copy the DLL to the system folders so that rundll32.exe will find it
-Source: "*.dll"; DestDir: "{win}\system32"; FLags: replacesameversion restartreplace
+Source: "*.dll"; DestDir: "{win}\system32"; FLags: replacesameversion restartreplace uninsneveruninstall
 
 [Icons]
 Name: "{group}\Uninstall TestDrivers"; Filename: "{uninstallexe}"
