@@ -20,6 +20,8 @@
 #ifndef __DRIVER_API_H__
 #define __DRIVER_API_H__
 
+#undef interface
+
 enum {
   LIBUSB_DEBUG_ERR = 1,
   LIBUSB_DEBUG_WARN,
@@ -31,7 +33,8 @@ enum {
 #define LIBUSB_VERSION_MICRO @VERSION_MICRO@
 #define LIBUSB_VERSION_NANO  @VERSION_NANO@
 
-#define LIBUSB_MAX_READ_WRITE (1024 * 64)
+/* 64k */
+#define LIBUSB_MAX_READ_WRITE 0x10000
 
 #define LIBUSB_MAX_NUMBER_OF_DEVICES 256
 

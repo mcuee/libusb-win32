@@ -21,10 +21,8 @@
 
 NTSTATUS __stdcall dispatch(DEVICE_OBJECT *device_object, IRP *irp)
 {
-  NTSTATUS status = STATUS_SUCCESS;
   libusb_device_extension *device_extension = 
     (libusb_device_extension *)device_object->DeviceExtension;
-
 
   if(device_extension->is_control_object)
     {
@@ -34,41 +32,26 @@ NTSTATUS __stdcall dispatch(DEVICE_OBJECT *device_object, IRP *irp)
   switch(IoGetCurrentIrpStackLocation(irp)->MajorFunction) 
     {
     case IRP_MJ_PNP:
-      status = dispatch_pnp(device_extension, irp);
-      break;
+      return dispatch_pnp(device_extension, irp);
       
     case IRP_MJ_POWER:
-      PoStartNextPowerIrp(irp);
-      IoSkipCurrentIrpStackLocation(irp);
-      return PoCallDriver(device_extension->next_stack_device, irp);
-            
+      return dispatch_power(device_extension, irp);
+
     case IRP_MJ_DEVICE_CONTROL:
-      status = dispatch_ioctl(device_extension, irp);
-      break;
+      return dispatch_ioctl(device_extension, irp);
 
     case IRP_MJ_INTERNAL_DEVICE_CONTROL:
-      if(IoGetCurrentIrpStackLocation(irp)
-	 ->Parameters.DeviceIoControl.IoControlCode 
-	 == IOCTL_INTERNAL_USB_SUBMIT_URB)
-	{
-	  IoCopyCurrentIrpStackLocationToNext(irp);
-	  IoSetCompletionRoutine(irp, on_internal_ioctl_complete, NULL, 
-				 TRUE, TRUE, TRUE);
-	  return IoCallDriver(device_extension->next_stack_device, irp);
-	}
+      return dispatch_internal_ioctl(device_extension, irp);
 
     default:
       IoSkipCurrentIrpStackLocation(irp);
-      status = IoCallDriver(device_extension->next_stack_device, irp);
+      return IoCallDriver(device_extension->next_stack_device, irp);
     }
-
-  return status;
 }
 
 
 NTSTATUS dispatch_control(DEVICE_OBJECT *device_object, IRP *irp)
 {
-  NTSTATUS status = STATUS_NOT_SUPPORTED;
   libusb_device_extension *device_extension = 
     (libusb_device_extension *)device_object->DeviceExtension;
   libusb_device_extension *main_device_extension = NULL;
@@ -77,47 +60,38 @@ NTSTATUS dispatch_control(DEVICE_OBJECT *device_object, IRP *irp)
     {
     case IRP_MJ_DEVICE_CONTROL:
       if(device_extension->main_device_object)
-	{
-	  return dispatch(device_extension->main_device_object, irp);
-	}
+        return dispatch(device_extension->main_device_object, irp);
       else
-	{
-	  return complete_irp(irp, STATUS_DELETE_PENDING, 0);
-	}
-      break;
+        return complete_irp(irp, STATUS_DELETE_PENDING, 0);
 
     case IRP_MJ_CREATE:
       InterlockedIncrement(&device_extension->ref_count);
-      status = STATUS_SUCCESS;
-      break;
+      return complete_irp(irp, STATUS_SUCCESS, 0);
+
     case IRP_MJ_CLOSE:
       if(!InterlockedDecrement(&device_extension->ref_count))
-	{
-	  if(device_extension->main_device_object)
-	    {
-	      main_device_extension = (libusb_device_extension *)
-		device_extension->main_device_object->DeviceExtension;
-	      
-	      release_all_interfaces(main_device_extension);
-	    }
+        {
+          if(device_extension->main_device_object)
+            {	      
+              main_device_extension = (libusb_device_extension *)
+                device_extension->main_device_object->DeviceExtension;
+              release_all_interfaces(main_device_extension);
+            }
+          else
+            {
+              debug_printf(LIBUSB_DEBUG_MSG, "dispatch_control(): releasing "
+                           "device id %d", device_extension->device_id);
+              release_device_id(device_extension);
+            }
+        }
+      return complete_irp(irp, STATUS_SUCCESS, 0);
 
-	  if(!device_extension->main_device_object)
-	    {
-	      debug_printf(LIBUSB_DEBUG_MSG, "dispatch_control(): releasing "
-			   "device id %d", device_extension->device_id);
-	      release_device_id(device_extension);
-	    }
-	}
-      status = STATUS_SUCCESS;
-      break;
     case IRP_MJ_CLEANUP:
-      status = STATUS_SUCCESS;
-      break;
-    default:
-      ;
-    }
+      return complete_irp(irp, STATUS_SUCCESS, 0);
 
-  return complete_irp(irp, status, 0);
+    default:
+      return complete_irp(irp, STATUS_NOT_SUPPORTED, 0);
+    }
 }
 
 

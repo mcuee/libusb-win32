@@ -23,6 +23,7 @@
 #include <initguid.h>
 
 #include "service.h"
+#include "win_debug.h"
 
 
 #define LIBUSB_SERVICE_NAME "libusbd"
@@ -68,7 +69,9 @@ static void WINAPI usb_service_main(int argc, char **argv)
 
   service_status.dwServiceType = SERVICE_WIN32_OWN_PROCESS;
   service_status.dwCurrentState = SERVICE_START_PENDING; 
-  service_status.dwControlsAccepted = SERVICE_ACCEPT_STOP;
+  service_status.dwControlsAccepted = SERVICE_ACCEPT_STOP 
+    | SERVICE_ACCEPT_PAUSE_CONTINUE;
+
   service_status.dwWaitHint = 5000;
 
   service_status_handle = RegisterServiceCtrlHandlerEx(LIBUSB_SERVICE_NAME, 
@@ -78,7 +81,6 @@ static void WINAPI usb_service_main(int argc, char **argv)
   if(!service_status_handle)
     return;
 
-  usb_registry_start_filter();
   usb_register_notifications();
   usb_service_run(argc, argv);
 
@@ -93,9 +95,7 @@ static DWORD WINAPI usb_service_handler(DWORD code, DWORD event_type,
     { 
     case SERVICE_CONTROL_STOP: 
       usb_service_set_status(SERVICE_STOP_PENDING, NO_ERROR); 
-      
       usb_unregister_notifications();
-      usb_registry_stop_filter(FALSE);
       
       if(service_stop_event)
 	{ 
@@ -109,20 +109,21 @@ static DWORD WINAPI usb_service_handler(DWORD code, DWORD event_type,
 	  usb_registry_start_filter();
 	  usb_register_notifications();
 	}
+      usb_service_set_status(SERVICE_RUNNING, NO_ERROR);
       break;
-    case LIBUSB_SERVICE_CONTROL_PAUSE:
-      OutputDebugString("LIBUSB_SERVICE_CONTROL_PAUSE");
+    case SERVICE_CONTROL_PAUSE:
+      usb_service_set_status(SERVICE_PAUSE_PENDING, NO_ERROR);
       usb_unregister_notifications();
+      usb_service_set_status(SERVICE_PAUSED, NO_ERROR);
       break;
-    case LIBUSB_SERVICE_CONTROL_CONTINUE:
-      OutputDebugString("LIBUSB_SERVICE_CONTROL_CONTINUE");
+    case SERVICE_CONTROL_CONTINUE:
+      usb_service_set_status(SERVICE_CONTINUE_PENDING, NO_ERROR);
       usb_register_notifications();
+      usb_service_set_status(SERVICE_RUNNING, NO_ERROR);
       break;
     default: 
       ;
     } 
- 
-  usb_service_set_status(service_status.dwCurrentState, NO_ERROR);
 
   return NO_ERROR; 
 }

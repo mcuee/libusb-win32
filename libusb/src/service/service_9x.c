@@ -22,6 +22,7 @@
 #include <initguid.h>
 
 #include "service.h"
+#include "win_debug.h"
 
 DEFINE_GUID(GUID_DEVINTERFACE_USB_HUB, 0xf18a0e88, 0xc30c, 0x11d0, 0x88, \
 	    0x15, 0x00, 0xa0, 0xc9, 0x06, 0xbe, 0xd8);
@@ -29,7 +30,7 @@ DEFINE_GUID(GUID_DEVINTERFACE_USB_HUB, 0xf18a0e88, 0xc30c, 0x11d0, 0x88, \
 DEFINE_GUID(GUID_DEVINTERFACE_USB_DEVICE, 0xA5DCBF10L, 0x6530, 0x11D2, \
 	    0x90, 0x1F, 0x00, 0xC0, 0x4F, 0xB9, 0x51, 0xED);
 
-#define LIBUSB_WINDOW_CLASS "LIBUSB_WINDOW_CLASS"
+#define LIBUSB_WINDOW_CLASS "LIBUSB_SERVICE_WINDOW_CLASS"
 
 
 static HDEVNOTIFY notification_handle_hub, notification_handle_dev;
@@ -51,8 +52,6 @@ LRESULT CALLBACK window_proc(HWND handle, UINT message, WPARAM w_param,
 	UnregisterDeviceNotification(notification_handle_hub);
       if(notification_handle_dev)
 	UnregisterDeviceNotification(notification_handle_dev);
-      
-      usb_registry_stop_filter(FALSE);
 
       PostQuitMessage(0);
       break;
@@ -107,8 +106,6 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE prev_instance,
     {
       return 1;
     }
-
-  usb_registry_start_filter();
 
   RegisterClass(&win_class);
   win_handle = CreateWindowEx(WS_EX_APPWINDOW, LIBUSB_WINDOW_CLASS, 

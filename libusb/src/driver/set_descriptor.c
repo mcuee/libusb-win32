@@ -22,8 +22,8 @@
 
 
 NTSTATUS set_descriptor(libusb_device_extension *device_extension,
-			void *buffer, int size, int type, 
-			int index, int language_id, int *sent, int timeout)
+                        void *buffer, int size, int type, 
+                        int index, int language_id, int *sent, int timeout)
 {
   NTSTATUS status = STATUS_SUCCESS;
   URB urb;
@@ -33,27 +33,27 @@ NTSTATUS set_descriptor(libusb_device_extension *device_extension,
   debug_printf(LIBUSB_DEBUG_MSG, "set_descriptor(): type %04d", type);
   debug_printf(LIBUSB_DEBUG_MSG, "set_descriptor(): index %04d", index);
   debug_printf(LIBUSB_DEBUG_MSG, "set_descriptor(): language id %04d",
-	       language_id);
+               language_id);
   debug_printf(LIBUSB_DEBUG_MSG, "set_descriptor(): timeout %d", timeout);
+
+  memset(&urb, 0, sizeof(struct _URB_CONTROL_DESCRIPTOR_REQUEST));
 
   urb.UrbHeader.Function =  URB_FUNCTION_SET_DESCRIPTOR_TO_DEVICE;
   urb.UrbHeader.Length = sizeof(struct _URB_CONTROL_DESCRIPTOR_REQUEST);
   urb.UrbControlDescriptorRequest.TransferBufferLength = size;
-  urb.UrbControlDescriptorRequest.TransferBufferMDL = NULL;
   urb.UrbControlDescriptorRequest.TransferBuffer = buffer;
   urb.UrbControlDescriptorRequest.DescriptorType = (UCHAR)type;
   urb.UrbControlDescriptorRequest.Index = (UCHAR)index;
   urb.UrbControlDescriptorRequest.LanguageId = (USHORT)language_id;
-  urb.UrbControlDescriptorRequest.UrbLink = NULL;
 	
   status = call_usbd(device_extension, &urb, 
-		       IOCTL_INTERNAL_USB_SUBMIT_URB, timeout);
+                     IOCTL_INTERNAL_USB_SUBMIT_URB, timeout);
   
   if(!NT_SUCCESS(status) || !USBD_SUCCESS(urb.UrbHeader.Status))
     {
       debug_printf(LIBUSB_DEBUG_ERR, "set_descriptor(): setting descriptor "
-		   "failed: status: 0x%x, urb-status: 0x%x", 
-		   status, urb.UrbHeader.Status);
+                   "failed: status: 0x%x, urb-status: 0x%x", 
+                   status, urb.UrbHeader.Status);
     }
   else
     {

@@ -29,7 +29,17 @@ DRIVER_TARGET = $(TARGET)0.sys
 INSTALLER_TARGET = libusb-win32-filter-bin-$(VERSION).exe
 
 INSTALL_DIR = /usr
-OBJECTS = usb.o error.o descriptors.o windows.o resource.o
+OBJECTS = usb.o error.o descriptors.o windows.o resource.o install.o \
+	registry.o service.o win_debug.o
+
+DRIVER_OBJECTS = abort_endpoint.o claim_interface.o clear_feature.o \
+	debug.o dispatch.o driver_registry.o get_configuration.o \
+	get_descriptor.o get_interface.o get_status.o internal_ioctl.o \
+	ioctl.o libusb_driver.o pnp.o release_interface.o reset_device.o \
+	reset_endpoint.o set_configuration.o set_descriptor.o \
+	set_feature.o set_interface.o transfer.o vendor_request.o \
+	power.o libusb_driver_rc.o 
+
 
 SRC_DIST_DIR = $(TARGET)-win32-src-$(VERSION)
 BIN_DIST_DIR = $(TARGET)-win32-device-bin-$(VERSION)
@@ -45,15 +55,25 @@ VPATH = .:./src:./src/driver:./tests:./src/service
 
 INCLUDES = -I./src -I./src/driver -I./src/service
 
-CFLAGS = -O2 -s -mwindows -mno-cygwin
+CFLAGS = -O2 -Wall -mno-cygwin
 
 CPPFLAGS = -DVERSION_MAJOR=$(VERSION_MAJOR) \
 	-DVERSION_MINOR=$(VERSION_MINOR) \
 	-DVERSION_MICRO=$(VERSION_MICRO) \
-	-DVERSION_NANO=$(VERSION_NANO)
+	-DVERSION_NANO=$(VERSION_NANO) -DDBG
 
-LDFLAGS = -s -shared -mno-cygwin -Wl,--output-def,$(DLL_TARGET).def \
-	-Wl,--out-implib,$(LIB_TARGET).a
+LDFLAGS = -s -mwindows -mno-cygwin -L. -lusb -lgdi32 -luser32 -lsetupapi \
+	 -lcfgmgr32
+
+DLL_LDFLAGS = -s -mwindows -shared -mno-cygwin \
+	-Wl,--output-def,$(DLL_TARGET).def \
+	-Wl,--out-implib,$(LIB_TARGET).a \
+	-Wl,--kill-at \
+	-L. -lsetupapi -lnewdev -lcfgmgr32
+
+
+DRIVER_LDFLAGS =  -s -shared -Wl,--entry,_DriverEntry@8 \
+	-nostartfiles -nostdlib -L. -lusbd -lntoskrnl
 
 
 TEST_FILES = testlibusb.exe testlibusb-win.exe
@@ -64,31 +84,29 @@ ifndef DDK_ROOT_PATH
 endif
 
 .PHONY: all
-all: $(DLL_TARGET).dll $(TEST_FILES) libusbd-nt.exe \
-	libusbd-9x.exe libusbis.exe $(DRIVER_TARGET) \
-	$(TARGET).inf README.txt
+all: $(DLL_TARGET).dll $(TEST_FILES) $(DRIVER_TARGET) \
+	libusbd-9x.exe libusbd-nt.exe $(TARGET).inf README.txt
 	unix2dos *.txt *.inf
 
 $(DLL_TARGET).dll: driver_api.h $(OBJECTS)
-	$(CC) -o $@ $(OBJECTS) $(LDFLAGS) 
+	dlltool --dllname newdev.dll --def ./src/newdev.def \
+	--output-lib libnewdev.a
+	$(CC) -o $@ $(OBJECTS) $(DLL_LDFLAGS) 
 
 %.o: %.c
 	$(CC) -c $< -o $@ $(CFLAGS) -Wall $(CPPFLAGS) $(INCLUDES) 
 
 testlibusb.exe: testlibusb.o
-	$(CC) $(CFLAGS) -o $@ -I./src  $^ -lusb -L.
+	$(CC) $(CFLAGS) -o $@ -I./src  $^ $(LDFLAGS)
 
 testlibusb-win.exe: testlibusb_win.o
-	$(CC) $(CFLAGS) -o $@ -I./src  $^ -lusb -lgdi32 -luser32 -L.
+	$(CC) $(CFLAGS) -o $@ -I./src  $^ $(LDFLAGS)
 
 libusbd-nt.exe: service_nt.o service.o registry.o resource.o win_debug.o
-	$(CC) $(CPPFLAGS) -Wall $(CFLAGS) -o $@ $^ -lsetupapi
+	$(CC) $(CPPFLAGS) -Wall $(CFLAGS) -o $@ $^ $(LDFLAGS)
 
 libusbd-9x.exe: service_9x.o service.o registry.o resource.o win_debug.o
-	$(CC) $(CPPFLAGS) -Wall $(CFLAGS) -o $@ $^ -lsetupapi
-
-libusbis.exe: libusbis.o service.o registry.o resource.o win_debug.o
-	$(CC) $(CPPFLAGS) -Wall $(CFLAGS) -o $@ $^ -lsetupapi
+	$(CC) $(CPPFLAGS) -Wall $(CFLAGS) -o $@ $^ $(LDFLAGS)
 
 README.txt: README.in
 	sed -e 's/@VERSION@/$(VERSION)/' $< > $@
@@ -111,12 +129,10 @@ README.txt: README.in
 %.inf: %.inf.in
 	sed -e 's/@INF_VERSION@/$(INF_VERSION)/' $< > $@
 
-$(DRIVER_TARGET): $(TARGET)_driver.rc driver_api.h
-	$(MAKE) --win32 build_driver
-
-.PHONY: build_driver
-build_driver:
-	call build_driver.bat $(DDK_ROOT_PATH)
+$(DRIVER_TARGET): $(TARGET)_driver.rc driver_api.h $(DRIVER_OBJECTS)
+	dlltool --dllname usbd.sys --def ./src/driver/usbd.def \
+	--output-lib libusbd.a
+	$(CC) -o $@ $(DRIVER_OBJECTS) $(DRIVER_LDFLAGS)
 
 .PHONY: bcc_implib
 bcc_lib:
@@ -139,7 +155,6 @@ bin_dist: all
 
 	$(INSTALL) $(DRIVER_TARGET) $(BIN_DIST_DIR)/bin
 	$(INSTALL) $(TARGET).inf $(BIN_DIST_DIR)/bin
-	$(INSTALL) $(TARGET)is.exe $(BIN_DIST_DIR)/bin
 	$(INSTALL) $(DLL_TARGET).dll $(BIN_DIST_DIR)/bin
 
 	$(INSTALL) $(SRC_DIR)/usb.h $(BIN_DIST_DIR)/include
@@ -196,7 +211,7 @@ snapshot: dist
 
 .PHONY: clean
 clean:	
-	$(RM) *.o *.dll *.a *.def *.exp *.lib *.exe *.tar.gz *.inf *~ *.nsi
+	$(RM) *.o *.dll *.a *.exp *.lib *.exe *.tar.gz *.inf *~ *.nsi
 	$(RM) ./src/*~ *.sys *.log
 	$(RM) $(SRC_DIR)/*.rc
 	$(RM) $(SRC_DIR)/drivers/*.log $(SRC_DIR)/driver/i386

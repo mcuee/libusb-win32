@@ -22,6 +22,6 @@
 #define __USB_WIN_DEBUG_H__
 
 void usb_debug_error(const char *s, ...);
-
+const char *win_error_to_string(void);
 
 #endif

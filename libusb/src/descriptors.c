@@ -7,6 +7,7 @@
  */
 
 #include <stdio.h>
+#include <string.h>
 #include "usbi.h"
 
 int usb_get_descriptor_by_endpoint(usb_dev_handle *udev, int ep,

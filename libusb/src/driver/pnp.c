@@ -19,22 +19,23 @@
 
 #include "libusb_driver.h"
 
-static NTSTATUS on_start_complete(DEVICE_OBJECT *device_object, IRP *irp, 
-				  void *context);
+static NTSTATUS __stdcall 
+on_start_complete(DEVICE_OBJECT *device_object, IRP *irp, 
+                  void *context);
 
-static NTSTATUS 
+static NTSTATUS __stdcall
 on_device_usage_notification_complete(DEVICE_OBJECT *device_object,
-				      IRP *irp,
-				      void *context);
+                                      IRP *irp,
+                                      void *context);
 
-static NTSTATUS on_query_capabilities_complete(DEVICE_OBJECT *device_object,
-					       IRP *irp,
-					       void *context);
+static NTSTATUS __stdcall 
+on_query_capabilities_complete(DEVICE_OBJECT *device_object,
+                               IRP *irp,
+                               void *context);
 
 NTSTATUS dispatch_pnp(libusb_device_extension *device_extension, IRP *irp)
 {
   NTSTATUS status = STATUS_SUCCESS;
-  KEVENT event;
   IO_STACK_LOCATION *stack_location = IoGetCurrentIrpStackLocation(irp);
 
   status = remove_lock_acquire(&device_extension->remove_lock);
@@ -46,7 +47,7 @@ NTSTATUS dispatch_pnp(libusb_device_extension *device_extension, IRP *irp)
 
   debug_print_nl();
 
-  switch(IoGetCurrentIrpStackLocation(irp)->MinorFunction) 
+  switch(stack_location->MinorFunction) 
     {     
     case IRP_MN_REMOVE_DEVICE:
       device_extension->is_started = 0;
@@ -62,88 +63,56 @@ NTSTATUS dispatch_pnp(libusb_device_extension *device_extension, IRP *irp)
     case IRP_MN_SURPRISE_REMOVAL:
       device_extension->is_started = 0;
       debug_printf(LIBUSB_DEBUG_MSG, "dispatch_pnp(): "
-		   "IRP_MN_SURPRISE_REMOVAL");
+                   "IRP_MN_SURPRISE_REMOVAL");
       break;
+
     case IRP_MN_START_DEVICE:
       debug_printf(LIBUSB_DEBUG_MSG, "dispatch_pnp(): IRP_MN_START_DEVICE");
       IoCopyCurrentIrpStackLocationToNext(irp);
-      IoSetCompletionRoutine(irp, on_start_complete,
-			     NULL, TRUE, TRUE, TRUE);
-      remove_lock_release(&device_extension->remove_lock);
-      return IoCallDriver(device_extension->next_stack_device, irp);
+      IoSetCompletionRoutine(irp, on_start_complete, NULL, TRUE, TRUE, TRUE);
 
-    case IRP_MN_CANCEL_REMOVE_DEVICE:
-      debug_printf(LIBUSB_DEBUG_MSG, "dispatch_pnp(): "
-		   "IRP_MN_CANCEL_REMOVE_DEVICE");
-      break;
-    case IRP_MN_CANCEL_STOP_DEVICE:
-      debug_printf(LIBUSB_DEBUG_MSG, "dispatch_pnp(): "
-		   "IRP_MN_CANCEL_STOP_DEVICE");
-      break;
-    case IRP_MN_QUERY_STOP_DEVICE:
-      debug_printf(LIBUSB_DEBUG_MSG, "dispatch_pnp(): "
-		   "IRP_MN_QUERY_STOP_DEVICE");
-      break;
+      remove_lock_release(&device_extension->remove_lock);
+      status = IoCallDriver(device_extension->next_stack_device, irp);
+
+      return status;
+
     case IRP_MN_STOP_DEVICE:
       device_extension->is_started = 0;
       debug_printf(LIBUSB_DEBUG_MSG, "dispatch_pnp(): IRP_MN_STOP_DEVICE");
       break;
-    case IRP_MN_QUERY_REMOVE_DEVICE:
-      debug_printf(LIBUSB_DEBUG_MSG, "dispatch_pnp(): "
-		   "IRP_MN_QUERY_REMOVE_DEVICE");
-      break;
+
     case IRP_MN_DEVICE_USAGE_NOTIFICATION:
       debug_printf(LIBUSB_DEBUG_MSG, "dispatch_pnp(): "
-		   "IRP_MN_DEVICE_USAGE_NOTIFICATION");
+                   "IRP_MN_DEVICE_USAGE_NOTIFICATION");
 
       if((device_extension->self->AttachedDevice == NULL) ||
-	 (device_extension->self->AttachedDevice->Flags & DO_POWER_PAGABLE))
-	{
-	  device_extension->self->Flags |= DO_POWER_PAGABLE;
+         (device_extension->self->AttachedDevice->Flags & DO_POWER_PAGABLE))
+        {
+          device_extension->self->Flags |= DO_POWER_PAGABLE;
         }
 
-        IoCopyCurrentIrpStackLocationToNext(irp);
-        IoSetCompletionRoutine(irp, on_device_usage_notification_complete,
-			       NULL, TRUE, TRUE, TRUE);
-	remove_lock_release(&device_extension->remove_lock);
-        return IoCallDriver(device_extension->next_stack_device, irp);
+      IoCopyCurrentIrpStackLocationToNext(irp);
+      IoSetCompletionRoutine(irp, on_device_usage_notification_complete,
+                             NULL, TRUE, TRUE, TRUE);
+      remove_lock_release(&device_extension->remove_lock);
+      return IoCallDriver(device_extension->next_stack_device, irp);
 
     case IRP_MN_QUERY_CAPABILITIES: 
       debug_printf(LIBUSB_DEBUG_MSG, "dispatch_pnp(): "
-		   "IRP_MN_QUERY_CAPABILITIES");
+                   "IRP_MN_QUERY_CAPABILITIES");
 
-      /* Win2k work-around */
-      if(!IoIsWdmVersionAvailable(1, 0x20))
-	{
-	  KeInitializeEvent(&event, NotificationEvent, FALSE);
-	  IoCopyCurrentIrpStackLocationToNext(irp);
-	  
-	  IoSetCompletionRoutine(irp, on_query_capabilities_complete, &event,
-				 TRUE, TRUE, TRUE);
-	  
-	  status = IoCallDriver(device_extension->next_stack_device, irp);
-	  
-	  if(status == STATUS_PENDING) 
-	    {
-	      KeWaitForSingleObject(&event, Executive, KernelMode,
-				    FALSE, NULL);
-	      status = irp->IoStatus.Status;
-	    }
-	  
-	  if(NT_SUCCESS(status))
-	    {
-	      stack_location->Parameters.DeviceCapabilities.Capabilities
-		->SurpriseRemovalOK = TRUE;
-	    }
-	  
-	  remove_lock_release(&device_extension->remove_lock);
-	  return status;
-	}
-      else
-	{
-	  stack_location->Parameters.DeviceCapabilities.Capabilities
-	    ->SurpriseRemovalOK = TRUE;
-	}
+      stack_location->Parameters.DeviceCapabilities.Capabilities
+        ->SurpriseRemovalOK = TRUE;
+      
+      IoCopyCurrentIrpStackLocationToNext(irp);
+      
+      IoSetCompletionRoutine(irp, on_query_capabilities_complete, NULL,
+                             TRUE, TRUE, TRUE);
+      
+      status = IoCallDriver(device_extension->next_stack_device, irp);
+      
+      remove_lock_release(&device_extension->remove_lock);
+      return status;
       
       break;
 
@@ -157,8 +126,8 @@ NTSTATUS dispatch_pnp(libusb_device_extension *device_extension, IRP *irp)
   return IoCallDriver(device_extension->next_stack_device, irp);
 }
 
-static NTSTATUS on_start_complete(DEVICE_OBJECT *device_object, IRP *irp, 
-				  void *context)
+static NTSTATUS __stdcall 
+on_start_complete(DEVICE_OBJECT *device_object, IRP *irp, void *context)
 {
   libusb_device_extension *device_extension
     = (libusb_device_extension *)device_object->DeviceExtension;
@@ -168,13 +137,11 @@ static NTSTATUS on_start_complete(DEVICE_OBJECT *device_object, IRP *irp,
       IoMarkIrpPending(irp);
     }
   
-  if(NT_SUCCESS(irp->IoStatus.Status)) 
+  if(NT_SUCCESS(irp->IoStatus.Status)
+     && (device_extension->next_stack_device->Characteristics 
+         & FILE_REMOVABLE_MEDIA)) 
     {
-      if(device_extension->next_stack_device->Characteristics 
-	 & FILE_REMOVABLE_MEDIA) 
-	{
-	  device_object->Characteristics |= FILE_REMOVABLE_MEDIA;
-        }
+      device_object->Characteristics |= FILE_REMOVABLE_MEDIA;
     }
   
   device_extension->is_started = 1;
@@ -182,10 +149,10 @@ static NTSTATUS on_start_complete(DEVICE_OBJECT *device_object, IRP *irp,
   return STATUS_SUCCESS;
 }
 
-static NTSTATUS 
+static NTSTATUS __stdcall 
 on_device_usage_notification_complete(DEVICE_OBJECT *device_object,
-				      IRP *irp,
-				      void *context)
+                                      IRP *irp,
+                                      void *context)
 {
   libusb_device_extension *device_extension
     = (libusb_device_extension *)device_object->DeviceExtension;
@@ -197,22 +164,23 @@ on_device_usage_notification_complete(DEVICE_OBJECT *device_object,
 
   if(!(device_extension->next_stack_device->Flags & DO_POWER_PAGABLE))
     {
-        device_object->Flags &= ~DO_POWER_PAGABLE;
+      device_object->Flags &= ~DO_POWER_PAGABLE;
     }
 
   return STATUS_SUCCESS;
 }
 
-static NTSTATUS on_query_capabilities_complete(DEVICE_OBJECT *device_object,
-					       IRP *irp,
-					       void *context)
+static NTSTATUS __stdcall 
+on_query_capabilities_complete(DEVICE_OBJECT *device_object,
+                               IRP *irp, void *context)
 {
-    KEVENT *event = (KEVENT *)context;
+  if(irp->PendingReturned)
+    {
+      IoMarkIrpPending(irp);
+    }
 
-    if(irp->PendingReturned == TRUE) 
-      {
-        KeSetEvent(event, IO_NO_INCREMENT, FALSE);
-      }
+  IoGetCurrentIrpStackLocation(irp)->Parameters.DeviceCapabilities.Capabilities
+    ->SurpriseRemovalOK = TRUE;
 
-    return STATUS_MORE_PROCESSING_REQUIRED;
+  return STATUS_SUCCESS;
 }

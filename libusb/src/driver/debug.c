@@ -41,14 +41,14 @@ void debug_set_level(int level)
 }
 
 void debug_printf(int level, char *format, ...)
- {
+{
   if(level <= debug_level)
     {
       char tmp[DEBUG_BUFFER_SIZE];
       va_list args;
 
       va_start(args, format);
-      vsprintf(tmp, format, args);
+      _vsnprintf(tmp, DEBUG_BUFFER_SIZE - 1, format, args);
       va_end(args);
       KdPrint(("LIBUSB-DRIVER - %s\n", tmp));
     }

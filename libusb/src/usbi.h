@@ -1,7 +1,6 @@
 #ifndef _USBI_H_
 #define _USBI_H_
 
-#include <string.h>
 #include "usb.h"
 
 #include "error.h"
@@ -47,12 +46,11 @@ struct usb_dev_handle {
 };
 
 void usb_fetch_descriptors(usb_dev_handle *udev);
-void usb_fetch_and_parse_descriptors(usb_dev_handle *udev);
-void usb_destroy_configuration(struct usb_device *dev);
 
 /* OS specific routines */
 int usb_os_find_busses(struct usb_bus **busses);
 int usb_os_find_devices(struct usb_bus *bus, struct usb_device **devices);
+int usb_os_determine_children(struct usb_bus *bus);
 void usb_os_init(void);
 int usb_os_open(usb_dev_handle *dev);
 int usb_os_close(usb_dev_handle *dev);
