@@ -465,6 +465,7 @@ bool_t usb_registry_is_composite_libusb(HDEVINFO dev_info,
       if(strstr(tmp, parent) 
 	 && usb_registry_is_service_libusb(_dev_info, &_dev_info_data))
 	{
+	  SetupDiDestroyDeviceInfoList(_dev_info);
 	  return TRUE;
 	}
       dev_index++;

@@ -90,7 +90,7 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE prev_instance,
 
   usb_service_start_filter();
 
-  win_timer = SetTimer(win_handle, LIBUSB_TIMER_ID, 2000, NULL);
+  win_timer = SetTimer(win_handle, LIBUSB_TIMER_ID, 1000, NULL);
 
   while(GetMessage(&win_message, NULL, 0, 0))
     {
