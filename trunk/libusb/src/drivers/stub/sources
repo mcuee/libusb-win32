@@ -1,0 +1,8 @@
+TARGETNAME=libusbst
+TARGETTYPE=DRIVER
+TARGETPATH=..
+INCLUDES=
+
+MSC_WARNING_LEVEL = /W3 /WX
+
+SOURCES = libusb_stub.rc libusb_stub.c
