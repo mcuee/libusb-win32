@@ -1,0 +1,162 @@
+; LIBUSB-WIN32, Generic Windows USB Driver
+; Copyright (C) 2002-2004 Stephan Meyer, <ste_meyer@web.de>
+;
+; This program is free software; you can redistribute it and/or modify
+; it under the terms of the GNU General Public License as published by
+; the Free Software Foundation; either version 2 of the License, or
+; (at your option) any later version.
+;
+; This program is distributed in the hope that it will be useful,
+; but WITHOUT ANY WARRANTY; without even the implied warranty of
+; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+; GNU General Public License for more details.
+;
+; You should have received a copy of the GNU General Public License
+; along with this program; if not, write to the Free Software
+; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+
+
+;------------------------------------------------------------------------------
+; general information
+;------------------------------------------------------------------------------
+
+[Version]
+Signature = "$Chicago$"
+provider  = %libusb-win32%
+DriverVer = @INF_VERSION@
+Class = LibUsbDevices
+ClassGUID = {EB781AAF-9C70-4523-A5DF-642A87ECA567}
+
+[ClassInstall] 
+AddReg=ClassInstall.AddReg
+
+[ClassInstall32] 
+AddReg=ClassInstall.AddReg
+
+[ClassInstall.AddReg]
+HKR,,,,"%class_display_name%"
+HKR,,Icon,,"-20"
+
+[Manufacturer]
+%libusb-win32%=libusb-win32
+
+;------------------------------------------------------------------------------
+; strings
+;------------------------------------------------------------------------------
+
+[Strings]
+libusb-win32 = "http://libusb-win32.sourceforge.net"
+class_display_name = "LibUSB-Win32 Devices"
+
+;------------------------------------------------------------------------------
+; Device descriptions, modify this section to match your device
+;------------------------------------------------------------------------------
+
+[libusb-win32]
+
+;------------------------------------------------------------------------------
+; Sample device, replace '0000' with your device's PID/VID
+;------------------------------------------------------------------------------
+; "LibUsb-Win32 Sample Device, Version @INF_VERSION@"=LIBUSB_DEV, USB\VID_0000&PID_0000 
+
+;------------------------------------------------------------------------------
+; Sample composite device with two interfaces, replace '0000' with your 
+; device's PID/VID
+;------------------------------------------------------------------------------
+; "LibUsb-Win32 Composite Sample Device, Version @INF_VERSION@"=LIBUSB_DEV, USB\VID_0000&PID_0000&MI_00
+; "LibUsb-Win32 Composite Sample Device, Version @INF_VERSION@"=LIBUSB_DEV, USB\VID_0000&PID_0000&MI_01
+
+;------------------------------------------------------------------------------
+; To install the driver for a class (subclass, or protocol) of USB devices 
+; use these entries, replace '00' with your class, subclass, or protocol
+;------------------------------------------------------------------------------
+
+;"LibUsb-Win32 Sample Device, Version @INF_VERSION@"=LIBUSB_DEV, USB\CLASS_00
+;"LibUsb-Win32 Sample Device, Version @INF_VERSION@"=LIBUSB_DEV, USB\CLASS_00&SUBCLASS_00
+;"LibUsb-Win32 Sample Device, Version @INF_VERSION@"=LIBUSB_DEV, USB\CLASS_00&SUBCLASS_00&PROT_00
+
+;------------------------------------------------------------------------------
+; Cypress EzUSB 2131 controller 
+;------------------------------------------------------------------------------
+"Cypress EzUSB 2131, Version @INF_VERSION@"=LIBUSB_DEV, USB\VID_0547&PID_2131
+"LibUsb-Win32 Test Device, Version @INF_VERSION@"=LIBUSB_DEV, USB\VID_1234&PID_5678 
+
+;------------------------------------------------------------------------------
+; Dakota Digital Camera
+;------------------------------------------------------------------------------
+"Dakota Digital Camera, ISO Interface, Version @INF_VERSION@"=LIBUSB_DEV, USB\VID_04FC&PID_FFFF&MI_00
+"Dakota Digital Camera, Bulk Interface, Version @INF_VERSION@"=LIBUSB_DEV, USB\VID_04FC&PID_FFFF&MI_01
+
+;------------------------------------------------------------------------------
+; Walgreens Digital Camera
+;------------------------------------------------------------------------------
+"Walgreens Single-Use Camera, Version @INF_VERSION@"=LIBUSB_DEV, USB\VID_0461&PID_0819&MI_00
+"Walgreens Single-Use Camera, Version @INF_VERSION@"=LIBUSB_DEV, USB\VID_0461&PID_0819&MI_01
+
+
+;------------------------------------------------------------------------------
+; Nothing to modify below
+;------------------------------------------------------------------------------
+
+
+;------------------------------------------------------------------------------
+; Files
+;------------------------------------------------------------------------------
+
+[SourceDisksNames]
+1 = "Libusb-Win32 Driver Installation Disk",,
+
+[SourceDisksFiles]
+libusb0.sys = 1,, 
+libusb0.dll = 1,,
+libusbis.exe = 1,,
+
+[DestinationDirs]
+LIBUSB.Files.Sys = 10,System32\Drivers
+LIBUSB.Files.Dll = 10,System32
+LIBUSB.Files.Exe = 10,System32
+
+[LIBUSB.Files.Sys]
+libusb0.sys
+
+[LIBUSB.Files.Dll]
+libusb0.dll
+
+[LIBUSB.Files.Exe]
+libusbis.exe
+
+
+;------------------------------------------------------------------------------
+; Device driver
+;------------------------------------------------------------------------------
+
+[LIBUSB_DEV]
+CopyFiles = LIBUSB.Files.Sys, LIBUSB.Files.Dll, LIBUSB.Files.Exe
+AddReg    = LIBUSB_DEV.AddReg
+
+[LIBUSB_DEV.NT]
+CopyFiles = LIBUSB.Files.Sys, LIBUSB.Files.Dll, LIBUSB.Files.Exe
+AddReg    = LIBUSB_DEV.AddReg.NT
+
+[LIBUSB_DEV.NT.Services]
+AddService = libusb0, 0x00000002, LIBUSB.AddService
+
+[LIBUSB_DEV.AddReg]
+HKR,,DevLoader,,*ntkern
+HKR,,NTMPDriver,,libusb0.sys
+HKLM,Software\Microsoft\Windows\CurrentVersion\RunOnce,LibUsb-Win32-Autorun,, "libusbis.exe --driver-post-install"
+
+[LIBUSB_DEV.AddReg.NT]
+HKLM,Software\Microsoft\Windows\CurrentVersion\RunOnce,LibUsb-Win32-Autorun,, "libusbis.exe --driver-post-install"
+
+
+;------------------------------------------------------------------------------
+; Services
+;------------------------------------------------------------------------------
+
+[LIBUSB.AddService]
+DisplayName    = "LibUsb-Win32 - Kernel Driver @INF_VERSION@"
+ServiceType    = 1
+StartType      = 3
+ErrorControl   = 0
+ServiceBinary  = %12%\libusb0.sys

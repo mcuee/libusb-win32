@@ -1,0 +1,34 @@
+TARGETNAME=libusb0
+TARGETTYPE=DRIVER
+TARGETPATH=.
+TARGETLIBS=.\usbd.lib
+INCLUDES=
+
+C_DEFINES= -DUSB2
+
+MSC_WARNING_LEVEL = /W3 /WX
+
+SOURCES = libusb_driver.rc \
+	libusb_driver.c \
+	dispatch.c \
+	pnp.c \
+	ioctl.c \
+	reset_device.c \
+	reset_endpoint.c \
+	abort_endpoint.c \
+	get_descriptor.c \
+	set_descriptor.c \
+	get_configuration.c \
+	set_configuration.c \
+	get_interface.c \
+	set_interface.c \
+	set_feature.c \
+	clear_feature.c \
+	get_status.c \
+	transfer.c \
+	vendor_request.c \
+	debug.c \
+	internal_ioctl.c \
+	driver_registry.c \
+	claim_interface.c \
+	release_interface.c
