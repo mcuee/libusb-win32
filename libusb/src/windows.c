@@ -31,7 +31,6 @@
 #include "error.h"
 #include "usbi.h"
 #include "driver_api.h"
-#include "service.h"
 #include "registry.h"
 
 
@@ -105,13 +104,8 @@ BOOL WINAPI DllMain(HANDLE module, DWORD reason, LPVOID reserved)
   switch(reason)
     {
     case DLL_PROCESS_ATTACH:
-      if(!usb_service_load_dll())
-        {      
-          return FALSE;
-        }
       break;
     case DLL_PROCESS_DETACH:
-      usb_service_free_dll();
       break;
     case DLL_THREAD_ATTACH:
       break;
