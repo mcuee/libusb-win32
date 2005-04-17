@@ -1,13 +1,42 @@
+# LIBUSB-WIN32, Generic Windows USB Library
+# Copyright (c) 2002-2005 Stephan Meyer <ste_meyer@web.de>
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+# 
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-CC = gcc
-LD = ld
+
+
+# If you're cross-compiling and your mingw32 tools are called
+# i586-mingw32msvc-gcc and so on, then you can compile libusb-win32
+# by running
+#    make host_prefix=i586-mingw32msvc all
+
+
+ifdef host_prefix
+	override host_prefix := $(host_prefix)-
+endif
+
+CC = $(host_prefix)gcc
+LD = $(host_prefix)ld
 MAKE = make
 CP = cp
 CD = cd
 MV = mv
 RM = -rm -fr
 TAR = tar
-WINDRES = windres
+WINDRES = $(host_prefix)windres
+DLLTOOL = $(host_prefix)dlltool
 ISCC = iscc
 INSTALL = install
 LIB = lib
@@ -16,7 +45,7 @@ IMPLIB = implib
 VERSION_MAJOR = 0
 VERSION_MINOR = 1
 VERSION_MICRO = 10
-VERSION_NANO = 1
+VERSION_NANO = 2
 
 VERSION = $(VERSION_MAJOR).$(VERSION_MINOR).$(VERSION_MICRO).$(VERSION_NANO)
 RC_VERSION = $(VERSION_MAJOR),$(VERSION_MINOR),$(VERSION_MICRO),$(VERSION_NANO)
@@ -39,7 +68,7 @@ DRIVER_OBJECTS = abort_endpoint.o claim_interface.o clear_feature.o \
 	ioctl.o libusb_driver.o pnp.o release_interface.o reset_device.o \
 	reset_endpoint.o set_configuration.o set_descriptor.o \
 	set_feature.o set_interface.o transfer.o vendor_request.o \
-	power.o libusb_driver_rc.o 
+	power.o driver_registry.o libusb_driver_rc.o 
 
 
 INSTALLER_NAME = $(TARGET)-win32-filter-bin-$(VERSION).exe
@@ -86,16 +115,15 @@ EXE_FILES = testlibusb.exe testlibusb-win.exe inf-wizard.exe
 
 
 .PHONY: all
-all: $(DLL_TARGET).dll $(EXE_FILES) $(DRIVER_TARGET) \
-	README.txt libusbd-9x.exe libusbd-nt.exe 
+all: $(DLL_TARGET).dll $(EXE_FILES) $(DRIVER_TARGET) README.txt
 	unix2dos *.txt
 
 $(DLL_TARGET).dll: driver_api.h $(OBJECTS)
 	$(CC) -o $@ $(OBJECTS) $(DLL_LDFLAGS) 
 
 $(DRIVER_TARGET): $(TARGET)_driver_rc.rc driver_api.h $(DRIVER_OBJECTS)
-	dlltool --dllname usbd.sys --def ./src/driver/usbd.def \
-	--output-lib libusbd.a
+	$(DLLTOOL) --dllname usbd.sys --def ./src/driver/usbd.def \
+		--output-lib libusbd.a
 	$(CC) -o $@ $(DRIVER_OBJECTS) $(DRIVER_LDFLAGS)
 
 inf-wizard.exe: inf_wizard_rc.o inf_wizard.o registry.o win_debug.o
@@ -107,12 +135,6 @@ testlibusb.exe: testlibusb.o resource.o
 testlibusb-win.exe: testlibusb_win.o resource.o 
 	$(CC) $(CFLAGS) -o $@ -I./src  $^ $(WIN_LDFLAGS)
 
-libusbd-nt.exe: service_nt.o service.o registry.o resource.o win_debug.o
-	$(CC) $(CPPFLAGS) -Wall $(CFLAGS) -o $@ $^ $(WIN_LDFLAGS)
-
-libusbd-9x.exe: service_9x.o service.o registry.o resource.o win_debug.o
-	$(CC) $(CPPFLAGS) -Wall $(CFLAGS) -o $@ $^ $(WIN_LDFLAGS)
-
 %.o: %.c
 	$(CC) -c $< -o $@ $(CFLAGS) -Wall $(CPPFLAGS) $(INCLUDES) 
 
@@ -121,14 +143,14 @@ libusbd-9x.exe: service_9x.o service.o registry.o resource.o win_debug.o
 
 %.rc: %.rc.in
 	sed -e 's/@RC_VERSION@/$(RC_VERSION)/' \
-	-e 's/@VERSION@/$(VERSION)/' $< > $@
+		-e 's/@VERSION@/$(VERSION)/' $< > $@
 
 %.h: %.h.in
 	sed -e 's/@VERSION_MAJOR@/$(VERSION_MAJOR)/' \
-	-e 's/@VERSION_MINOR@/$(VERSION_MINOR)/' \
-	-e 's/@VERSION_MICRO@/$(VERSION_MICRO)/' \
-	-e 's/@VERSION_NANO@/$(VERSION_NANO)/' \
-	$< > $@
+		-e 's/@VERSION_MINOR@/$(VERSION_MINOR)/' \
+		-e 's/@VERSION_MICRO@/$(VERSION_MICRO)/' \
+		-e 's/@VERSION_NANO@/$(VERSION_NANO)/' \
+		$< > $@
 
 README.txt: README.in
 	sed -e 's/@VERSION@/$(VERSION)/' $< > $@
@@ -194,10 +216,10 @@ src_dist:
 .PHONY: dist
 dist: bin_dist src_dist
 	sed -e 's/@VERSION@/$(VERSION)/' \
-	-e 's/@BIN_DIST_DIR@/$(BIN_DIST_DIR)/' \
-	-e 's/@SRC_DIST_DIR@/$(SRC_DIST_DIR)/' \
-	-e 's/@INSTALLER_TARGET@/$(INSTALLER_TARGET)/' \
-	install.iss.in > install.iss
+		-e 's/@BIN_DIST_DIR@/$(BIN_DIST_DIR)/' \
+		-e 's/@SRC_DIST_DIR@/$(SRC_DIST_DIR)/' \
+		-e 's/@INSTALLER_TARGET@/$(INSTALLER_TARGET)/' \
+		install.iss.in > install.iss
 	unix2dos install.iss
 	$(TAR) -czf $(SRC_DIST_DIR).tar.gz $(SRC_DIST_DIR) 
 	$(TAR) -czf $(BIN_DIST_DIR).tar.gz $(BIN_DIST_DIR)

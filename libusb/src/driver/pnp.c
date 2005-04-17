@@ -1,5 +1,5 @@
-/* LIBUSB-WIN32, Generic Windows USB Driver
- * Copyright (C) 2002-2004 Stephan Meyer, <ste_meyer@web.de>
+/* LIBUSB-WIN32, Generic Windows USB Library
+ * Copyright (c) 2002-2005 Stephan Meyer <ste_meyer@web.de>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -162,7 +162,8 @@ on_start_complete(DEVICE_OBJECT *device_object, IRP *irp, void *context)
       device_object->Characteristics |= FILE_REMOVABLE_MEDIA;
     }
   
-  device_extension->is_root_hub = is_root_hub(device_extension);
+  device_extension->is_root_hub 
+    = reg_is_root_hub(device_extension->physical_device_object);
   get_topology_info(device_extension);
   remove_lock_release(&device_extension->remove_lock);
   

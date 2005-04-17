@@ -267,19 +267,9 @@ static void on_refresh(void)
                   version->dll.major, version->dll.minor, 
                   version->dll.micro, version->dll.nano);
 
-      if(version->driver.major == -1)
-        {
-          edit_printf("Driver version: not running!\r\n");
-          SendMessage(edit_box, WM_SETTEXT, 0, (LPARAM) edit_buffer); 
-          edit_printf_free();
-          return;
-        }
-      else
-        {
-          edit_printf("Driver version:\t%d.%d.%d.%d\r\n\r\n",
-                      version->driver.major, version->driver.minor, 
-                      version->driver.micro, version->driver.nano);
-        }
+      edit_printf("Driver version:\t%d.%d.%d.%d\r\n\r\n",
+                  version->driver.major, version->driver.minor, 
+                  version->driver.micro, version->driver.nano);
     }
 
   edit_printf("bus/device  idVendor/idProduct\r\n");

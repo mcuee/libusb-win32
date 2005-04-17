@@ -1,18 +1,18 @@
-/* LIBUSB-WIN32, Generic Windows USB Driver
- * Copyright (C) 2002-2004 Stephan Meyer, <ste_meyer@web.de>
+/* LIBUSB-WIN32, Generic Windows USB Library
+ * Copyright (c) 2002-2005 Stephan Meyer <ste_meyer@web.de>
  *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation; either
+ * version 2 of the License, or (at your option) any later version.
  *
- * This program is distributed in the hope that it will be useful,
+ * This library is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
@@ -67,7 +67,6 @@ void CALLBACK usb_install_driver_np_rundll(HWND wnd, HINSTANCE instance,
 int usb_install_service_np(void)
 {
   char display_name[MAX_PATH];
-  HKEY reg_key = NULL;
   int ret = 0;
 
 
@@ -95,98 +94,19 @@ int usb_install_service_np(void)
   /* restart libusb devices */
   usb_registry_start_libusb_devices(); 
   /* insert filter drivers */
-  usb_registry_start_filter(FALSE);
+  usb_registry_insert_filter();
   usb_registry_restart_root_hubs(); 
-
-  if(usb_registry_is_nt())
-    {
-      snprintf(display_name, sizeof(display_name) - 1,
-               "LibUsb-Win32 - Daemon, Version %d.%d.%d.%d", 
-               VERSION_MAJOR, VERSION_MINOR, VERSION_MICRO, VERSION_NANO);
-      
-      /* create the system service */
-      if(!usb_create_service(LIBUSB_SERVICE_NAME, display_name,
-                             LIBUSB_SERVICE_PATH, 
-                             SERVICE_WIN32_OWN_PROCESS, SERVICE_AUTO_START))
-        ret = -1;
-
-      /* start the system service */
-      if(!usb_start_service(LIBUSB_SERVICE_NAME))
-        ret = -1;
-    }
-  else
-    {
-      if(RegOpenKeyEx(HKEY_LOCAL_MACHINE,
-                      "Software\\Microsoft\\Windows\\CurrentVersion"
-                      "\\RunServices",
-                      0, KEY_ALL_ACCESS, &reg_key)
-         == ERROR_SUCCESS)
-        {
-          if(RegSetValueEx(reg_key, "LibUsb-Win32 Daemon", 0, REG_SZ, 
-                           "libusbd-9x.exe", 
-                           usb_registry_mz_string_size("libusbd-9x.exe")) 
-             != ERROR_SUCCESS)
-            {
-              usb_debug_error("usb_create_service_rundll(): installing "
-                              "service failed");
-              ret = -1;
-            }
-          else
-            {
-              if(WinExec("libusbd-9x.exe", FALSE) < 31)
-                {
-                  usb_debug_error("usb_create_service_rundll(): starting "
-                                  "deamon failed\n");
-                  ret = -1;
-                }
-            }
-          RegCloseKey(reg_key);
-        }
-    }
 
   return ret;
 }
 
 int usb_uninstall_service_np(void)
 {
-  HANDLE win; 
-  HKEY reg_key = NULL;
-  int ret = 0;
-
-  if(usb_registry_is_nt())
-    {
-      if(!usb_stop_service(LIBUSB_SERVICE_NAME))
-        ret = -1;
-      if(!usb_delete_service(LIBUSB_SERVICE_NAME))
-        ret = -1;
-    }
-  else
-    {
-      do {
-        win = FindWindow("LIBUSB_SERVICE_WINDOW_CLASS", NULL);
-        if(win != INVALID_HANDLE_VALUE)
-          {
-            PostMessage(win, WM_DESTROY, 0, 0);
-            Sleep(500);
-          }
-      } while(win);
-
-      if(RegOpenKeyEx(HKEY_LOCAL_MACHINE,
-                      "Software\\Microsoft\\Windows\\CurrentVersion"
-                      "\\RunServices",
-                      0, KEY_ALL_ACCESS, &reg_key)
-         == ERROR_SUCCESS)
-        {
-          RegDeleteValue(reg_key, "LibUsb-Win32 Daemon");
-          RegCloseKey(reg_key);
-        }
-    } 
-
   /* remove filter drivers */
-  usb_registry_stop_filter(FALSE);
+  usb_registry_remove_filter();
   usb_registry_restart_root_hubs(); 
 
-  return ret;
+  return 1;
 }
 
 int usb_install_driver_np(const char *inf_file)
@@ -271,14 +191,10 @@ int usb_install_driver_np(const char *inf_file)
 
     reboot = FALSE;
 
-    /* force to update all connected devices matching this ID */
-/*     UpdateDriverForPlugAndPlayDevices(NULL, id, inf_path,  */
-/*                                       INSTALLFLAG_FORCE, &reboot); */
-
-
     /* update all connected devices matching this ID, but only if this */
     /* driver is better or newer */
-    UpdateDriverForPlugAndPlayDevices(NULL, id, inf_path, INSTALLFLAG_FORCE, &reboot);
+    UpdateDriverForPlugAndPlayDevices(NULL, id, inf_path, INSTALLFLAG_FORCE, 
+                                      &reboot);
     
 
     /* copy the .inf file to the system directory so that is will be found */

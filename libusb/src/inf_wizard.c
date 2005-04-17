@@ -539,7 +539,7 @@ static void device_list_refresh(HWND list)
   
   while(SetupDiEnumDeviceInfo(dev_info, dev_index, &dev_info_data))
     {
-      if(usb_registry_match_no_root_hubs(dev_info, &dev_info_data))
+      if(usb_registry_match(dev_info, &dev_info_data))
         {
           device = (device_context_t *) malloc(sizeof(device_context_t));
           memset(device, 0, sizeof(*device));

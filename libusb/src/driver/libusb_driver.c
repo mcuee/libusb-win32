@@ -1,5 +1,5 @@
-/* LIBUSB-WIN32, Generic Windows USB Driver
- * Copyright (C) 2002-2004 Stephan Meyer, <ste_meyer@web.de>
+/* LIBUSB-WIN32, Generic Windows USB Library
+ * Copyright (c) 2002-2005 Stephan Meyer <ste_meyer@web.de>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -15,6 +15,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
+
 
 #define __LIBUSB_DRIVER_C__
 
@@ -64,6 +65,14 @@ NTSTATUS DDKAPI add_device(DRIVER_OBJECT *driver_object,
   WCHAR tmp_name_0[128];
   WCHAR tmp_name_1[128];
   int i;
+
+  /* only attach the class filter to usb devices, don't attach it to 
+   composite device's interfaces */
+  if(!reg_is_usb_device(physical_device_object)
+     || reg_is_composite_interface(physical_device_object))
+    {
+      return STATUS_SUCCESS;
+    }
 
   device_object = IoGetAttachedDeviceReference(physical_device_object);
   device_type = device_object->DeviceType;
@@ -381,37 +390,6 @@ NTSTATUS get_device_info(libusb_device_extension *device_extension,
   *ret = sizeof(libusb_request);
 
   return STATUS_SUCCESS;
-}
-
-BOOL is_root_hub(libusb_device_extension *device_extension)
-{
-  WCHAR buf0[MAX_PATH];
-  char buf1[MAX_PATH];
-  ULONG ret;
-  int i;
-
-  memset(buf0, 0, sizeof(buf0));
-  memset(buf1, 0, sizeof(buf1));
-
-  if(NT_SUCCESS(IoGetDeviceProperty(device_extension->physical_device_object,
-                                    DevicePropertyHardwareID,
-                                    sizeof(buf0), buf0, &ret)) && ret)
-    {
-      /* convert unicode string */
-      for(i = 0; i < ret/2; i++)
-        {
-          buf1[i] = (char)buf0[i];
-        }
-
-      _strlwr(buf1);
-
-      if(strstr(buf1, "root_hub"))
-        {
-          return TRUE;
-        }
-    }
-
-  return FALSE;
 }
 
 void get_topology_info(libusb_device_extension *device_extension)

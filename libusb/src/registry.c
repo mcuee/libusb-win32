@@ -1,20 +1,21 @@
-/* LIBUSB-WIN32, Generic Windows USB Driver
- * Copyright (C) 2002-2004 Stephan Meyer, <ste_meyer@web.de>
+/* LIBUSB-WIN32, Generic Windows USB Library
+ * Copyright (c) 2002-2005 Stephan Meyer <ste_meyer@web.de>
  *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation; either
+ * version 2 of the License, or (at your option) any later version.
  *
- * This program is distributed in the hope that it will be useful,
+ * This library is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
+
 
 #include <ctype.h>
 #include <ddk/cfgmgr32.h>
@@ -23,12 +24,60 @@
 #include "win_debug.h"
 
 
+static const char *driver_name_nt = "libusb0";
+static const char *driver_name_9x = "libusb0.sys";
+
+static const char *class_keys_nt[] =
+  {
+    /* USB devices */
+    "SYSTEM\\CurrentControlSet\\Control\\Class"
+    "\\{36FC9E60-C465-11CF-8056-444553540000}",
+    /* HID devices */
+    "SYSTEM\\CurrentControlSet\\Control\\Class\\"
+    "{745A17A0-74D3-11D0-B6FE-00A0C90F57DA}",
+    /* Network devices */
+    "SYSTEM\\CurrentControlSet\\Control\\Class\\"
+    "{4D36E972-E325-11CE-BFC1-08002BE10318}",
+    /* Image devices */
+    "SYSTEM\\CurrentControlSet\\Control\\Class\\"
+    "{6bdd1fc6-810f-11d0-bec7-08002be2092f}",
+    /* Media devices */
+    "SYSTEM\\CurrentControlSet\\Control\\Class\\"
+    "{4d36e96c-e325-11ce-bfc1-08002be10318}",
+    /* Modem devices */
+    "SYSTEM\\CurrentControlSet\\Control\\Class\\"
+    "{4D36E96D-E325-11CE-BFC1-08002BE10318}",
+    /* SmartCardReader devices*/
+    "SYSTEM\\CurrentControlSet\\Control\\Class\\"
+    "{50DD5230-BA8A-11D1-BF5D-0000F805F530}",
+    NULL
+  };
+
+static const char *class_keys_9x[] =
+  {
+    /* USB devices */
+    "SYSTEM\\CurrentControlSet\\Services\\Class\\USB",
+    /* HID devices */
+    "SYSTEM\\CurrentControlSet\\Services\\Class\\HID",
+    /* Network devices */
+    "SYSTEM\\CurrentControlSet\\Services\\Class\\Net",
+    /* Image devices */
+    "SYSTEM\\CurrentControlSet\\Services\\Class\\Image",
+    /* Media devices */
+    "SYSTEM\\CurrentControlSet\\Services\\Class\\MEDIA",
+    /* Modem devices */
+    "SYSTEM\\CurrentControlSet\\Services\\Class\\Modem",
+    /* SmartCardReader devices, not supported? */
+    /*     "SYSTEM\\CurrentControlSet\\Services\\Class\\", */
+    NULL
+  };
+
 static bool_t usb_registry_set_device_state(DWORD state, HDEVINFO dev_info, 
                                             SP_DEVINFO_DATA *dev_info_data);
 
 bool_t usb_registry_is_nt(void)
 {
-  return GetVersion() < 0x80000000 ? 1 : 0;
+  return GetVersion() < 0x80000000 ? TRUE : FALSE;
 }
 
 bool_t usb_registry_get_property(DWORD which, HDEVINFO dev_info, 
@@ -230,59 +279,94 @@ bool_t usb_registry_set_property(DWORD which, HDEVINFO dev_info,
   return TRUE;
 }
 
-bool_t usb_registry_insert_filter(HDEVINFO dev_info,
-                                  SP_DEVINFO_DATA *dev_info_data, 
-                                  char *filter_name)
+bool_t usb_registry_insert_filter(void)
 {
-  char filters[MAX_PATH];
+  const char *driver_name;
+  const char **key;
+  char buf[MAX_PATH];
   
-  usb_registry_get_property(SPDRP_UPPERFILTERS, dev_info, dev_info_data, 
-                            filters, sizeof(filters));
-
-  usb_registry_mz_string_lower(filters);
-
-  if(!usb_registry_mz_string_find(filters, filter_name))
+  if(usb_registry_is_nt())
     {
-      usb_registry_mz_string_insert(filters, filter_name);
+      driver_name = driver_name_nt;
+      key = class_keys_nt;
+    }
+  else
+    {
+      driver_name = driver_name_9x;
+      key = class_keys_9x;
+    }
+
+  while(*key)
+    {
+      memset(buf, 0, sizeof(buf));
+
+      if(usb_registry_get_mz_value(*key, "UpperFilters", buf, sizeof(buf)))
+        {
+          usb_registry_mz_string_lower(buf);
       
-      if(!usb_registry_set_property(SPDRP_UPPERFILTERS, dev_info, 
-                                    dev_info_data, filters,
-                                    usb_registry_mz_string_size(filters)))
+          if(usb_registry_mz_string_find(buf, driver_name))
+            {
+              key++;
+              continue;
+            }
+        }
+      
+      usb_registry_mz_string_insert(buf, driver_name);
+
+      if(!usb_registry_set_mz_value(*key, "UpperFilters", buf, 
+                                    usb_registry_mz_string_size(buf)))
         {
           return FALSE;
         }
-      return TRUE;
-    }
 
-  return FALSE;
+      key++;
+    }
+ 
+  return TRUE;
 }
 
 
-bool_t usb_registry_remove_filter(HDEVINFO dev_info, 
-                                  SP_DEVINFO_DATA *dev_info_data, 
-                                  char *filter_name)
+bool_t usb_registry_remove_filter(void)
 {
-  char filters[MAX_PATH];
-
-  usb_registry_get_property(SPDRP_UPPERFILTERS, dev_info, dev_info_data, 
-                            filters, sizeof(filters));
-
-  usb_registry_mz_string_lower(filters);
-
-  if(usb_registry_mz_string_find(filters, filter_name))
-    {
-      usb_registry_mz_string_remove(filters, filter_name);
-      
-      if(!usb_registry_set_property(SPDRP_UPPERFILTERS, dev_info, 
-                                    dev_info_data, filters,
-                                    usb_registry_mz_string_size(filters)))
-        {
-          return FALSE;
-        }
-      return TRUE;
-    }
+  const char *driver_name;
+  const char **key;
+  char buf[MAX_PATH];
   
-  return FALSE;
+  if(usb_registry_is_nt())
+    {
+      driver_name = driver_name_nt;
+      key = class_keys_nt;
+    }
+  else
+    {
+      driver_name = driver_name_9x;
+      key = class_keys_9x;
+    }
+
+  while(*key)
+    {
+      memset(buf, 0, sizeof(buf));
+
+      if(usb_registry_get_mz_value(*key, "UpperFilters", buf, sizeof(buf)))
+        {
+          usb_registry_mz_string_lower(buf);
+      
+          if(usb_registry_mz_string_find(buf, driver_name))
+            {
+              usb_registry_mz_string_remove(buf, driver_name);
+              
+              if(!usb_registry_set_mz_value(*key, "UpperFilters", buf, 
+                                            usb_registry_mz_string_size(buf)))
+                {
+                  usb_debug_error("usb_registry_remove_filter: unable to "
+                                  "set registry value\n");
+                }
+            }
+        }
+      key++;
+    }
+ 
+  return TRUE;
 }
 
 static bool_t usb_registry_set_device_state(DWORD state, HDEVINFO dev_info, 
@@ -360,83 +444,6 @@ bool_t usb_registry_is_service_libusb(HDEVINFO dev_info,
   return FALSE;
 }
 
-void usb_registry_start_filter(bool_t restart)
-{
-  HDEVINFO dev_info;
-  SP_DEVINFO_DATA dev_info_data;
-  int dev_index = 0;
-  char *filter_name = NULL;
-
-  filter_name = usb_registry_is_nt() ? 
-    LIBUSB_DRIVER_NAME_NT : LIBUSB_DRIVER_NAME_9X;
-  
-  dev_info_data.cbSize = sizeof(SP_DEVINFO_DATA);
-
-  dev_index = 0;
-  dev_info = SetupDiGetClassDevs(NULL, "USB", NULL, 
-                                 DIGCF_ALLCLASSES | DIGCF_PRESENT);
-  
-  if(dev_info == INVALID_HANDLE_VALUE)
-    {
-      usb_debug_error("usb_registry_start_filter(): getting "
-                      "device info set failed");
-      
-      return;
-    }
-    while(SetupDiEnumDeviceInfo(dev_info, dev_index, &dev_info_data))
-    {
-      if(usb_registry_match(dev_info, &dev_info_data)
-         && !usb_registry_is_service_libusb(dev_info, &dev_info_data))
-        {
-          if(usb_registry_insert_filter(dev_info, &dev_info_data, filter_name))
-            {
-              if(restart)
-                usb_registry_restart_device(dev_info, &dev_info_data);
-            }
-        }
-      dev_index++;
-    }
-
-  SetupDiDestroyDeviceInfoList(dev_info);
-}
-
-
-void usb_registry_stop_filter(bool_t restart)
-{
-  HDEVINFO dev_info;
-  SP_DEVINFO_DATA dev_info_data;
-  int dev_index = 0;
-  char *filter_name = NULL;
-
-  filter_name = usb_registry_is_nt() ? 
-    LIBUSB_DRIVER_NAME_NT : LIBUSB_DRIVER_NAME_9X;
-  
-  dev_info_data.cbSize = sizeof(SP_DEVINFO_DATA);
-  dev_index = 0;
-
-  dev_info = SetupDiGetClassDevs(NULL, "USB", NULL, DIGCF_ALLCLASSES);
-  
-  if(dev_info == INVALID_HANDLE_VALUE)
-    {
-      usb_debug_error("usb_registry_stop_filter(): getting "
-                      "device info set failed");
-      return;
-    }
-  
-  while(SetupDiEnumDeviceInfo(dev_info, dev_index, &dev_info_data))
-    {
-      if(usb_registry_remove_filter(dev_info, &dev_info_data, 
-                                    filter_name))
-        {
-          if(restart)
-            usb_registry_restart_device(dev_info, &dev_info_data);
-        }
-      dev_index++;
-    }
-  
-  SetupDiDestroyDeviceInfoList(dev_info);
-}
-
 void usb_registry_stop_libusb_devices(void)
 {
   HDEVINFO dev_info;
@@ -492,7 +499,6 @@ void usb_registry_start_libusb_devices(void)
       if(usb_registry_is_service_libusb(dev_info, &dev_info_data))
         {
           usb_registry_start_device(dev_info, &dev_info_data);
-
         }
       dev_index++;
     }
@@ -500,31 +506,9 @@ void usb_registry_start_libusb_devices(void)
   SetupDiDestroyDeviceInfoList(dev_info);
 }
 
-bool_t usb_registry_match(HDEVINFO dev_info, SP_DEVINFO_DATA *dev_info_data)
-{
-  char tmp[MAX_PATH];
-  
-  if(!usb_registry_get_property(SPDRP_HARDWAREID, dev_info, dev_info_data,
-                                tmp, sizeof(tmp)))
-    {
-      usb_debug_error("usb_registry_match(): getting hardware id failed");
-      return FALSE;
-    }
 
-  usb_registry_mz_string_lower(tmp);
-
-  /* search for USB devices, skip root hubs and interfaces of composite */
-  /* devices */
-  if(usb_registry_mz_string_find_sub(tmp, "&mi_"))
-    {
-      return FALSE;
-    }
-
-  return TRUE;
-}
-
-bool_t usb_registry_match_no_root_hubs(HDEVINFO dev_info, 
-                                  SP_DEVINFO_DATA *dev_info_data)
+bool_t usb_registry_match(HDEVINFO dev_info, 
+                          SP_DEVINFO_DATA *dev_info_data)
 {
   char tmp[MAX_PATH];
   
@@ -549,10 +533,119 @@ bool_t usb_registry_match_no_root_hubs(HDEVINFO dev_info,
   return TRUE;
 }
 
-int usb_registry_mz_string_size(char *src)
+bool_t usb_registry_get_mz_value(const char *key, const char *value, 
+                                 char *buf, int size)
 {
-  char *p = src;
+  HKEY reg_key = NULL;
+  DWORD reg_type;
+  DWORD reg_length = size;
+  bool_t ret = FALSE;
+  char *p;
+
+  memset(buf, 0, size);
+      
+  if(RegOpenKeyEx(HKEY_LOCAL_MACHINE, key, 0, KEY_ALL_ACCESS, &reg_key)
+     == ERROR_SUCCESS)
+    {
+      if(RegQueryValueEx(reg_key, value, NULL, &reg_type, 
+                         buf, &reg_length) == ERROR_SUCCESS)
+        {
+          if(reg_type == REG_SZ)
+            {
+              p = buf;
+              while(*p)
+                {
+                  if(*p == ',')
+                    {
+                      *p = 0;
+                    }
+                  p++;
+                }
+            }
+
+          ret = TRUE;
+        }
+    }
+
+  if(reg_key)
+    {
+      RegCloseKey(reg_key);
+    }
+
+  return ret;
+}
+
+
+bool_t usb_registry_set_mz_value(const char *key, const char *value, 
+                                 char *buf, int size)
+{
+  HKEY reg_key = NULL;
+  bool_t ret = FALSE;
+  char *p;
+
+  /* convert REG_MULTI_SZ to REG_SZ */
+  if(!usb_registry_is_nt())
+    {
+      p = buf;
+      
+      while(*p && *(p + 1))
+        {
+          if(*p == 0)
+            {
+              *p = ',';
+            }
+          p++;
+        }
+    }
+
+  if(RegOpenKeyEx(HKEY_LOCAL_MACHINE, key, 0, KEY_ALL_ACCESS, &reg_key)
+     == ERROR_SUCCESS)
+    {
+      if(size > 2)
+        {
+          if(usb_registry_is_nt())
+            {
+              if(RegSetValueEx(reg_key, value, 0, REG_MULTI_SZ, buf, size)
+                 == ERROR_SUCCESS)
+                {
+                  ret = TRUE;
+                }
+            }
+          else
+            {
+              if(RegSetValueEx(reg_key, value, 0, REG_SZ, buf, size)
+                 == ERROR_SUCCESS)
+                {
+                  ret = TRUE;
+                }
+            }
+        }
+      else
+        {
+          if(RegDeleteValue(reg_key, value) == ERROR_SUCCESS)
+            {
+              ret = TRUE;
+            }
+        }
+    }
   
+  if(reg_key)
+    {
+      RegCloseKey(reg_key);
+    }
+
+  return ret;
+}
+
+int usb_registry_mz_string_size(const char *src)
+{
+  char *p = (char *)src;
+  
+  if(!src)
+    {
+      return 0;
+    }
+
   while(*p)
     {
       p += (strlen(p) + 1);
@@ -561,13 +654,13 @@ int usb_registry_mz_string_size(char *src)
   return p - src + 1;
 }
 
-char *usb_registry_mz_string_find_sub(char *src, char *str)
+char *usb_registry_mz_string_find_sub(const char *src, const char *str)
 {
   while(*src)
     {
       if(strstr(src, str))
         {
-          return src;
+          return (char *)src;
         }
       src += (strlen(src) + 1);
     }
@@ -575,13 +668,13 @@ char *usb_registry_mz_string_find_sub(char *src, char *str)
   return NULL;
 }
 
-char *usb_registry_mz_string_find(char *src, char *str)
+char *usb_registry_mz_string_find(const char *src, const char *str)
 {
   while(*src)
     {
       if(!strcmp(src, str))
         {
-          return src;
+          return (char *)src;
         }
       src += (strlen(src) + 1);
     }
@@ -589,7 +682,7 @@ char *usb_registry_mz_string_find(char *src, char *str)
   return NULL;
 }
 
-bool_t usb_registry_mz_string_insert(char *src, char *str)
+bool_t usb_registry_mz_string_insert(char *src, const char *str)
 {
   while(*src)
     {
@@ -606,7 +699,7 @@ bool_t usb_registry_mz_string_insert(char *src, char *str)
   return TRUE;
 }
 
-bool_t usb_registry_mz_string_remove(char *src, char *str)
+bool_t usb_registry_mz_string_remove(char *src, const char *str)
 {
   char *p, *q;
 
