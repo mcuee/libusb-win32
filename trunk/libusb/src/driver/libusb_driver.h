@@ -1,5 +1,5 @@
-/* LIBUSB-WIN32, Generic Windows USB Driver
- * Copyright (C) 2002-2004 Stephan Meyer, <ste_meyer@web.de>
+/* LIBUSB-WIN32, Generic Windows USB Library
+ * Copyright (c) 2002-2005 Stephan Meyer <ste_meyer@web.de>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -60,7 +60,7 @@
 #define LIBUSB_DEFAULT_TIMEOUT  5000   
 
 #ifdef __LIBUSB_DRIVER_C__
-int debug_level = LIBUSB_DEBUG_ERR;
+int debug_level = LIBUSB_DEBUG_MSG;
 #else
 extern int debug_level;
 #endif
@@ -200,8 +200,10 @@ NTSTATUS release_all_interfaces(libusb_device_extension *device_extension);
 
 NTSTATUS get_device_info(libusb_device_extension *device_extension, 
                          libusb_request *request, int *ret);
-BOOL is_root_hub(libusb_device_extension *device_extension);
 void get_topology_info(libusb_device_extension *device_extension);
 
+int reg_is_usb_device(DEVICE_OBJECT *device_object);
+int reg_is_root_hub(DEVICE_OBJECT *device_object);
+int reg_is_composite_interface(DEVICE_OBJECT *device_object);
 
 #endif

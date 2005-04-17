@@ -10,8 +10,8 @@ LICENSE:
 
 The software in this package is distributed under the following licenses:
 
-Driver, Services, Installer:	GNU General Public License (GPL)
-Library, Test Files:		GNU Lesser General Public License (LGPL)
+Driver, Installer:      GNU General Public License (GPL)
+Library, Test Files:    GNU Lesser General Public License (LGPL)
 
 ***********************************************************************
 

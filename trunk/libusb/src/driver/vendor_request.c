@@ -1,5 +1,5 @@
-/* LIBUSB-WIN32, Generic Windows USB Driver
- * Copyright (C) 2002-2004 Stephan Meyer, <ste_meyer@web.de>
+/* LIBUSB-WIN32, Generic Windows USB Library
+ * Copyright (c) 2002-2005 Stephan Meyer <ste_meyer@web.de>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -116,7 +116,7 @@ NTSTATUS vendor_class_request(libusb_device_extension *device_extension,
   urb.UrbControlVendorClassRequest.Value = (USHORT)value;
   urb.UrbControlVendorClassRequest.Index = (USHORT)index;
   
-  status = call_usbd(device_extension, (void *)&urb, 
+  status = call_usbd(device_extension, &urb, 
                      IOCTL_INTERNAL_USB_SUBMIT_URB, timeout);
   
   if(!NT_SUCCESS(status) || !USBD_SUCCESS(urb.UrbHeader.Status))
@@ -130,6 +130,7 @@ NTSTATUS vendor_class_request(libusb_device_extension *device_extension,
       *sent = urb.UrbControlVendorClassRequest.TransferBufferLength;
       DEBUG_MESSAGE("vendor_class_request(): %d bytes transmitted", *sent);
     }
+
   return status;
 }
 
