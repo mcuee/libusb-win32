@@ -302,8 +302,8 @@ static URB *create_urb(libusb_device_extension *device_extension,
       urb->UrbBulkOrInterruptTransfer.PipeHandle = pipe_handle;
       urb->UrbBulkOrInterruptTransfer.TransferFlags 
         = direction | USBD_SHORT_TRANSFER_OK;
-      urb->UrbIsochronousTransfer.TransferBufferLength = size;
-      urb->UrbIsochronousTransfer.TransferBufferMDL = buffer;
+      urb->UrbBulkOrInterruptTransfer.TransferBufferLength = size;
+      urb->UrbBulkOrInterruptTransfer.TransferBufferMDL = buffer;
     }
 
   return urb;
