@@ -22,6 +22,7 @@
 #include <stdio.h>
 #include <ddk/cfgmgr32.h>
 #include <regstr.h>
+#include <wchar.h>
 
 #include "usb.h"
 #include "registry.h"
@@ -62,6 +63,8 @@ static bool_t usb_create_service(const char *name, const char *display_name,
                                  const char *binary_path, unsigned long type,
                                  unsigned long start_type);
 
+void CALLBACK usb_touch_inf_file_rundll(HWND wnd, HINSTANCE instance,
+                                 LPSTR cmd_line, int cmd_show);
 
 void CALLBACK usb_install_service_np_rundll(HWND wnd, HINSTANCE instance,
                                             LPSTR cmd_line, int cmd_show)
@@ -158,6 +161,7 @@ int usb_install_driver_np(const char *inf_file)
 
   if(!UpdateDriverForPlugAndPlayDevices)
     {
+      usb_debug_error("usb_install_driver(): loading newdev.dll failed\n");
       return -1;
     }
 
@@ -205,16 +209,15 @@ int usb_install_driver_np(const char *inf_file)
 
     reboot = FALSE;
 
+    /* copy the .inf file to the system directory so that is will be found */
+    /* when new devices are plugged in */
+    SetupCopyOEMInf(inf_path, NULL, SPOST_PATH, 0, NULL, 0, NULL, NULL);
+
     /* update all connected devices matching this ID, but only if this */
     /* driver is better or newer */
     UpdateDriverForPlugAndPlayDevices(NULL, id, inf_path, INSTALLFLAG_FORCE, 
                                       &reboot);
     
-
-    /* copy the .inf file to the system directory so that is will be found */
-    /* when new  devices are plugged in */
-    SetupCopyOEMInf(inf_path, NULL, SPOST_PATH, 0, NULL, 0, NULL, NULL);
-
 
     /* now search the registry for device nodes representing currently  */
     /* unattached devices */
@@ -227,7 +230,7 @@ int usb_install_driver_np(const char *inf_file)
     if(dev_info == INVALID_HANDLE_VALUE)
       {
         SetupCloseInfFile(inf_handle);
-        return -1;
+        break;
       }
  
     dev_index = 0;
@@ -421,4 +424,82 @@ bool_t usb_create_service(const char *name, const char *display_name,
     }
   
   return ret;
+}
+
+
+void CALLBACK usb_touch_inf_file_rundll(HWND wnd, HINSTANCE instance,
+                                 LPSTR cmd_line, int cmd_show)
+{
+  const char inf_comment[] = ";added by libusb to break this file's digital "
+    "signature";
+  const wchar_t inf_comment_uni[] = L";added by libusb to break this file's "
+    "digital signature";
+
+  char buf[1024];
+  wchar_t wbuf[1024];
+  int found = 0;
+  OSVERSIONINFO version;
+  FILE *f;
+
+  version.dwOSVersionInfoSize = sizeof(OSVERSIONINFO);
+
+  if(!GetVersionEx(&version))
+     return;
+
+
+  /* XP system */
+  if((version.dwMajorVersion == 5) && (version.dwMinorVersion >= 1))
+    {
+      f = fopen(cmd_line, "rb");
+      
+      if(!f)
+        return;
+
+      while(fgetws(wbuf, sizeof(wbuf)/2, f))
+        {
+          if(wcsstr(wbuf, inf_comment_uni))
+            {
+              found = 1;
+              break;
+            }
+        }
+
+      fclose(f);
+
+      if(!found)
+        {
+          f = fopen(cmd_line, "ab");
+/*           fputwc(0x000d, f); */
+/*           fputwc(0x000d, f); */
+          fputws(inf_comment_uni, f);
+          fclose(f);
+        }
+    }
+  else
+    {
+      f = fopen(cmd_line, "r");
+      
+      if(!f)
+        return;
+
+      while(fgets(buf, sizeof(buf), f))
+        {
+          if(strstr(buf, inf_comment))
+            {
+              found = 1;
+              break;
+            }
+        }
+
+      fclose(f);
+
+      if(!found)
+        {
+          f = fopen(cmd_line, "a");
+          fputs("\n", f);
+          fputs(inf_comment, f);
+          fputs("\n", f);
+          fclose(f);
+        }
+    }
 }
