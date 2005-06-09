@@ -93,6 +93,11 @@ int usb_install_service_np(void)
 
   memset(display_name, 0, sizeof(display_name));
 
+
+  /* remove filter drivers */
+  usb_registry_remove_filter();
+  usb_registry_restart_root_hubs(); 
+
   /* stop all libusb devices */
   usb_registry_stop_libusb_devices();
 
@@ -428,7 +433,7 @@ bool_t usb_create_service(const char *name, const char *display_name,
 
 
 void CALLBACK usb_touch_inf_file_rundll(HWND wnd, HINSTANCE instance,
-                                 LPSTR cmd_line, int cmd_show)
+                                        LPSTR cmd_line, int cmd_show)
 {
   const char inf_comment[] = ";added by libusb to break this file's digital "
     "signature";
