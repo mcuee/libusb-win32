@@ -60,7 +60,7 @@ INSTALLER_TARGET = libusb-win32-filter-bin-$(VERSION).exe
 
 INSTALL_DIR = /usr
 OBJECTS = usb.o error.o descriptors.o windows.o resource.o install.o \
-	registry.o service.o win_debug.o
+	registry.o win_debug.o
 
 DRIVER_OBJECTS = abort_endpoint.o claim_interface.o clear_feature.o \
 	dispatch.o get_configuration.o \
