@@ -198,10 +198,8 @@ NTSTATUS set_configuration(libusb_device_extension *device_extension,
         }
     }
 
-
   status = call_usbd(device_extension, urb_ptr, 
                      IOCTL_INTERNAL_USB_SUBMIT_URB, timeout);
-  
 
   if(!NT_SUCCESS(status) || !USBD_SUCCESS(urb_ptr->UrbHeader.Status))
     {

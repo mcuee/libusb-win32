@@ -22,16 +22,14 @@
 
 typedef struct {
   URB *urb;
-  IRP *main_irp;
-  IRP *sub_irp;
-  KEVENT event;
-  libusb_remove_lock_t *remove_lock; 
-} Context;
+  int seq_num;
+  libusb_remove_lock_t *remove_lock;
+} context_t;
 
+static int count = 0;
 
 NTSTATUS DDKAPI transfer_complete(DEVICE_OBJECT *device_object, 
                                      IRP *irp, void *context);
-void DDKAPI transfer_cancel(DEVICE_OBJECT *device_object, IRP *irp);
 
 static URB *create_urb(libusb_device_extension *device_extension,
                        int direction, int urb_function, int endpoint, 
@@ -41,19 +39,17 @@ NTSTATUS transfer(IRP *irp, libusb_device_extension *device_extension,
                   int direction, int urb_function, int endpoint, 
                   int packet_size, MDL *buffer, int size)
 {
-  NTSTATUS status = STATUS_SUCCESS;
   IO_STACK_LOCATION *stack_location = NULL;
-  Context *context = NULL;
-  CHAR stack_size;
-  KIRQL irql;
+  context_t *context;
 
+ 
   DEBUG_PRINT_NL();
 
   if(urb_function == URB_FUNCTION_ISOCH_TRANSFER)
     DEBUG_MESSAGE("transfer(): isochronous transfer");
   else
-    DEBUG_MESSAGE("transfer(): bulk or interrupt transfer");
- 
+    DEBUG_MESSAGE("transfer(): %d: bulk or interrupt transfer");
+
   if(direction == USBD_TRANSFER_DIRECTION_IN)
     DEBUG_MESSAGE("transfer(): direction in");
   else
@@ -65,7 +61,7 @@ NTSTATUS transfer(IRP *irp, libusb_device_extension *device_extension,
     DEBUG_MESSAGE("transfer(): packet_size 0x%x", packet_size);
 
   DEBUG_MESSAGE("transfer(): size %d", size);
-
+  DEBUG_MESSAGE("transfer(): sequence %d", count);
 
   if(!device_extension->configuration)
     {
@@ -74,164 +70,91 @@ NTSTATUS transfer(IRP *irp, libusb_device_extension *device_extension,
       return complete_irp(irp, STATUS_INVALID_DEVICE_STATE, 0);
     }
   
-  
-  context = (Context *)ExAllocatePool(NonPagedPool, sizeof(Context));
-  
+  context = (context_t *)ExAllocatePool(NonPagedPool, sizeof(context_t));
+
   if(!context)
     {
-      DEBUG_ERROR("transfer(): memory allocation error");
       remove_lock_release(&device_extension->remove_lock);
       return complete_irp(irp, STATUS_NO_MEMORY, 0);
     }
-  
-  memset(context, 0, sizeof(Context));
-    
+
   context->urb = create_urb(device_extension, direction, urb_function, 
                             endpoint, packet_size, buffer, size);
     
   if(!context->urb)
     {
-      ExFreePool(context);
       remove_lock_release(&device_extension->remove_lock);
       return complete_irp(irp, STATUS_NO_MEMORY, 0);
     }
-    
-  context->main_irp = irp;
-  context->remove_lock = &device_extension->remove_lock;
-    
-  KeInitializeEvent(&context->event, NotificationEvent, FALSE);
- 
-  stack_size = device_extension->next_stack_device->StackSize;
-  context->sub_irp = IoAllocateIrp(stack_size, FALSE);
-    
-  if(!context->sub_irp)
-    {
-      DEBUG_ERROR("transfer(): memory allocation error");
-	
-      ExFreePool(context->urb);
-      ExFreePool(context);
-      remove_lock_release(&device_extension->remove_lock);
-      return complete_irp(irp, STATUS_NO_MEMORY, 0);
-    }
-    
-  irp->Tail.Overlay.DriverContext[0] = context;
 
-  stack_location = IoGetNextIrpStackLocation(context->sub_irp);
+  context->remove_lock = &device_extension->remove_lock;
+  context->seq_num = count++;
+
+  stack_location = IoGetNextIrpStackLocation(irp);
     
   stack_location->MajorFunction = IRP_MJ_INTERNAL_DEVICE_CONTROL;
   stack_location->Parameters.Others.Argument1 = context->urb;
   stack_location->Parameters.DeviceIoControl.IoControlCode 
     = IOCTL_INTERNAL_USB_SUBMIT_URB;
     
-  IoSetCompletionRoutine(context->sub_irp, transfer_complete, context,
+  IoSetCompletionRoutine(irp, transfer_complete, context,
                          TRUE, TRUE, TRUE);
     
-  IoAcquireCancelSpinLock(&irql);
-    
-  if(irp->Cancel) 
-    {
-      status = STATUS_CANCELLED;
-    } 
-  else 
-    {
-      IoSetCancelRoutine(irp, transfer_cancel);
-    }
-    
-  IoReleaseCancelSpinLock(irql);
-    
-  if(status == STATUS_CANCELLED)  
-    { 
-      IoFreeIrp(context->sub_irp);
-      ExFreePool(context->urb);
-      ExFreePool(context); 
-      remove_lock_release(&device_extension->remove_lock);
-      return complete_irp(irp, STATUS_CANCELLED, 0);
-    } 
-    
-  IoMarkIrpPending(irp);
-  IoCallDriver(device_extension->physical_device_object, context->sub_irp);
-  return STATUS_PENDING;  
+  return IoCallDriver(device_extension->physical_device_object, irp);
 }
 
 
 NTSTATUS DDKAPI transfer_complete(DEVICE_OBJECT *device_object, IRP *irp, 
-                                     void *context)
+                                  void *context)
 {
-  Context *c = (Context *)context;
-  libusb_remove_lock_t *lock = c->remove_lock;
+  context_t *c = (context_t *)context;
   int transmitted = 0;
-  KIRQL irql;
-  PDRIVER_CANCEL cancel;
+  libusb_remove_lock_t *remove_lock = c->remove_lock;
 
-  IoAcquireCancelSpinLock(&irql);
-  cancel = IoSetCancelRoutine(c->main_irp, NULL);
-  IoReleaseCancelSpinLock(irql);
 
-  /* cancel routine of main IRP has not started yet */
-  if(cancel)
+  if(NT_SUCCESS(irp->IoStatus.Status) 
+     && USBD_SUCCESS(c->urb->UrbHeader.Status))
     {
-      if(NT_SUCCESS(irp->IoStatus.Status) 
-         && USBD_SUCCESS(c->urb->UrbHeader.Status))
+      if(c->urb->UrbHeader.Function == URB_FUNCTION_ISOCH_TRANSFER)
         {
-          if(c->urb->UrbHeader.Function == URB_FUNCTION_ISOCH_TRANSFER)
-            {
-              transmitted 
-                = c->urb->UrbIsochronousTransfer.TransferBufferLength;
-            }
-          if(c->urb->UrbHeader.Function 
-             == URB_FUNCTION_BULK_OR_INTERRUPT_TRANSFER)
-            {
-              transmitted 
-                = c->urb->UrbBulkOrInterruptTransfer.TransferBufferLength;
-            }
-	  
-          DEBUG_MESSAGE("transfer_complete(): %d bytes transmitted", 
-                        transmitted);
+          transmitted 
+            = c->urb->UrbIsochronousTransfer.TransferBufferLength;
+        }
+      if(c->urb->UrbHeader.Function 
+         == URB_FUNCTION_BULK_OR_INTERRUPT_TRANSFER)
+        {
+          transmitted 
+            = c->urb->UrbBulkOrInterruptTransfer.TransferBufferLength;
+        }
+      
+      DEBUG_MESSAGE("transfer_complete(): sequence %d: %d bytes transmitted", 
+                    c->seq_num, transmitted);
+    }
+  else
+    {
+      if(irp->IoStatus.Status == STATUS_CANCELLED)
+        {
+          DEBUG_ERROR("transfer_complete(): sequence %d: timeout error",
+                      c->seq_num);
         }
       else
         {
-          DEBUG_ERROR("transfer_complete(): transfer failed: status: 0x%x, "
-                      "urb-status: 0x%x", 
-                       irp->IoStatus.Status, c->urb->UrbHeader.Status);
+          DEBUG_ERROR("transfer_complete(): sequence %d: transfer failed: "
+                      "status: 0x%x, urb-status: 0x%x", 
+                      c->seq_num,irp->IoStatus.Status, 
+                      c->urb->UrbHeader.Status);
         }
+    }
 
-      /* clean up */
-      complete_irp(c->main_irp, irp->IoStatus.Status, transmitted);
-      IoFreeIrp(irp);
-      ExFreePool(c->urb);
-      ExFreePool(c);
-      remove_lock_release(lock);
-    }
-  /* cancel routine has already been called and is waiting for the event */
-  else
-    {
-      KeSetEvent(&c->event, 0, FALSE);
-    }
+  ExFreePool(c->urb);
+  ExFreePool(c);
+
+  complete_irp(irp, irp->IoStatus.Status, transmitted);
+  remove_lock_release(remove_lock);
 
   return STATUS_MORE_PROCESSING_REQUIRED;
 }
 
-
-void DDKAPI transfer_cancel(DEVICE_OBJECT *device_object, IRP *irp)
-{
-  Context *c = (Context *)irp->Tail.Overlay.DriverContext[0];
-  libusb_remove_lock_t *lock = c->remove_lock;
- 
-  IoReleaseCancelSpinLock(irp->CancelIrql);
-
-  DEBUG_ERROR("transfer_cancel(): timeout error");
-
-  /* cancel sub IRP and wait for completion */
-  IoCancelIrp(c->sub_irp);
-  KeWaitForSingleObject(&c->event, Executive, KernelMode, FALSE, NULL);
-
-  /* clean up */
-  IoFreeIrp(c->sub_irp);
-  ExFreePool(c->urb);
-  ExFreePool(c);
-  complete_irp(irp, STATUS_CANCELLED, 0);
-  remove_lock_release(lock);
-}
 
 static URB *create_urb(libusb_device_extension *device_extension,
                        int direction, int urb_function, int endpoint, 

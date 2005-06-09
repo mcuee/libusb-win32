@@ -67,7 +67,7 @@ NTSTATUS DDKAPI add_device(DRIVER_OBJECT *driver_object,
   int i;
 
   /* only attach the class filter to usb devices, don't attach it to 
-   composite device's interfaces */
+   composite device interfaces */
   if(!reg_is_usb_device(physical_device_object)
      || reg_is_composite_interface(physical_device_object))
     {
