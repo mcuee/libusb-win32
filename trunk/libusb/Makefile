@@ -29,14 +29,15 @@ endif
 
 CC = $(host_prefix)gcc
 LD = $(host_prefix)ld
+WINDRES = $(host_prefix)windres
+DLLTOOL = $(host_prefix)dlltool
+
 MAKE = make
 CP = cp
 CD = cd
 MV = mv
 RM = -rm -fr
 TAR = tar
-WINDRES = $(host_prefix)windres
-DLLTOOL = $(host_prefix)dlltool
 ISCC = iscc
 INSTALL = install
 LIB = lib
@@ -101,7 +102,7 @@ LDFLAGS = -s -mno-cygwin -L. -lusb -lgdi32 -luser32 -lsetupapi \
 WIN_LDFLAGS = $(LDFLAGS) -mwindows
 
 DLL_LDFLAGS = -s -mwindows -shared -mno-cygwin \
-	-Wl,--output-def,$(DLL_TARGET).def \
+	-Wl,--output-def,$(DLL_TARGET).def.in \
 	-Wl,--out-implib,$(LIB_TARGET).a \
 	-Wl,--kill-at \
 	-L. -lsetupapi -lcfgmgr32
@@ -119,7 +120,10 @@ all: $(DLL_TARGET).dll $(EXE_FILES) $(DRIVER_TARGET) README.txt
 	unix2dos *.txt
 
 $(DLL_TARGET).dll: driver_api.h $(OBJECTS)
-	$(CC) -o $@ $(OBJECTS) $(DLL_LDFLAGS) 
+	$(CC) -o $@ $(OBJECTS) $(DLL_LDFLAGS)
+	sed -e 's/ @[0-9]*//' \
+			-e '/DATA/d' $(DLL_TARGET).def.in > $(DLL_TARGET).def
+	$(RM) $(DLL_TARGET).def.in 
 
 $(DRIVER_TARGET): $(TARGET)_driver_rc.rc driver_api.h $(DRIVER_OBJECTS)
 	$(DLLTOOL) --dllname usbd.sys --def ./src/driver/usbd.def \
