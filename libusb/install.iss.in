@@ -70,7 +70,7 @@ function InitializeSetup(): Boolean;
   begin 
   if FileExists(GetWinDir() + '\system32\libusbd-nt.exe') 
     or FileExists(GetWinDir() + '\system32\libusbd-9x.exe') then begin
-      MsgBox('An old version of LibUsb-Win32 is already installed on this system. Please uninstall this version first!', 
+      MsgBox('An old version of LibUsb-Win32 is already installed on this system. Please uninstall that version first!', 
               mbError, MB_OK);
       Result := FALSE;
   end
