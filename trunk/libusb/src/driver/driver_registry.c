@@ -19,11 +19,11 @@
 
 #include "libusb_driver.h"
 
-static int reg_get_property(DEVICE_OBJECT *device_object, int property,
-                            char *data, int size);
+static int reg_get_property(DEVICE_OBJECT *physical_device_object, 
+                            int property, char *data, int size);
 
-static int reg_get_property(DEVICE_OBJECT *device_object, int property,
-                            char *data, int size)
+static int reg_get_property(DEVICE_OBJECT *physical_device_object,
+                            int property, char *data, int size)
 {
   WCHAR tmp[512];
   ULONG ret;
@@ -32,7 +32,7 @@ static int reg_get_property(DEVICE_OBJECT *device_object, int property,
   memset(data, 0, size);
   memset(tmp, 0, sizeof(tmp));
 
-  if(NT_SUCCESS(IoGetDeviceProperty(device_object,
+  if(NT_SUCCESS(IoGetDeviceProperty(physical_device_object,
                                     property,
                                     sizeof(tmp) - 2,
                                     tmp,
@@ -52,12 +52,12 @@ static int reg_get_property(DEVICE_OBJECT *device_object, int property,
   return FALSE;
 }
 
-int reg_is_usb_device(DEVICE_OBJECT *device_object)
+int reg_is_usb_device(DEVICE_OBJECT *physical_device_object)
 {
   char tmp[512];
 
-  if(reg_get_property(device_object, DevicePropertyHardwareID, tmp,
-                      sizeof(tmp)))
+  if(reg_get_property(physical_device_object, DevicePropertyHardwareID, 
+                      tmp, sizeof(tmp)))
     {
       if(strstr(tmp, "usb\\"))
         {
@@ -68,12 +68,12 @@ int reg_is_usb_device(DEVICE_OBJECT *device_object)
   return FALSE;
 }
 
-int reg_is_root_hub(DEVICE_OBJECT *device_object)
+int reg_is_root_hub(DEVICE_OBJECT *physical_device_object)
 {
   char tmp[512];
 
-  if(reg_get_property(device_object, DevicePropertyHardwareID, tmp,
-                      sizeof(tmp)))
+  if(reg_get_property(physical_device_object, DevicePropertyHardwareID,
+                      tmp, sizeof(tmp)))
     {
       if(strstr(tmp, "root_hub"))
         {
@@ -84,12 +84,28 @@ int reg_is_root_hub(DEVICE_OBJECT *device_object)
   return FALSE;
 }
 
-int reg_is_composite_interface(DEVICE_OBJECT *device_object)
+int reg_is_hub(DEVICE_OBJECT *physical_device_object)
 {
   char tmp[512];
 
-  if(reg_get_property(device_object, DevicePropertyHardwareID, tmp,
-                      sizeof(tmp)))
+  if(reg_get_property(physical_device_object, DevicePropertyHardwareID,
+                      tmp, sizeof(tmp)))
+    {
+      if(strstr(tmp, "hub"))
+        {
+          return TRUE;
+        }
+    }
+  
+  return FALSE;
+}
+
+int reg_is_composite_interface(DEVICE_OBJECT *physical_device_object)
+{
+  char tmp[512];
+
+  if(reg_get_property(physical_device_object, DevicePropertyHardwareID, 
+                      tmp, sizeof(tmp)))
     {
       if(strstr(tmp, "&mi_"))
         {

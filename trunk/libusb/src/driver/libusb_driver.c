@@ -196,17 +196,9 @@ NTSTATUS call_usbd(libusb_device_extension *device_extension, void *urb,
     {
       _timeout.QuadPart = -(timeout * 10000);
       
-      if(timeout)
-        {
-          status = KeWaitForSingleObject(&event, Executive, KernelMode,
-                                         FALSE, &_timeout);
-        }
-      else /* wait forever */
-        {
-          status = KeWaitForSingleObject(&event, Executive, KernelMode,
-                                         FALSE, NULL);
-        }
-
+      status = KeWaitForSingleObject(&event, Executive, KernelMode,
+                                     FALSE, &_timeout);
+      
       if(status == STATUS_TIMEOUT)
         {
           DEBUG_ERROR("call_usbd(): request timed out");

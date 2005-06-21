@@ -50,8 +50,10 @@ NTSTATUS get_configuration(libusb_device_extension *device_extension,
     }
   else
     {
-      DEBUG_MESSAGE("get_configuration(): current config: %d", *configuration);
+      DEBUG_MESSAGE("get_configuration(): current configuration is: %d", 
+                    *configuration);
       *ret = urb.UrbControlGetConfigurationRequest.TransferBufferLength;
     }
+
   return status;
 }

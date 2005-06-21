@@ -202,8 +202,9 @@ NTSTATUS get_device_info(libusb_device_extension *device_extension,
                          libusb_request *request, int *ret);
 void get_topology_info(libusb_device_extension *device_extension);
 
-int reg_is_usb_device(DEVICE_OBJECT *device_object);
-int reg_is_root_hub(DEVICE_OBJECT *device_object);
-int reg_is_composite_interface(DEVICE_OBJECT *device_object);
+int reg_is_usb_device(DEVICE_OBJECT *physical_device_object);
+int reg_is_root_hub(DEVICE_OBJECT *physical_device_object);
+int reg_is_hub(DEVICE_OBJECT *physical_device_object);
+int reg_is_composite_interface(DEVICE_OBJECT *physical_device_object);
 
 #endif

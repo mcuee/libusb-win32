@@ -97,6 +97,8 @@ static int usb_transfer_sync(usb_dev_handle *dev, int control_code,
                              int ep, int pktsize, char *bytes, int size, 
                              int timeout);
 
+static int usb_get_configuration(usb_dev_handle *dev);
+
 
 /* DLL main entry point */
 BOOL WINAPI DllMain(HANDLE module, DWORD reason, LPVOID reserved)
@@ -159,12 +161,33 @@ static int win_error_to_errno(void)
     }
 }
 
+static int usb_get_configuration(usb_dev_handle *dev)
+{
+  int ret;
+  char config;
+
+  ret = usb_control_msg(dev, USB_RECIP_DEVICE | USB_ENDPOINT_IN, 
+                        USB_REQ_GET_CONFIGURATION ,
+                        0, 0, &config, 1, LIBUSB_DEFAULT_TIMEOUT);
+  
+  if(ret >= 0)
+    {
+      return config;
+    }
+
+  return ret;
+}
+
 int usb_os_open(usb_dev_handle *dev)
 {
   char dev_name[LIBUSB_PATH_MAX];
   char *p;
+  int config;
 
   dev->impl_info = INVALID_HANDLE_VALUE;
+  dev->config = 0;
+  dev->interface = -1;
+  dev->altsetting = -1;
 
   if(!dev->device->filename)
     {
@@ -193,6 +216,15 @@ int usb_os_open(usb_dev_handle *dev)
                     dev->device->filename, win_error_to_string());
     }
   
+  config = usb_get_configuration(dev);
+
+  if(config > 0)
+    {
+      dev->config = config;
+      USB_MESSAGE_STR(LIBUSB_DEBUG_MSG, "usb_os_open: current configuration "
+                      "is: %d", dev->config);
+    }
+
   return 0;
 }
 
@@ -469,7 +501,6 @@ int usb_reap_async(void *context, int timeout)
 {
   usb_context *c = (usb_context *)context;
   ULONG ret = 0;
-  timeout = timeout ? timeout : INFINITE;
     
   if(!c)
     {
