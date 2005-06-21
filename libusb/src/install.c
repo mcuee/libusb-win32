@@ -52,13 +52,6 @@ typedef SC_HANDLE WINAPI (* create_service_t)(SC_HANDLE, LPCTSTR, LPCTSTR,
                                               LPCTSTR, LPCTSTR, LPCTSTR);
 
 
-void CALLBACK usb_install_service_np_rundll(HWND wnd, HINSTANCE instance,
-                                            LPSTR cmd_line, int cmd_show);
-void CALLBACK usb_uninstall_service_np_rundll(HWND wnd, HINSTANCE instance,
-                                              LPSTR cmd_line, int cmd_show);
-void CALLBACK usb_install_driver_np_rundll(HWND wnd, HINSTANCE instance,
-                                           LPSTR cmd_line, int cmd_show);
-
 static bool_t usb_create_service(const char *name, const char *display_name,
                                  const char *binary_path, unsigned long type,
                                  unsigned long start_type);

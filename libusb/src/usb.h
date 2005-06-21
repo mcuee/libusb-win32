@@ -2,6 +2,7 @@
 #define __USB_H__
 
 #include <stdlib.h>
+#include <windows.h>
 
 /* 
  * 'interface' is defined somewhere in the Windows header files. This macro 
@@ -345,13 +346,19 @@ extern "C" {
 
   #define LIBUSB_HAS_INSTALL_SERVICE_NP 1
   int usb_install_service_np(void);
-
+  void CALLBACK usb_install_service_np_rundll(HWND wnd, HINSTANCE instance,
+                                              LPSTR cmd_line, int cmd_show);
+  
   #define LIBUSB_HAS_UNINSTALL_SERVICE_NP 1
   int usb_uninstall_service_np(void);
+  void CALLBACK usb_uninstall_service_np_rundll(HWND wnd, HINSTANCE instance,
+                                                LPSTR cmd_line, int cmd_show);
 
   #define LIBUSB_HAS_INSTALL_DRIVER_NP 1
   int usb_install_driver_np(const char *inf_file);
-  
+  void CALLBACK usb_install_driver_np_rundll(HWND wnd, HINSTANCE instance,
+                                             LPSTR cmd_line, int cmd_show);
+
   const struct usb_version *usb_get_version(void);
 
   int usb_isochronous_setup_async(usb_dev_handle *dev, void **context,

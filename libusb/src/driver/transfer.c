@@ -22,11 +22,11 @@
 
 typedef struct {
   URB *urb;
-  int seq_num;
+  int sequence;
   libusb_remove_lock_t *remove_lock;
 } context_t;
 
-static int count = 0;
+static int sequence = 0;
 
 NTSTATUS DDKAPI transfer_complete(DEVICE_OBJECT *device_object, 
                                      IRP *irp, void *context);
@@ -48,7 +48,7 @@ NTSTATUS transfer(IRP *irp, libusb_device_extension *device_extension,
   if(urb_function == URB_FUNCTION_ISOCH_TRANSFER)
     DEBUG_MESSAGE("transfer(): isochronous transfer");
   else
-    DEBUG_MESSAGE("transfer(): %d: bulk or interrupt transfer");
+    DEBUG_MESSAGE("transfer(): bulk or interrupt transfer");
 
   if(direction == USBD_TRANSFER_DIRECTION_IN)
     DEBUG_MESSAGE("transfer(): direction in");
@@ -61,7 +61,7 @@ NTSTATUS transfer(IRP *irp, libusb_device_extension *device_extension,
     DEBUG_MESSAGE("transfer(): packet_size 0x%x", packet_size);
 
   DEBUG_MESSAGE("transfer(): size %d", size);
-  DEBUG_MESSAGE("transfer(): sequence %d", count);
+  DEBUG_MESSAGE("transfer(): sequence %d", sequence);
 
   if(!device_extension->configuration)
     {
@@ -88,7 +88,7 @@ NTSTATUS transfer(IRP *irp, libusb_device_extension *device_extension,
     }
 
   context->remove_lock = &device_extension->remove_lock;
-  context->seq_num = count++;
+  context->sequence = sequence++;
 
   stack_location = IoGetNextIrpStackLocation(irp);
     
@@ -128,20 +128,20 @@ NTSTATUS DDKAPI transfer_complete(DEVICE_OBJECT *device_object, IRP *irp,
         }
       
       DEBUG_MESSAGE("transfer_complete(): sequence %d: %d bytes transmitted", 
-                    c->seq_num, transmitted);
+                    c->sequence, transmitted);
     }
   else
     {
       if(irp->IoStatus.Status == STATUS_CANCELLED)
         {
           DEBUG_ERROR("transfer_complete(): sequence %d: timeout error",
-                      c->seq_num);
+                      c->sequence);
         }
       else
         {
           DEBUG_ERROR("transfer_complete(): sequence %d: transfer failed: "
                       "status: 0x%x, urb-status: 0x%x", 
-                      c->seq_num,irp->IoStatus.Status, 
+                      c->sequence, irp->IoStatus.Status, 
                       c->urb->UrbHeader.Status);
         }
     }

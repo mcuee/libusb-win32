@@ -85,6 +85,21 @@ NTSTATUS dispatch_pnp(libusb_device_extension *device_extension, IRP *irp)
 
       DEBUG_MESSAGE("dispatch_pnp(): IRP_MN_START_DEVICE");
 
+      if(!reg_is_hub(device_extension->physical_device_object))
+        {
+          if(NT_SUCCESS(set_configuration(device_extension, 1, 1000)))
+            {
+              DEBUG_MESSAGE("dispatch_pnp(): IRP_MN_START_DEVICE: selecting "
+                            "configuration succeeded");
+              device_extension->configuration = 1;
+            }
+          else
+            {
+              DEBUG_ERROR("dispatch_pnp(): IRP_MN_START_DEVICE: selecting "
+                          "configuration failed");
+            }
+        }
+
       IoCopyCurrentIrpStackLocationToNext(irp);
       IoSetCompletionRoutine(irp, on_start_complete, NULL, TRUE, TRUE, TRUE);
 
