@@ -60,7 +60,7 @@
 #define LIBUSB_DEFAULT_TIMEOUT  5000   
 
 #ifdef __LIBUSB_DRIVER_C__
-int debug_level = LIBUSB_DEBUG_MSG;
+int debug_level;
 #else
 extern int debug_level;
 #endif

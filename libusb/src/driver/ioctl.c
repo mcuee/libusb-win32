@@ -324,7 +324,8 @@ NTSTATUS dispatch_ioctl(libusb_device_extension *device_extension, IRP *irp)
 
       if(!request || output_buffer_length < sizeof(libusb_request))
         {
-          DEBUG_ERROR("dispatch_ioctl(), get_version: invalid output buffer");
+          DEBUG_ERROR("dispatch_ioctl(), get_device_info: invalid output "
+                      "buffer");
           status = STATUS_INVALID_PARAMETER;
           break;
         }
