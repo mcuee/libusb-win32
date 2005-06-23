@@ -21,7 +21,7 @@
 
 #include "libusb_driver.h"
 
-static int bus_index = 0;
+static int bus_index;
 
 static void DDKAPI unload(DRIVER_OBJECT *driver_object);
 static NTSTATUS DDKAPI add_device(DRIVER_OBJECT *driver_object, 
@@ -38,6 +38,8 @@ NTSTATUS DDKAPI DriverEntry(DRIVER_OBJECT *driver_object,
     (PDRIVER_DISPATCH *)driver_object->MajorFunction;
   int i;
 
+  bus_index = 0;
+  debug_level = LIBUSB_DEBUG_MSG;
 
   for(i = 0; i <= IRP_MJ_MAXIMUM_FUNCTION; i++, dispatch_function++) 
     {
@@ -371,11 +373,18 @@ void remove_lock_release_and_wait(libusb_remove_lock_t *remove_lock)
 NTSTATUS get_device_info(libusb_device_extension *device_extension, 
                          libusb_request *request, int *ret)
 {
+  DEBUG_MESSAGE("get_device_info(): port: 0x%x", device_extension->port);
+  DEBUG_MESSAGE("get_device_info(): parent-id: 0x%x", 
+                device_extension->parent_id);
+  DEBUG_MESSAGE("get_device_info(): bus: 0x%x", device_extension->bus);
+  DEBUG_MESSAGE("get_device_info(): id: 0x%x", 
+                device_extension->physical_device_object);
+
   memset(request, 0, sizeof(libusb_request));
 
   request->device_info.port = device_extension->port;
-  request->device_info.parent_id= device_extension->parent_id;
-  request->device_info.bus= device_extension->bus;
+  request->device_info.parent_id = device_extension->parent_id;
+  request->device_info.bus = device_extension->bus;
   request->device_info.id 
     = (unsigned int)device_extension->physical_device_object;
 
