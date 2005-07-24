@@ -313,7 +313,6 @@ int usb_claim_interface(usb_dev_handle *dev, int interface)
     {
       dev->interface = interface;
       dev->altsetting = 0;
-      
       return 0;
     }
 }
