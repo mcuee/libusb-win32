@@ -335,13 +335,6 @@ int usb_release_interface(usb_dev_handle *dev, int interface)
                     interface, dev->config);
     }
 
-  if((interface >= dev->device->config[dev->config - 1].bNumInterfaces)
-     || (dev->interface != interface))
-    {
-      USB_ERROR_STR(-EINVAL, "could not release interface %d, interface "
-                    "invalid", interface);
-    }
-
   req.interface.interface = interface;
 
   if(!DeviceIoControl(dev->impl_info, 
