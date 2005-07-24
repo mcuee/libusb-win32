@@ -218,7 +218,7 @@ NTSTATUS call_usbd(libusb_device_extension *device_extension, void *urb,
 
 
 static NTSTATUS DDKAPI on_usbd_complete(DEVICE_OBJECT *device_object, 
-                                           IRP *irp, void *context)
+                                        IRP *irp, void *context)
 {
   KeSetEvent((KEVENT *) context, IO_NO_INCREMENT, FALSE);
   return STATUS_MORE_PROCESSING_REQUIRED;
