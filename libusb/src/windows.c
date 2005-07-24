@@ -78,7 +78,7 @@ typedef struct {
   int size;
   DWORD control_code;
   OVERLAPPED ol;
-} usb_context;
+} usb_context_t;
 
 
 static struct usb_version _usb_version = {
@@ -98,6 +98,9 @@ static int usb_transfer_sync(usb_dev_handle *dev, int control_code,
                              int timeout);
 
 static int usb_get_configuration(usb_dev_handle *dev);
+static int usb_cancel_io(usb_context_t *context);
+static int usb_abort_ep(usb_dev_handle *dev, unsigned int ep);
+
 
 
 /* DLL main entry point */
@@ -396,7 +399,7 @@ static int usb_setup_async(usb_dev_handle *dev, void **context,
                            DWORD control_code,
                            unsigned char ep, int pktsize)
 {
-  usb_context **c = (usb_context **)context;
+  usb_context_t **c = (usb_context_t **)context;
   
   if(((control_code == LIBUSB_IOCTL_INTERRUPT_OR_BULK_WRITE)
       || (control_code == LIBUSB_IOCTL_ISOCHRONOUS_WRITE)) 
@@ -414,7 +417,7 @@ static int usb_setup_async(usb_dev_handle *dev, void **context,
                     "invalid endpoint 0x%02x", ep);
     }
 
-  *c = malloc(sizeof(usb_context));
+  *c = malloc(sizeof(usb_context_t));
   
   if(!*c)
     {
@@ -422,7 +425,7 @@ static int usb_setup_async(usb_dev_handle *dev, void **context,
                     "error");
     }
 
-  memset(*c, 0, sizeof(usb_context));
+  memset(*c, 0, sizeof(usb_context_t));
 
   (*c)->dev = dev;
   (*c)->req.endpoint.endpoint = ep;
@@ -446,7 +449,7 @@ static int usb_setup_async(usb_dev_handle *dev, void **context,
 int usb_submit_async(void *context, char *bytes, int size)
 {
   DWORD ret;
-  usb_context *c = (usb_context *)context;
+  usb_context_t *c = (usb_context_t *)context;
 
   if(!c)
     {
@@ -499,7 +502,7 @@ int usb_submit_async(void *context, char *bytes, int size)
 int usb_reap_async(void *context, int timeout)
 
 {
-  usb_context *c = (usb_context *)context;
+  usb_context_t *c = (usb_context_t *)context;
   ULONG ret = 0;
     
   if(!c)
@@ -511,7 +514,7 @@ int usb_reap_async(void *context, int timeout)
   if(WaitForSingleObject(c->ol.hEvent, timeout) == WAIT_TIMEOUT)
     {
       /* request timed out */
-      CancelIo(c->dev->impl_info);
+      usb_cancel_io(c);
       USB_ERROR_STR(-ETIMEDOUT, "usb_reap_async: timeout error");
     }
   
@@ -526,7 +529,7 @@ int usb_reap_async(void *context, int timeout)
 
 int usb_free_async(void **context)
 {
-  usb_context **c = (usb_context **)context;
+  usb_context_t **c = (usb_context_t **)context;
 
   if(!*c)
     {
@@ -1270,5 +1273,36 @@ int usb_os_determine_children(struct usb_bus *bus)
         }
     }
 
+  return 0;
+}
+
+static int usb_cancel_io(usb_context_t *context)
+{
+  return usb_abort_ep(context->dev, context->req.endpoint.endpoint);
+  
+  //  return CancelIo(context->dev->impl_info) ? 0 : -1;
+}
+
+static int usb_abort_ep(usb_dev_handle *dev, unsigned int ep)
+{
+  DWORD ret;
+  libusb_request req;
+
+  if(dev->impl_info == INVALID_HANDLE_VALUE)
+    {
+      USB_ERROR_STR(-EINVAL, "usb_abort_ep: error: device not open");
+    }
+
+  req.endpoint.endpoint = (int)ep;
+  req.timeout = LIBUSB_DEFAULT_TIMEOUT;
+
+  if(!DeviceIoControl(dev->impl_info, LIBUSB_IOCTL_ABORT_ENDPOINT, &req, 
+                      sizeof(libusb_request), NULL, 0, &ret, NULL))
+    {
+      USB_ERROR_STR(-win_error_to_errno(), "usb_abort_ep: error: could not "
+                    "abort ep 0x%02x : win error: %s", 
+                    ep, win_error_to_string());
+    }
+  
   return 0;
 }

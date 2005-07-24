@@ -31,6 +31,8 @@ NTSTATUS abort_endpoint(libusb_device_extension *device_extension,
   DEBUG_MESSAGE("abort_endpoint(): endpoint 0x%02x\n", endpoint);
   DEBUG_MESSAGE("abort_endpoint(): timeout %d\n", timeout);
 
+  memset(&urb, 0, sizeof(struct _URB_PIPE_REQUEST));
+
   if(!device_extension->configuration)
     {
       DEBUG_ERROR("abort_endpoint(): invalid configuration 0");
@@ -43,8 +45,6 @@ NTSTATUS abort_endpoint(libusb_device_extension *device_extension,
       DEBUG_ERROR("abort_endpoint(): getting endpoint pipe failed");
       return STATUS_INVALID_PARAMETER;
     }
-
-  memset(&urb, 0, sizeof(struct _URB_PIPE_REQUEST));
 
   urb.UrbHeader.Length = (USHORT) sizeof(struct _URB_PIPE_REQUEST);
   urb.UrbHeader.Function = URB_FUNCTION_ABORT_PIPE;

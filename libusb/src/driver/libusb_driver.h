@@ -66,6 +66,7 @@ extern int debug_level;
 #endif
 
 #ifdef DBG
+
 #define DEBUG_PRINT_NL() if(debug_level >= LIBUSB_DEBUG_MSG) KdPrint(("\n"))
 
 #define DEBUG_SET_LEVEL(level) debug_level = level
@@ -89,6 +90,7 @@ extern int debug_level;
 #define DEBUG_MESSAGE(format, args...)
 #define DEBUG_ERROR(format, args...)
 #endif
+
 
 typedef struct
 {

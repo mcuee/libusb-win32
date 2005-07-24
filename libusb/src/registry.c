@@ -107,6 +107,9 @@ bool_t usb_registry_get_property(DWORD which, HDEVINFO dev_info,
       val_name = "NTMPDriver";
       key_type = DIREG_DRV;
       break;
+    case SPDRP_CLASSGUID:
+      val_name = "ClassGUID";
+      key_type = DIREG_DEV;    
     case SPDRP_CLASS:
       val_name = "Class";
       key_type = DIREG_DEV;    
