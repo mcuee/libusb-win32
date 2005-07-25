@@ -54,7 +54,7 @@
 
 #define LIBUSB_MAX_NUMBER_OF_ENDPOINTS  32
 #define LIBUSB_MAX_NUMBER_OF_INTERFACES 32
-#define LIBUSB_MAX_NUMBER_OF_CHILD_IDS  32
+#define LIBUSB_MAX_NUMBER_OF_CHILDREN   32
 
 
 #define LIBUSB_DEFAULT_TIMEOUT  5000   
@@ -114,20 +114,25 @@ typedef struct
 
 typedef struct
 {
+  int parent;
+  int bus;
+  int port;
+  int is_root_hub;
+  int num_children;
+  int children[LIBUSB_MAX_NUMBER_OF_CHILDREN];
+} libusb_topology_info_t;
+
+typedef struct
+{
   DEVICE_OBJECT	*self;
   DEVICE_OBJECT	*physical_device_object;
   DEVICE_OBJECT	*next_stack_device;
   libusb_remove_lock_t remove_lock; 
   USBD_CONFIGURATION_HANDLE configuration_handle;
   LONG ref_count;
-  int is_root_hub;
+  int id;
   int configuration;
-  int device_id;
-  int port;
-  int bus;
-  unsigned int parent_id;
-  int num_child_ids;
-  unsigned int child_ids[LIBUSB_MAX_NUMBER_OF_CHILD_IDS];
+  libusb_topology_info_t topology_info;
   libusb_interface_info_t interfaces[LIBUSB_MAX_NUMBER_OF_INTERFACES];
 } libusb_device_extension;
 
@@ -202,11 +207,15 @@ NTSTATUS release_all_interfaces(libusb_device_extension *device_extension);
 
 NTSTATUS get_device_info(libusb_device_extension *device_extension, 
                          libusb_request *request, int *ret);
-void get_topology_info(libusb_device_extension *device_extension);
+
+libusb_device_extension *
+device_list_find(libusb_device_extension *device_extension,
+                 DEVICE_OBJECT *physical_device_object);
 
 int reg_is_usb_device(DEVICE_OBJECT *physical_device_object);
 int reg_is_root_hub(DEVICE_OBJECT *physical_device_object);
 int reg_is_hub(DEVICE_OBJECT *physical_device_object);
 int reg_is_composite_interface(DEVICE_OBJECT *physical_device_object);
+
 
 #endif

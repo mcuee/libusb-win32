@@ -224,8 +224,6 @@ int usb_os_open(usb_dev_handle *dev)
   if(config > 0)
     {
       dev->config = config;
-      USB_MESSAGE_STR(LIBUSB_DEBUG_MSG, "usb_os_open: current configuration "
-                      "is: %d", dev->config);
     }
 
   return 0;
@@ -879,7 +877,7 @@ int usb_os_find_busses(struct usb_bus **busses)
       memset(bus, 0, sizeof(*bus));
       sprintf(bus->dirname, "%s%d", LIBUSB_BUS_NAME, i);
       
-      bus->location = i;
+      bus->location = i + 1;
 
       USB_MESSAGE_STR(LIBUSB_DEBUG_MSG, "usb_os_find_busses: found %s",
                       bus->dirname);
@@ -902,7 +900,7 @@ int usb_os_find_devices(struct usb_bus *bus, struct usb_device **devices)
   HANDLE handle;
   libusb_request req;
 
-  for(i = 0; i < LIBUSB_MAX_DEVICES; i++)
+  for(i = 1; i < LIBUSB_MAX_DEVICES; i++)
     {
       ret = 0;
 
@@ -997,7 +995,7 @@ void usb_os_init(void)
                   LIBUSB_VERSION_MICRO, LIBUSB_VERSION_NANO);
 
 
-  for(i = 0; i < LIBUSB_MAX_DEVICES; i++)
+  for(i = 1; i < LIBUSB_MAX_DEVICES; i++)
     {
       /* build the Windows file name */
       snprintf(dev_name, sizeof(dev_name) - 1,"%s%04d", LIBUSB_DEVICE_NAME, i);
@@ -1147,7 +1145,7 @@ void usb_set_debug(int level)
   usb_debug = level;
 
   /* find a valid device */
-  for(i = 0; i < LIBUSB_MAX_DEVICES; i++)
+  for(i = 1; i < LIBUSB_MAX_DEVICES; i++)
     {
       /* build the Windows file name */
       snprintf(dev_name, sizeof(dev_name) - 1,"%s%04d", LIBUSB_DEVICE_NAME, i);
@@ -1272,7 +1270,7 @@ static int usb_cancel_io(usb_context_t *context)
 {
   return usb_abort_ep(context->dev, context->req.endpoint.endpoint);
   
-  //  return CancelIo(context->dev->impl_info) ? 0 : -1;
+  //return CancelIo(context->dev->impl_info) ? 0 : -1;
 }
 
 static int usb_abort_ep(usb_dev_handle *dev, unsigned int ep)

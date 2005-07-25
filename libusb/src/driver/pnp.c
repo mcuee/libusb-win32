@@ -19,6 +19,9 @@
 
 #include "libusb_driver.h"
 
+
+extern int bus_index;
+
 static NTSTATUS DDKAPI 
 on_start_complete(DEVICE_OBJECT *device_object, IRP *irp, 
                   void *context);
@@ -63,17 +66,18 @@ NTSTATUS dispatch_pnp(libusb_device_extension *device_extension, IRP *irp)
       remove_lock_release_and_wait(&device_extension->remove_lock);
 
       DEBUG_MESSAGE("dispatch_pnp(): deleting device %d", 
-                    device_extension->device_id);
+                    device_extension->id);
       
       _snwprintf(tmp_name, sizeof(tmp_name)/sizeof(WCHAR), L"%s%04d", 
                  LIBUSB_SYMBOLIC_LINK_NAME,
-                 device_extension->device_id);
+                 device_extension->id);
       
       RtlInitUnicodeString(&symbolic_link_name, tmp_name);
       IoDeleteSymbolicLink(&symbolic_link_name);
 
       IoDetachDevice(device_extension->next_stack_device);
       IoDeleteDevice(device_extension->self);
+
       return status;
 
     case IRP_MN_SURPRISE_REMOVAL:
@@ -177,9 +181,17 @@ on_start_complete(DEVICE_OBJECT *device_object, IRP *irp, void *context)
       device_object->Characteristics |= FILE_REMOVABLE_MEDIA;
     }
   
-  device_extension->is_root_hub 
-    = reg_is_root_hub(device_extension->physical_device_object);
-  get_topology_info(device_extension);
+  if(reg_is_root_hub(device_extension->physical_device_object))
+    {
+      device_extension->topology_info.is_root_hub = 1;
+      device_extension->topology_info.bus = bus_index;
+      bus_index++;
+    }
+  else
+    {
+      device_extension->topology_info.bus = 1;
+    }
+
   remove_lock_release(&device_extension->remove_lock);
   
   return STATUS_SUCCESS;
@@ -229,8 +241,8 @@ on_query_capabilities_complete(DEVICE_OBJECT *device_object,
             ->SurpriseRemovalOK = TRUE;
         }
 
-      device_extension->port = IoGetCurrentIrpStackLocation(irp)
-        ->Parameters.DeviceCapabilities.Capabilities->Address;
+      device_extension->topology_info.port = IoGetCurrentIrpStackLocation(irp)
+        ->Parameters.DeviceCapabilities.Capabilities->Address + 1;
     }
 
   remove_lock_release(&device_extension->remove_lock);
@@ -242,6 +254,7 @@ static NTSTATUS DDKAPI
 on_query_device_relations_complete(DEVICE_OBJECT *device_object,
                                    IRP *irp, void *context)
 {
+  libusb_device_extension *child_extension = NULL;
   libusb_device_extension *device_extension
     = (libusb_device_extension *)device_object->DeviceExtension;
   DEVICE_RELATIONS *device_relations;
@@ -254,23 +267,40 @@ on_query_device_relations_complete(DEVICE_OBJECT *device_object,
 
   if(NT_SUCCESS(irp->IoStatus.Status))
     {
+
+      //get_topology_info(device_extension);
+
       device_relations = (DEVICE_RELATIONS *)irp->IoStatus.Information;
 
       if(device_relations)
         {
-          for(i = 0; i < LIBUSB_MAX_NUMBER_OF_CHILDREN; i++)
-            {
-              device_extension->child_ids[i] = 0;
-            }
 
-          device_extension->num_child_ids = 0;
+          memset(&device_extension->topology_info.children, 0,
+                 sizeof(device_extension->topology_info.children));
+          device_extension->topology_info.num_children = 0;
 
-          for(i = 0; (i < device_relations->Count) 
-                && (i < LIBUSB_MAX_NUMBER_OF_CHILDREN); i++)
+          for(i = 0; i < device_relations->Count; i++)
             {
-              device_extension->num_child_ids++;
-              device_extension->child_ids[i] 
-                = (unsigned int)device_relations->Objects[i];
+              child_extension 
+                = device_list_find(device_extension,
+                                   device_relations->Objects[i]);
+
+              if(child_extension)
+                {
+                  child_extension->topology_info.parent 
+                    = device_extension->id;
+                  child_extension->topology_info.bus 
+                    = device_extension->topology_info.bus;
+
+                  if(device_extension->topology_info.num_children 
+                     < LIBUSB_MAX_NUMBER_OF_CHILDREN)
+                    {
+                      device_extension->topology_info
+                        .children[device_extension->topology_info.num_children] 
+                        = child_extension->id;
+                      device_extension->topology_info.num_children++;
+                    }
+                }
             }
         }
     }
