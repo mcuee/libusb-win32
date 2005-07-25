@@ -21,7 +21,7 @@
 
 #include "libusb_driver.h"
 
-static int bus_index;
+int bus_index;
 
 static void DDKAPI unload(DRIVER_OBJECT *driver_object);
 static NTSTATUS DDKAPI add_device(DRIVER_OBJECT *driver_object, 
@@ -38,7 +38,7 @@ NTSTATUS DDKAPI DriverEntry(DRIVER_OBJECT *driver_object,
     (PDRIVER_DISPATCH *)driver_object->MajorFunction;
   int i;
 
-  bus_index = 0;
+  bus_index = 1;
   debug_level = LIBUSB_DEBUG_MSG;
 
   for(i = 0; i <= IRP_MJ_MAXIMUM_FUNCTION; i++, dispatch_function++) 
@@ -81,8 +81,10 @@ NTSTATUS DDKAPI add_device(DRIVER_OBJECT *driver_object,
   ObDereferenceObject(device_object);
   
 
-  for(i = 0; i < LIBUSB_MAX_NUMBER_OF_DEVICES; i++)
+  for(i = 1; i < LIBUSB_MAX_NUMBER_OF_DEVICES; i++)
     {
+      device_object = NULL;
+
       _snwprintf(tmp_name_0, sizeof(tmp_name_0)/sizeof(WCHAR), L"%s%04d", 
                  LIBUSB_NT_DEVICE_NAME, i);
       _snwprintf(tmp_name_1, sizeof(tmp_name_1)/sizeof(WCHAR), L"%s%04d", 
@@ -90,7 +92,6 @@ NTSTATUS DDKAPI add_device(DRIVER_OBJECT *driver_object,
     
       RtlInitUnicodeString(&nt_device_name, tmp_name_0);  
       RtlInitUnicodeString(&symbolic_link_name, tmp_name_1);
-
 
       status = IoCreateDevice(driver_object, 
                               sizeof(libusb_device_extension), 
@@ -116,7 +117,7 @@ NTSTATUS DDKAPI add_device(DRIVER_OBJECT *driver_object,
 
   device_extension->self = device_object;
   device_extension->physical_device_object = physical_device_object;
-  device_extension->device_id = i;
+  device_extension->id = i;
       
   status = IoCreateSymbolicLink(&symbolic_link_name, &nt_device_name);
   
@@ -131,7 +132,6 @@ NTSTATUS DDKAPI add_device(DRIVER_OBJECT *driver_object,
 
   device_extension->next_stack_device = 
     IoAttachDeviceToDeviceStack(device_object, physical_device_object);
-
 
   device_object->DeviceType = device_extension->next_stack_device->DeviceType;
   device_object->Characteristics =
@@ -371,36 +371,49 @@ void remove_lock_release_and_wait(libusb_remove_lock_t *remove_lock)
 
 
 NTSTATUS get_device_info(libusb_device_extension *device_extension, 
-                         libusb_request *request, int *ret)
+                           libusb_request *request, int *ret)
 {
-  DEBUG_MESSAGE("get_device_info(): port: 0x%x", device_extension->port);
-  DEBUG_MESSAGE("get_device_info(): parent-id: 0x%x", 
-                device_extension->parent_id);
-  DEBUG_MESSAGE("get_device_info(): bus: 0x%x", device_extension->bus);
+  int i;
+
   DEBUG_MESSAGE("get_device_info(): id: 0x%x", 
-                device_extension->physical_device_object);
+                device_extension->id);
+  DEBUG_MESSAGE("get_device_info(): port: 0x%x", 
+                device_extension->topology_info.port);
+  DEBUG_MESSAGE("get_device_info(): parent-id: 0x%x", 
+                device_extension->topology_info.parent);
+  DEBUG_MESSAGE("get_device_info(): bus: 0x%x", 
+                device_extension->topology_info.bus);
+  DEBUG_MESSAGE("get_device_info(): num_children: 0x%x", 
+                device_extension->topology_info.num_children);
+
+  for(i = 0; i < device_extension->topology_info.num_children; i++)
+    {
+      DEBUG_MESSAGE("get_device_info(): child #%d: 0x%x", i, 
+                    device_extension->topology_info.children[i]);
+  
+    }
+
+  DEBUG_PRINT_NL();
 
   memset(request, 0, sizeof(libusb_request));
 
-  request->device_info.port = device_extension->port;
-  request->device_info.parent_id = device_extension->parent_id;
-  request->device_info.bus = device_extension->bus;
-  request->device_info.id 
-    = (unsigned int)device_extension->physical_device_object;
+  request->device_info.port = device_extension->topology_info.port;
+  request->device_info.parent_id = device_extension->topology_info.parent;
+  request->device_info.bus = device_extension->topology_info.bus;
+  request->device_info.id = device_extension->id;
 
   *ret = sizeof(libusb_request);
 
   return STATUS_SUCCESS;
 }
 
-void get_topology_info(libusb_device_extension *device_extension)
+
+libusb_device_extension *
+device_list_find(libusb_device_extension *device_extension,
+                  DEVICE_OBJECT *physical_device_object)
 {
   DEVICE_OBJECT *device_object;
-  libusb_device_extension *dx;
-  int i;
-  int found = 0;
-  device_extension->parent_id = 0;
-  device_extension->bus = 0;
+  libusb_device_extension *dx = NULL;
 
   device_object = device_extension->self->DriverObject->DeviceObject;
 
@@ -408,30 +421,14 @@ void get_topology_info(libusb_device_extension *device_extension)
     {
       dx = (libusb_device_extension *)device_object->DeviceExtension;
 
-      for(i = 0; i < dx->num_child_ids; i++)
+      if(dx->physical_device_object == physical_device_object)
         {
-          if(dx->child_ids[i] 
-             == (unsigned int)device_extension->physical_device_object)
-            {
-              device_extension->parent_id 
-                = (unsigned int)dx->physical_device_object;
-              device_extension->bus = dx->bus;
-              found = 1;
-              break;
-            }
-        }
-      
-      if(found)
-        {
-          break;
+          return dx;
         }
 
       device_object = device_object->NextDevice;
     }
 
-  if(!found && device_extension->is_root_hub)
-    {
-      device_extension->bus = bus_index;
-      bus_index++;
-    }
+  return NULL;
 }
+
