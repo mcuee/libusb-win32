@@ -894,7 +894,6 @@ int usb_os_find_devices(struct usb_bus *bus, struct usb_device **devices)
 {
   int i;
   struct usb_device *dev, *fdev = NULL;
-  struct usb_dev_handle dev_handle;
   char dev_name[LIBUSB_PATH_MAX];
   DWORD ret;
   HANDLE handle;
@@ -916,10 +915,8 @@ int usb_os_find_devices(struct usb_bus *bus, struct usb_device **devices)
       memset(dev, 0, sizeof(*dev));
       dev->bus = bus;
       dev->devnum = (unsigned char)i;
-      strcpy(dev->filename, dev_name);
-      dev_handle.device = dev;
 
-      handle = CreateFile(dev->filename, 0, 0, NULL, OPEN_EXISTING, 
+      handle = CreateFile(dev_name, 0, 0, NULL, OPEN_EXISTING, 
                           FILE_ATTRIBUTE_NORMAL, NULL);
 
       if(handle == INVALID_HANDLE_VALUE) 
@@ -954,7 +951,7 @@ int usb_os_find_devices(struct usb_bus *bus, struct usb_device **devices)
       
       DeviceIoControl(handle, LIBUSB_IOCTL_GET_DESCRIPTOR, 
                       &req, sizeof(libusb_request), 
-                      &(dev->descriptor), USB_DT_DEVICE_SIZE, &ret, NULL);
+                      &dev->descriptor, USB_DT_DEVICE_SIZE, &ret, NULL);
       
       if(ret < USB_DT_DEVICE_SIZE) 
         {
@@ -965,10 +962,10 @@ int usb_os_find_devices(struct usb_bus *bus, struct usb_device **devices)
           continue;
         }
       
-      CloseHandle(handle);
-
       snprintf(dev->filename, LIBUSB_PATH_MAX - 1, "%s--0x%04x-0x%04x", 
                dev_name, dev->descriptor.idVendor, dev->descriptor.idProduct);
+
+      CloseHandle(handle);
 
       LIST_ADD(fdev, dev);
 

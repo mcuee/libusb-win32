@@ -112,14 +112,23 @@ typedef struct
   libusb_endpoint_info_t endpoints[LIBUSB_MAX_NUMBER_OF_ENDPOINTS];
 } libusb_interface_info_t;
 
+typedef struct 
+{
+  int id;
+  int port;
+} child_info_t;
+
 typedef struct
 {
-  int parent;
   int bus;
   int port;
+  int parent;
   int is_root_hub;
+  int num_child_pdos;
   int num_children;
-  int children[LIBUSB_MAX_NUMBER_OF_CHILDREN];
+  int update_children;
+  DEVICE_OBJECT *child_pdos[LIBUSB_MAX_NUMBER_OF_CHILDREN];
+  child_info_t children[LIBUSB_MAX_NUMBER_OF_CHILDREN];
 } libusb_topology_info_t;
 
 typedef struct
@@ -205,6 +214,7 @@ NTSTATUS release_interface(libusb_device_extension *device_extension,
                            int interface);
 NTSTATUS release_all_interfaces(libusb_device_extension *device_extension);
 
+void update_device_info(libusb_device_extension *device_extension);
 NTSTATUS get_device_info(libusb_device_extension *device_extension, 
                          libusb_request *request, int *ret);
 
