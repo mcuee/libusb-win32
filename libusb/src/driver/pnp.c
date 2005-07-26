@@ -189,6 +189,7 @@ on_start_complete(DEVICE_OBJECT *device_object, IRP *irp, void *context)
     }
   else
     {
+      /* default bus */
       device_extension->topology_info.bus = 1;
     }
 
@@ -241,8 +242,18 @@ on_query_capabilities_complete(DEVICE_OBJECT *device_object,
             ->SurpriseRemovalOK = TRUE;
         }
 
-      device_extension->topology_info.port = IoGetCurrentIrpStackLocation(irp)
-        ->Parameters.DeviceCapabilities.Capabilities->Address + 1;
+      if(device_extension->topology_info.is_root_hub)
+        {
+          device_extension->topology_info.port 
+            = IoGetCurrentIrpStackLocation(irp)
+            ->Parameters.DeviceCapabilities.Capabilities->Address + 1;
+        }
+      else
+        {
+          device_extension->topology_info.port 
+            = IoGetCurrentIrpStackLocation(irp)
+            ->Parameters.DeviceCapabilities.Capabilities->Address;
+        }
     }
 
   remove_lock_release(&device_extension->remove_lock);
@@ -254,7 +265,6 @@ static NTSTATUS DDKAPI
 on_query_device_relations_complete(DEVICE_OBJECT *device_object,
                                    IRP *irp, void *context)
 {
-  libusb_device_extension *child_extension = NULL;
   libusb_device_extension *device_extension
     = (libusb_device_extension *)device_object->DeviceExtension;
   DEVICE_RELATIONS *device_relations;
@@ -267,40 +277,22 @@ on_query_device_relations_complete(DEVICE_OBJECT *device_object,
 
   if(NT_SUCCESS(irp->IoStatus.Status))
     {
-
-      //get_topology_info(device_extension);
-
       device_relations = (DEVICE_RELATIONS *)irp->IoStatus.Information;
 
       if(device_relations)
         {
+          memset(&device_extension->topology_info.child_pdos, 0,
+                 sizeof(device_extension->topology_info.child_pdos));
 
-          memset(&device_extension->topology_info.children, 0,
-                 sizeof(device_extension->topology_info.children));
-          device_extension->topology_info.num_children = 0;
+          device_extension->topology_info.num_child_pdos = 0;
+          device_extension->topology_info.update_children = 1;
 
-          for(i = 0; i < device_relations->Count; i++)
+          for(i = 0; (i < device_relations->Count)
+                && (i < LIBUSB_MAX_NUMBER_OF_CHILDREN); i++)
             {
-              child_extension 
-                = device_list_find(device_extension,
-                                   device_relations->Objects[i]);
-
-              if(child_extension)
-                {
-                  child_extension->topology_info.parent 
-                    = device_extension->id;
-                  child_extension->topology_info.bus 
-                    = device_extension->topology_info.bus;
-
-                  if(device_extension->topology_info.num_children 
-                     < LIBUSB_MAX_NUMBER_OF_CHILDREN)
-                    {
-                      device_extension->topology_info
-                        .children[device_extension->topology_info.num_children] 
-                        = child_extension->id;
-                      device_extension->topology_info.num_children++;
-                    }
-                }
+              device_extension->topology_info.child_pdos[i] =
+                device_relations->Objects[i];
+              device_extension->topology_info.num_child_pdos++;
             }
         }
     }

@@ -369,17 +369,62 @@ void remove_lock_release_and_wait(libusb_remove_lock_t *remove_lock)
                         FALSE, NULL);
 }
 
+void update_device_info(libusb_device_extension *device_extension)
+{
+  int i;
+  libusb_device_extension *child_extension = NULL;
+
+  device_extension->topology_info.num_children = 0;
+
+  memset(&device_extension->topology_info.children, 0,
+         sizeof(device_extension->topology_info.children));
+
+  for(i = 0; i < device_extension->topology_info.num_child_pdos; i++)
+    {
+      child_extension 
+        = device_list_find(device_extension,
+                           device_extension->topology_info.child_pdos[i]);
+
+      if(child_extension)
+        {
+          child_extension->topology_info.parent 
+            = device_extension->id;
+          child_extension->topology_info.bus 
+            = device_extension->topology_info.bus;
+
+          if(device_extension->topology_info.num_children 
+             < LIBUSB_MAX_NUMBER_OF_CHILDREN)
+            {
+              device_extension->topology_info
+                .children[device_extension->topology_info.num_children].id 
+                = child_extension->id;
+
+              device_extension->topology_info
+                .children[device_extension->topology_info.num_children].port
+                = child_extension->topology_info.port;
+
+              device_extension->topology_info.num_children++;
+            }
+        }
+    }
+}
 
 NTSTATUS get_device_info(libusb_device_extension *device_extension, 
                            libusb_request *request, int *ret)
 {
   int i;
 
+  if(device_extension->topology_info.update_children)
+    {
+      update_device_info(device_extension);
+      device_extension->topology_info.update_children = 0;
+    }
+
   DEBUG_MESSAGE("get_device_info(): id: 0x%x", 
                 device_extension->id);
   DEBUG_MESSAGE("get_device_info(): port: 0x%x", 
                 device_extension->topology_info.port);
-  DEBUG_MESSAGE("get_device_info(): parent-id: 0x%x", 
+  DEBUG_MESSAGE("get_device_info(): parent: 0x%x", 
                 device_extension->topology_info.parent);
   DEBUG_MESSAGE("get_device_info(): bus: 0x%x", 
                 device_extension->topology_info.bus);
@@ -388,12 +433,14 @@ NTSTATUS get_device_info(libusb_device_extension *device_extension,
 
   for(i = 0; i < device_extension->topology_info.num_children; i++)
     {
-      DEBUG_MESSAGE("get_device_info(): child #%d: 0x%x", i, 
-                    device_extension->topology_info.children[i]);
-  
+      DEBUG_MESSAGE("get_device_info(): child #%d: id: 0x%x, port: 0x%x",
+                    i, 
+                    device_extension->topology_info.children[i].id,
+                    device_extension->topology_info.children[i].port);  
     }
 
   DEBUG_PRINT_NL();
+
 
   memset(request, 0, sizeof(libusb_request));
 
