@@ -29,13 +29,12 @@ typedef struct {
 static int sequence = 0;
 
 NTSTATUS DDKAPI transfer_complete(DEVICE_OBJECT *device_object, 
-                                     IRP *irp, void *context);
+                                  IRP *irp, void *context);
 
-static URB *create_urb(libusb_device_extension *device_extension,
-                       int direction, int urb_function, int endpoint, 
-                       int packet_size, MDL *buffer, int size);
+static URB *create_urb(libusb_device_t *dev, int direction, int urb_function, 
+                       int endpoint, int packet_size, MDL *buffer, int size);
 
-NTSTATUS transfer(IRP *irp, libusb_device_extension *device_extension,
+NTSTATUS transfer(IRP *irp, libusb_device_t *dev,
                   int direction, int urb_function, int endpoint, 
                   int packet_size, MDL *buffer, int size)
 {
@@ -62,11 +61,12 @@ NTSTATUS transfer(IRP *irp, libusb_device_extension *device_extension,
 
   DEBUG_MESSAGE("transfer(): size %d", size);
   DEBUG_MESSAGE("transfer(): sequence %d", sequence);
+  DEBUG_PRINT_NL();
 
-  if(!device_extension->configuration)
+  if(!dev->configuration)
     {
       DEBUG_ERROR("transfer(): invalid configuration 0");
-      remove_lock_release(&device_extension->remove_lock);
+      remove_lock_release(&dev->remove_lock);
       return complete_irp(irp, STATUS_INVALID_DEVICE_STATE, 0);
     }
   
@@ -74,20 +74,20 @@ NTSTATUS transfer(IRP *irp, libusb_device_extension *device_extension,
 
   if(!context)
     {
-      remove_lock_release(&device_extension->remove_lock);
+      remove_lock_release(&dev->remove_lock);
       return complete_irp(irp, STATUS_NO_MEMORY, 0);
     }
 
-  context->urb = create_urb(device_extension, direction, urb_function, 
+  context->urb = create_urb(dev, direction, urb_function, 
                             endpoint, packet_size, buffer, size);
     
   if(!context->urb)
     {
-      remove_lock_release(&device_extension->remove_lock);
+      remove_lock_release(&dev->remove_lock);
       return complete_irp(irp, STATUS_NO_MEMORY, 0);
     }
 
-  context->remove_lock = &device_extension->remove_lock;
+  context->remove_lock = &dev->remove_lock;
   context->sequence = sequence++;
 
   stack_location = IoGetNextIrpStackLocation(irp);
@@ -100,7 +100,7 @@ NTSTATUS transfer(IRP *irp, libusb_device_extension *device_extension,
   IoSetCompletionRoutine(irp, transfer_complete, context,
                          TRUE, TRUE, TRUE);
     
-  return IoCallDriver(device_extension->physical_device_object, irp);
+  return IoCallDriver(dev->next_device, irp);
 }
 
 
@@ -117,8 +117,7 @@ NTSTATUS DDKAPI transfer_complete(DEVICE_OBJECT *device_object, IRP *irp,
     {
       if(c->urb->UrbHeader.Function == URB_FUNCTION_ISOCH_TRANSFER)
         {
-          transmitted 
-            = c->urb->UrbIsochronousTransfer.TransferBufferLength;
+          transmitted = c->urb->UrbIsochronousTransfer.TransferBufferLength;
         }
       if(c->urb->UrbHeader.Function 
          == URB_FUNCTION_BULK_OR_INTERRUPT_TRANSFER)
@@ -156,16 +155,15 @@ NTSTATUS DDKAPI transfer_complete(DEVICE_OBJECT *device_object, IRP *irp,
 }
 
 
-static URB *create_urb(libusb_device_extension *device_extension,
-                       int direction, int urb_function, int endpoint, 
-                       int packet_size, MDL *buffer, int size)
+static URB *create_urb(libusb_device_t *dev, int direction, int urb_function, 
+                       int endpoint, int packet_size, MDL *buffer, int size)
 {
   USBD_PIPE_HANDLE pipe_handle = NULL;
   int num_packets = 0;
   int i, urb_size;
   URB *urb = NULL;
   
-  if(!get_pipe_handle(device_extension, endpoint, &pipe_handle))
+  if(!get_pipe_handle(dev, endpoint, &pipe_handle))
     {
       DEBUG_ERROR("create_urb(): getting endpoint pipe failed");
       return NULL;

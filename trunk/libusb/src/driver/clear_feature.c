@@ -19,7 +19,7 @@
 
 #include "libusb_driver.h"
 
-NTSTATUS clear_feature(libusb_device_extension *device_extension,
+NTSTATUS clear_feature(libusb_device_t *dev,
                        int recipient, int index, int feature, int timeout)
 {
   NTSTATUS status = STATUS_SUCCESS;
@@ -31,7 +31,7 @@ NTSTATUS clear_feature(libusb_device_extension *device_extension,
   DEBUG_MESSAGE("clear_feature(): feature %04d", feature);
   DEBUG_MESSAGE("clear_feature(): timeout %d", timeout);
 
-  if(!device_extension->configuration && recipient != USB_RECIP_DEVICE)
+  if(!dev->configuration && recipient != USB_RECIP_DEVICE)
     {
       DEBUG_ERROR("clear_feature(): invalid configuration 0"); 
       return STATUS_INVALID_DEVICE_STATE;
@@ -62,8 +62,7 @@ NTSTATUS clear_feature(libusb_device_extension *device_extension,
   urb.UrbControlFeatureRequest.FeatureSelector = (USHORT)feature;
   urb.UrbControlFeatureRequest.Index = (USHORT)index; 
   
-  status = call_usbd(device_extension, (void *)&urb, 
-                     IOCTL_INTERNAL_USB_SUBMIT_URB, timeout);
+  status = call_usbd(dev, &urb, IOCTL_INTERNAL_USB_SUBMIT_URB, timeout);
   
   if(!NT_SUCCESS(status) || !USBD_SUCCESS(urb.UrbHeader.Status))
     {

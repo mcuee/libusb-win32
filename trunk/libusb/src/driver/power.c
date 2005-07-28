@@ -20,9 +20,10 @@
 #include "libusb_driver.h"
 
 
-NTSTATUS dispatch_power(libusb_device_extension *device_extension, IRP *irp)
+NTSTATUS dispatch_power(libusb_device_t *dev, IRP *irp)
 {
   PoStartNextPowerIrp(irp);
   IoSkipCurrentIrpStackLocation(irp);
-  return PoCallDriver(device_extension->next_stack_device, irp);
+
+  return PoCallDriver(dev->next_stack_device, irp);
 }

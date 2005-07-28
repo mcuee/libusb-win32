@@ -20,8 +20,8 @@
 #include "libusb_driver.h"
 
 
-NTSTATUS set_interface(libusb_device_extension *device_extension,
-                       int interface, int altsetting, int timeout)
+NTSTATUS set_interface(libusb_device_t *dev, int interface, int altsetting,
+                       int timeout)
 {
   NTSTATUS status = STATUS_SUCCESS;
   URB *urb;
@@ -37,7 +37,7 @@ NTSTATUS set_interface(libusb_device_extension *device_extension,
   DEBUG_MESSAGE("set_interface(): altsetting %d", altsetting);
   DEBUG_MESSAGE("set_interface(): timeout %d", timeout);
 
-  if(!device_extension->configuration)
+  if(!dev->configuration)
     {
       DEBUG_ERROR("set_interface(): invalid configuration 0"); 
       return STATUS_INVALID_DEVICE_STATE;
@@ -52,11 +52,10 @@ NTSTATUS set_interface(libusb_device_extension *device_extension,
       return STATUS_NO_MEMORY;
     }
 
-  status = get_descriptor(device_extension,
-                          configuration_descriptor,
+  status = get_descriptor(dev, configuration_descriptor,
                           sizeof(USB_CONFIGURATION_DESCRIPTOR), 
                           USB_CONFIGURATION_DESCRIPTOR_TYPE,
-                          device_extension->configuration - 1,
+                          dev->configuration - 1,
                           0, &junk, LIBUSB_DEFAULT_TIMEOUT);
 
   if(!NT_SUCCESS(status))
@@ -79,18 +78,19 @@ NTSTATUS set_interface(libusb_device_extension *device_extension,
       return STATUS_NO_MEMORY;
     }
 
-  status = get_descriptor(device_extension,
-                          configuration_descriptor,
+  status = get_descriptor(dev, configuration_descriptor,
                           config_full_size, 
                           USB_CONFIGURATION_DESCRIPTOR_TYPE,
-                          device_extension->configuration - 1,
+                          dev->configuration - 1,
                           0, &junk, LIBUSB_DEFAULT_TIMEOUT);
+
   if(!NT_SUCCESS(status))
     {
       DEBUG_ERROR("set_interface(): getting configuration descriptor failed");
       ExFreePool(configuration_descriptor);
       return status;
     }
+
   interface_descriptor =
     USBD_ParseConfigurationDescriptorEx(configuration_descriptor,
                                         configuration_descriptor,
@@ -124,8 +124,7 @@ NTSTATUS set_interface(libusb_device_extension *device_extension,
   urb->UrbHeader.Function = URB_FUNCTION_SELECT_INTERFACE;
   urb->UrbHeader.Length = (USHORT)tmp_size;
 
-  urb->UrbSelectInterface.ConfigurationHandle =
-    device_extension->configuration_handle;
+  urb->UrbSelectInterface.ConfigurationHandle = dev->configuration_handle;
   urb->UrbSelectInterface.Interface.Length =
     sizeof(struct _USBD_INTERFACE_INFORMATION);
 
@@ -147,8 +146,7 @@ NTSTATUS set_interface(libusb_device_extension *device_extension,
         = LIBUSB_MAX_READ_WRITE;
     }
 
-  status = call_usbd(device_extension, urb, 
-                     IOCTL_INTERNAL_USB_SUBMIT_URB, timeout);
+  status = call_usbd(dev, urb, IOCTL_INTERNAL_USB_SUBMIT_URB, timeout);
 
 
   if(!NT_SUCCESS(status) || !USBD_SUCCESS(urb->UrbHeader.Status))
@@ -160,7 +158,7 @@ NTSTATUS set_interface(libusb_device_extension *device_extension,
       return STATUS_UNSUCCESSFUL;
     }
 
-  update_pipe_info(device_extension, interface, interface_information);
+  update_pipe_info(dev, interface, interface_information);
 
   ExFreePool(configuration_descriptor);
   ExFreePool(urb);

@@ -22,38 +22,37 @@
 
 NTSTATUS DDKAPI dispatch(DEVICE_OBJECT *device_object, IRP *irp)
 {
-  libusb_device_extension *device_extension = 
-    (libusb_device_extension *)device_object->DeviceExtension;
+  libusb_device_t *dev = (libusb_device_t *)device_object->DeviceExtension;
 
   switch(IoGetCurrentIrpStackLocation(irp)->MajorFunction) 
     {
     case IRP_MJ_PNP:
-      return dispatch_pnp(device_extension, irp);
+      return dispatch_pnp(dev, irp);
       
     case IRP_MJ_POWER:
-      return dispatch_power(device_extension, irp);
+      return dispatch_power(dev, irp);
 
     case IRP_MJ_DEVICE_CONTROL:
-      if(is_irp_for_us(device_extension, irp))
+      if(accept_irp(dev, irp))
         {
-          return dispatch_ioctl(device_extension, irp);
+          return dispatch_ioctl(dev, irp);
         }
       break;
 
     case IRP_MJ_CREATE:
-      if(is_irp_for_us(device_extension, irp))
+      if(accept_irp(dev, irp))
         {
-          InterlockedIncrement(&device_extension->ref_count);
+          InterlockedIncrement(&dev->ref_count);
           return complete_irp(irp, STATUS_SUCCESS, 0);
         }
       break;
 
     case IRP_MJ_CLOSE:
-      if(is_irp_for_us(device_extension, irp))
+      if(accept_irp(dev, irp))
         {
-          if(!InterlockedDecrement(&device_extension->ref_count))
+          if(!InterlockedDecrement(&dev->ref_count))
             {
-              release_all_interfaces(device_extension);
+              release_all_interfaces(dev);
             }
           return complete_irp(irp, STATUS_SUCCESS, 0);
         }
@@ -61,19 +60,19 @@ NTSTATUS DDKAPI dispatch(DEVICE_OBJECT *device_object, IRP *irp)
 
     case IRP_MJ_CLEANUP:
 
-      if(is_irp_for_us(device_extension, irp))
+      if(accept_irp(dev, irp))
         {
           return complete_irp(irp, STATUS_SUCCESS, 0);
         }
       break;
 
     default:
-      if(is_irp_for_us(device_extension, irp))
+      if(accept_irp(dev, irp))
         {
           return complete_irp(irp, STATUS_NOT_SUPPORTED, 0);
         }
     }
 
-  return pass_irp_down(device_extension, irp);
+  return pass_irp_down(dev, irp);
 }
 

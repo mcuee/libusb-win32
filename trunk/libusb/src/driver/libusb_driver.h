@@ -17,8 +17,8 @@
  */
 
 
-#ifndef __LIBUSB_FILTER_H__
-#define __LIBUSB_FILTER_H__
+#ifndef __LIBUSB_DRIVER_H__
+#define __LIBUSB_DRIVER_H__
 
 #include <ddk/usb100.h>
 #include <ddk/usbdi.h>
@@ -89,8 +89,16 @@ extern int debug_level;
 #define DEBUG_SET_LEVEL(level)
 #define DEBUG_MESSAGE(format, args...)
 #define DEBUG_ERROR(format, args...)
+
 #endif
 
+
+
+typedef struct 
+{
+  KSPIN_LOCK lock;
+  KIRQL irq_level;
+} mutex_t;
 
 typedef struct
 {
@@ -136,33 +144,35 @@ typedef struct
   DEVICE_OBJECT	*self;
   DEVICE_OBJECT	*physical_device_object;
   DEVICE_OBJECT	*next_stack_device;
+  DEVICE_OBJECT	*next_device;
   libusb_remove_lock_t remove_lock; 
   USBD_CONFIGURATION_HANDLE configuration_handle;
   LONG ref_count;
+  int is_filter;
   int id;
   int configuration;
   libusb_topology_info_t topology_info;
   libusb_interface_info_t interfaces[LIBUSB_MAX_NUMBER_OF_INTERFACES];
-} libusb_device_extension;
+} libusb_device_t;
 
 
 NTSTATUS DDKAPI dispatch(DEVICE_OBJECT *device_object, IRP *irp);
-NTSTATUS dispatch_pnp(libusb_device_extension *device_extension, IRP *irp);
-NTSTATUS dispatch_power(libusb_device_extension *device_extension, IRP *irp);
-NTSTATUS dispatch_ioctl(libusb_device_extension *device_extension, IRP *irp);
+NTSTATUS dispatch_pnp(libusb_device_t *dev, IRP *irp);
+NTSTATUS dispatch_power(libusb_device_t *dev, IRP *irp);
+NTSTATUS dispatch_ioctl(libusb_device_t *dev, IRP *irp);
 
 NTSTATUS complete_irp(IRP *irp, NTSTATUS status, ULONG info);
 
-NTSTATUS call_usbd(libusb_device_extension *device_extension, void *urb,
+NTSTATUS call_usbd(libusb_device_t *dev, void *urb,
                    ULONG control_code, int timeout);
-NTSTATUS pass_irp_down(libusb_device_extension *device_extension, IRP *irp);
+NTSTATUS pass_irp_down(libusb_device_t *dev, IRP *irp);
 
-BOOL is_irp_for_us(libusb_device_extension *device_extension, IRP *irp);
+BOOL accept_irp(libusb_device_t *dev, IRP *irp);
 
-int get_pipe_handle(libusb_device_extension *device_extension, 
+int get_pipe_handle(libusb_device_t *dev, 
                     int endpoint_address, USBD_PIPE_HANDLE *pipe_handle);
-void clear_pipe_info(libusb_device_extension *device_extension);
-int update_pipe_info(libusb_device_extension *device_extension, int interface,
+void clear_pipe_info(libusb_device_t *dev);
+int update_pipe_info(libusb_device_t *dev, int interface,
                      USBD_INTERFACE_INFORMATION *interface_info);
 
 void remove_lock_initialize(libusb_remove_lock_t *remove_lock);
@@ -170,62 +180,64 @@ NTSTATUS remove_lock_acquire(libusb_remove_lock_t *remove_lock);
 void remove_lock_release(libusb_remove_lock_t *remove_lock);
 void remove_lock_release_and_wait(libusb_remove_lock_t *remove_lock);
 
-NTSTATUS set_configuration(libusb_device_extension *device_extension,
+NTSTATUS set_configuration(libusb_device_t *dev,
                            int configuration, int timeout);
-NTSTATUS get_configuration(libusb_device_extension *device_extension,
+NTSTATUS get_configuration(libusb_device_t *dev,
                            unsigned char *configuration, int *ret, 
                            int timeout);
-NTSTATUS set_interface(libusb_device_extension *device_extension,
+NTSTATUS set_interface(libusb_device_t *dev,
                        int interface, int altsetting, int timeout);
-NTSTATUS get_interface(libusb_device_extension *device_extension,
+NTSTATUS get_interface(libusb_device_t *dev,
                        int interface, unsigned char *altsetting, 
                        int *ret, int timeout);
-NTSTATUS set_feature(libusb_device_extension *device_extension,
+NTSTATUS set_feature(libusb_device_t *dev,
                      int recipient, int index, int feature, int timeout);
-NTSTATUS clear_feature(libusb_device_extension *device_extension,
+NTSTATUS clear_feature(libusb_device_t *dev,
                        int recipient, int index, int feature, int timeout);
-NTSTATUS get_status(libusb_device_extension *device_extension, int recipient,
+NTSTATUS get_status(libusb_device_t *dev, int recipient,
                     int index, char *status, int *ret, int timeout);
-NTSTATUS set_descriptor(libusb_device_extension *device_extension,
+NTSTATUS set_descriptor(libusb_device_t *dev,
                         void *buffer, int size, 
                         int type, int index, int language_id, 
                         int *sent, int timeout);
-NTSTATUS get_descriptor(libusb_device_extension *device_extension,
+NTSTATUS get_descriptor(libusb_device_t *dev,
                         void *buffer, int size, int type, 
                         int index, int language_id, int *sent, int timeout);
-NTSTATUS transfer(IRP *irp, libusb_device_extension *device_extension,
+NTSTATUS transfer(IRP *irp, libusb_device_t *dev,
                   int direction, int urb_function, int endpoint, 
                   int packet_size, MDL *buffer, int size);
 
-NTSTATUS vendor_class_request(libusb_device_extension *device_extension,
+NTSTATUS vendor_class_request(libusb_device_t *dev,
                               int type, int recipient,
                               int request, int value, int index,
                               void *buffer, int size, int direction,
                               int *sent, int timeout);
-NTSTATUS abort_endpoint(libusb_device_extension *device_extension,
-                        int endpoint, int timeout);
-NTSTATUS reset_endpoint(libusb_device_extension *device_extension,
-                        int endpoint, int timeout);
-NTSTATUS reset_device(libusb_device_extension *device_extension, int timeout);
 
-NTSTATUS claim_interface(libusb_device_extension *device_extension,
-                         int interface);
-NTSTATUS release_interface(libusb_device_extension *device_extension,
-                           int interface);
-NTSTATUS release_all_interfaces(libusb_device_extension *device_extension);
+NTSTATUS abort_endpoint(libusb_device_t *dev, int endpoint, int timeout);
+NTSTATUS reset_endpoint(libusb_device_t *dev, int endpoint, int timeout);
+NTSTATUS reset_device(libusb_device_t *dev, int timeout);
 
-void update_device_info(libusb_device_extension *device_extension);
-NTSTATUS get_device_info(libusb_device_extension *device_extension, 
-                         libusb_request *request, int *ret);
+NTSTATUS claim_interface(libusb_device_t *dev, int interface);
+NTSTATUS release_interface(libusb_device_t *dev, int interface);
+NTSTATUS release_all_interfaces(libusb_device_t *dev);
 
-libusb_device_extension *
-device_list_find(libusb_device_extension *device_extension,
-                 DEVICE_OBJECT *physical_device_object);
+void update_device_info(libusb_device_t *dev);
+NTSTATUS get_device_info(libusb_device_t *dev, libusb_request *request, 
+                         int *ret);
+
+libusb_device_t *device_list_find(libusb_device_t *dev,
+                                  DEVICE_OBJECT *physical_device_object);
 
 int reg_is_usb_device(DEVICE_OBJECT *physical_device_object);
 int reg_is_root_hub(DEVICE_OBJECT *physical_device_object);
 int reg_is_hub(DEVICE_OBJECT *physical_device_object);
 int reg_is_composite_interface(DEVICE_OBJECT *physical_device_object);
 
+
+void mutex_init(mutex_t *mutex);
+void mutex_lock(mutex_t *mutex);
+void mutex_release(mutex_t *mutex);
+
+int reg_is_filter_driver(DEVICE_OBJECT *physical_device_object);
 
 #endif

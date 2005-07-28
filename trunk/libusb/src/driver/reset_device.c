@@ -20,14 +20,13 @@
 #include "libusb_driver.h"
 
 
-NTSTATUS reset_device(libusb_device_extension *device_extension, int timeout)
+NTSTATUS reset_device(libusb_device_t *dev, int timeout)
 {
   NTSTATUS status = STATUS_SUCCESS;
 
   DEBUG_MESSAGE("reset_device()");
 
-  status = call_usbd(device_extension, NULL,
-                     IOCTL_INTERNAL_USB_RESET_PORT, timeout);
+  status = call_usbd(dev, NULL, IOCTL_INTERNAL_USB_RESET_PORT, timeout);
   
   if(!NT_SUCCESS(status))
     {
@@ -35,8 +34,7 @@ NTSTATUS reset_device(libusb_device_extension *device_extension, int timeout)
                   "status: 0x%x", status);
     }
 
-  status = call_usbd(device_extension, NULL,
-                     IOCTL_INTERNAL_USB_CYCLE_PORT, timeout);
+  status = call_usbd(dev, NULL, IOCTL_INTERNAL_USB_CYCLE_PORT, timeout);
   
   if(!NT_SUCCESS(status))
     {
