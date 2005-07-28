@@ -517,6 +517,24 @@ int usb_reap_async(void *context, int timeout)
   return ret;
 }
 
+int usb_cancel_async(void *context)
+{
+  /* NOTE that this function will cancel all pending URBs */
+  /* on the same endpoint as this particular context, or even */
+  /* all pending URBs for this particular device. */
+  
+  usb_context_t *c = (usb_context_t *)context;
+  
+  if(c->dev->impl_info == INVALID_HANDLE_VALUE)
+    {
+      USB_ERROR_STR(-EINVAL, "usb_cancel_async: error: device not open");
+    }
+  
+  usb_cancel_io(c);
+
+  return 0;
+}
+
 int usb_free_async(void **context)
 {
   usb_context_t **c = (usb_context_t **)context;
