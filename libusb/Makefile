@@ -87,7 +87,7 @@ VPATH = .:./src:./src/driver:./tests
 
 INCLUDES = -I./src -I./src/driver -I.
 
-CFLAGS = -O2 -Wall -mno-cygwin
+CFLAGS = -O3 -Wall -mno-cygwin -mwindows
 
 CPPFLAGS = -DVERSION_MAJOR=$(VERSION_MAJOR) \
 	-DVERSION_MINOR=$(VERSION_MINOR) \
@@ -101,15 +101,15 @@ LDFLAGS = -s -mno-cygwin -L. -lusb -lgdi32 -luser32 -lsetupapi \
 	 				-lcfgmgr32 -lcomctl32
 WIN_LDFLAGS = $(LDFLAGS) -mwindows
 
+
 DLL_LDFLAGS = -s -mwindows -shared -mno-cygwin \
-	-Wl,--output-def,$(DLL_TARGET).def.in \
-	-Wl,--out-implib,$(LIB_TARGET).a \
 	-Wl,--kill-at \
+	-Wl,--out-implib,$(LIB_TARGET).a \
 	-L. -lsetupapi -lcfgmgr32
 
 
 DRIVER_LDFLAGS = -s -shared -Wl,--entry,_DriverEntry@8 \
-	-nostartfiles -nostdlib -L. -lusbd -lntoskrnl
+	-nostartfiles -nostdlib -L. -lusbd -lntoskrnl -lhal
 
 
 EXE_FILES = testlibusb.exe testlibusb-win.exe inf-wizard.exe
@@ -120,15 +120,14 @@ all: $(DLL_TARGET).dll $(EXE_FILES) $(DRIVER_TARGET) README.txt
 	unix2dos *.txt
 
 $(DLL_TARGET).dll: driver_api.h $(OBJECTS)
-	$(CC) -o $@ $(OBJECTS) $(DLL_LDFLAGS)
-	sed -e 's/ @[0-9]*//' \
-			-e '/DATA/d' $(DLL_TARGET).def.in > $(DLL_TARGET).def
-	$(RM) $(DLL_TARGET).def.in 
+	$(CC) -o $@ $(OBJECTS) $(DLL_TARGET).def $(DLL_LDFLAGS)
 
-$(DRIVER_TARGET): $(TARGET)_driver_rc.rc driver_api.h $(DRIVER_OBJECTS)
+$(DRIVER_TARGET): libusbd.a driver_api.h $(DRIVER_OBJECTS)
+	$(CC) -o $@ $(DRIVER_OBJECTS) $(DLL_TARGET)_drv.def $(DRIVER_LDFLAGS)
+
+libusbd.a:
 	$(DLLTOOL) --dllname usbd.sys --def ./src/driver/usbd.def \
 		--output-lib libusbd.a
-	$(CC) -o $@ $(DRIVER_OBJECTS) $(DRIVER_LDFLAGS)
 
 inf-wizard.exe: inf_wizard_rc.o inf_wizard.o registry.o win_debug.o
 	$(CC) $(CFLAGS) -o $@ -I./src  $^ $(WIN_LDFLAGS)
@@ -140,7 +139,7 @@ testlibusb-win.exe: testlibusb_win.o resource.o
 	$(CC) $(CFLAGS) -o $@ -I./src  $^ $(WIN_LDFLAGS)
 
 %.o: %.c
-	$(CC) -c $< -o $@ $(CFLAGS) -Wall $(CPPFLAGS) $(INCLUDES) 
+	$(CC) -c $< -o $@ $(CFLAGS) $(CPPFLAGS) $(INCLUDES) 
 
 %.o: %.rc
 	$(WINDRES) $< -o $@
@@ -174,6 +173,7 @@ bin_dist: all
 	$(INSTALL) -d $(BIN_DIST_DIR)/lib/gcc
 	$(INSTALL) -d $(BIN_DIST_DIR)/lib/bcc
 	$(INSTALL) -d $(BIN_DIST_DIR)/lib/msvc
+	$(INSTALL) -d $(BIN_DIST_DIR)/lib/dynamic
 	$(INSTALL) -d $(BIN_DIST_DIR)/include
 	$(INSTALL) -d $(BIN_DIST_DIR)/bin
 	$(INSTALL) -d $(BIN_DIST_DIR)/examples
@@ -190,6 +190,7 @@ bin_dist: all
 	$(INSTALL) $(LIB_TARGET).lib $(BIN_DIST_DIR)/lib/bcc
 	$(MAKE) msvc_lib
 	$(INSTALL) $(LIB_TARGET).lib $(BIN_DIST_DIR)/lib/msvc
+	$(INSTALL) $(SRC_DIR)/libusb_dyn.c $(BIN_DIST_DIR)/lib/dynamic
 	$(INSTALL) $(DIST_MISC_FILES) README.txt $(BIN_DIST_DIR)
 	$(INSTALL) ./examples/*.iss $(BIN_DIST_DIR)/examples
 
@@ -213,7 +214,7 @@ src_dist:
 
 	$(INSTALL) ./tests/*.c $(SRC_DIST_DIR)/tests
 
-	$(INSTALL) $(DIST_MISC_FILES) *.in Makefile *.manifest \
+	$(INSTALL) $(DIST_MISC_FILES) *.in Makefile *.manifest *.def \
 		installer_license.txt $(SRC_DIST_DIR)
 
 
@@ -239,7 +240,7 @@ snapshot: dist
 
 .PHONY: clean
 clean:	
-	$(RM) *.o *.dll *.a *.exp *.lib *.exe *.def *.tar.gz *~ *.iss *.rc *.h
+	$(RM) *.o *.dll *.a *.exp *.lib *.exe *.tar.gz *~ *.iss *.rc *.h
 	$(RM) ./src/*~ *.sys *.log
 	$(RM) $(DRIVER_SRC_DIR)/*~
 	$(RM) README.txt
