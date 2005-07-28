@@ -21,7 +21,7 @@
 
 
 
-NTSTATUS get_status(libusb_device_extension *device_extension, int recipient,
+NTSTATUS get_status(libusb_device_t *dev, int recipient,
                     int index, char *status, int *ret, int timeout)
 {
   NTSTATUS _status = STATUS_SUCCESS;
@@ -58,8 +58,7 @@ NTSTATUS get_status(libusb_device_extension *device_extension, int recipient,
   urb.UrbControlGetStatusRequest.TransferBuffer = status; 
   urb.UrbControlGetStatusRequest.Index = (USHORT)index; 
 	
-  _status = call_usbd(device_extension, &urb, 
-                      IOCTL_INTERNAL_USB_SUBMIT_URB, timeout);
+  _status = call_usbd(dev, &urb, IOCTL_INTERNAL_USB_SUBMIT_URB, timeout);
       
   if(!NT_SUCCESS(_status) || !USBD_SUCCESS(urb.UrbHeader.Status))
     {

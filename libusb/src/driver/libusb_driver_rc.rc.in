@@ -38,7 +38,7 @@ BEGIN
             VALUE "FileVersion", "@VERSION@"
             VALUE "ProductVersion", "@VERSION@"
             VALUE "InternalName", "libusb-win32-driver"
-            VALUE "LegalCopyright", "© 2002-2004 S. Meyer, <ste_meyer@web.de>"
+            VALUE "LegalCopyright", "© 2002-2005 S. Meyer, <ste_meyer@web.de>"
             VALUE "OriginalFilename", "libusb0.sys"
             VALUE "ProductName", "LibUSB-Win32"
         END

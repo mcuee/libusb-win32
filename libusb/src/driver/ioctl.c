@@ -20,7 +20,7 @@
 #include "libusb_driver.h"
 
 
-NTSTATUS dispatch_ioctl(libusb_device_extension *device_extension, IRP *irp)
+NTSTATUS dispatch_ioctl(libusb_device_t *dev, IRP *irp)
 {
   int ret = 0;
   NTSTATUS status = STATUS_SUCCESS;
@@ -42,12 +42,12 @@ NTSTATUS dispatch_ioctl(libusb_device_extension *device_extension, IRP *irp)
   MDL *transfer_buffer_mdl = irp->MdlAddress;
 
 
-  status = remove_lock_acquire(&device_extension->remove_lock);
+  status = remove_lock_acquire(&dev->remove_lock);
 
   if(!NT_SUCCESS(status))
     { 
       status = complete_irp(irp, status, 0);
-      remove_lock_release(&device_extension->remove_lock);
+      remove_lock_release(&dev->remove_lock);
       return status;
     }
 
@@ -56,7 +56,7 @@ NTSTATUS dispatch_ioctl(libusb_device_extension *device_extension, IRP *irp)
       DEBUG_ERROR("dispatch_ioctl(): invalid input or output buffer\n");
 
       status = complete_irp(irp, STATUS_INVALID_PARAMETER, 0);
-      remove_lock_release(&device_extension->remove_lock);
+      remove_lock_release(&dev->remove_lock);
       return status;
     }
 
@@ -66,8 +66,7 @@ NTSTATUS dispatch_ioctl(libusb_device_extension *device_extension, IRP *irp)
     {     
     case LIBUSB_IOCTL_SET_CONFIGURATION:
 
-      status = set_configuration(device_extension, 
-                                 request->configuration.configuration,
+      status = set_configuration(dev, request->configuration.configuration,
                                  request->timeout);
       break;
       
@@ -81,13 +80,12 @@ NTSTATUS dispatch_ioctl(libusb_device_extension *device_extension, IRP *irp)
           break;
         }
 
-      status = get_configuration(device_extension, output_buffer,
-                                 &ret, request->timeout);
+      status = get_configuration(dev, output_buffer, &ret, request->timeout);
       break;
 
     case LIBUSB_IOCTL_SET_INTERFACE:
 
-      status = set_interface(device_extension, request->interface.interface,
+      status = set_interface(dev, request->interface.interface,
                              request->interface.altsetting, request->timeout);
       break;
 
@@ -101,13 +99,13 @@ NTSTATUS dispatch_ioctl(libusb_device_extension *device_extension, IRP *irp)
           break;
         }
 
-      status = get_interface(device_extension, request->interface.interface,
+      status = get_interface(dev, request->interface.interface,
                              output_buffer, &ret, request->timeout);
       break;
 
     case LIBUSB_IOCTL_SET_FEATURE:
 
-      status = set_feature(device_extension, request->feature.recipient,
+      status = set_feature(dev, request->feature.recipient,
                            request->feature.index, request->feature.feature,
                            request->timeout);
       
@@ -115,7 +113,7 @@ NTSTATUS dispatch_ioctl(libusb_device_extension *device_extension, IRP *irp)
 
     case LIBUSB_IOCTL_CLEAR_FEATURE:
 
-      status = clear_feature(device_extension, request->feature.recipient,
+      status = clear_feature(dev, request->feature.recipient,
                              request->feature.index, request->feature.feature,
                              request->timeout);
       
@@ -130,7 +128,7 @@ NTSTATUS dispatch_ioctl(libusb_device_extension *device_extension, IRP *irp)
           break;
         }
 
-      status = get_status(device_extension, request->status.recipient,
+      status = get_status(dev, request->status.recipient,
                           request->status.index, output_buffer,
                           &ret, request->timeout);
 
@@ -146,7 +144,7 @@ NTSTATUS dispatch_ioctl(libusb_device_extension *device_extension, IRP *irp)
           break;
         }
       
-      status = set_descriptor(device_extension, 
+      status = set_descriptor(dev, 
                               input_buffer + sizeof(libusb_request), 
                               input_buffer_length - sizeof(libusb_request), 
                               request->descriptor.type,
@@ -166,7 +164,7 @@ NTSTATUS dispatch_ioctl(libusb_device_extension *device_extension, IRP *irp)
           break;
         }
 
-      status = get_descriptor(device_extension, output_buffer, 
+      status = get_descriptor(dev, output_buffer, 
                               output_buffer_length,
                               request->descriptor.type,
                               request->descriptor.index,
@@ -185,7 +183,7 @@ NTSTATUS dispatch_ioctl(libusb_device_extension *device_extension, IRP *irp)
           break;
         }
 
-      return transfer(irp, device_extension,
+      return transfer(irp, dev,
                       USBD_TRANSFER_DIRECTION_IN,
                       URB_FUNCTION_BULK_OR_INTERRUPT_TRANSFER,
                       request->endpoint.endpoint,
@@ -198,7 +196,7 @@ NTSTATUS dispatch_ioctl(libusb_device_extension *device_extension, IRP *irp)
       /* we don't check 'transfer_buffer_mdl' here because it might be NULL */
       /* if the DLL requests to send a zero-length packet */
 
-      return transfer(irp, device_extension,
+      return transfer(irp, dev,
                       USBD_TRANSFER_DIRECTION_OUT,
                       URB_FUNCTION_BULK_OR_INTERRUPT_TRANSFER,
                       request->endpoint.endpoint,
@@ -215,7 +213,7 @@ NTSTATUS dispatch_ioctl(libusb_device_extension *device_extension, IRP *irp)
           break;
         }
 
-      status = vendor_class_request(device_extension,
+      status = vendor_class_request(dev,
                                     request->vendor.type, 
                                     request->vendor.recipient,
                                     request->vendor.request,
@@ -230,7 +228,7 @@ NTSTATUS dispatch_ioctl(libusb_device_extension *device_extension, IRP *irp)
     case LIBUSB_IOCTL_VENDOR_WRITE:
       
       status = 
-        vendor_class_request(device_extension,
+        vendor_class_request(dev,
                              request->vendor.type, 
                              request->vendor.recipient,
                              request->vendor.request,
@@ -245,19 +243,19 @@ NTSTATUS dispatch_ioctl(libusb_device_extension *device_extension, IRP *irp)
 
     case LIBUSB_IOCTL_RESET_ENDPOINT:
 
-      status = reset_endpoint(device_extension, request->endpoint.endpoint,
+      status = reset_endpoint(dev, request->endpoint.endpoint,
                               request->timeout);
       break;
       
     case LIBUSB_IOCTL_ABORT_ENDPOINT:
 	 
-      status = abort_endpoint(device_extension, request->endpoint.endpoint,
+      status = abort_endpoint(dev, request->endpoint.endpoint,
                               request->timeout);
       break;
 
     case LIBUSB_IOCTL_RESET_DEVICE: 
       
-      status = reset_device(device_extension, request->timeout);
+      status = reset_device(dev, request->timeout);
       break;
 
     case LIBUSB_IOCTL_SET_DEBUG_LEVEL:
@@ -282,13 +280,11 @@ NTSTATUS dispatch_ioctl(libusb_device_extension *device_extension, IRP *irp)
       break;
 
     case LIBUSB_IOCTL_CLAIM_INTERFACE:
-      status = claim_interface(device_extension, 
-                               request->interface.interface);
+      status = claim_interface(dev, request->interface.interface);
       break;
 
     case LIBUSB_IOCTL_RELEASE_INTERFACE:
-      status = release_interface(device_extension, 
-                                 request->interface.interface);
+      status = release_interface(dev, request->interface.interface);
       break;
 
     case LIBUSB_IOCTL_ISOCHRONOUS_READ:
@@ -300,7 +296,7 @@ NTSTATUS dispatch_ioctl(libusb_device_extension *device_extension, IRP *irp)
           break;
         }
 
-      return transfer(irp, device_extension, USBD_TRANSFER_DIRECTION_IN,
+      return transfer(irp, dev, USBD_TRANSFER_DIRECTION_IN,
                       URB_FUNCTION_ISOCH_TRANSFER, request->endpoint.endpoint,
                       request->endpoint.packet_size, transfer_buffer_mdl, 
                       transfer_buffer_length);
@@ -315,7 +311,7 @@ NTSTATUS dispatch_ioctl(libusb_device_extension *device_extension, IRP *irp)
           break;
         }
 
-      return transfer(irp, device_extension, USBD_TRANSFER_DIRECTION_OUT,
+      return transfer(irp, dev, USBD_TRANSFER_DIRECTION_OUT,
                       URB_FUNCTION_ISOCH_TRANSFER, request->endpoint.endpoint,
                       request->endpoint.packet_size, transfer_buffer_mdl, 
                       transfer_buffer_length);
@@ -330,7 +326,7 @@ NTSTATUS dispatch_ioctl(libusb_device_extension *device_extension, IRP *irp)
           break;
         }
 
-      status = get_device_info(device_extension, request, &ret);
+      status = get_device_info(dev, request, &ret);
 
       break;
 
@@ -340,7 +336,7 @@ NTSTATUS dispatch_ioctl(libusb_device_extension *device_extension, IRP *irp)
     }
 
   status = complete_irp(irp, status, ret);  
-  remove_lock_release(&device_extension->remove_lock);
+  remove_lock_release(&dev->remove_lock);
 
   return status;
 }

@@ -21,8 +21,7 @@
 
 
 
-NTSTATUS reset_endpoint(libusb_device_extension *device_extension,
-                        int endpoint, int timeout)
+NTSTATUS reset_endpoint(libusb_device_t *dev, int endpoint, int timeout)
 {
   NTSTATUS status = STATUS_SUCCESS;
   URB urb;
@@ -31,7 +30,7 @@ NTSTATUS reset_endpoint(libusb_device_extension *device_extension,
   DEBUG_MESSAGE("reset_endpoint(): endpoint 0x%02x", endpoint);
   DEBUG_MESSAGE("reset_endpoint(): timeout %d", timeout);
 
-  if(!device_extension->configuration)
+  if(!dev->configuration)
     {
       DEBUG_ERROR("reset_endpoint(): invalid configuration 0"); 
       return STATUS_INVALID_DEVICE_STATE;
@@ -42,15 +41,13 @@ NTSTATUS reset_endpoint(libusb_device_extension *device_extension,
   urb.UrbHeader.Length = (USHORT) sizeof(struct _URB_PIPE_REQUEST);
   urb.UrbHeader.Function = URB_FUNCTION_RESET_PIPE;
 
-  if(!get_pipe_handle(device_extension, endpoint, 
-                      &urb.UrbPipeRequest.PipeHandle))
+  if(!get_pipe_handle(dev, endpoint, &urb.UrbPipeRequest.PipeHandle))
     {
       DEBUG_ERROR("reset_endpoint(): getting endpoint pipe failed");
       return STATUS_INVALID_PARAMETER;
     }
   
-  status = call_usbd(device_extension, (void *)&urb, 
-                     IOCTL_INTERNAL_USB_SUBMIT_URB, timeout);
+  status = call_usbd(dev, &urb, IOCTL_INTERNAL_USB_SUBMIT_URB, timeout);
   
   if(!NT_SUCCESS(status) || !USBD_SUCCESS(urb.UrbHeader.Status))
     {

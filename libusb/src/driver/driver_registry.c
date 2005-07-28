@@ -19,6 +19,14 @@
 
 #include "libusb_driver.h"
 
+/* missing in mingw's ddk headers */
+#define PLUGPLAY_REGKEY_DEVICE  1
+#define PLUGPLAY_REGKEY_DRIVER  2
+#define PLUGPLAY_REGKEY_CURRENT_HWPROFILE 4
+
+#define LIBUSB_REG_IS_DEVICE_DRIVER L"libusb_is_device_driver"
+
+
 static int reg_get_property(DEVICE_OBJECT *physical_device_object, 
                             int property, char *data, int size);
 
@@ -114,4 +122,45 @@ int reg_is_composite_interface(DEVICE_OBJECT *physical_device_object)
     }
   
   return FALSE;
+}
+
+int reg_is_filter_driver(DEVICE_OBJECT *physical_device_object)
+{
+  HANDLE key = NULL;
+  NTSTATUS status;
+  UNICODE_STRING name;
+  KEY_VALUE_FULL_INFORMATION *info;
+  DWORD length;
+  int ret = TRUE;
+
+  status = IoOpenDeviceRegistryKey(physical_device_object,
+                                   PLUGPLAY_REGKEY_DEVICE,
+                                   STANDARD_RIGHTS_ALL,
+                                   &key);
+  if(NT_SUCCESS(status)) 
+    {
+      RtlInitUnicodeString(&name, LIBUSB_REG_IS_DEVICE_DRIVER);
+      
+      length = sizeof(KEY_VALUE_FULL_INFORMATION) + name.MaximumLength
+        + sizeof(ULONG);
+
+      info = ExAllocatePool(PagedPool, length);
+      
+      if(info) 
+        {
+          status = ZwQueryValueKey(key, &name, KeyValueFullInformation,
+                                   info, length, &length);
+          
+          if(NT_SUCCESS(status)) 
+            {
+              ret = FALSE;
+            }
+          
+          ExFreePool(info);
+        }
+      
+      ZwClose(key);
+    }
+
+  return ret;
 }

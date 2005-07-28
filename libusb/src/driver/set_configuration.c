@@ -21,8 +21,8 @@
 
 
 
-NTSTATUS set_configuration(libusb_device_extension *device_extension,
-                           int configuration, int timeout)
+NTSTATUS set_configuration(libusb_device_t *dev, int configuration, 
+                           int timeout)
 {
   NTSTATUS status = STATUS_SUCCESS;
   URB urb, *urb_ptr = NULL;
@@ -37,7 +37,7 @@ NTSTATUS set_configuration(libusb_device_extension *device_extension,
   DEBUG_MESSAGE("set_configuration(): configuration %d", configuration);
   DEBUG_MESSAGE("set_configuration(): timeout %d", timeout);
 
-  if(device_extension->configuration == configuration)
+  if(dev->configuration == configuration)
     {
       return STATUS_SUCCESS;
     }
@@ -49,8 +49,7 @@ NTSTATUS set_configuration(libusb_device_extension *device_extension,
       urb.UrbHeader.Function = URB_FUNCTION_SELECT_CONFIGURATION;
       urb.UrbHeader.Length = sizeof(struct _URB_SELECT_CONFIGURATION);
 
-      status = call_usbd(device_extension, &urb, 
-                         IOCTL_INTERNAL_USB_SUBMIT_URB, timeout);
+      status = call_usbd(dev, &urb, IOCTL_INTERNAL_USB_SUBMIT_URB, timeout);
       
       if(!NT_SUCCESS(status) || !USBD_SUCCESS(urb.UrbHeader.Status))
         {
@@ -60,17 +59,17 @@ NTSTATUS set_configuration(libusb_device_extension *device_extension,
           return status;
         }
 
-      device_extension->configuration_handle =
+      dev->configuration_handle =
         urb.UrbSelectConfiguration.ConfigurationHandle;
      
-      device_extension->configuration = configuration;
+      dev->configuration = configuration;
 
-      clear_pipe_info(device_extension);
+      clear_pipe_info(dev);
 
       return status;
     }
 
-  status = get_descriptor(device_extension, &device_descriptor,
+  status = get_descriptor(dev, &device_descriptor,
                           sizeof(USB_DEVICE_DESCRIPTOR), 
                           USB_DEVICE_DESCRIPTOR_TYPE,
                           0, 0, &junk, LIBUSB_DEFAULT_TIMEOUT);  
@@ -97,8 +96,7 @@ NTSTATUS set_configuration(libusb_device_extension *device_extension,
       return STATUS_NO_MEMORY;
     }
   
-  status = get_descriptor(device_extension,
-                          configuration_descriptor,
+  status = get_descriptor(dev, configuration_descriptor,
                           sizeof(USB_CONFIGURATION_DESCRIPTOR), 
                           USB_CONFIGURATION_DESCRIPTOR_TYPE,
                           configuration - 1,
@@ -125,8 +123,7 @@ NTSTATUS set_configuration(libusb_device_extension *device_extension,
       return STATUS_NO_MEMORY;
     }
 
-  status = get_descriptor(device_extension,
-                          configuration_descriptor,
+  status = get_descriptor(dev, configuration_descriptor,
                           config_full_size, 
                           USB_CONFIGURATION_DESCRIPTOR_TYPE,
                           configuration - 1,
@@ -198,8 +195,7 @@ NTSTATUS set_configuration(libusb_device_extension *device_extension,
         }
     }
 
-  status = call_usbd(device_extension, urb_ptr, 
-                     IOCTL_INTERNAL_USB_SUBMIT_URB, timeout);
+  status = call_usbd(dev, urb_ptr, IOCTL_INTERNAL_USB_SUBMIT_URB, timeout);
 
   if(!NT_SUCCESS(status) || !USBD_SUCCESS(urb_ptr->UrbHeader.Status))
     {
@@ -212,16 +208,16 @@ NTSTATUS set_configuration(libusb_device_extension *device_extension,
       return status;
     }
 
-  device_extension->configuration_handle =
+  dev->configuration_handle =
     urb_ptr->UrbSelectConfiguration.ConfigurationHandle;
   
-  device_extension->configuration = configuration;
+  dev->configuration = configuration;
 
-  clear_pipe_info(device_extension);
+  clear_pipe_info(dev);
 
   for(i = 0; i < configuration_descriptor->bNumInterfaces; i++)
     {
-      update_pipe_info(device_extension, i, interfaces[i].Interface);
+      update_pipe_info(dev, i, interfaces[i].Interface);
     }
 
   ExFreePool(interfaces);

@@ -22,8 +22,7 @@
 
 
 
-NTSTATUS claim_interface(libusb_device_extension *device_extension,
-                         int interface)
+NTSTATUS claim_interface(libusb_device_t *dev, int interface)
 {
   DEBUG_MESSAGE("claim_interface(): interface %d", interface);
 
@@ -33,20 +32,20 @@ NTSTATUS claim_interface(libusb_device_extension *device_extension,
       return STATUS_INVALID_PARAMETER;
     }
 
-  if(!device_extension->interfaces[interface].valid)
+  if(!dev->interfaces[interface].valid)
     {
       DEBUG_ERROR("claim_interface(): invalid interface %d", interface);
       return STATUS_INVALID_PARAMETER;
     }
 
-  if(device_extension->interfaces[interface].claimed)
+  if(dev->interfaces[interface].claimed)
     {
       DEBUG_ERROR("claim_interface(): could not claim interface %d, "
                   "interface is already claimed", interface);
       return STATUS_DEVICE_BUSY;
     }
 
-  device_extension->interfaces[interface].claimed = TRUE;
+  dev->interfaces[interface].claimed = TRUE;
 
   return STATUS_SUCCESS;
 }

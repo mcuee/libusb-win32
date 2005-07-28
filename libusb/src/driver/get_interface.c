@@ -21,7 +21,7 @@
 
 
 
-NTSTATUS get_interface(libusb_device_extension *device_extension,
+NTSTATUS get_interface(libusb_device_t *dev,
                        int interface, unsigned char *altsetting, 
                        int *ret, int timeout)
 {
@@ -32,7 +32,7 @@ NTSTATUS get_interface(libusb_device_extension *device_extension,
   DEBUG_MESSAGE("get_interface(): interface %d", interface);
   DEBUG_MESSAGE("get_interface(): timeout %d", timeout);
 
-  if(!device_extension->configuration)
+  if(!dev->configuration)
     {
       DEBUG_ERROR("get_interface(): invalid configuration 0"); 
       return STATUS_INVALID_DEVICE_STATE;
@@ -46,8 +46,7 @@ NTSTATUS get_interface(libusb_device_extension *device_extension,
   urb.UrbControlGetInterfaceRequest.TransferBuffer = altsetting;
   urb.UrbControlGetInterfaceRequest.Interface = (USHORT)interface;
   
-  status = call_usbd(device_extension, &urb, 
-                     IOCTL_INTERNAL_USB_SUBMIT_URB, timeout);
+  status = call_usbd(dev, &urb, IOCTL_INTERNAL_USB_SUBMIT_URB, timeout);
   
   if(!NT_SUCCESS(status) || !USBD_SUCCESS(urb.UrbHeader.Status))
     {
