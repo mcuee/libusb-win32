@@ -34,8 +34,8 @@
 #include "inf_wizard_rc.rc"
 
 
-#define STRINGIFY(x) #x
-#define STRINGIFYVALUE(x) STRINGIFY(x)
+#define _STRINGIFY(x) #x
+#define STRINGIFY(x) _STRINGIFY(x)
 
 
 DEFINE_GUID(GUID_DEVINTERFACE_USB_HUB, 0xf18a0e88, 0xc30c, 0x11d0, 0x88, \
@@ -68,7 +68,7 @@ const char inf_header[] =
 "[Version]\n"
 "Signature = \"$Chicago$\"\n"
 "provider  = %manufacturer%\n"
-"DriverVer = " STRINGIFYVALUE(INF_DATE) "," STRINGIFYVALUE(VERSION) "\n";
+"DriverVer = " STRINGIFY(INF_DATE) "," STRINGIFY(VERSION) "\n";
 
 const char inf_body[] = 
 "Class = LibUsbDevices\n"
@@ -121,9 +121,11 @@ const char inf_body[] =
 "\n"
 "[LIBUSB_DEV.HW]\n"
 "DelReg = LIBUSB_DEV.DelReg.HW\n"
+"AddReg = LIBUSB_DEV.AddReg.HW\n"
 "\n"
 "[LIBUSB_DEV.NT.HW]\n"
 "DelReg = LIBUSB_DEV.DelReg.HW\n"
+"AddReg = LIBUSB_DEV.AddReg.HW\n"
 "\n"
 "[LIBUSB_DEV.NT.Services]\n"
 "AddService = libusb0, 0x00000002, LIBUSB.AddService\n"
@@ -133,8 +135,11 @@ const char inf_body[] =
 "HKR,,NTMPDriver,,libusb0.sys\n"
 "\n"
 "[LIBUSB_DEV.DelReg.HW]\n"
-"HKR,,\"LowerFilters\"\n"
-"HKR,,\"UpperFilters\"\n"
+"HKR,,LowerFilters\n"
+"HKR,,UpperFilters\n"
+"\n"
+"[LIBUSB_DEV.AddReg.HW]\n"
+"HKR,,libusb_is_device_driver, 0x00010001 ,1\n"
 "\n"
 ";--------------------------------------------------------------------------\n"
 "; Services\n"
@@ -142,7 +147,7 @@ const char inf_body[] =
 "\n"
 "[LIBUSB.AddService]\n"
 "DisplayName    = \"LibUsb-Win32 - Kernel Driver " 
-STRINGIFYVALUE(INF_DATE) ", " STRINGIFYVALUE(VERSION) "\"\n"
+STRINGIFY(INF_DATE) ", " STRINGIFY(VERSION) "\"\n"
 "ServiceType    = 1\n"
 "StartType      = 3\n"
 "ErrorControl   = 0\n"
