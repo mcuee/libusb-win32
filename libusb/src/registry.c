@@ -19,7 +19,12 @@
 
 #include <windows.h>
 #include <ctype.h>
+
+#ifdef __GNUC__
+#include <ddk/cfgmgr32.h>
+#else
 #include <cfgmgr32.h>
+#endif
 
 #include "registry.h"
 #include "win_debug.h"
