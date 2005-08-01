@@ -20,33 +20,34 @@
 #include <windows.h>
 #include <setupapi.h>
 #include <stdio.h>
-#include <ddk/cfgmgr32.h>
+#include <cfgmgr32.h>
 #include <regstr.h>
 #include <wchar.h>
 
 #include "usb.h"
 #include "registry.h"
 #include "win_debug.h"
+#include "driver_api.h"
 
 
 #define LIBUSB_DRIVER_PATH  "system32\\drivers\\libusb0.sys"
 
 #define INSTALLFLAG_FORCE 0x00000001
 
-typedef BOOL WINAPI (* update_driver_for_plug_and_play_devices_t)(HWND, 
+typedef BOOL (WINAPI * update_driver_for_plug_and_play_devices_t)(HWND, 
                                                                   LPCSTR, 
                                                                   LPCSTR, 
                                                                   DWORD,
                                                                   PBOOL);
 
-typedef SC_HANDLE WINAPI (* open_sc_manager_t)(LPCTSTR, LPCTSTR, DWORD);
-typedef SC_HANDLE WINAPI (* open_service_t)(SC_HANDLE, LPCTSTR, DWORD);
-typedef BOOL WINAPI (* change_service_config_t)(SC_HANDLE, DWORD, DWORD, 
+typedef SC_HANDLE (WINAPI * open_sc_manager_t)(LPCTSTR, LPCTSTR, DWORD);
+typedef SC_HANDLE (WINAPI * open_service_t)(SC_HANDLE, LPCTSTR, DWORD);
+typedef BOOL (WINAPI * change_service_config_t)(SC_HANDLE, DWORD, DWORD, 
                                                 DWORD, LPCTSTR, LPCTSTR, 
                                                 LPDWORD, LPCTSTR, LPCTSTR, 
                                                 LPCTSTR, LPCTSTR);
-typedef BOOL WINAPI (* close_service_handle_t)(SC_HANDLE);
-typedef SC_HANDLE WINAPI (* create_service_t)(SC_HANDLE, LPCTSTR, LPCTSTR,
+typedef BOOL (WINAPI * close_service_handle_t)(SC_HANDLE);
+typedef SC_HANDLE (WINAPI * create_service_t)(SC_HANDLE, LPCTSTR, LPCTSTR,
                                               DWORD, DWORD,DWORD, DWORD,
                                               LPCTSTR, LPCTSTR, LPDWORD,
                                               LPCTSTR, LPCTSTR, LPCTSTR);
@@ -99,9 +100,9 @@ int usb_install_service_np(void)
   if(usb_registry_is_nt())
     {
       /* create the Display Name */
-      snprintf(display_name, sizeof(display_name) - 1,
+      _snprintf(display_name, sizeof(display_name) - 1,
                "LibUsb-Win32 - Kernel Driver, Version %d.%d.%d.%d", 
-               VERSION_MAJOR, VERSION_MINOR, VERSION_MICRO, VERSION_NANO);
+               LIBUSB_VERSION_MAJOR, LIBUSB_VERSION_MINOR, LIBUSB_VERSION_MICRO, LIBUSB_VERSION_NANO);
       
       /* create the kernel service */
       if(!usb_create_service(LIBUSB_DRIVER_NAME_NT, display_name, 
@@ -431,7 +432,7 @@ void CALLBACK usb_touch_inf_file_rundll(HWND wnd, HINSTANCE instance,
   const char inf_comment[] = ";added by libusb to break this file's digital "
     "signature";
   const wchar_t inf_comment_uni[] = L";added by libusb to break this file's "
-    "digital signature";
+    L"digital signature";
 
   char buf[1024];
   wchar_t wbuf[1024];

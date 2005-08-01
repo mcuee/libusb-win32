@@ -18,14 +18,6 @@ extern usb_error_type_t usb_error_type;
 	  return x; \
 	} while (0)
 
-#define USB_ERROR_STR(x, format, args...) \
-	do { \
-	  usb_error_type = USB_ERROR_TYPE_STRING; \
-	  snprintf(usb_error_str, sizeof(usb_error_str) - 1, format, ## args); \
-          if (usb_debug >= 2) \
-            fprintf(stderr, "USB error: %s\n", usb_error_str); \
-	  return x; \
-	} while (0)
 
 #endif /* _ERROR_H_ */
 
