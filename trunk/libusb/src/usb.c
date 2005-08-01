@@ -232,7 +232,8 @@ int usb_get_string(usb_dev_handle *dev, int index, int langid, char *buf,
 int usb_get_string_simple(usb_dev_handle *dev, int index, char *buf, size_t buflen)
 {
   char tbuf[255];	/* Some devices choke on size > 255 */
-  int ret, langid, si, di;
+  int ret, langid;
+  unsigned int si, di;
 
   /*
    * Asking for the zero'th index is special - it returns a string
@@ -260,7 +261,7 @@ int usb_get_string_simple(usb_dev_handle *dev, int index, char *buf, size_t bufl
   if (tbuf[0] > ret)
     return -EFBIG;
 
-  for (di = 0, si = 2; si < tbuf[0]; si += 2) {
+  for (di = 0, si = 2; si < (unsigned int) tbuf[0]; si += 2) {
     if (di >= (buflen - 1))
       break;
 

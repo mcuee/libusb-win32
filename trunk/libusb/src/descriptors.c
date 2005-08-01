@@ -425,7 +425,7 @@ void usb_fetch_and_parse_descriptors(usb_dev_handle *udev)
     int res;
 
     /* Get the first 8 bytes so we can figure out what the total length is */
-    res = usb_get_descriptor(udev, USB_DT_CONFIG, i, buffer, 8);
+    res = usb_get_descriptor(udev, USB_DT_CONFIG, (unsigned char) i, buffer, 8);
     if (res < 8) {
       if (usb_debug >= 1) {
         if (res < 0)
@@ -446,7 +446,7 @@ void usb_fetch_and_parse_descriptors(usb_dev_handle *udev)
       goto err;
     }
 
-    res = usb_get_descriptor(udev, USB_DT_CONFIG, i, bigbuffer, desc->wTotalLength);
+    res = usb_get_descriptor(udev, USB_DT_CONFIG, (unsigned char) i, bigbuffer, desc->wTotalLength);
     if (res < desc->wTotalLength) {
       if (usb_debug >= 1) {
         if (res < 0)

@@ -36,12 +36,13 @@ void usb_debug_error(const char *s, ...)
 {
   char tmp[512];
   va_list args;
+  int offset;
   
   memset(tmp, 0, sizeof(tmp));
 
-  int offset = sprintf(tmp, "LIBUSB: error: ");
+  offset = sprintf(tmp, "LIBUSB: error: ");
   va_start(args, s);
-  vsnprintf(tmp + offset, sizeof(tmp) - offset - 1, s, args);
+  _vsnprintf(tmp + offset, sizeof(tmp) - offset - 1, s, args);
   va_end(args);
   printf("%s\n",tmp);
 

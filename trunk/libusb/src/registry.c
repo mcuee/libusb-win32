@@ -17,8 +17,9 @@
  */
 
 
+#include <windows.h>
 #include <ctype.h>
-#include <ddk/cfgmgr32.h>
+#include <cfgmgr32.h>
 
 #include "registry.h"
 #include "win_debug.h"

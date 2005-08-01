@@ -33,4 +33,3 @@ char *usb_strerror(void)
 
   return "Unknown error";
 }
-

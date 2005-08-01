@@ -25,11 +25,11 @@ EXPORTS
     usb_device
     usb_get_busses
     usb_install_service_np
-    usb_install_service_np_rundll = usb_install_service_np_rundll@16
+    usb_install_service_np_rundll
     usb_uninstall_service_np
-    usb_uninstall_service_np_rundll = usb_uninstall_service_np_rundll@16
+    usb_uninstall_service_np_rundll
     usb_install_driver_np
-    usb_install_driver_np_rundll = usb_install_driver_np_rundll@16
+    usb_install_driver_np_rundll
     usb_get_version
     usb_isochronous_setup_async
     usb_bulk_setup_async
