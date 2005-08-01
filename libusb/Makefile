@@ -105,6 +105,7 @@ WIN_LDFLAGS = $(LDFLAGS) -mwindows
 DLL_LDFLAGS = -s -mwindows -shared -mno-cygwin \
 	-Wl,--kill-at \
 	-Wl,--out-implib,$(LIB_TARGET).a \
+	-Wl,--enable-stdcall-fixup \
 	-L. -lsetupapi -lcfgmgr32
 
 
