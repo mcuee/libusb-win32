@@ -27,7 +27,7 @@
 #include "usb.h"
 #include "registry.h"
 #include "win_debug.h"
-#include "driver_api.h"
+#include "driver/driver_api.h"
 
 
 #define LIBUSB_DRIVER_PATH  "system32\\drivers\\libusb0.sys"
