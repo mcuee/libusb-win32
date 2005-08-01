@@ -20,7 +20,13 @@
 #include <windows.h>
 #include <setupapi.h>
 #include <stdio.h>
+
+#ifdef __GNUC__
+#include <ddk/cfgmgr32.h>
+#else
 #include <cfgmgr32.h>
+#endif
+
 #include <regstr.h>
 #include <wchar.h>
 
