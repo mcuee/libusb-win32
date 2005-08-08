@@ -462,6 +462,37 @@ int usb_reap_async(void *context, int timeout)
   return ret;
 }
 
+int usb_reap_async_nocancel(void *context, int timeout)
+
+{
+  usb_context_t *c = (usb_context_t *)context;
+  ULONG ret = 0;
+    
+  if(!c)
+    {
+      usb_error("usb_reap_async_nocancel: invalid context");
+      return -EINVAL;
+    }
+
+  if(WaitForSingleObject(c->ol.hEvent, timeout) == WAIT_TIMEOUT)
+    {
+       /* request timed out */
+       usb_cancel_io(c);
+       usb_error("usb_reap_async_nocancel: timeout error");
+       return -ETIMEDOUT;
+    }
+  
+  if(!GetOverlappedResult(c->dev->impl_info, &c->ol, &ret, TRUE))
+    {
+      usb_error("usb_reap_async_nocancel: reaping request failed, "
+                "win error: %s",  usb_win_error_to_string());
+      return -usb_win_error_to_errno();
+    }
+
+  return ret;
+}
+
+
 int usb_cancel_async(void *context)
 {
   /* NOTE that this function will cancel all pending URBs */
