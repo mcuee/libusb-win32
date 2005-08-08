@@ -36,6 +36,7 @@ EXPORTS
     usb_interrupt_setup_async
     usb_submit_async
     usb_reap_async
+    usb_reap_async_nocancel
     usb_cancel_async
     usb_free_async
 

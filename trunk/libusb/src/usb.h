@@ -370,6 +370,7 @@ extern "C" {
 
   int usb_submit_async(void *context, char *bytes, int size);
   int usb_reap_async(void *context, int timeout);
+  int usb_reap_async_nocancel(void *context, int timeout);
   int usb_cancel_async(void *context);
   int usb_free_async(void **context);
 
