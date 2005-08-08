@@ -1,5 +1,8 @@
-#ifndef _ERROR_H_
-#define _ERROR_H_
+#ifndef __ERROR_H__
+#define __ERROR_H__
+
+/* Connection timed out */
+#define ETIMEDOUT 116	
 
 typedef enum {
   USB_ERROR_TYPE_NONE = 0,
@@ -7,16 +10,12 @@ typedef enum {
   USB_ERROR_TYPE_ERRNO,
 } usb_error_type_t;
 
-extern char usb_error_str[1024];
-extern int usb_error_errno;
-extern usb_error_type_t usb_error_type;
 
-#define USB_ERROR(x) \
-	do { \
-          usb_error_type = USB_ERROR_TYPE_ERRNO; \
-          usb_error_errno = x; \
-	  return x; \
-	} while (0)
+void usb_error(char *format, ...);
+void usb_message(char *format, ...);
+const char *usb_win_error_to_string(void);
+int usb_win_error_to_errno(void);
+
 
 
 #endif /* _ERROR_H_ */
