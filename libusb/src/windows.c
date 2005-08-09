@@ -871,20 +871,20 @@ int usb_os_find_busses(struct usb_bus **busses)
 
   num_busses = usb_registry_get_num_busses();
 
-  for(i = 0; i < num_busses; i++)
+  for(i = 1; i <= num_busses; i++)
     {
       bus = malloc(sizeof(struct usb_bus));
 
       if(!bus)
         {
-          usb_error("usb_os_find_busses:memory allocation failed");
+          usb_error("usb_os_find_busses: memory allocation failed");
           return -ENOMEM;
         }
 
       memset(bus, 0, sizeof(*bus));
       sprintf(bus->dirname, "%s%d", LIBUSB_BUS_NAME, i);
       
-      bus->location = i + 1;
+      bus->location = i;
 
       usb_message("usb_os_find_busses: found %s", bus->dirname);
 
@@ -899,11 +899,14 @@ int usb_os_find_busses(struct usb_bus **busses)
 int usb_os_find_devices(struct usb_bus *bus, struct usb_device **devices)
 {
   int i;
+  int num_busses;
   struct usb_device *dev, *fdev = NULL;
   char dev_name[LIBUSB_PATH_MAX];
   DWORD ret;
   HANDLE handle;
   libusb_request req;
+
+  num_busses = usb_registry_get_num_busses();
 
   for(i = 1; i < LIBUSB_MAX_DEVICES; i++)
     {
@@ -942,6 +945,14 @@ int usb_os_find_devices(struct usb_bus *bus, struct usb_device **devices)
           CloseHandle(handle);
           free(dev);
           continue;
+        }
+
+      /* make sure that the bus info is valid, otherwise connect this device */
+      /* to bus 1 */
+      if((req.device_info.bus > num_busses)
+         || !req.device_info.bus)
+        {
+          req.device_info.bus = 1;
         }
 
       if(req.device_info.bus != bus->location)
