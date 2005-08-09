@@ -275,14 +275,7 @@ int get_pipe_handle(libusb_device_t *dev, int endpoint_address,
             {
               *pipe_handle = dev->interfaces[i].endpoints[j].handle;
 
-              if(!*pipe_handle)
-                {
-                  return FALSE;
-                }
-              else
-                {
-                  return TRUE;
-                }
+              return !*pipe_handle ? FALSE : TRUE;
             }
         }
     }
