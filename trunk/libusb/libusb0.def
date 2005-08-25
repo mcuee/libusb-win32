@@ -30,6 +30,8 @@ EXPORTS
     usb_uninstall_service_np_rundll
     usb_install_driver_np
     usb_install_driver_np_rundll
+    usb_touch_inf_file_np
+    usb_touch_inf_file_np_rundll
     usb_get_version
     usb_isochronous_setup_async
     usb_bulk_setup_async
@@ -38,5 +40,7 @@ EXPORTS
     usb_reap_async
     usb_reap_async_nocancel
     usb_cancel_async
-    usb_free_async
+    usb_free_async  
+
+
 

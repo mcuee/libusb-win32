@@ -359,6 +359,11 @@ extern "C" {
   void CALLBACK usb_install_driver_np_rundll(HWND wnd, HINSTANCE instance,
                                              LPSTR cmd_line, int cmd_show);
 
+  #define LIBUSB_HAS_TOUCH_INF_FILE_NP 1
+  int usb_touch_inf_file_np(const char *inf_file);
+  void CALLBACK usb_touch_inf_file_np_rundll(HWND wnd, HINSTANCE instance,
+                                             LPSTR cmd_line, int cmd_show);
+
   const struct usb_version *usb_get_version(void);
 
   int usb_isochronous_setup_async(usb_dev_handle *dev, void **context,
