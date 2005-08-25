@@ -232,6 +232,7 @@ int reg_is_usb_device(DEVICE_OBJECT *physical_device_object);
 int reg_is_root_hub(DEVICE_OBJECT *physical_device_object);
 int reg_is_hub(DEVICE_OBJECT *physical_device_object);
 int reg_is_composite_interface(DEVICE_OBJECT *physical_device_object);
+int reg_get_id(DEVICE_OBJECT *physical_device_object, char *buf, int size);
 
 
 void mutex_init(mutex_t *mutex);

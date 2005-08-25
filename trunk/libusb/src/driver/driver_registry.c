@@ -33,7 +33,7 @@ static int reg_get_property(DEVICE_OBJECT *physical_device_object,
 static int reg_get_property(DEVICE_OBJECT *physical_device_object,
                             int property, char *data, int size)
 {
-  WCHAR tmp[512];
+  WCHAR tmp[256];
   ULONG ret;
   int i;
 
@@ -62,7 +62,7 @@ static int reg_get_property(DEVICE_OBJECT *physical_device_object,
 
 int reg_is_usb_device(DEVICE_OBJECT *physical_device_object)
 {
-  char tmp[512];
+  char tmp[256];
 
   if(reg_get_property(physical_device_object, DevicePropertyHardwareID, 
                       tmp, sizeof(tmp)))
@@ -78,7 +78,7 @@ int reg_is_usb_device(DEVICE_OBJECT *physical_device_object)
 
 int reg_is_root_hub(DEVICE_OBJECT *physical_device_object)
 {
-  char tmp[512];
+  char tmp[256];
 
   if(reg_get_property(physical_device_object, DevicePropertyHardwareID,
                       tmp, sizeof(tmp)))
@@ -94,7 +94,7 @@ int reg_is_root_hub(DEVICE_OBJECT *physical_device_object)
 
 int reg_is_hub(DEVICE_OBJECT *physical_device_object)
 {
-  char tmp[512];
+  char tmp[256];
 
   if(reg_get_property(physical_device_object, DevicePropertyHardwareID,
                       tmp, sizeof(tmp)))
@@ -110,7 +110,7 @@ int reg_is_hub(DEVICE_OBJECT *physical_device_object)
 
 int reg_is_composite_interface(DEVICE_OBJECT *physical_device_object)
 {
-  char tmp[512];
+  char tmp[256];
 
   if(reg_get_property(physical_device_object, DevicePropertyHardwareID, 
                       tmp, sizeof(tmp)))
@@ -163,4 +163,10 @@ int reg_is_filter_driver(DEVICE_OBJECT *physical_device_object)
     }
 
   return ret;
+}
+
+int reg_get_id(DEVICE_OBJECT *physical_device_object, char *buf, int size)
+{
+  return reg_get_property(physical_device_object, DevicePropertyHardwareID, 
+                          buf, size);
 }
