@@ -108,7 +108,8 @@ int usb_install_service_np(void)
       /* create the Display Name */
       _snprintf(display_name, sizeof(display_name) - 1,
                "LibUsb-Win32 - Kernel Driver, Version %d.%d.%d.%d", 
-               LIBUSB_VERSION_MAJOR, LIBUSB_VERSION_MINOR, LIBUSB_VERSION_MICRO, LIBUSB_VERSION_NANO);
+                LIBUSB_VERSION_MAJOR, LIBUSB_VERSION_MINOR, 
+                LIBUSB_VERSION_MICRO, LIBUSB_VERSION_NANO);
       
       /* create the kernel service */
       if(!usb_create_service(LIBUSB_DRIVER_NAME_NT, display_name, 
@@ -432,8 +433,13 @@ bool_t usb_create_service(const char *name, const char *display_name,
 }
 
 
-void CALLBACK usb_touch_inf_file_rundll(HWND wnd, HINSTANCE instance,
-                                        LPSTR cmd_line, int cmd_show)
+void CALLBACK usb_touch_inf_file_np_rundll(HWND wnd, HINSTANCE instance,
+                                           LPSTR cmd_line, int cmd_show)
+{
+  usb_touch_inf_file_np(cmd_line);
+}
+
+int usb_touch_inf_file_np(const char *inf_file)
 {
   const char inf_comment[] = ";added by libusb to break this file's digital "
     "signature";
@@ -449,16 +455,16 @@ void CALLBACK usb_touch_inf_file_rundll(HWND wnd, HINSTANCE instance,
   version.dwOSVersionInfoSize = sizeof(OSVERSIONINFO);
 
   if(!GetVersionEx(&version))
-     return;
+     return -1;
 
 
   /* XP system */
   if((version.dwMajorVersion == 5) && (version.dwMinorVersion >= 1))
     {
-      f = fopen(cmd_line, "rb");
+      f = fopen(inf_file, "rb");
       
       if(!f)
-        return;
+        return -1;
 
       while(fgetws(wbuf, sizeof(wbuf)/2, f))
         {
@@ -473,7 +479,7 @@ void CALLBACK usb_touch_inf_file_rundll(HWND wnd, HINSTANCE instance,
 
       if(!found)
         {
-          f = fopen(cmd_line, "ab");
+          f = fopen(inf_file, "ab");
 /*           fputwc(0x000d, f); */
 /*           fputwc(0x000d, f); */
           fputws(inf_comment_uni, f);
@@ -482,10 +488,10 @@ void CALLBACK usb_touch_inf_file_rundll(HWND wnd, HINSTANCE instance,
     }
   else
     {
-      f = fopen(cmd_line, "r");
+      f = fopen(inf_file, "r");
       
       if(!f)
-        return;
+        return -1;
 
       while(fgets(buf, sizeof(buf), f))
         {
@@ -500,11 +506,13 @@ void CALLBACK usb_touch_inf_file_rundll(HWND wnd, HINSTANCE instance,
 
       if(!found)
         {
-          f = fopen(cmd_line, "a");
+          f = fopen(inf_file, "a");
           fputs("\n", f);
           fputs(inf_comment, f);
           fputs("\n", f);
           fclose(f);
         }
     }
+
+  return 0;
 }
