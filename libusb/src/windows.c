@@ -92,7 +92,6 @@ BOOL WINAPI DllMain(HANDLE module, DWORD reason, LPVOID reserved)
   return TRUE;
 }
 
-
 static int usb_get_configuration(usb_dev_handle *dev)
 {
   int ret;
@@ -1155,8 +1154,6 @@ void usb_set_debug(int level)
   libusb_request req;
   int i;
   char dev_name[LIBUSB_PATH_MAX];
-
-  printf("test\n");
 
   if(__usb_debug || level)
     fprintf(stderr, "usb_set_debug: setting debugging level to %d (%s)\n",

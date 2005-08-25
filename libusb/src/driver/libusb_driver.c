@@ -68,14 +68,26 @@ NTSTATUS DDKAPI add_device(DRIVER_OBJECT *driver_object,
   UNICODE_STRING symbolic_link_name;
   WCHAR tmp_name_0[128];
   WCHAR tmp_name_1[128];
+  char id[256];
   int i;
 
-  /* only attach the class filter to USB devices, and don't attach it to 
-   composite device interfaces */
-  if(!reg_is_usb_device(physical_device_object)
-     || reg_is_composite_interface(physical_device_object))
+
+  /* don't attach the class filter to interface of composite USB devices */
+  if(reg_is_filter_driver(physical_device_object)
+     && reg_is_composite_interface(physical_device_object))
     {
       return STATUS_SUCCESS;
+    }
+
+  /* only attach the driver to USB devices */
+  if(!reg_is_usb_device(physical_device_object))
+    {
+      return STATUS_SUCCESS;
+    }
+
+  if(reg_get_id(physical_device_object, id, sizeof(id)))
+    {
+      DEBUG_MESSAGE("add_device(): new device detected, id: %s", id);
     }
 
   /* retrieve the device type of the lower device object */
@@ -141,7 +153,7 @@ NTSTATUS DDKAPI add_device(DRIVER_OBJECT *driver_object,
 
   dev->self = device_object;
   dev->physical_device_object = physical_device_object;
-  dev->id = i;
+  dev->id = i;  
   dev->is_filter = reg_is_filter_driver(physical_device_object);
 
   if(dev->is_filter)
@@ -252,6 +264,7 @@ NTSTATUS pass_irp_down(libusb_device_t *dev, IRP *irp)
 
 BOOL accept_irp(libusb_device_t *dev, IRP *irp)
 {
+  /* check if the IRP is sent to libusb's device object */
   if(irp->Tail.Overlay.OriginalFileObject)
     {
      return irp->Tail.Overlay.OriginalFileObject->DeviceObject
@@ -388,8 +401,6 @@ void update_device_info(libusb_device_t *dev)
 
   memset(&dev->topology_info.children, 0, sizeof(dev->topology_info.children));
 
-  mutex_lock(&device_list_mutex);
-
   for(i = 0; i < dev->topology_info.num_child_pdos; i++)
     {
       child_dev = device_list_find(dev, dev->topology_info.child_pdos[i]);
@@ -411,8 +422,6 @@ void update_device_info(libusb_device_t *dev)
             }
         }
     }
-
-  mutex_release(&device_list_mutex);
 }
 
 NTSTATUS get_device_info(libusb_device_t *dev, libusb_request *request, 
@@ -463,6 +472,8 @@ libusb_device_t *device_list_find(libusb_device_t *dev,
   DEVICE_OBJECT *device_object;
   libusb_device_t *fdev = NULL;
 
+  mutex_lock(&device_list_mutex);
+
   device_object = dev->self->DriverObject->DeviceObject;
 
   while(device_object)
@@ -471,12 +482,14 @@ libusb_device_t *device_list_find(libusb_device_t *dev,
 
       if(fdev->physical_device_object == physical_device_object)
         {
+          mutex_release(&device_list_mutex);
           return fdev;
         }
 
       device_object = device_object->NextDevice;
     }
 
+  mutex_release(&device_list_mutex);
   return NULL;
 }
 
