@@ -1,13 +1,13 @@
-*.inf
+*.h
 *.rc
 *.tgz
+*.tar.gz
 README
 *~
 *.sys
 *.exe
+*.exp
 *.lib
 *.a
 *.o
 *.dll
-./src/drivers/*.log
-i386
