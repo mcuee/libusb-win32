@@ -14,7 +14,7 @@
 
 [Setup]
 AppName=TestDrivers
-AppVerName=TestDrivers 0.1.10.1
+AppVerName=TestDrivers 0.1.10.2
 AppPublisher=TestDrivers
 AppPublisherURL=http://test.url.com/
 AppVersion=0.1.10.1

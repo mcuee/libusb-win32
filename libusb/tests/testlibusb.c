@@ -69,7 +69,8 @@ int print_device(struct usb_device *dev, int level)
   udev = usb_open(dev);
   if (udev) {
     if (dev->descriptor.iManufacturer) {
-      ret = usb_get_string_simple(udev, dev->descriptor.iManufacturer, string, sizeof(string));
+      ret = usb_get_string_simple(udev, dev->descriptor.iManufacturer, string,
+                                  sizeof(string));
       if (ret > 0)
         snprintf(description, sizeof(description), "%s - ", string);
       else
@@ -80,7 +81,8 @@ int print_device(struct usb_device *dev, int level)
                dev->descriptor.idVendor);
 
     if (dev->descriptor.iProduct) {
-      ret = usb_get_string_simple(udev, dev->descriptor.iProduct, string, sizeof(string));
+      ret = usb_get_string_simple(udev, dev->descriptor.iProduct, string, 
+                                  sizeof(string));
       if (ret > 0)
         snprintf(description + strlen(description), sizeof(description) -
                  strlen(description), "%s", string);
@@ -100,7 +102,8 @@ int print_device(struct usb_device *dev, int level)
 
   if (udev && verbose) {
     if (dev->descriptor.iSerialNumber) {
-      ret = usb_get_string_simple(udev, dev->descriptor.iSerialNumber, string, sizeof(string));
+      ret = usb_get_string_simple(udev, dev->descriptor.iSerialNumber, string,
+                                  sizeof(string));
       if (ret > 0)
         printf("%.*s  - Serial Number: %s\n", level * 2,
                "                    ", string);
@@ -134,6 +137,7 @@ int main(int argc, char *argv[])
     verbose = 1;
 
   usb_init();
+  usb_set_debug(0);
 
   usb_find_busses();
   usb_find_devices();

@@ -127,7 +127,7 @@ $(DRIVER_TARGET): libusbd.a driver_api.h $(DRIVER_OBJECTS)
 	$(CC) -o $@ $(DRIVER_OBJECTS) $(DLL_TARGET)_drv.def $(DRIVER_LDFLAGS)
 
 libusbd.a:
-	$(DLLTOOL) --dllname usbd.sys --def ./src/driver/usbd.def \
+	$(DLLTOOL) --dllname usbd.sys --add-underscore --def ./src/driver/usbd.def \
 		--output-lib libusbd.a
 
 inf-wizard.exe: inf_wizard_rc.o inf_wizard.o registry.o win_debug.o

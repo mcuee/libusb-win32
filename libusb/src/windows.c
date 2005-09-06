@@ -1312,7 +1312,7 @@ static int usb_abort_ep(usb_dev_handle *dev, unsigned int ep)
     {
       usb_error("usb_abort_ep: could not abort ep 0x%02x, win error: %s", 
                 ep, usb_win_error_to_string());
-       return -usb_win_error_to_errno();
+      return -usb_win_error_to_errno();
     }
   
   return 0;
