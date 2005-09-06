@@ -185,9 +185,11 @@ LRESULT CALLBACK win_proc(HWND win, UINT message, WPARAM w_param,
 
       PostQuitMessage(0);
       break;
+
     case WM_SIZE:
       on_size(LOWORD(l_param), HIWORD(l_param));
       break;
+
     case WM_COMMAND:
       switch(LOWORD(w_param))
         {
@@ -203,7 +205,6 @@ LRESULT CALLBACK win_proc(HWND win, UINT message, WPARAM w_param,
       break;
 
     case WM_DEVICECHANGE:
-      
       switch(w_param)
         {
         case DBT_DEVICEREMOVECOMPLETE:
@@ -218,9 +219,11 @@ LRESULT CALLBACK win_proc(HWND win, UINT message, WPARAM w_param,
           ;
         }
       break;
+
     default:
-      return DefWindowProc(win, message, w_param, l_param );
+      return DefWindowProc(win, message, w_param, l_param);
     }
+
   return 0;
 }
 
