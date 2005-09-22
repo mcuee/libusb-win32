@@ -42,7 +42,14 @@ NTSTATUS DDKAPI dispatch(DEVICE_OBJECT *device_object, IRP *irp)
     case IRP_MJ_CREATE:
       if(accept_irp(dev, irp))
         {
-          InterlockedIncrement(&dev->ref_count);
+          if(InterlockedIncrement(&dev->ref_count) == 1)
+            {
+              if(!dev->topology_info.is_root_hub)
+                {
+                  power_set_device_state(dev, PowerDeviceD0);
+                }
+            }
+
           return complete_irp(irp, STATUS_SUCCESS, 0);
         }
       break;
