@@ -87,7 +87,7 @@ VPATH = .:./src:./src/driver:./tests
 
 INCLUDES = -I./src -I./src/driver -I.
 
-CFLAGS = -O3 -Wall -mno-cygwin -mwindows
+CFLAGS = -O2 -Wall -mno-cygwin -mwindows
 
 CPPFLAGS = -DVERSION_MAJOR=$(VERSION_MAJOR) \
 	-DVERSION_MINOR=$(VERSION_MINOR) \
