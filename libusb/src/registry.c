@@ -915,7 +915,7 @@ static char *usb_registry_get_class_keys(void)
     {
       usb_debug_error("usb_registry_get_class_keys(): getting "
                       "device info set failed");
-      return 0;
+      return NULL;
     }
   
   while(SetupDiEnumDeviceInfo(dev_info, dev_index, &dev_info_data))
