@@ -20,6 +20,11 @@
 #include "libusb_driver.h"
 
 
+typedef struct {
+  KEVENT event;
+  NTSTATUS status;
+} power_context_t;
+
 NTSTATUS dispatch_power(libusb_device_t *dev, IRP *irp)
 {
   PoStartNextPowerIrp(irp);
@@ -27,3 +32,40 @@ NTSTATUS dispatch_power(libusb_device_t *dev, IRP *irp)
 
   return PoCallDriver(dev->next_stack_device, irp);
 }
+
+void DDKAPI power_set_state_complete(DEVICE_OBJECT *device_object,
+                                     UCHAR minor_function,
+                                     POWER_STATE power_state,
+                                     void *context,
+                                     IO_STATUS_BLOCK *io_status)
+{
+  power_context_t *c = (power_context_t *)context;
+
+	KeSetEvent(&c->event, EVENT_INCREMENT, FALSE);
+  c->status = io_status->Status;
+}
+
+
+void power_set_device_state(libusb_device_t *dev, 
+                            DEVICE_POWER_STATE device_state)
+{
+  power_context_t context;
+  POWER_STATE power_state;
+
+  power_state.DeviceState = device_state;
+
+  KeInitializeEvent(&context.event, NotificationEvent, FALSE);
+
+  context.status = PoRequestPowerIrp(dev->physical_device_object, 
+                                     IRP_MN_SET_POWER, 
+                                     power_state,
+                                     power_set_state_complete, 
+                                     &context, NULL);
+
+  if(context.status == STATUS_PENDING)
+    {
+			KeWaitForSingleObject(&context.event, Executive, KernelMode, 
+                            FALSE, NULL);
+    }
+}			
+

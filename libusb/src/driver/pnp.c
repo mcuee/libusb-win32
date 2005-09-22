@@ -1,8 +1,7 @@
 /* LIBUSB-WIN32, Generic Windows USB Library
  * Copyright (c) 2002-2005 Stephan Meyer <ste_meyer@web.de>
  *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
+ * This program is free software; you can redistribute it and/or modify * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; either version 2 of the License, or
  * (at your option) any later version.
  *
@@ -21,7 +20,7 @@
 
 
 extern int bus_index;
-extern mutex_t device_list_mutex;
+extern device_list_t device_list;
 
 static NTSTATUS DDKAPI 
 on_start_complete(DEVICE_OBJECT *device_object, IRP *irp, 
@@ -75,11 +74,9 @@ NTSTATUS dispatch_pnp(libusb_device_t *dev, IRP *irp)
       RtlInitUnicodeString(&symbolic_link_name, tmp_name);
       IoDeleteSymbolicLink(&symbolic_link_name);
 
+      device_list_remove(&device_list, dev);
       IoDetachDevice(dev->next_stack_device);
-
-      mutex_lock(&device_list_mutex);
       IoDeleteDevice(dev->self);
-      mutex_release(&device_list_mutex);
 
       return status;
 
@@ -91,20 +88,6 @@ NTSTATUS dispatch_pnp(libusb_device_t *dev, IRP *irp)
     case IRP_MN_START_DEVICE:
 
       DEBUG_MESSAGE("dispatch_pnp(): IRP_MN_START_DEVICE");
-
-      if(!reg_is_hub(dev->physical_device_object))
-        {
-          if(NT_SUCCESS(set_configuration(dev, 1, 1000)))
-            {
-              dev->configuration = 1;
-            }
-          else
-            {
-              DEBUG_ERROR("dispatch_pnp(): IRP_MN_START_DEVICE: selecting "
-                          "configuration failed");
-              dev->configuration = 0;
-            }
-        }
 
       IoCopyCurrentIrpStackLocationToNext(irp);
       IoSetCompletionRoutine(irp, on_start_complete, NULL, TRUE, TRUE, TRUE);
@@ -143,7 +126,7 @@ NTSTATUS dispatch_pnp(libusb_device_t *dev, IRP *irp)
       IoCopyCurrentIrpStackLocationToNext(irp);
       IoSetCompletionRoutine(irp, on_query_capabilities_complete, NULL,
                              TRUE, TRUE, TRUE);
-
+      
       return IoCallDriver(dev->next_stack_device, irp);
 
     case IRP_MN_QUERY_DEVICE_RELATIONS:
@@ -157,6 +140,7 @@ NTSTATUS dispatch_pnp(libusb_device_t *dev, IRP *irp)
                                  TRUE, TRUE, TRUE);
           return IoCallDriver(dev->next_stack_device, irp);
         }
+
       break;
 
     default:
@@ -184,9 +168,12 @@ on_start_complete(DEVICE_OBJECT *device_object, IRP *irp, void *context)
       device_object->Characteristics |= FILE_REMOVABLE_MEDIA;
     }
   
-  if(reg_is_root_hub(dev->physical_device_object))
+  dev->topology_info.is_hub = reg_is_hub(dev->physical_device_object);
+  dev->topology_info.is_root_hub 
+    = reg_is_root_hub(dev->physical_device_object);
+
+  if(dev->topology_info.is_root_hub)
     {
-      dev->topology_info.is_root_hub = 1;
       dev->topology_info.bus = bus_index;
       bus_index++;
     }
@@ -194,6 +181,33 @@ on_start_complete(DEVICE_OBJECT *device_object, IRP *irp, void *context)
     {
       /* default bus */
       dev->topology_info.bus = 1;
+    }
+
+  dev->is_filter = reg_is_filter_driver(dev->physical_device_object);
+
+  if(dev->is_filter)
+    {
+      /* send all IRP's to the PDO in filter driver mode */
+      dev->next_device = dev->physical_device_object;
+    }
+  else
+    {
+      /* send all IRP's to the next stack device in device driver mode */
+      dev->next_device = dev->next_stack_device;
+    }
+
+  if(!dev->topology_info.is_hub )
+    {
+      if(NT_SUCCESS(set_configuration(dev, 1, 1000)))
+        {
+          dev->configuration = 1;
+        }
+      else
+        {
+          DEBUG_ERROR("dispatch_pnp(): IRP_MN_START_DEVICE: selecting "
+                      "configuration failed");
+          dev->configuration = 0;
+        }
     }
 
   remove_lock_release(&dev->remove_lock);

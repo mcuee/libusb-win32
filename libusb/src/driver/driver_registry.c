@@ -37,6 +37,11 @@ static int reg_get_property(DEVICE_OBJECT *physical_device_object,
   ULONG ret;
   int i;
 
+  if(!physical_device_object || !data || !size)
+    {
+      return FALSE;
+    }
+
   memset(data, 0, size);
   memset(tmp, 0, sizeof(tmp));
 
@@ -64,6 +69,11 @@ int reg_is_usb_device(DEVICE_OBJECT *physical_device_object)
 {
   char tmp[256];
 
+  if(!physical_device_object)
+    {
+      return FALSE;
+    }
+
   if(reg_get_property(physical_device_object, DevicePropertyHardwareID, 
                       tmp, sizeof(tmp)))
     {
@@ -79,6 +89,11 @@ int reg_is_usb_device(DEVICE_OBJECT *physical_device_object)
 int reg_is_root_hub(DEVICE_OBJECT *physical_device_object)
 {
   char tmp[256];
+
+  if(!physical_device_object)
+    {
+      return FALSE;
+    }
 
   if(reg_get_property(physical_device_object, DevicePropertyHardwareID,
                       tmp, sizeof(tmp)))
@@ -96,6 +111,11 @@ int reg_is_hub(DEVICE_OBJECT *physical_device_object)
 {
   char tmp[256];
 
+  if(!physical_device_object)
+    {
+      return FALSE;
+    }
+
   if(reg_get_property(physical_device_object, DevicePropertyHardwareID,
                       tmp, sizeof(tmp)))
     {
@@ -111,6 +131,11 @@ int reg_is_hub(DEVICE_OBJECT *physical_device_object)
 int reg_is_composite_interface(DEVICE_OBJECT *physical_device_object)
 {
   char tmp[256];
+
+  if(!physical_device_object)
+    {
+      return FALSE;
+    }
 
   if(reg_get_property(physical_device_object, DevicePropertyHardwareID, 
                       tmp, sizeof(tmp)))
@@ -132,6 +157,11 @@ int reg_is_filter_driver(DEVICE_OBJECT *physical_device_object)
   KEY_VALUE_FULL_INFORMATION *info;
   DWORD length;
   int ret = TRUE;
+
+  if(!physical_device_object)
+    {
+      return FALSE;
+    }
 
   status = IoOpenDeviceRegistryKey(physical_device_object,
                                    PLUGPLAY_REGKEY_DEVICE,
@@ -165,8 +195,13 @@ int reg_is_filter_driver(DEVICE_OBJECT *physical_device_object)
   return ret;
 }
 
-int reg_get_id(DEVICE_OBJECT *physical_device_object, char *buf, int size)
+int reg_get_id(DEVICE_OBJECT *physical_device_object, char *data, int size)
 {
+  if(!physical_device_object || !data || !size)
+    {
+      return FALSE;
+    }
+
   return reg_get_property(physical_device_object, DevicePropertyHardwareID, 
-                          buf, size);
+                          data, size);
 }
