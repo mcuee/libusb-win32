@@ -22,7 +22,10 @@
 #include "libusb_driver.h"
 
 int bus_index;
-mutex_t device_list_mutex;
+device_list_t device_list;
+
+static libusb_device_t *
+device_list_find(device_list_t *list, DEVICE_OBJECT *physical_device_object);
 
 static void DDKAPI unload(DRIVER_OBJECT *driver_object);
 static NTSTATUS DDKAPI add_device(DRIVER_OBJECT *driver_object, 
@@ -42,7 +45,8 @@ NTSTATUS DDKAPI DriverEntry(DRIVER_OBJECT *driver_object,
   /* initialize global variables */
   bus_index = 1;
   debug_level = LIBUSB_DEBUG_MSG;
-  mutex_init(&device_list_mutex);
+
+  device_list_init(&device_list);
 
   /* initialize the driver object's dispatch table */
   for(i = 0; i <= IRP_MJ_MAXIMUM_FUNCTION; i++) 
@@ -62,39 +66,49 @@ NTSTATUS DDKAPI add_device(DRIVER_OBJECT *driver_object,
   NTSTATUS status;
   DEVICE_OBJECT *device_object = NULL;
   libusb_device_t *dev;
-  ULONG device_type = FILE_DEVICE_UNKNOWN;
+  ULONG device_type;
 
   UNICODE_STRING nt_device_name;
   UNICODE_STRING symbolic_link_name;
   WCHAR tmp_name_0[128];
   WCHAR tmp_name_1[128];
-  char id[256];
+  char id[128];
+
   int i;
 
 
-  /* don't attach the class filter to interface of composite USB devices */
+  /* only attach the driver to USB devices */
+   if(!reg_is_usb_device(physical_device_object))
+    {
+      return STATUS_SUCCESS;
+    }
+
+  /* don't attach the class filter to interfaces of composite USB devices */
   if(reg_is_filter_driver(physical_device_object)
      && reg_is_composite_interface(physical_device_object))
     {
       return STATUS_SUCCESS;
     }
 
-  /* only attach the driver to USB devices */
-  if(!reg_is_usb_device(physical_device_object))
-    {
-      return STATUS_SUCCESS;
-    }
-
   if(reg_get_id(physical_device_object, id, sizeof(id)))
     {
-      DEBUG_MESSAGE("add_device(): new device detected, id: %s", id);
+      DEBUG_MESSAGE("add_device(): device %s found", id);
     }
+
 
   /* retrieve the device type of the lower device object */
   device_object = IoGetAttachedDeviceReference(physical_device_object);
-  device_type = device_object->DeviceType;
-  ObDereferenceObject(device_object);
-  
+
+  if(device_object)
+    {
+      device_type = device_object->DeviceType;
+      ObDereferenceObject(device_object);
+    }
+  else
+    {
+      device_type = FILE_DEVICE_UNKNOWN;
+    }
+
 
   /* try to create a new device object */
   for(i = 1; i < LIBUSB_MAX_NUMBER_OF_DEVICES; i++)
@@ -109,14 +123,10 @@ NTSTATUS DDKAPI add_device(DRIVER_OBJECT *driver_object,
       RtlInitUnicodeString(&nt_device_name, tmp_name_0);  
       RtlInitUnicodeString(&symbolic_link_name, tmp_name_1);
 
-      mutex_lock(&device_list_mutex);
-
       status = IoCreateDevice(driver_object, 
                               sizeof(libusb_device_t), 
                               &nt_device_name, device_type, 0, FALSE, 
                               &device_object);
-
-      mutex_release(&device_list_mutex);
 
       if(NT_SUCCESS(status))
         {
@@ -144,9 +154,18 @@ NTSTATUS DDKAPI add_device(DRIVER_OBJECT *driver_object,
 
   memset(dev, 0, sizeof(libusb_device_t));
 
+
   /* attach the newly created device object to the stack */
   dev->next_stack_device = 
     IoAttachDeviceToDeviceStack(device_object, physical_device_object);
+
+  if(!dev->next_stack_device)
+    {
+      DEBUG_ERROR("add_device(): attaching to device stack failed");
+      IoDeleteSymbolicLink(&symbolic_link_name);
+      IoDeleteDevice(device_object);
+      return STATUS_NO_SUCH_DEVICE;
+    }
 
   device_object->DeviceType = dev->next_stack_device->DeviceType;
   device_object->Characteristics = dev->next_stack_device->Characteristics;
@@ -154,27 +173,16 @@ NTSTATUS DDKAPI add_device(DRIVER_OBJECT *driver_object,
   dev->self = device_object;
   dev->physical_device_object = physical_device_object;
   dev->id = i;  
-  dev->is_filter = reg_is_filter_driver(physical_device_object);
-
-  if(dev->is_filter)
-    {
-      /* send all IRP's to the PDO in filter driver mode */
-      dev->next_device = physical_device_object;
-    }
-  else
-    {
-      /* send all IRP's to the next stack device in device driver mode */
-      dev->next_device = dev->next_stack_device;
-    }
 
   clear_pipe_info(dev);
-
   remove_lock_initialize(&dev->remove_lock);
 
   device_object->Flags |= dev->next_stack_device->Flags
     & (DO_BUFFERED_IO | DO_DIRECT_IO | DO_POWER_PAGABLE);
 
   device_object->Flags &= ~DO_DEVICE_INITIALIZING;
+
+  device_list_insert(&device_list, dev);
 
   return status;
 }
@@ -392,38 +400,6 @@ void remove_lock_release_and_wait(libusb_remove_lock_t *remove_lock)
                         FALSE, NULL);
 }
 
-void update_device_info(libusb_device_t *dev)
-{
-  int i;
-  libusb_device_t *child_dev = NULL;
-
-  dev->topology_info.num_children = 0;
-
-  memset(&dev->topology_info.children, 0, sizeof(dev->topology_info.children));
-
-  for(i = 0; i < dev->topology_info.num_child_pdos; i++)
-    {
-      child_dev = device_list_find(dev, dev->topology_info.child_pdos[i]);
-
-      if(child_dev)
-        {
-          child_dev->topology_info.parent = dev->id;
-          child_dev->topology_info.bus = dev->topology_info.bus;
-
-          if(dev->topology_info.num_children < LIBUSB_MAX_NUMBER_OF_CHILDREN)
-            {
-              dev->topology_info.children[dev->topology_info.num_children].id 
-                = child_dev->id;
-
-              dev->topology_info.children[dev->topology_info.num_children].port
-                = child_dev->topology_info.port;
-
-              dev->topology_info.num_children++;
-            }
-        }
-    }
-}
-
 NTSTATUS get_device_info(libusb_device_t *dev, libusb_request *request, 
                          int *ret)
 {
@@ -431,7 +407,7 @@ NTSTATUS get_device_info(libusb_device_t *dev, libusb_request *request,
 
   if(dev->topology_info.update_children)
     {
-      update_device_info(dev);
+      device_list_update_info(&device_list, dev);
       dev->topology_info.update_children = 0;
     }
 
@@ -465,45 +441,102 @@ NTSTATUS get_device_info(libusb_device_t *dev, libusb_request *request,
   return STATUS_SUCCESS;
 }
 
-
-libusb_device_t *device_list_find(libusb_device_t *dev, 
-                                  DEVICE_OBJECT *physical_device_object)
+void device_list_init(device_list_t *list)
 {
-  DEVICE_OBJECT *device_object;
-  libusb_device_t *fdev = NULL;
+  list->head = NULL;
+  KeInitializeEvent(&list->event, SynchronizationEvent, TRUE);
+}
 
-  mutex_lock(&device_list_mutex);
+void device_list_insert(device_list_t *list, libusb_device_t *dev)
+{
+  KeWaitForSingleObject(&list->event, Executive, KernelMode,
+                        FALSE, NULL);
 
-  device_object = dev->self->DriverObject->DeviceObject;
+  dev->next = list->head;
+  list->head = dev;
 
-  while(device_object)
+  KeSetEvent(&list->event, 0, FALSE);
+}
+
+void device_list_remove(device_list_t *list, libusb_device_t *dev)
+{
+  libusb_device_t *p;
+
+  KeWaitForSingleObject(&list->event, Executive, KernelMode,
+                        FALSE, NULL);
+
+  if(list->head == dev)
     {
-      fdev = (libusb_device_t *)device_object->DeviceExtension;
-
-      if(fdev->physical_device_object == physical_device_object)
+      list->head = dev->next;
+    }
+  else
+    {
+      p = list->head;
+      
+      while(p)
         {
-          mutex_release(&device_list_mutex);
-          return fdev;
+          if(p->next == dev)
+            {
+              p->next = dev->next;
+            }
+          p = p->next;
         }
-
-      device_object = device_object->NextDevice;
     }
 
-  mutex_release(&device_list_mutex);
+  KeSetEvent(&list->event, 0, FALSE);
+}
+
+static libusb_device_t *
+device_list_find(device_list_t *list, DEVICE_OBJECT *physical_device_object)
+{
+  libusb_device_t *dev = list->head;
+
+  while(dev)
+    {
+      if(dev->physical_device_object == physical_device_object)
+        {
+          return dev;
+        }
+
+      dev = dev->next;
+    }
+
   return NULL;
 }
 
-void mutex_init(mutex_t *mutex)
+void device_list_update_info(device_list_t *list, libusb_device_t *dev)
 {
-  KeInitializeSpinLock(&mutex->lock);
-}
+  int i;
+  libusb_device_t *child_dev;
 
-void mutex_lock(mutex_t *mutex)
-{
-  KeAcquireSpinLock(&mutex->lock, &mutex->irq_level);
-}
+  dev->topology_info.num_children = 0;
 
-void mutex_release(mutex_t *mutex)
-{
-  KeReleaseSpinLock(&mutex->lock, mutex->irq_level);
+  memset(&dev->topology_info.children, 0, sizeof(dev->topology_info.children));
+
+  KeWaitForSingleObject(&list->event, Executive, KernelMode,
+                        FALSE, NULL);
+
+  for(i = 0; i < dev->topology_info.num_child_pdos; i++)
+    {
+      child_dev = device_list_find(list, dev->topology_info.child_pdos[i]);
+
+      if(child_dev)
+        {
+          child_dev->topology_info.parent = dev->id;
+          child_dev->topology_info.bus = dev->topology_info.bus;
+
+          if(dev->topology_info.num_children < LIBUSB_MAX_NUMBER_OF_CHILDREN)
+            {
+              dev->topology_info.children[dev->topology_info.num_children].id 
+                = child_dev->id;
+
+              dev->topology_info.children[dev->topology_info.num_children].port
+                = child_dev->topology_info.port;
+
+              dev->topology_info.num_children++;
+            }
+        }
+    }
+
+  KeSetEvent(&list->event, 0, FALSE);
 }
