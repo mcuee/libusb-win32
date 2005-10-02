@@ -58,8 +58,9 @@ bool_t usb_registry_set_property(DWORD which, HDEVINFO dev_info,
 
 bool_t usb_registry_restart_root_hubs(void);
 
-bool_t usb_registry_insert_filter(void);
-bool_t usb_registry_remove_filter(void);
+bool_t usb_registry_insert_class_filter(void);
+bool_t usb_registry_remove_class_filter(void);
+bool_t usb_registry_remove_device_filter(void);
 
 void usb_registry_stop_libusb_devices(void);
 void usb_registry_start_libusb_devices(void);
