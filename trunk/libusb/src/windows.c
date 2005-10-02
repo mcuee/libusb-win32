@@ -1156,11 +1156,10 @@ void usb_set_debug(int level)
   char dev_name[LIBUSB_PATH_MAX];
 
   if(__usb_debug || level)
-    fprintf(stderr, "usb_set_debug: setting debugging level to %d (%s)\n",
-            level, level ? "on" : "off");
-
-  printf("usb_set_debug: setting debugging level to %d (%s)\n",
-         level, level ? "on" : "off");
+    {
+      usb_message("usb_set_debug: setting debugging level to %d (%s)\n",
+                  level, level ? "on" : "off");
+    }
 
   __usb_debug = level;
 
