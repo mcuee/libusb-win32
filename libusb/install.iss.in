@@ -17,23 +17,27 @@
 
 
 [Setup]
-AppName=LibUSB-Win32
-AppVerName=LibUSB-Win32-@VERSION@
-AppId=LibUSB-Win32
-AppPublisher=LibUSB-Win32 
-AppPublisherURL=http://libusb-win32.sourceforge.net/ 
-AppVersion=@VERSION@
-DefaultDirName={pf}\LibUSB-Win32
-DefaultGroupName=LibUSB-Win32
-LicenseFile=installer_license.txt
-Compression=lzma
-SolidCompression=yes
-MinVersion=4,5
+AppName = LibUSB-Win32
+AppVerName = LibUSB-Win32-@VERSION@
+AppId = LibUSB-Win32
+AppPublisher = LibUSB-Win32 
+AppPublisherURL = http://libusb-win32.sourceforge.net
+AppVersion = @VERSION@
+DefaultDirName = {pf}\LibUSB-Win32
+DefaultGroupName = LibUSB-Win32
+LicenseFile = installer_license.txt
+Compression = lzma
+SolidCompression = yes
+OutputDir = .
+OutputBaseFilename = libusb-win32-filter-bin-@VERSION@
+; requires Win98SE, Win2k, or higher
+MinVersion = 4.1.2222, 5 
 PrivilegesRequired=admin
 
+
 [Files]
-Source: "*.sys"; DestDir: "{win}\system32\drivers"; Flags: uninsneveruninstall replacesameversion restartreplace
-Source: "*.dll"; DestDir: "{win}\system32"; Flags: uninsneveruninstall replacesameversion restartreplace
+Source: "*.sys"; DestDir: "{win}\system32\drivers"; Flags: uninsneveruninstall replacesameversion restartreplace promptifolder
+Source: "*.dll"; DestDir: "{win}\system32"; Flags: uninsneveruninstall replacesameversion restartreplace promptifolder
 
 Source: "@BIN_DIST_DIR@\lib\*.*"; DestDir: "{app}\lib"; Flags: recursesubdirs
 Source: "@BIN_DIST_DIR@\include\*.h"; DestDir: "{app}\include"; Flags: recursesubdirs
@@ -54,7 +58,7 @@ Name: "{group}\LGPL License"; Filename: "{app}\COPYING_GPL.txt"
 
 
 [Run]
-Filename: "rundll32"; Parameters: "libusb0.dll,usb_install_service_np_rundll"; StatusMsg: "Creating kernel service (this may take a few seconds) ..." 
+Filename: "rundll32"; Parameters: "libusb0.dll,usb_install_service_np_rundll"; StatusMsg: "Creating kernel service (this may take a few seconds) ..."
 Filename: "{app}\bin\testlibusb-win.exe"; Description: "Run test application"; Flags: postinstall
 
 
@@ -63,18 +67,3 @@ Filename: "rundll32"; Parameters: "libusb0.dll,usb_uninstall_service_np_rundll"
 
 [Messages]
 StatusUninstalling=Uninstalling %1 (this may take a few seconds) ...
-
-
-[Code]
-function InitializeSetup(): Boolean;
-  begin 
-  if FileExists(GetWinDir() + '\system32\libusbd-nt.exe') 
-    or FileExists(GetWinDir() + '\system32\libusbd-9x.exe') then begin
-      MsgBox('An old version of LibUsb-Win32 is already installed on this system. Please uninstall that version first!', 
-              mbError, MB_OK);
-      Result := FALSE;
-  end
-  else begin
-      Result := TRUE;
-  end;
-end;
