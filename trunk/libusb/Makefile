@@ -42,6 +42,7 @@ ISCC = iscc
 INSTALL = install
 LIB = lib
 IMPLIB = implib
+UNIX2DOS = unix2dos
 
 VERSION_MAJOR = 0
 VERSION_MINOR = 1
@@ -57,7 +58,6 @@ TARGET = libusb
 DLL_TARGET = $(TARGET)$(VERSION_MAJOR)
 LIB_TARGET = $(TARGET)
 DRIVER_TARGET = $(TARGET)$(VERSION_MAJOR).sys
-INSTALLER_TARGET = libusb-win32-filter-bin-$(VERSION).exe
 
 INSTALL_DIR = /usr
 OBJECTS = usb.o error.o descriptors.o windows.o resource.o install.o \
@@ -118,7 +118,6 @@ EXE_FILES = testlibusb.exe testlibusb-win.exe inf-wizard.exe
 
 .PHONY: all
 all: $(DLL_TARGET).dll $(EXE_FILES) $(DRIVER_TARGET) README.txt
-	unix2dos *.txt
 
 $(DLL_TARGET).dll: driver_api.h $(OBJECTS)
 	$(CC) -o $@ $(OBJECTS) $(DLL_TARGET).def $(DLL_LDFLAGS)
@@ -130,7 +129,7 @@ libusbd.a:
 	$(DLLTOOL) --dllname usbd.sys --add-underscore --def ./src/driver/usbd.def \
 		--output-lib libusbd.a
 
-inf-wizard.exe: inf_wizard_rc.o inf_wizard.o registry.o win_debug.o
+inf-wizard.exe: inf_wizard_rc.o inf_wizard.o registry.o win_debug.o error.o
 	$(CC) $(CFLAGS) -o $@ -I./src  $^ $(WIN_LDFLAGS)
 
 testlibusb.exe: testlibusb.o resource.o 
@@ -194,6 +193,8 @@ bin_dist: all
 	$(INSTALL) $(SRC_DIR)/libusb_dyn.c $(BIN_DIST_DIR)/lib/dynamic
 	$(INSTALL) $(DIST_MISC_FILES) README.txt $(BIN_DIST_DIR)
 	$(INSTALL) ./examples/*.iss $(BIN_DIST_DIR)/examples
+	$(UNIX2DOS) $(BIN_DIST_DIR)/examples/*.iss
+	$(UNIX2DOS) $(BIN_DIST_DIR)/*.txt
 
 .PHONY: src_dist
 src_dist:
@@ -214,9 +215,9 @@ src_dist:
 	$(INSTALL) $(SRC_DIR)/driver/*.def $(SRC_DIST_DIR)/src/driver
 
 	$(INSTALL) ./tests/*.c $(SRC_DIST_DIR)/tests
-
 	$(INSTALL) $(DIST_MISC_FILES) *.in Makefile *.manifest *.def \
 		installer_license.txt $(SRC_DIST_DIR)
+	$(UNIX2DOS) $(SRC_DIST_DIR)/*.txt
 
 
 .PHONY: dist
@@ -226,12 +227,10 @@ dist: bin_dist src_dist
 		-e 's/@SRC_DIST_DIR@/$(SRC_DIST_DIR)/' \
 		-e 's/@INSTALLER_TARGET@/$(INSTALLER_TARGET)/' \
 		install.iss.in > install.iss
-	unix2dos install.iss
+	$(UNIX2DOS) install.iss
 	$(TAR) -czf $(SRC_DIST_DIR).tar.gz $(SRC_DIST_DIR) 
 	$(TAR) -czf $(BIN_DIST_DIR).tar.gz $(BIN_DIST_DIR)
 	$(ISCC) install.iss
-	$(MV) ./Output/setup.exe $(INSTALLER_NAME)
-	$(RM) ./Output
 	$(RM) $(SRC_DIST_DIR)
 	$(RM) $(BIN_DIST_DIR)
 
