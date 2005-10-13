@@ -21,11 +21,9 @@
 
 #include "libusb_driver.h"
 
-int bus_index;
-device_list_t device_list;
 
 static libusb_device_t *
-device_list_find(device_list_t *list, DEVICE_OBJECT *physical_device_object);
+device_list_find(DEVICE_OBJECT *physical_device_object);
 
 static void DDKAPI unload(DRIVER_OBJECT *driver_object);
 static NTSTATUS DDKAPI add_device(DRIVER_OBJECT *driver_object, 
@@ -43,10 +41,10 @@ NTSTATUS DDKAPI DriverEntry(DRIVER_OBJECT *driver_object,
   DEBUG_MESSAGE("DriverEntry(): loading driver");
 
   /* initialize global variables */
-  bus_index = 1;
-  debug_level = LIBUSB_DEBUG_MSG;
+  driver_globals.bus_index = 1;
+  driver_globals.debug_level = LIBUSB_DEBUG_MSG;
 
-  device_list_init(&device_list);
+  device_list_init();
 
   /* initialize the driver object's dispatch table */
   for(i = 0; i <= IRP_MJ_MAXIMUM_FUNCTION; i++) 
@@ -78,7 +76,7 @@ NTSTATUS DDKAPI add_device(DRIVER_OBJECT *driver_object,
 
 
   /* only attach the driver to USB devices */
-   if(!reg_is_usb_device(physical_device_object))
+  if(!reg_is_usb_device(physical_device_object))
     {
       return STATUS_SUCCESS;
     }
@@ -182,8 +180,6 @@ NTSTATUS DDKAPI add_device(DRIVER_OBJECT *driver_object,
 
   device_object->Flags &= ~DO_DEVICE_INITIALIZING;
 
-  device_list_insert(&device_list, dev);
-
   return status;
 }
 
@@ -192,7 +188,6 @@ VOID DDKAPI unload(DRIVER_OBJECT *driver_object)
 {
   DEBUG_MESSAGE("unload(): unloading driver");
 }
-
 
 NTSTATUS complete_irp(IRP *irp, NTSTATUS status, ULONG info)
 {
@@ -407,7 +402,7 @@ NTSTATUS get_device_info(libusb_device_t *dev, libusb_request *request,
 
   if(dev->topology_info.update_children)
     {
-      device_list_update_info(&device_list, dev);
+      device_list_update_info(dev);
       dev->topology_info.update_children = 0;
     }
 
@@ -441,29 +436,32 @@ NTSTATUS get_device_info(libusb_device_t *dev, libusb_request *request,
   return STATUS_SUCCESS;
 }
 
-void device_list_init(device_list_t *list)
+void device_list_init(void)
 {
+  device_list_t *list = &driver_globals.device_list;
+
   list->head = NULL;
-  KeInitializeEvent(&list->event, SynchronizationEvent, TRUE);
+  KeInitializeSpinLock(&list->lock);
 }
 
-void device_list_insert(device_list_t *list, libusb_device_t *dev)
+void device_list_insert(libusb_device_t *dev)
 {
-  KeWaitForSingleObject(&list->event, Executive, KernelMode,
-                        FALSE, NULL);
+  device_list_t *list = &driver_globals.device_list;
 
-  dev->next = list->head;
-  list->head = dev;
+  KeAcquireSpinLock(&list->lock, &list->old_irql);
 
-  KeSetEvent(&list->event, 0, FALSE);
+  dev->next = driver_globals.device_list.head;
+  driver_globals.device_list.head = dev;
+
+  KeReleaseSpinLock(&list->lock, list->old_irql);
 }
 
-void device_list_remove(device_list_t *list, libusb_device_t *dev)
+void device_list_remove(libusb_device_t *dev)
 {
   libusb_device_t *p;
+  device_list_t *list = &driver_globals.device_list;
 
-  KeWaitForSingleObject(&list->event, Executive, KernelMode,
-                        FALSE, NULL);
+  KeAcquireSpinLock(&list->lock, &list->old_irql);
 
   if(list->head == dev)
     {
@@ -483,13 +481,13 @@ void device_list_remove(device_list_t *list, libusb_device_t *dev)
         }
     }
 
-  KeSetEvent(&list->event, 0, FALSE);
+  KeReleaseSpinLock(&list->lock, list->old_irql);
 }
 
-static libusb_device_t *
-device_list_find(device_list_t *list, DEVICE_OBJECT *physical_device_object)
+static libusb_device_t * 
+device_list_find(DEVICE_OBJECT *physical_device_object)
 {
-  libusb_device_t *dev = list->head;
+  libusb_device_t *dev = driver_globals.device_list.head;
 
   while(dev)
     {
@@ -504,21 +502,21 @@ device_list_find(device_list_t *list, DEVICE_OBJECT *physical_device_object)
   return NULL;
 }
 
-void device_list_update_info(device_list_t *list, libusb_device_t *dev)
+void device_list_update_info(libusb_device_t *dev)
 {
   int i;
   libusb_device_t *child_dev;
+  device_list_t *list = &driver_globals.device_list;
 
   dev->topology_info.num_children = 0;
 
   memset(&dev->topology_info.children, 0, sizeof(dev->topology_info.children));
 
-  KeWaitForSingleObject(&list->event, Executive, KernelMode,
-                        FALSE, NULL);
+  KeAcquireSpinLock(&list->lock, &list->old_irql);
 
   for(i = 0; i < dev->topology_info.num_child_pdos; i++)
     {
-      child_dev = device_list_find(list, dev->topology_info.child_pdos[i]);
+      child_dev = device_list_find(dev->topology_info.child_pdos[i]);
 
       if(child_dev)
         {
@@ -538,5 +536,5 @@ void device_list_update_info(device_list_t *list, libusb_device_t *dev)
         }
     }
 
-  KeSetEvent(&list->event, 0, FALSE);
+  KeReleaseSpinLock(&list->lock, list->old_irql);
 }

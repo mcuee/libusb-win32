@@ -33,7 +33,7 @@ static int reg_get_property(DEVICE_OBJECT *physical_device_object,
 static int reg_get_property(DEVICE_OBJECT *physical_device_object,
                             int property, char *data, int size)
 {
-  WCHAR tmp[256];
+  WCHAR tmp[512];
   ULONG ret;
   int i;
 
@@ -52,7 +52,7 @@ static int reg_get_property(DEVICE_OBJECT *physical_device_object,
                                     &ret)) && ret)
     {
       /* convert unicode string to normal character string */
-      for(i = 0; (i < ret/2) && (i < size); i++)
+      for(i = 0; (i < ret/2) && (i < (size - 1)); i++)
         {
           data[i] = (char)tmp[i];
         }
@@ -174,7 +174,7 @@ int reg_is_filter_driver(DEVICE_OBJECT *physical_device_object)
       length = sizeof(KEY_VALUE_FULL_INFORMATION) + name.MaximumLength
         + sizeof(ULONG);
 
-      info = ExAllocatePool(PagedPool, length);
+      info = ExAllocatePool(NonPagedPool, length);
       
       if(info) 
         {

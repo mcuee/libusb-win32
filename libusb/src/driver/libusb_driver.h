@@ -59,27 +59,23 @@
 
 #define LIBUSB_DEFAULT_TIMEOUT  5000   
 
-#ifdef __LIBUSB_DRIVER_C__
-int debug_level;
-#else
-extern int debug_level;
-#endif
 
 #ifdef DBG
 
-#define DEBUG_PRINT_NL() if(debug_level >= LIBUSB_DEBUG_MSG) KdPrint(("\n"))
+#define DEBUG_PRINT_NL() \
+  if(driver_globals.debug_level >= LIBUSB_DEBUG_MSG) KdPrint(("\n"))
 
-#define DEBUG_SET_LEVEL(level) debug_level = level
+#define DEBUG_SET_LEVEL(level) driver_globals.debug_level = level
 
 #define DEBUG_MESSAGE(format, args...) \
   do { \
-     if(LIBUSB_DEBUG_MSG <= debug_level) \
+     if(LIBUSB_DEBUG_MSG <= driver_globals.debug_level) \
         KdPrint(("LIBUSB-DRIVER - " format, ## args)); \
      } while(0)
 
 #define DEBUG_ERROR(format, args...) \
   do { \
-     if(LIBUSB_DEBUG_ERR <= debug_level) \
+     if(LIBUSB_DEBUG_ERR <= driver_globals.debug_level) \
         KdPrint(("LIBUSB-DRIVER - " format, ## args)); \
      } while(0)
 
@@ -158,8 +154,22 @@ struct _libusb_device_t
 typedef struct 
 {
   libusb_device_t *head;
-  KEVENT event;
+  KSPIN_LOCK lock;
+  KIRQL old_irql;
 } device_list_t;
+
+typedef struct {
+  LONG bus_index;
+  int debug_level;
+  device_list_t device_list;
+} driver_globals_t;
+
+#ifdef __LIBUSB_DRIVER_C__
+driver_globals_t driver_globals;
+#else
+extern driver_globals_t driver_globals;;
+#endif
+
 
 NTSTATUS DDKAPI dispatch(DEVICE_OBJECT *device_object, IRP *irp);
 NTSTATUS dispatch_pnp(libusb_device_t *dev, IRP *irp);
@@ -236,10 +246,10 @@ int reg_is_composite_interface(DEVICE_OBJECT *physical_device_object);
 int reg_get_id(DEVICE_OBJECT *physical_device_object, char *data, int size);
 
 
-void device_list_init(device_list_t *list);
-void device_list_insert(device_list_t *list, libusb_device_t *dev);
-void device_list_remove(device_list_t *list, libusb_device_t *dev);
-void device_list_update_info(device_list_t *list, libusb_device_t *dev);
+void device_list_init(void);
+void device_list_insert(libusb_device_t *dev);
+void device_list_remove(libusb_device_t *dev);
+void device_list_update_info(libusb_device_t *dev);
 
 int reg_is_filter_driver(DEVICE_OBJECT *physical_device_object);
 

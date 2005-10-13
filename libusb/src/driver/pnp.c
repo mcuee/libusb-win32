@@ -1,7 +1,8 @@
 /* LIBUSB-WIN32, Generic Windows USB Library
  * Copyright (c) 2002-2005 Stephan Meyer <ste_meyer@web.de>
  *
- * This program is free software; you can redistribute it and/or modify * it under the terms of the GNU General Public License as published by
+ * This program is free software; you can redistribute it and/or modify 
+ * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; either version 2 of the License, or
  * (at your option) any later version.
  *
@@ -19,8 +20,6 @@
 #include "libusb_driver.h"
 
 
-extern int bus_index;
-extern device_list_t device_list;
 
 static NTSTATUS DDKAPI 
 on_start_complete(DEVICE_OBJECT *device_object, IRP *irp, 
@@ -74,7 +73,7 @@ NTSTATUS dispatch_pnp(libusb_device_t *dev, IRP *irp)
       RtlInitUnicodeString(&symbolic_link_name, tmp_name);
       IoDeleteSymbolicLink(&symbolic_link_name);
 
-      device_list_remove(&device_list, dev);
+      device_list_remove(dev);
       IoDetachDevice(dev->next_stack_device);
       IoDeleteDevice(dev->self);
 
@@ -174,8 +173,8 @@ on_start_complete(DEVICE_OBJECT *device_object, IRP *irp, void *context)
 
   if(dev->topology_info.is_root_hub)
     {
-      dev->topology_info.bus = bus_index;
-      bus_index++;
+      dev->topology_info.bus = driver_globals.bus_index;
+      InterlockedIncrement(&driver_globals.bus_index);
     }
   else
     {
@@ -209,6 +208,8 @@ on_start_complete(DEVICE_OBJECT *device_object, IRP *irp, void *context)
           dev->configuration = 0;
         }
     }
+
+  device_list_insert(dev);
 
   remove_lock_release(&dev->remove_lock);
   
