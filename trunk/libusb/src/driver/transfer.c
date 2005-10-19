@@ -31,8 +31,9 @@ static int sequence = 0;
 NTSTATUS DDKAPI transfer_complete(DEVICE_OBJECT *device_object, 
                                   IRP *irp, void *context);
 
-static URB *create_urb(libusb_device_t *dev, int direction, int urb_function, 
-                       int endpoint, int packet_size, MDL *buffer, int size);
+static NTSTATUS create_urb(libusb_device_t *dev, URB **urb, int direction, 
+                           int urb_function, int endpoint, int packet_size, 
+                           MDL *buffer, int size);
 
 NTSTATUS transfer(IRP *irp, libusb_device_t *dev,
                   int direction, int urb_function, int endpoint, 
@@ -40,7 +41,7 @@ NTSTATUS transfer(IRP *irp, libusb_device_t *dev,
 {
   IO_STACK_LOCATION *stack_location = NULL;
   context_t *context;
-
+  NTSTATUS status = STATUS_SUCCESS;
  
   DEBUG_PRINT_NL();
 
@@ -70,7 +71,7 @@ NTSTATUS transfer(IRP *irp, libusb_device_t *dev,
       return complete_irp(irp, STATUS_INVALID_DEVICE_STATE, 0);
     }
   
-  context = (context_t *)ExAllocatePool(NonPagedPool, sizeof(context_t));
+  context = ExAllocatePool(NonPagedPool, sizeof(context_t));
 
   if(!context)
     {
@@ -78,13 +79,13 @@ NTSTATUS transfer(IRP *irp, libusb_device_t *dev,
       return complete_irp(irp, STATUS_NO_MEMORY, 0);
     }
 
-  context->urb = create_urb(dev, direction, urb_function, 
-                            endpoint, packet_size, buffer, size);
+  status = create_urb(dev, &context->urb, direction, urb_function, 
+                      endpoint, packet_size, buffer, size);
     
-  if(!context->urb)
+  if(!NT_SUCCESS(status))
     {
       remove_lock_release(&dev->remove_lock);
-      return complete_irp(irp, STATUS_NO_MEMORY, 0);
+      return complete_irp(irp, status, 0);
     }
 
   context->remove_lock = &dev->remove_lock;
@@ -119,8 +120,7 @@ NTSTATUS DDKAPI transfer_complete(DEVICE_OBJECT *device_object, IRP *irp,
         {
           transmitted = c->urb->UrbIsochronousTransfer.TransferBufferLength;
         }
-      if(c->urb->UrbHeader.Function 
-         == URB_FUNCTION_BULK_OR_INTERRUPT_TRANSFER)
+      if(c->urb->UrbHeader.Function == URB_FUNCTION_BULK_OR_INTERRUPT_TRANSFER)
         {
           transmitted 
             = c->urb->UrbBulkOrInterruptTransfer.TransferBufferLength;
@@ -155,18 +155,20 @@ NTSTATUS DDKAPI transfer_complete(DEVICE_OBJECT *device_object, IRP *irp,
 }
 
 
-static URB *create_urb(libusb_device_t *dev, int direction, int urb_function, 
-                       int endpoint, int packet_size, MDL *buffer, int size)
+static NTSTATUS create_urb(libusb_device_t *dev, URB **urb, int direction, 
+                           int urb_function, int endpoint, int packet_size, 
+                           MDL *buffer, int size)
 {
   USBD_PIPE_HANDLE pipe_handle = NULL;
   int num_packets = 0;
   int i, urb_size;
-  URB *urb = NULL;
+
+  *urb = NULL;
   
   if(!get_pipe_handle(dev, endpoint, &pipe_handle))
     {
       DEBUG_ERROR("create_urb(): getting endpoint pipe failed");
-      return NULL;
+      return STATUS_INVALID_PARAMETER;
     }
   
   /* isochronous transfer */
@@ -177,7 +179,7 @@ static URB *create_urb(libusb_device_t *dev, int direction, int urb_function,
       if(num_packets > 255)
         {
           DEBUG_ERROR("create_urb(): transfer size too large");
-          return NULL;
+          return STATUS_INVALID_PARAMETER;
         }
       
       urb_size = sizeof(struct _URB_ISOCH_TRANSFER)
@@ -188,45 +190,45 @@ static URB *create_urb(libusb_device_t *dev, int direction, int urb_function,
       urb_size = sizeof(struct _URB_BULK_OR_INTERRUPT_TRANSFER);
     }
   
-  urb = (URB *)ExAllocatePool(NonPagedPool, urb_size);
+  *urb = ExAllocatePool(NonPagedPool, urb_size);
   
-  if(!urb)
+  if(!*urb)
     {
       DEBUG_ERROR("create_urb(): memory allocation error");
-      return NULL;
+      return STATUS_NO_MEMORY;
     }
   
-  memset(urb, 0, urb_size);
+  memset(*urb, 0, urb_size);
   
-  urb->UrbHeader.Length = (USHORT)urb_size;
-  urb->UrbHeader.Function = (USHORT)urb_function;
+  (*urb)->UrbHeader.Length = (USHORT)urb_size;
+  (*urb)->UrbHeader.Function = (USHORT)urb_function;
   
   /* isochronous transfer */
   if(urb_function == URB_FUNCTION_ISOCH_TRANSFER)
     {
-      urb->UrbIsochronousTransfer.PipeHandle = pipe_handle;
-      urb->UrbIsochronousTransfer.TransferFlags 
+      (*urb)->UrbIsochronousTransfer.PipeHandle = pipe_handle;
+      (*urb)->UrbIsochronousTransfer.TransferFlags 
         = direction | USBD_SHORT_TRANSFER_OK | USBD_START_ISO_TRANSFER_ASAP;
-      urb->UrbIsochronousTransfer.TransferBufferLength = size;
-      urb->UrbIsochronousTransfer.TransferBufferMDL = buffer;
-      urb->UrbIsochronousTransfer.NumberOfPackets = num_packets;
+      (*urb)->UrbIsochronousTransfer.TransferBufferLength = size;
+      (*urb)->UrbIsochronousTransfer.TransferBufferMDL = buffer;
+      (*urb)->UrbIsochronousTransfer.NumberOfPackets = num_packets;
       
       for(i = 0; i < num_packets; i++)
         {
-          urb->UrbIsochronousTransfer.IsoPacket[i].Offset = i * packet_size;
-          urb->UrbIsochronousTransfer.IsoPacket[i].Length = packet_size;
+          (*urb)->UrbIsochronousTransfer.IsoPacket[i].Offset = i * packet_size;
+          (*urb)->UrbIsochronousTransfer.IsoPacket[i].Length = packet_size;
         }
     }
   /* bulk or interrupt transfer */
   else
     {
-      urb->UrbBulkOrInterruptTransfer.PipeHandle = pipe_handle;
-      urb->UrbBulkOrInterruptTransfer.TransferFlags 
+      (*urb)->UrbBulkOrInterruptTransfer.PipeHandle = pipe_handle;
+      (*urb)->UrbBulkOrInterruptTransfer.TransferFlags 
         = direction | USBD_SHORT_TRANSFER_OK;
-      urb->UrbBulkOrInterruptTransfer.TransferBufferLength = size;
-      urb->UrbBulkOrInterruptTransfer.TransferBufferMDL = buffer;
+      (*urb)->UrbBulkOrInterruptTransfer.TransferBufferLength = size;
+      (*urb)->UrbBulkOrInterruptTransfer.TransferBufferMDL = buffer;
     }
 
-  return urb;
+  return STATUS_SUCCESS;
 }
 
