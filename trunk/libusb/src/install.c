@@ -67,7 +67,7 @@ typedef BOOL WINAPI (* control_service_t)(SC_HANDLE, DWORD, LPSERVICE_STATUS);
 
 
 
-static HANDLE advapi32_dll = NULL;
+static HINSTANCE advapi32_dll = NULL;
 
 static open_sc_manager_t open_sc_manager = NULL;
 static open_service_t open_service = NULL;
@@ -120,10 +120,10 @@ int usb_install_service_np(void)
 
   memset(display_name, 0, sizeof(display_name));
 
-  /* uninstall the old filter driver */
+  /* uninstall old filter driver */
   usb_uninstall_service_np();
 
-  /* stop all libusb devices */
+  /* stop devices that are handled by libusb's device driver */
   usb_registry_stop_libusb_devices();
 
   /* the old driver is unloaded now */ 
@@ -143,7 +143,7 @@ int usb_install_service_np(void)
         ret = -1;
     }
   
-  /* restart libusb devices */
+  /* restart devices that are handled by libusb's device driver */
   usb_registry_start_libusb_devices(); 
 
   /* insert filter drivers */
@@ -159,15 +159,12 @@ int usb_uninstall_service_np(void)
 {
   HANDLE win; 
   HKEY reg_key = NULL;
-  int ret = 0;
 
   /* remove old system service */
   if(usb_registry_is_nt())
     {
-      if(!usb_service_stop(LIBUSB_OLD_SERVICE_NAME_NT))
-        ret = -1;
-      if(!usb_service_delete(LIBUSB_OLD_SERVICE_NAME_NT))
-        ret = -1;
+      usb_service_stop(LIBUSB_OLD_SERVICE_NAME_NT);
+      usb_service_delete(LIBUSB_OLD_SERVICE_NAME_NT);
     }
   else
     {
@@ -183,8 +180,7 @@ int usb_uninstall_service_np(void)
       if(RegOpenKeyEx(HKEY_LOCAL_MACHINE,
                       "Software\\Microsoft\\Windows\\CurrentVersion"
                       "\\RunServices",
-                      0, KEY_ALL_ACCESS, &reg_key)
-         == ERROR_SUCCESS)
+                      0, KEY_ALL_ACCESS, &reg_key) == ERROR_SUCCESS)
         {
           RegDeleteValue(reg_key, "LibUsb-Win32 Daemon");
           RegCloseKey(reg_key);
@@ -198,7 +194,7 @@ int usb_uninstall_service_np(void)
   /* unload old filter drivers */
   usb_registry_restart_root_hubs(); 
 
-  return 1;
+  return 0;
 }
 
 int usb_install_driver_np(const char *inf_file)
@@ -214,7 +210,7 @@ int usb_install_driver_np(const char *inf_file)
   char tmp_id[MAX_PATH];
   char *p;
   int dev_index;
-  HANDLE newdev_dll = NULL;
+  HINSTANCE newdev_dll = NULL;
   
   update_driver_for_plug_and_play_devices_t UpdateDriverForPlugAndPlayDevices;
 
