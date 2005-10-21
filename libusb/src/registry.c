@@ -884,11 +884,12 @@ bool_t usb_registry_restart_root_hubs(void)
 {
   HDEVINFO dev_info;
   SP_DEVINFO_DATA dev_info_data;
-  int dev_index = 0;
+  int dev_index;
   char id[MAX_PATH];
 
+  dev_index = 0;
   dev_info_data.cbSize = sizeof(SP_DEVINFO_DATA);
-
+  
   dev_info = SetupDiGetClassDevs(NULL, "USB", NULL,
                                  DIGCF_ALLCLASSES | DIGCF_PRESENT);
   
@@ -896,30 +897,31 @@ bool_t usb_registry_restart_root_hubs(void)
     {
       usb_error("usb_registry_restart_root_hubs(): getting "
                 "device info set failed");
-      return 0;
+      return FALSE;
     }
-  
+    
   while(SetupDiEnumDeviceInfo(dev_info, dev_index, &dev_info_data))
     {
-      if(!usb_registry_get_property(SPDRP_HARDWAREID, dev_info, &dev_info_data,
-                                    id, sizeof(id)))
+      if(!usb_registry_get_property(SPDRP_HARDWAREID, dev_info, 
+                                    &dev_info_data, id, sizeof(id)))
         {
           usb_error("usb_registry_restart_root_hubs(): getting hardware "
                     "id failed");
           dev_index++;
           continue;
         }
-      
+        
       usb_registry_mz_string_lower(id);
-      
+        
       /* search for USB root hubs */
       if(usb_registry_mz_string_find_sub(id, "root_hub"))
         {
           usb_registry_restart_device(dev_info, &dev_info_data);
         }
+
       dev_index++;
     }
-  
+    
   SetupDiDestroyDeviceInfoList(dev_info);
 
   return TRUE;
@@ -1051,6 +1053,7 @@ static usb_class_key_t *usb_registry_get_all_class_keys(void)
  
       RegCloseKey(reg_key);
     }
+
   return keys;
 }
 
