@@ -87,7 +87,8 @@ VPATH = .:./src:./src/driver:./tests
 
 INCLUDES = -I./src -I./src/driver -I.
 
-CFLAGS = -O2 -Wall -mno-cygwin -mwindows
+CFLAGS = -O2 -Wall -mno-cygwin
+WIN_CFLAGS = $(CFLAGS) -mwindows
 
 CPPFLAGS = -DVERSION_MAJOR=$(VERSION_MAJOR) \
 	-DVERSION_MINOR=$(VERSION_MINOR) \
@@ -130,13 +131,13 @@ libusbd.a:
 		--output-lib libusbd.a
 
 inf-wizard.exe: inf_wizard_rc.o inf_wizard.o registry.o win_debug.o error.o
-	$(CC) $(CFLAGS) -o $@ -I./src  $^ $(WIN_LDFLAGS)
+	$(CC) $(WIN_CFLAGS) -o $@ -I./src  $^ $(WIN_LDFLAGS)
 
 testlibusb.exe: testlibusb.o resource.o 
 	$(CC) $(CFLAGS) -o $@ -I./src  $^ $(LDFLAGS)
 
 testlibusb-win.exe: testlibusb_win.o resource.o 
-	$(CC) $(CFLAGS) -o $@ -I./src  $^ $(WIN_LDFLAGS)
+	$(CC) $(WIN_CFLAGS) -o $@ -I./src  $^ $(WIN_LDFLAGS)
 
 %.o: %.c
 	$(CC) -c $< -o $@ $(CFLAGS) $(CPPFLAGS) $(INCLUDES) 
