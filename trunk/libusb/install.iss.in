@@ -42,6 +42,7 @@ Source: "*.dll"; DestDir: "{win}\system32"; Flags: uninsneveruninstall replacesa
 Source: "@BIN_DIST_DIR@\lib\*.*"; DestDir: "{app}\lib"; Flags: recursesubdirs
 Source: "@BIN_DIST_DIR@\include\*.h"; DestDir: "{app}\include"; Flags: recursesubdirs
 
+Source: "install-filter.exe"; DestDir: "{app}\bin";
 Source: "testlibusb.exe"; DestDir: "{app}\bin";
 Source: "testlibusb-win.exe"; DestDir: "{app}\bin";
 Source: "testlibusb-win.exe.manifest"; DestDir: "{app}\bin";
@@ -58,12 +59,12 @@ Name: "{group}\LGPL License"; Filename: "{app}\COPYING_GPL.txt"
 
 
 [Run]
-Filename: "rundll32"; Parameters: "libusb0.dll,usb_install_service_np_rundll"; StatusMsg: "Creating kernel service (this may take a few seconds) ..."
+Filename: "{app}\bin\install-filter.exe"; Parameters: "-i"; StatusMsg: "Creating kernel service (this may take a few seconds) ..."
 Filename: "{app}\bin\testlibusb-win.exe"; Description: "Run test application"; Flags: postinstall
 
 
 [UninstallRun]
-Filename: "rundll32"; Parameters: "libusb0.dll,usb_uninstall_service_np_rundll"
+Filename: "{app}\bin\install-filter.exe"; Parameters: "-u"
 
 [Messages]
 StatusUninstalling=Uninstalling %1 (this may take a few seconds) ...
