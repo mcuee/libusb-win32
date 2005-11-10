@@ -41,7 +41,6 @@ NTSTATUS dispatch_ioctl(libusb_device_t *dev, IRP *irp)
   char *input_buffer = (char *)irp->AssociatedIrp.SystemBuffer;
   MDL *transfer_buffer_mdl = irp->MdlAddress;
 
-
   status = remove_lock_acquire(&dev->remove_lock);
 
   if(!NT_SUCCESS(status))
@@ -183,7 +182,7 @@ NTSTATUS dispatch_ioctl(libusb_device_t *dev, IRP *irp)
           break;
         }
 
-      return transfer(irp, dev,
+      return transfer(dev, irp,
                       USBD_TRANSFER_DIRECTION_IN,
                       URB_FUNCTION_BULK_OR_INTERRUPT_TRANSFER,
                       request->endpoint.endpoint,
@@ -195,8 +194,7 @@ NTSTATUS dispatch_ioctl(libusb_device_t *dev, IRP *irp)
 
       /* we don't check 'transfer_buffer_mdl' here because it might be NULL */
       /* if the DLL requests to send a zero-length packet */
-
-      return transfer(irp, dev,
+      return transfer(dev, irp,
                       USBD_TRANSFER_DIRECTION_OUT,
                       URB_FUNCTION_BULK_OR_INTERRUPT_TRANSFER,
                       request->endpoint.endpoint,
@@ -271,10 +269,11 @@ NTSTATUS dispatch_ioctl(libusb_device_t *dev, IRP *irp)
           status = STATUS_INVALID_PARAMETER;
           break;
         }
-      request->version.major = LIBUSB_VERSION_MAJOR;
-      request->version.minor = LIBUSB_VERSION_MINOR;
-      request->version.micro = LIBUSB_VERSION_MICRO;
-      request->version.nano = LIBUSB_VERSION_NANO;
+
+      request->version.major = VERSION_MAJOR;
+      request->version.minor = VERSION_MINOR;
+      request->version.micro = VERSION_MICRO;
+      request->version.nano  = VERSION_NANO;
 
       ret = sizeof(libusb_request);
       break;
@@ -296,7 +295,7 @@ NTSTATUS dispatch_ioctl(libusb_device_t *dev, IRP *irp)
           break;
         }
 
-      return transfer(irp, dev, USBD_TRANSFER_DIRECTION_IN,
+      return transfer(dev, irp, USBD_TRANSFER_DIRECTION_IN,
                       URB_FUNCTION_ISOCH_TRANSFER, request->endpoint.endpoint,
                       request->endpoint.packet_size, transfer_buffer_mdl, 
                       transfer_buffer_length);
@@ -311,7 +310,7 @@ NTSTATUS dispatch_ioctl(libusb_device_t *dev, IRP *irp)
           break;
         }
 
-      return transfer(irp, dev, USBD_TRANSFER_DIRECTION_OUT,
+      return transfer(dev, irp, USBD_TRANSFER_DIRECTION_OUT,
                       URB_FUNCTION_ISOCH_TRANSFER, request->endpoint.endpoint,
                       request->endpoint.packet_size, transfer_buffer_mdl, 
                       transfer_buffer_length);

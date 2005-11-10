@@ -25,7 +25,7 @@ NTSTATUS set_interface(libusb_device_t *dev, int interface, int altsetting,
 {
   NTSTATUS status = STATUS_SUCCESS;
   URB *urb;
-  int i, junk;
+  int i, desc_size;
   volatile int tmp_size, config_full_size;
 
   USB_CONFIGURATION_DESCRIPTOR *configuration_descriptor = NULL;
@@ -56,7 +56,7 @@ NTSTATUS set_interface(libusb_device_t *dev, int interface, int altsetting,
                           sizeof(USB_CONFIGURATION_DESCRIPTOR), 
                           USB_CONFIGURATION_DESCRIPTOR_TYPE,
                           dev->configuration - 1,
-                          0, &junk, LIBUSB_DEFAULT_TIMEOUT);
+                          0, &desc_size, LIBUSB_DEFAULT_TIMEOUT);
 
   if(!NT_SUCCESS(status))
     {
@@ -82,7 +82,7 @@ NTSTATUS set_interface(libusb_device_t *dev, int interface, int altsetting,
                           config_full_size, 
                           USB_CONFIGURATION_DESCRIPTOR_TYPE,
                           dev->configuration - 1,
-                          0, &junk, LIBUSB_DEFAULT_TIMEOUT);
+                          0, &desc_size, LIBUSB_DEFAULT_TIMEOUT);
 
   if(!NT_SUCCESS(status))
     {
@@ -92,10 +92,8 @@ NTSTATUS set_interface(libusb_device_t *dev, int interface, int altsetting,
     }
 
   interface_descriptor =
-    USBD_ParseConfigurationDescriptorEx(configuration_descriptor,
-                                        configuration_descriptor,
-                                        interface, altsetting,
-                                        -1, -1, -1);
+    find_interface_desc(configuration_descriptor, desc_size, 
+                        interface, altsetting);
 
   if(!interface_descriptor)
     {
@@ -106,7 +104,7 @@ NTSTATUS set_interface(libusb_device_t *dev, int interface, int altsetting,
     }
   
   tmp_size = sizeof(struct _URB_SELECT_INTERFACE)
-    + (interface_descriptor->bNumEndpoints - 1)
+    + interface_descriptor->bNumEndpoints
     * sizeof(USBD_PIPE_INFORMATION);
 
 
@@ -127,13 +125,11 @@ NTSTATUS set_interface(libusb_device_t *dev, int interface, int altsetting,
   urb->UrbSelectInterface.ConfigurationHandle = dev->configuration_handle;
   urb->UrbSelectInterface.Interface.Length =
     sizeof(struct _USBD_INTERFACE_INFORMATION);
-
-  if(interface_descriptor->bNumEndpoints > 1)
-    {
-      urb->UrbSelectInterface.Interface.Length +=
-        (interface_descriptor->bNumEndpoints - 1)
-        * sizeof(struct _USBD_PIPE_INFORMATION);
-    }
+  urb->UrbSelectInterface.Interface.NumberOfPipes = 
+    interface_descriptor->bNumEndpoints;
+  urb->UrbSelectInterface.Interface.Length +=
+    interface_descriptor->bNumEndpoints
+    * sizeof(struct _USBD_PIPE_INFORMATION);
 
   urb->UrbSelectInterface.Interface.InterfaceNumber = (UCHAR)interface;
   urb->UrbSelectInterface.Interface.AlternateSetting = (UCHAR)altsetting;

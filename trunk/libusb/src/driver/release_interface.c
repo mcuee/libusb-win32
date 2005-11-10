@@ -52,8 +52,6 @@ NTSTATUS release_interface(libusb_device_t *dev, int interface)
 NTSTATUS release_all_interfaces(libusb_device_t *dev)
 {
   int i;
-
-  DEBUG_MESSAGE("release_interface(): releasing all interfaces");
   
   for(i = 0; i < LIBUSB_MAX_NUMBER_OF_INTERFACES; i++)
     {

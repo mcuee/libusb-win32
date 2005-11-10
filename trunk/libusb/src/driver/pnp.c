@@ -60,10 +60,10 @@ NTSTATUS dispatch_pnp(libusb_device_t *dev, IRP *irp)
 
       DEBUG_MESSAGE("dispatch_pnp(): IRP_MN_REMOVE_DEVICE");
 
-      IoSkipCurrentIrpStackLocation(irp);
-      status = IoCallDriver(dev->next_stack_device, irp);
-
+      dev->is_started = FALSE;
       remove_lock_release_and_wait(&dev->remove_lock);
+
+      status = pass_irp_down(dev, irp, NULL, NULL); 
 
       DEBUG_MESSAGE("dispatch_pnp(): deleting device %d", dev->id);
       
@@ -82,19 +82,34 @@ NTSTATUS dispatch_pnp(libusb_device_t *dev, IRP *irp)
     case IRP_MN_SURPRISE_REMOVAL:
 
       DEBUG_MESSAGE("dispatch_pnp(): IRP_MN_SURPRISE_REMOVAL");
+      dev->is_started = FALSE;
       break;
 
     case IRP_MN_START_DEVICE:
 
       DEBUG_MESSAGE("dispatch_pnp(): IRP_MN_START_DEVICE");
 
-      IoCopyCurrentIrpStackLocationToNext(irp);
-      IoSetCompletionRoutine(irp, on_start_complete, NULL, TRUE, TRUE, TRUE);
+      device_list_insert(dev);
 
-      return IoCallDriver(dev->next_stack_device, irp);
+      if(!dev->topology.is_hub )
+        {
+          if(NT_SUCCESS(set_configuration(dev, 1, 1000)))
+            {
+              dev->configuration = 1;
+            }
+          else
+            {
+              DEBUG_ERROR("dispatch_pnp(): IRP_MN_START_DEVICE: selecting "
+                          "configuration failed");
+              dev->configuration = 0;
+            }
+        }
+
+      return pass_irp_down(dev, irp, on_start_complete, NULL);
 
     case IRP_MN_STOP_DEVICE:
 
+      dev->is_started = FALSE;
       DEBUG_MESSAGE("dispatch_pnp(): IRP_MN_STOP_DEVICE");
       break;
 
@@ -107,10 +122,8 @@ NTSTATUS dispatch_pnp(libusb_device_t *dev, IRP *irp)
           dev->self->Flags |= DO_POWER_PAGABLE;
         }
 
-      IoCopyCurrentIrpStackLocationToNext(irp);
-      IoSetCompletionRoutine(irp, on_device_usage_notification_complete,
-                             NULL, TRUE, TRUE, TRUE);
-      return IoCallDriver(dev->next_stack_device, irp);
+      return pass_irp_down(dev, irp, on_device_usage_notification_complete,
+                           NULL);
 
     case IRP_MN_QUERY_CAPABILITIES: 
 
@@ -122,11 +135,7 @@ NTSTATUS dispatch_pnp(libusb_device_t *dev, IRP *irp)
             ->SurpriseRemovalOK = TRUE;
         }
 
-      IoCopyCurrentIrpStackLocationToNext(irp);
-      IoSetCompletionRoutine(irp, on_query_capabilities_complete, NULL,
-                             TRUE, TRUE, TRUE);
-      
-      return IoCallDriver(dev->next_stack_device, irp);
+      return pass_irp_down(dev, irp, on_query_capabilities_complete,  NULL);
 
     case IRP_MN_QUERY_DEVICE_RELATIONS:
 
@@ -134,10 +143,8 @@ NTSTATUS dispatch_pnp(libusb_device_t *dev, IRP *irp)
 
       if(stack_location->Parameters.QueryDeviceRelations.Type == BusRelations)
         { 
-          IoCopyCurrentIrpStackLocationToNext(irp);
-          IoSetCompletionRoutine(irp, on_query_device_relations_complete, NULL,
-                                 TRUE, TRUE, TRUE);
-          return IoCallDriver(dev->next_stack_device, irp);
+          return pass_irp_down(dev, irp, on_query_device_relations_complete, 
+                               NULL);
         }
 
       break;
@@ -146,10 +153,8 @@ NTSTATUS dispatch_pnp(libusb_device_t *dev, IRP *irp)
       ;
     }
 
-  status = pass_irp_down(dev, irp);
   remove_lock_release(&dev->remove_lock);
-
-  return status;
+  return pass_irp_down(dev, irp, NULL, NULL);
 }
 
 static NTSTATUS DDKAPI 
@@ -167,52 +172,10 @@ on_start_complete(DEVICE_OBJECT *device_object, IRP *irp, void *context)
       device_object->Characteristics |= FILE_REMOVABLE_MEDIA;
     }
   
-  dev->topology_info.is_hub = reg_is_hub(dev->physical_device_object);
-  dev->topology_info.is_root_hub 
-    = reg_is_root_hub(dev->physical_device_object);
-
-  if(dev->topology_info.is_root_hub)
-    {
-      dev->topology_info.bus = driver_globals.bus_index;
-      InterlockedIncrement(&driver_globals.bus_index);
-    }
-  else
-    {
-      /* default bus */
-      dev->topology_info.bus = 1;
-    }
-
-  dev->is_filter = reg_is_filter_driver(dev->physical_device_object);
-
-  if(dev->is_filter)
-    {
-      /* send all IRP's to the PDO in filter driver mode */
-      dev->next_device = dev->physical_device_object;
-    }
-  else
-    {
-      /* send all IRP's to the next stack device in device driver mode */
-      dev->next_device = dev->next_stack_device;
-    }
-
-  if(!dev->topology_info.is_hub )
-    {
-      if(NT_SUCCESS(set_configuration(dev, 1, 1000)))
-        {
-          dev->configuration = 1;
-        }
-      else
-        {
-          DEBUG_ERROR("dispatch_pnp(): IRP_MN_START_DEVICE: selecting "
-                      "configuration failed");
-          dev->configuration = 0;
-        }
-    }
-
-  device_list_insert(dev);
-
   remove_lock_release(&dev->remove_lock);
   
+  dev->is_started = TRUE;
+
   return STATUS_SUCCESS;
 }
 
@@ -257,15 +220,15 @@ on_query_capabilities_complete(DEVICE_OBJECT *device_object,
             ->SurpriseRemovalOK = TRUE;
         }
 
-      if(dev->topology_info.is_root_hub)
+      if(dev->topology.is_root_hub)
         {
-          dev->topology_info.port 
+          dev->topology.port 
             = IoGetCurrentIrpStackLocation(irp)
             ->Parameters.DeviceCapabilities.Capabilities->Address + 1;
         }
       else
         {
-          dev->topology_info.port 
+          dev->topology.port 
             = IoGetCurrentIrpStackLocation(irp)
             ->Parameters.DeviceCapabilities.Capabilities->Address;
         }
@@ -295,17 +258,17 @@ on_query_device_relations_complete(DEVICE_OBJECT *device_object,
 
       if(device_relations)
         {
-          memset(&dev->topology_info.child_pdos, 0,
-                 sizeof(dev->topology_info.child_pdos));
+          memset(&dev->topology.child_pdos, 0,
+                 sizeof(dev->topology.child_pdos));
 
-          dev->topology_info.num_child_pdos = 0;
-          dev->topology_info.update_children = 1;
+          dev->topology.num_child_pdos = 0;
+          dev->topology.update = TRUE;
 
-          for(i = 0; (i < device_relations->Count)
+          for(i = 0; (i < (int)device_relations->Count)
                 && (i < LIBUSB_MAX_NUMBER_OF_CHILDREN); i++)
             {
-              dev->topology_info.child_pdos[i] = device_relations->Objects[i];
-              dev->topology_info.num_child_pdos++;
+              dev->topology.child_pdos[i] = device_relations->Objects[i];
+              dev->topology.num_child_pdos++;
             }
         }
     }

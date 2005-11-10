@@ -35,7 +35,7 @@ static NTSTATUS create_urb(libusb_device_t *dev, URB **urb, int direction,
                            int urb_function, int endpoint, int packet_size, 
                            MDL *buffer, int size);
 
-NTSTATUS transfer(IRP *irp, libusb_device_t *dev,
+NTSTATUS transfer(libusb_device_t *dev, IRP *irp,
                   int direction, int urb_function, int endpoint, 
                   int packet_size, MDL *buffer, int size)
 {
@@ -84,6 +84,7 @@ NTSTATUS transfer(IRP *irp, libusb_device_t *dev,
     
   if(!NT_SUCCESS(status))
     {
+      ExFreePool(context);
       remove_lock_release(&dev->remove_lock);
       return complete_irp(irp, status, 0);
     }
@@ -101,7 +102,7 @@ NTSTATUS transfer(IRP *irp, libusb_device_t *dev,
   IoSetCompletionRoutine(irp, transfer_complete, context,
                          TRUE, TRUE, TRUE);
     
-  return IoCallDriver(dev->next_device, irp);
+  return IoCallDriver(dev->target_device, irp);
 }
 
 

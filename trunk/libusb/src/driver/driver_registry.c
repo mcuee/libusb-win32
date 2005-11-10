@@ -35,7 +35,7 @@ static int reg_get_property(DEVICE_OBJECT *physical_device_object,
 {
   WCHAR tmp[512];
   ULONG ret;
-  int i;
+  ULONG i;
 
   if(!physical_device_object || !data || !size)
     {
@@ -52,7 +52,7 @@ static int reg_get_property(DEVICE_OBJECT *physical_device_object,
                                     &ret)) && ret)
     {
       /* convert unicode string to normal character string */
-      for(i = 0; (i < ret/2) && (i < (size - 1)); i++)
+      for(i = 0; (i < ret/2) && (i < ((ULONG)size - 1)); i++)
         {
           data[i] = (char)tmp[i];
         }
@@ -155,7 +155,7 @@ int reg_is_filter_driver(DEVICE_OBJECT *physical_device_object)
   NTSTATUS status;
   UNICODE_STRING name;
   KEY_VALUE_FULL_INFORMATION *info;
-  DWORD length;
+  ULONG length;
   int ret = TRUE;
 
   if(!physical_device_object)
