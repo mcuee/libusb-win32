@@ -206,7 +206,6 @@ src_dist:
 
 	$(INSTALL) $(SRC_DIR)/driver/*.h $(SRC_DIST_DIR)/src/driver
 	$(INSTALL) $(SRC_DIR)/driver/*.c $(SRC_DIST_DIR)/src/driver
-	$(INSTALL) $(SRC_DIR)/driver/*.in $(SRC_DIST_DIR)/src/driver
 	$(INSTALL) $(SRC_DIR)/driver/*.def $(SRC_DIST_DIR)/src/driver
 
 	$(INSTALL) ./tests/*.c $(SRC_DIST_DIR)/tests
