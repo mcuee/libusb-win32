@@ -23,7 +23,7 @@
 
 NTSTATUS get_descriptor(libusb_device_t *dev,
                         void *buffer, int size, int type, 
-                        int index, int language_id, int *sent, int timeout)
+                        int index, int language_id, int *received, int timeout)
 {
   NTSTATUS status = STATUS_SUCCESS;
   URB urb;
@@ -46,6 +46,7 @@ NTSTATUS get_descriptor(libusb_device_t *dev,
   urb.UrbControlDescriptorRequest.Index = (UCHAR)index;
   urb.UrbControlDescriptorRequest.LanguageId = (USHORT)language_id;
   
+
   status = call_usbd(dev, &urb, IOCTL_INTERNAL_USB_SUBMIT_URB, timeout);
 
       
@@ -54,11 +55,12 @@ NTSTATUS get_descriptor(libusb_device_t *dev,
       DEBUG_ERROR("get_descriptor(): getting descriptor "
                   "failed: status: 0x%x, urb-status: 0x%x", 
                   status, urb.UrbHeader.Status);
-      *sent = 0;
+      *received = 0;
     }
   else
     {
-      *sent = urb.UrbControlDescriptorRequest.TransferBufferLength;
+      *received = urb.UrbControlDescriptorRequest.TransferBufferLength;
     }
+
   return status;
 }

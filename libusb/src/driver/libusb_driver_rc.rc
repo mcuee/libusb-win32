@@ -21,8 +21,8 @@
 LANGUAGE LANG_ENGLISH, SUBLANG_ENGLISH_US
 
 VS_VERSION_INFO VERSIONINFO
- FILEVERSION @RC_VERSION@
- PRODUCTVERSION @RC_VERSION@
+ FILEVERSION RC_VERSION
+ PRODUCTVERSION RC_VERSION
  FILEFLAGSMASK 0x3fL
  FILEFLAGS 0x0L
  FILEOS 0x40004L
@@ -35,8 +35,8 @@ BEGIN
         BEGIN
             VALUE "CompanyName", "http://libusb-win32.sourceforge.net"
 	          VALUE "FileDescription", "LibUSB-Win32 - Kernel Driver"
-            VALUE "FileVersion", "@VERSION@"
-            VALUE "ProductVersion", "@VERSION@"
+            VALUE "FileVersion", VERSION
+            VALUE "ProductVersion", VERSION
             VALUE "InternalName", "libusb-win32-driver"
             VALUE "LegalCopyright", "© 2002-2005 S. Meyer, <ste_meyer@web.de>"
             VALUE "OriginalFilename", "libusb0.sys"

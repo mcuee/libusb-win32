@@ -20,13 +20,46 @@
 #include "libusb_driver.h"
 
 
-typedef struct {
-  KEVENT event;
-  NTSTATUS status;
-} power_context_t;
-
 NTSTATUS dispatch_power(libusb_device_t *dev, IRP *irp)
 {
+  IO_STACK_LOCATION *stack_location = IoGetCurrentIrpStackLocation(irp);
+  DEVICE_POWER_STATE device_power;
+  SYSTEM_POWER_STATE system_power;
+  
+  switch(stack_location->MinorFunction) 
+    {     
+    case IRP_MN_QUERY_POWER:
+      DEBUG_MESSAGE("dispatch_power(): IRP_MN_QUERY_POWER");
+      break;
+
+    case IRP_MN_SET_POWER:
+      system_power = stack_location->Parameters.Power.State.SystemState
+        - PowerSystemWorking;
+      device_power = stack_location->Parameters.Power.State.DeviceState
+        - PowerDeviceD0;
+
+      if(stack_location->Parameters.Power.Type == SystemPowerState)
+        {
+          DEBUG_MESSAGE("dispatch_power(): IRP_MN_SET_POWER: S%d",
+                        system_power);
+        }
+      else
+        {
+          DEBUG_MESSAGE("dispatch_power(): IRP_MN_SET_POWER: D%d", 
+                        device_power);
+        }
+
+      break;
+
+    case IRP_MN_WAIT_WAKE:
+      DEBUG_MESSAGE("dispatch_power(): IRP_MN_WAIT_WAKE");
+      break;
+
+    case IRP_MN_POWER_SEQUENCE:
+      DEBUG_MESSAGE("dispatch_power(): IRP_MN_POWER_SEQUENCE");
+      break;
+    }
+
   PoStartNextPowerIrp(irp);
   IoSkipCurrentIrpStackLocation(irp);
 
@@ -39,33 +72,30 @@ void DDKAPI power_set_state_complete(DEVICE_OBJECT *device_object,
                                      void *context,
                                      IO_STATUS_BLOCK *io_status)
 {
-  power_context_t *c = (power_context_t *)context;
-
-	KeSetEvent(&c->event, EVENT_INCREMENT, FALSE);
-  c->status = io_status->Status;
+	KeSetEvent((KEVENT *)context, EVENT_INCREMENT, FALSE);
 }
 
 
 void power_set_device_state(libusb_device_t *dev, 
                             DEVICE_POWER_STATE device_state)
 {
-  power_context_t context;
+  NTSTATUS status;
+  KEVENT event;
   POWER_STATE power_state;
 
   power_state.DeviceState = device_state;
 
-  KeInitializeEvent(&context.event, NotificationEvent, FALSE);
+  KeInitializeEvent(&event, NotificationEvent, FALSE);
 
-  context.status = PoRequestPowerIrp(dev->physical_device_object, 
-                                     IRP_MN_SET_POWER, 
-                                     power_state,
-                                     power_set_state_complete, 
-                                     &context, NULL);
+  status = PoRequestPowerIrp(dev->physical_device_object, 
+                             IRP_MN_SET_POWER, 
+                             power_state,
+                             power_set_state_complete, 
+                             &event, NULL);
 
-  if(context.status == STATUS_PENDING)
+  if(status == STATUS_PENDING)
     {
-			KeWaitForSingleObject(&context.event, Executive, KernelMode, 
-                            FALSE, NULL);
+      KeWaitForSingleObject(&event, Executive, KernelMode, FALSE, NULL);
     }
 }			
 

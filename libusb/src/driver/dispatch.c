@@ -31,55 +31,64 @@ NTSTATUS DDKAPI dispatch(DEVICE_OBJECT *device_object, IRP *irp)
       
     case IRP_MJ_POWER:
       return dispatch_power(dev, irp);
+    }
 
-    case IRP_MJ_DEVICE_CONTROL:
-      if(accept_irp(dev, irp))
+  /* since this driver may run as an upper filter we have to check whether */
+  /* the IRP is sent to this device object or to the lower one */
+  if(accept_irp(dev, irp))
+    {
+      switch(IoGetCurrentIrpStackLocation(irp)->MajorFunction) 
         {
-          return dispatch_ioctl(dev, irp);
-        }
-      break;
-
-    case IRP_MJ_CREATE:
-      if(accept_irp(dev, irp))
-        {
-          if(InterlockedIncrement(&dev->ref_count) == 1)
+        case IRP_MJ_DEVICE_CONTROL:
+          
+          if(dev->is_started)
             {
-              if(!dev->topology_info.is_root_hub)
-                {
-                  power_set_device_state(dev, PowerDeviceD0);
-                }
+              return dispatch_ioctl(dev, irp);
+            }
+          else /* not started yet */
+            {
+              return complete_irp(irp, STATUS_INVALID_DEVICE_STATE, 0);
             }
 
-          return complete_irp(irp, STATUS_SUCCESS, 0);
-        }
-      break;
-
-    case IRP_MJ_CLOSE:
-      if(accept_irp(dev, irp))
-        {
+        case IRP_MJ_CREATE:
+          
+          if(dev->is_started)
+            {
+              if(InterlockedIncrement(&dev->ref_count) == 1)
+                {
+                  if(!dev->topology.is_root_hub)
+                    {
+                      power_set_device_state(dev, PowerDeviceD0);
+                    }
+                }
+              
+              return complete_irp(irp, STATUS_SUCCESS, 0);
+            }
+          else /* not started yet */
+            {
+              return complete_irp(irp, STATUS_INVALID_DEVICE_STATE, 0);
+            }
+          
+        case IRP_MJ_CLOSE:
+          
           if(!InterlockedDecrement(&dev->ref_count))
             {
+              /* release all interfaces when the last handle is closed */
               release_all_interfaces(dev);
             }
           return complete_irp(irp, STATUS_SUCCESS, 0);
-        }
-      break;
-
-    case IRP_MJ_CLEANUP:
-
-      if(accept_irp(dev, irp))
-        {
+          
+        case IRP_MJ_CLEANUP:
+          
           return complete_irp(irp, STATUS_SUCCESS, 0);
-        }
-      break;
-
-    default:
-      if(accept_irp(dev, irp))
-        {
+          
+        default:
           return complete_irp(irp, STATUS_NOT_SUPPORTED, 0);
         }
     }
-
-  return pass_irp_down(dev, irp);
+  else /* the IRP is for the lower device object */
+    {
+      return pass_irp_down(dev, irp, NULL, NULL);
+    }
 }
 

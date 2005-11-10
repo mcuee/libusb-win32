@@ -30,7 +30,7 @@ NTSTATUS set_configuration(libusb_device_t *dev, int configuration,
   USB_CONFIGURATION_DESCRIPTOR *configuration_descriptor = NULL;
   USB_INTERFACE_DESCRIPTOR *interface_descriptor = NULL;
   USBD_INTERFACE_LIST_ENTRY *interfaces = NULL;
-  int junk, i, j;
+  int desc_size, i, j;
   volatile int config_full_size;
 
   DEBUG_PRINT_NL();
@@ -72,7 +72,7 @@ NTSTATUS set_configuration(libusb_device_t *dev, int configuration,
   status = get_descriptor(dev, &device_descriptor,
                           sizeof(USB_DEVICE_DESCRIPTOR), 
                           USB_DEVICE_DESCRIPTOR_TYPE,
-                          0, 0, &junk, LIBUSB_DEFAULT_TIMEOUT);  
+                          0, 0, &desc_size, LIBUSB_DEFAULT_TIMEOUT);  
 
   if(!NT_SUCCESS(status))
     {
@@ -100,7 +100,7 @@ NTSTATUS set_configuration(libusb_device_t *dev, int configuration,
                           sizeof(USB_CONFIGURATION_DESCRIPTOR), 
                           USB_CONFIGURATION_DESCRIPTOR_TYPE,
                           configuration - 1,
-                          0, &junk, LIBUSB_DEFAULT_TIMEOUT);
+                          0, &desc_size, LIBUSB_DEFAULT_TIMEOUT);
 
   if(!NT_SUCCESS(status))
     {
@@ -127,7 +127,7 @@ NTSTATUS set_configuration(libusb_device_t *dev, int configuration,
                           config_full_size, 
                           USB_CONFIGURATION_DESCRIPTOR_TYPE,
                           configuration - 1,
-                          0, &junk, LIBUSB_DEFAULT_TIMEOUT);
+                          0, &desc_size, LIBUSB_DEFAULT_TIMEOUT);
 
   if(!NT_SUCCESS(status))
     {
@@ -155,9 +155,8 @@ NTSTATUS set_configuration(libusb_device_t *dev, int configuration,
   for(i = 0; i < configuration_descriptor->bNumInterfaces; i++)
     {
       interface_descriptor =
-        USBD_ParseConfigurationDescriptorEx(configuration_descriptor,
-                                            configuration_descriptor,
-                                            i, 0, -1, -1, -1);
+        find_interface_desc(configuration_descriptor, desc_size, i, 0);
+
       if(!interface_descriptor)
         {
           DEBUG_ERROR("set_configuration(): interface %d not found", i);
@@ -185,7 +184,7 @@ NTSTATUS set_configuration(libusb_device_t *dev, int configuration,
 
   for(i = 0; i < configuration_descriptor->bNumInterfaces; i++)
     {
-      interfaces[i].Interface->InterfaceNumber = i;
+      interfaces[i].Interface->InterfaceNumber = (UCHAR)i;
       interfaces[i].Interface->AlternateSetting = 0;
 
       for(j = 0; j < (int)interfaces[i].Interface->NumberOfPipes; j++)
