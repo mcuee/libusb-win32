@@ -285,7 +285,10 @@ struct usb_dev_handle;
 typedef struct usb_dev_handle usb_dev_handle;
 
 /* Variables */
-extern struct usb_bus *usb_busses;
+#ifndef __USB_C__
+#define usb_busses usb_get_busses()
+#endif
+
 
 
 #include <poppack.h>

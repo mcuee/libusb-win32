@@ -68,7 +68,7 @@ const char inf_header[] =
 "[Version]\n"
 "Signature = \"$Chicago$\"\n"
 "provider  = %manufacturer%\n"
-"DriverVer = " STRINGIFY(INF_DATE) "," STRINGIFY(VERSION) "\n";
+"DriverVer = " STRINGIFY(INF_DATE) "," STRINGIFY(INF_VERSION) "\n";
 
 const char inf_body[] = 
 "Class = LibUsbDevices\n"
@@ -147,7 +147,7 @@ const char inf_body[] =
 "\n"
 "[LIBUSB.AddService]\n"
 "DisplayName    = \"LibUsb-Win32 - Kernel Driver " 
-STRINGIFY(INF_DATE) ", " STRINGIFY(VERSION) "\"\n"
+STRINGIFY(INF_DATE) ", " STRINGIFY(INF_VERSION) "\"\n"
 "ServiceType    = 1\n"
 "StartType      = 3\n"
 "ErrorControl   = 0\n"

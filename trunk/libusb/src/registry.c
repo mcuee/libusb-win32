@@ -20,11 +20,14 @@
 #include <windows.h>
 #include <ctype.h>
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
 #ifdef __GNUC__
 #include <ddk/cfgmgr32.h>
 #else
 #include <cfgmgr32.h>
+#define strlwr(p) _strlwr(p)
 #endif
 
 #include "registry.h"
@@ -465,12 +468,12 @@ static bool_t usb_registry_set_device_state(DWORD state, HDEVINFO dev_info,
 {
   SP_PROPCHANGE_PARAMS params;
   
-  memset(&params, 0, sizeof(SP_PROPCHANGE_PARAMS));
+   memset(&params, 0, sizeof(SP_PROPCHANGE_PARAMS));
   
   params.ClassInstallHeader.cbSize = sizeof(SP_CLASSINSTALL_HEADER);
   params.ClassInstallHeader.InstallFunction = DIF_PROPERTYCHANGE;
   params.StateChange = state;
-  params.Scope = DICS_FLAG_GLOBAL;
+  params.Scope = DICS_FLAG_CONFIGSPECIFIC;//DICS_FLAG_GLOBAL;
   params.HwProfile = 0;
 	  
   if(!SetupDiSetClassInstallParams(dev_info, dev_info_data,
@@ -482,6 +485,7 @@ static bool_t usb_registry_set_device_state(DWORD state, HDEVINFO dev_info,
       return FALSE;
     }
 	  
+
   if(!SetupDiCallClassInstaller(DIF_PROPERTYCHANGE, dev_info, 
                                 dev_info_data))
     {

@@ -30,7 +30,7 @@
 #include "usb.h"
 #include "error.h"
 #include "usbi.h"
-#include "driver/driver_api.h"
+#include "driver_api.h"
 #include "registry.h"
 
 
@@ -53,10 +53,10 @@ typedef struct {
 
 
 static struct usb_version _usb_version = {
-  { LIBUSB_VERSION_MAJOR, 
-    LIBUSB_VERSION_MINOR, 
-    LIBUSB_VERSION_MICRO, 
-    LIBUSB_VERSION_NANO },
+  { VERSION_MAJOR, 
+    VERSION_MINOR, 
+    VERSION_MICRO, 
+    VERSION_NANO },
   { -1, -1, -1, -1 }
 };
 
@@ -149,11 +149,18 @@ int usb_os_open(usb_dev_handle *dev)
       return -ENOENT;
     }
   
-  config = usb_get_configuration(dev);
-
-  if(config > 0)
+  /* now, retrieve the device's current configuration, except from hubs */
+  if(dev->device->config && dev->device->config->interface
+     && dev->device->config->interface[0].altsetting
+     && dev->device->config->interface[0].altsetting[0].bInterfaceClass 
+     != USB_CLASS_HUB)
     {
-      dev->config = config;
+      config = usb_get_configuration(dev);
+      
+      if(config > 0)
+        {
+          dev->config = config;
+        }
     }
 
   return 0;
@@ -447,6 +454,10 @@ int usb_reap_async(void *context, int timeout)
     {
        /* request timed out */
        usb_cancel_io(c);
+
+       /* wait until the request is cancelled */
+       WaitForSingleObject(c->ol.hEvent, 0);
+
        usb_error("usb_reap_async: timeout error");
        return -ETIMEDOUT;
     }
@@ -476,7 +487,6 @@ int usb_reap_async_nocancel(void *context, int timeout)
   if(WaitForSingleObject(c->ol.hEvent, timeout) == WAIT_TIMEOUT)
     {
        /* request timed out */
-       usb_cancel_io(c);
        usb_error("usb_reap_async_nocancel: timeout error");
        return -ETIMEDOUT;
     }
@@ -544,7 +554,8 @@ static int usb_transfer_sync(usb_dev_handle *dev, int control_code,
   int ret;
   int requested;
 
-  ret = usb_setup_async(dev, &context, control_code, ep, pktsize);
+  ret = usb_setup_async(dev, &context, control_code, (unsigned char )ep, 
+                        pktsize);
 
   if(ret < 0)
     {
@@ -898,7 +909,7 @@ int usb_os_find_busses(struct usb_bus **busses)
 int usb_os_find_devices(struct usb_bus *bus, struct usb_device **devices)
 {
   int i;
-  int num_busses;
+  unsigned int num_busses;
   struct usb_device *dev, *fdev = NULL;
   char dev_name[LIBUSB_PATH_MAX];
   DWORD ret;
@@ -948,8 +959,7 @@ int usb_os_find_devices(struct usb_bus *bus, struct usb_device **devices)
 
       /* make sure that the bus info is valid, otherwise connect this device */
       /* to bus 1 */
-      if((req.device_info.bus > num_busses)
-         || !req.device_info.bus)
+      if((req.device_info.bus > num_busses) || !req.device_info.bus)
         {
           req.device_info.bus = 1;
         }
@@ -1004,8 +1014,8 @@ void usb_os_init(void)
   char dev_name[LIBUSB_PATH_MAX];
 
   usb_message("usb_os_init: dll version: %d.%d.%d.%d",
-              LIBUSB_VERSION_MAJOR, LIBUSB_VERSION_MINOR,
-              LIBUSB_VERSION_MICRO, LIBUSB_VERSION_NANO);
+              VERSION_MAJOR, VERSION_MINOR,
+              VERSION_MICRO, VERSION_NANO);
 
 
   for(i = 1; i < LIBUSB_MAX_DEVICES; i++)
