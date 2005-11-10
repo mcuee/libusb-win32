@@ -11,6 +11,7 @@
 #include <string.h>	/* strcmp */
 #include <errno.h>
 
+#define __USB_C__
 #include "usbi.h"
 
 int usb_debug = 0;
