@@ -18,7 +18,10 @@
  */
 
 
+#ifdef __GNUC__
 #define WINVER 0x0500
+#endif
+
 #define INITGUID
 
 #include <windows.h>
