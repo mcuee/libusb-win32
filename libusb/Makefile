@@ -198,11 +198,16 @@ src_dist:
 	$(INSTALL) -d $(SRC_DIST_DIR)/src/driver
 	$(INSTALL) -d $(SRC_DIST_DIR)/tests
 	$(INSTALL) -d $(SRC_DIST_DIR)/examples
+	$(INSTALL) -d $(SRC_DIST_DIR)/ddk_make
 
 	$(INSTALL) $(SRC_DIR)/*.c $(SRC_DIST_DIR)/src
 	$(INSTALL) $(SRC_DIR)/*.h $(SRC_DIST_DIR)/src
 
 	$(INSTALL) ./examples/*.iss $(SRC_DIST_DIR)/examples
+	$(INSTALL) ./ddk_make/sources* $(SRC_DIST_DIR)/ddk_make
+	$(INSTALL) ./ddk_make/makefile $(SRC_DIST_DIR)/ddk_make
+	$(INSTALL) ./ddk_make/*.txt $(SRC_DIST_DIR)/ddk_make
+	$(INSTALL) ./ddk_make/*.bat $(SRC_DIST_DIR)/ddk_make
 
 	$(INSTALL) $(SRC_DIR)/driver/*.h $(SRC_DIST_DIR)/src/driver
 	$(INSTALL) $(SRC_DIR)/driver/*.c $(SRC_DIST_DIR)/src/driver
