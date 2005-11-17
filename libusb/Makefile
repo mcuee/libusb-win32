@@ -202,6 +202,7 @@ src_dist:
 
 	$(INSTALL) $(SRC_DIR)/*.c $(SRC_DIST_DIR)/src
 	$(INSTALL) $(SRC_DIR)/*.h $(SRC_DIST_DIR)/src
+	$(INSTALL) $(SRC_DIR)/*.rc $(SRC_DIST_DIR)/src
 
 	$(INSTALL) ./examples/*.iss $(SRC_DIST_DIR)/examples
 	$(INSTALL) ./ddk_make/sources* $(SRC_DIST_DIR)/ddk_make
@@ -212,6 +213,7 @@ src_dist:
 	$(INSTALL) $(SRC_DIR)/driver/*.h $(SRC_DIST_DIR)/src/driver
 	$(INSTALL) $(SRC_DIR)/driver/*.c $(SRC_DIST_DIR)/src/driver
 	$(INSTALL) $(SRC_DIR)/driver/*.def $(SRC_DIST_DIR)/src/driver
+	$(INSTALL) $(SRC_DIR)/driver/*.rc $(SRC_DIST_DIR)/src/driver
 
 	$(INSTALL) ./tests/*.c $(SRC_DIST_DIR)/tests
 	$(INSTALL) $(DIST_MISC_FILES) *.in Makefile *.manifest *.def \
