@@ -51,6 +51,8 @@ VERSION_NANO = 2
 
 VERSION = $(VERSION_MAJOR).$(VERSION_MINOR).$(VERSION_MICRO).$(VERSION_NANO)
 RC_VERSION = $(VERSION_MAJOR),$(VERSION_MINOR),$(VERSION_MICRO),$(VERSION_NANO)
+RC_VERSION_STR = '\"$(VERSION)\"'
+
 INF_DATE = $(shell date +"%m/%d/%Y")
 DATE = $(shell date +"%Y%m%d")
 
@@ -60,7 +62,7 @@ LIB_TARGET = $(TARGET)
 DRIVER_TARGET = $(TARGET)$(VERSION_MAJOR).sys
 
 INSTALL_DIR = /usr
-OBJECTS = usb.o error.o descriptors.o windows.o resource.o install.o \
+DLL_OBJECTS = usb.o error.o descriptors.o windows.o resource.o install.o \
 	registry.o 
 
 DRIVER_OBJECTS = abort_endpoint.o claim_interface.o clear_feature.o \
@@ -69,8 +71,7 @@ DRIVER_OBJECTS = abort_endpoint.o claim_interface.o clear_feature.o \
 	ioctl.o libusb_driver.o pnp.o release_interface.o reset_device.o \
 	reset_endpoint.o set_configuration.o set_descriptor.o \
 	set_feature.o set_interface.o transfer.o vendor_request.o \
-	power.o driver_registry.o libusb_driver_rc.o driver_debug.o
-
+	power.o driver_registry.o driver_debug.o libusb_driver_rc.o 
 
 INSTALLER_NAME = $(TARGET)-win32-filter-bin-$(VERSION).exe
 SRC_DIST_DIR = $(TARGET)-win32-src-$(VERSION)
@@ -96,9 +97,10 @@ CPPFLAGS = -DVERSION_MAJOR=$(VERSION_MAJOR) \
 	-DVERSION_NANO=$(VERSION_NANO) \
 	-DINF_DATE='$(INF_DATE)' \
 	-DINF_VERSION='$(VERSION)' \
-	-DVERSION='\"$(VERSION)\"' \
-	-DRC_VERSION='$(RC_VERSION)' \
   -DDBG
+
+WINDRES_FLAGS = -I./src -DRC_VERSION='$(RC_VERSION)' \
+								-DRC_VERSION_STR=$(RC_VERSION_STR)
 
 LDFLAGS = -s -mno-cygwin -L. -lusb -lgdi32 -luser32 -lsetupapi \
 	 				-lcfgmgr32 -lcomctl32
@@ -122,11 +124,11 @@ EXE_FILES = testlibusb.exe testlibusb-win.exe inf-wizard.exe install-filter.exe
 .PHONY: all
 all: $(DLL_TARGET).dll $(EXE_FILES) $(DRIVER_TARGET) README.txt
 
-$(DLL_TARGET).dll: $(OBJECTS)
-	$(CC) -o $@ $(OBJECTS) $(DLL_TARGET).def $(DLL_LDFLAGS)
+$(DLL_TARGET).dll: $(DLL_OBJECTS)
+	$(CC) -o $@ $(DLL_OBJECTS) $(DLL_TARGET).def $(DLL_LDFLAGS)
 
 
-$(DRIVER_TARGET): libusbd.a $(DRIVER_OBJECTS) 
+$(DRIVER_TARGET): libusbd.a $(DRIVER_OBJECTS)
 	$(CC) -o $@ $(DRIVER_OBJECTS) $(DLL_TARGET)_drv.def $(DRIVER_LDFLAGS)
 
 libusbd.a:
@@ -136,20 +138,20 @@ libusbd.a:
 inf-wizard.exe: inf_wizard_rc.o inf_wizard.o registry.o error.o
 	$(CC) $(WIN_CFLAGS) -o $@ -I./src  $^ $(WIN_LDFLAGS)
 
-testlibusb.exe: testlibusb.o resource.o 
+testlibusb.exe: testlibusb.o
 	$(CC) $(CFLAGS) -o $@ -I./src  $^ $(LDFLAGS)
 
-install-filter.exe: install_filter.o resource.o 
+install-filter.exe: install_filter.o
 	$(CC) $(CFLAGS) -o $@ -I./src  $^ $(WIN_LDFLAGS)
 
-testlibusb-win.exe: testlibusb_win.o resource.o 
+testlibusb-win.exe: testlibusb_win.o
 	$(CC) $(WIN_CFLAGS) -o $@ -I./src  $^ $(WIN_LDFLAGS)
 
 %.o: %.c
 	$(CC) -c $< -o $@ $(CFLAGS) $(CPPFLAGS) $(INCLUDES) 
 
 %.o: %.rc
-	$(WINDRES) $(CPPFLAGS) $< -o $@
+	$(WINDRES) $(WINDRES_FLAGS) $< -o $@
 
 README.txt: README.in
 	sed -e 's/@VERSION@/$(VERSION)/' $< > $@
