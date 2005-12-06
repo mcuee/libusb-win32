@@ -89,8 +89,6 @@ NTSTATUS dispatch_pnp(libusb_device_t *dev, IRP *irp)
 
       DEBUG_MESSAGE("dispatch_pnp(): IRP_MN_START_DEVICE");
 
-      device_list_insert(dev);
-
       if(!dev->topology.is_hub )
         {
           if(NT_SUCCESS(set_configuration(dev, 1, 1000)))
@@ -104,6 +102,10 @@ NTSTATUS dispatch_pnp(libusb_device_t *dev, IRP *irp)
               dev->configuration = 0;
             }
         }
+
+      /* report device state to Power Manager */
+      /* DeviceState has been set to D0 by add_device() */
+      PoSetPowerState(dev->self, DevicePowerState, dev->power_state);
 
       return pass_irp_down(dev, irp, on_start_complete, NULL);
 
@@ -205,6 +207,7 @@ on_query_capabilities_complete(DEVICE_OBJECT *device_object,
                                IRP *irp, void *context)
 {
   libusb_device_t *dev = (libusb_device_t *)device_object->DeviceExtension;
+  IO_STACK_LOCATION *stack_location = IoGetCurrentIrpStackLocation(irp);
 
   if(irp->PendingReturned)
     {
@@ -215,23 +218,27 @@ on_query_capabilities_complete(DEVICE_OBJECT *device_object,
     {
       if(!dev->is_filter)
         {
-          IoGetCurrentIrpStackLocation(irp)
-            ->Parameters.DeviceCapabilities.Capabilities
+          stack_location->Parameters.DeviceCapabilities.Capabilities
             ->SurpriseRemovalOK = TRUE;
         }
 
       if(dev->topology.is_root_hub)
         {
-          dev->topology.port 
-            = IoGetCurrentIrpStackLocation(irp)
+          dev->topology.port = 
+            stack_location
             ->Parameters.DeviceCapabilities.Capabilities->Address + 1;
         }
       else
         {
-          dev->topology.port 
-            = IoGetCurrentIrpStackLocation(irp)
+          dev->topology.port
+            = stack_location
             ->Parameters.DeviceCapabilities.Capabilities->Address;
         }
+
+      /* save supported device power states */
+      memcpy(dev->device_power_states, stack_location
+             ->Parameters.DeviceCapabilities.Capabilities->DeviceState,
+             sizeof(dev->device_power_states));
     }
 
   remove_lock_release(&dev->remove_lock);

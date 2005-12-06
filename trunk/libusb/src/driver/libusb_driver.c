@@ -23,8 +23,6 @@
 
 
 static void DDKAPI unload(DRIVER_OBJECT *driver_object);
-static NTSTATUS DDKAPI add_device(DRIVER_OBJECT *driver_object, 
-                                  DEVICE_OBJECT *physical_device_object);
 
 static NTSTATUS DDKAPI on_usbd_complete(DEVICE_OBJECT *device_object, 
                                         IRP *irp, 
@@ -160,6 +158,7 @@ NTSTATUS DDKAPI add_device(DRIVER_OBJECT *driver_object,
   dev->self = device_object;
   dev->physical_device_object = physical_device_object;
   dev->id = i;  
+  dev->driver = driver_object;
 
   /* set initial power states */
   dev->power_state.DeviceState = PowerDeviceD0;
@@ -199,6 +198,8 @@ NTSTATUS DDKAPI add_device(DRIVER_OBJECT *driver_object,
     }
 
   clear_pipe_info(dev);
+  device_list_insert(dev);
+
   remove_lock_initialize(&dev->remove_lock);
 
   device_object->Flags &= ~DO_DEVICE_INITIALIZING;
@@ -267,10 +268,12 @@ NTSTATUS call_usbd(libusb_device_t *dev, void *urb, ULONG control_code,
         }
     }
 
+  /* wait until completion routine is called */
   KeWaitForSingleObject(&event, Executive, KernelMode, FALSE, NULL);
 
   status = irp->IoStatus.Status;
-
+  
+  /* complete the request */
   IoCompleteRequest(irp, IO_NO_INCREMENT);
 
   return status;

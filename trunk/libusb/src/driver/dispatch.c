@@ -19,7 +19,6 @@
 
 #include "libusb_driver.h"
 
-
 NTSTATUS DDKAPI dispatch(DEVICE_OBJECT *device_object, IRP *irp)
 {
   libusb_device_t *dev = (libusb_device_t *)device_object->DeviceExtension;
@@ -56,12 +55,14 @@ NTSTATUS DDKAPI dispatch(DEVICE_OBJECT *device_object, IRP *irp)
             {
               if(InterlockedIncrement(&dev->ref_count) == 1)
                 {
-                  if(!dev->topology.is_root_hub)
+                  /* power up the device */
+                  // if(!dev->topology.is_root_hub)
+                  if(dev->power_state.DeviceState != PowerDeviceD0)
                     {
                       power_set_device_state(dev, PowerDeviceD0);
                     }
                 }
-              
+
               return complete_irp(irp, STATUS_SUCCESS, 0);
             }
           else /* not started yet */

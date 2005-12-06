@@ -20,57 +20,151 @@
 #include "libusb_driver.h"
 
 
+static NTSTATUS DDKAPI
+on_power_state_complete(DEVICE_OBJECT *device_object,
+                        IRP           *irp,
+                        void          *context);
+
+static void DDKAPI 
+on_power_set_device_state_complete(DEVICE_OBJECT *device_object,
+                                   UCHAR minor_function,
+                                   POWER_STATE power_state,
+                                   void *context,
+                                   IO_STATUS_BLOCK *io_status);
+
 NTSTATUS dispatch_power(libusb_device_t *dev, IRP *irp)
 {
   IO_STACK_LOCATION *stack_location = IoGetCurrentIrpStackLocation(irp);
-  DEVICE_POWER_STATE device_power;
-  SYSTEM_POWER_STATE system_power;
-  
-  switch(stack_location->MinorFunction) 
+  POWER_STATE power_state;
+  NTSTATUS status;
+
+  status = remove_lock_acquire(&dev->remove_lock);;
+
+  if(!NT_SUCCESS(status)) 
+    {
+      irp->IoStatus.Status = status;
+      PoStartNextPowerIrp(irp);
+      IoCompleteRequest(irp, IO_NO_INCREMENT);
+      return status;
+    }
+
+  if(stack_location->MinorFunction == IRP_MN_SET_POWER) 
     {     
-    case IRP_MN_QUERY_POWER:
-      DEBUG_MESSAGE("dispatch_power(): IRP_MN_QUERY_POWER");
-      break;
-
-    case IRP_MN_SET_POWER:
-      system_power = stack_location->Parameters.Power.State.SystemState
-        - PowerSystemWorking;
-      device_power = stack_location->Parameters.Power.State.DeviceState
-        - PowerDeviceD0;
-
+      power_state = stack_location->Parameters.Power.State;
+      
       if(stack_location->Parameters.Power.Type == SystemPowerState)
         {
           DEBUG_MESSAGE("dispatch_power(): IRP_MN_SET_POWER: S%d",
-                        system_power);
+                        power_state.SystemState - PowerSystemWorking);
         }
       else
         {
           DEBUG_MESSAGE("dispatch_power(): IRP_MN_SET_POWER: D%d", 
-                        device_power);
+                        power_state.DeviceState - PowerDeviceD0);
+
+          if(power_state.DeviceState > dev->power_state.DeviceState)
+            {
+              /* device is powered down, report device state to the */
+              /* Power Manager before sending the IRP down */
+              /* (power up is handled by the completion routine) */
+              PoSetPowerState(dev->self, DevicePowerState, power_state);
+            }
         }
+      
+      /* TODO: should PoStartNextPowerIrp() be called here or from the */
+      /* completion routine? */
+      PoStartNextPowerIrp(irp); 
 
-      break;
-
-    case IRP_MN_WAIT_WAKE:
-      DEBUG_MESSAGE("dispatch_power(): IRP_MN_WAIT_WAKE");
-      break;
-
-    case IRP_MN_POWER_SEQUENCE:
-      DEBUG_MESSAGE("dispatch_power(): IRP_MN_POWER_SEQUENCE");
-      break;
+      IoCopyCurrentIrpStackLocationToNext(irp);
+      IoSetCompletionRoutine(irp,
+                             on_power_state_complete,
+                             dev,
+                             TRUE, /* on success */
+                             TRUE, /* on error   */
+                             TRUE);/* on cancel  */
+      
+      return PoCallDriver(dev->next_stack_device, irp);
     }
-
-  PoStartNextPowerIrp(irp);
-  IoSkipCurrentIrpStackLocation(irp);
-
-  return PoCallDriver(dev->next_stack_device, irp);
+  else
+    {  
+      /* pass all other power IRPs down without setting a completion routine */
+      PoStartNextPowerIrp(irp);
+      IoSkipCurrentIrpStackLocation(irp);
+      status = PoCallDriver(dev->next_stack_device, irp);
+      remove_lock_release(&dev->remove_lock);
+      
+      return status;
+    }
 }
 
-void DDKAPI power_set_state_complete(DEVICE_OBJECT *device_object,
-                                     UCHAR minor_function,
-                                     POWER_STATE power_state,
-                                     void *context,
-                                     IO_STATUS_BLOCK *io_status)
+
+static NTSTATUS DDKAPI
+on_power_state_complete(DEVICE_OBJECT *device_object,
+                        IRP           *irp,
+                        void          *context)
+{
+  libusb_device_t *dev = context;
+  IO_STACK_LOCATION *stack_location = IoGetCurrentIrpStackLocation(irp);
+  POWER_STATE power_state = stack_location->Parameters.Power.State;
+  DEVICE_POWER_STATE dev_power_state;
+
+  if(irp->PendingReturned)
+    {
+      IoMarkIrpPending(irp);
+    }
+  
+  if(NT_SUCCESS(irp->IoStatus.Status))
+    {
+      if(stack_location->Parameters.Power.Type == SystemPowerState)
+        {
+          DEBUG_MESSAGE("on_power_state_complete(): S%d",
+                        power_state.SystemState - PowerSystemWorking);
+
+          /* save current system state */
+          dev->power_state.SystemState = power_state.SystemState;
+
+          /* set device power status correctly */
+          /* dev_power_state = power_state.SystemState == PowerSystemWorking ? */
+          /* PowerDeviceD0 : PowerDeviceD3; */
+
+          /* get supported device power state from the array reported by */
+          /* IRP_MN_QUERY_CAPABILITIES */
+          dev_power_state = dev->device_power_states[power_state.SystemState];
+          power_set_device_state(dev, dev_power_state);
+        }
+      else /* DevicePowerState */
+        {
+          DEBUG_MESSAGE("on_power_state_complete(): D%d", 
+                        power_state.DeviceState - PowerDeviceD0);
+
+          if(power_state.DeviceState <= dev->power_state.DeviceState)
+            {
+              /* device is powered up, */
+              /* report device state to Power Manager */
+              PoSetPowerState(dev->self, DevicePowerState, power_state);
+            }
+
+          /* save current device state */
+          dev->power_state.DeviceState = power_state.DeviceState;
+        }
+    }
+  else
+    {
+      DEBUG_MESSAGE("on_power_state_complete(): failed");
+    }
+
+  remove_lock_release(&dev->remove_lock);
+
+  return STATUS_SUCCESS;
+}
+
+
+static void DDKAPI 
+on_power_set_device_state_complete(DEVICE_OBJECT *device_object,
+                                   UCHAR minor_function,
+                                   POWER_STATE power_state,
+                                   void *context,
+                                   IO_STATUS_BLOCK *io_status)
 {
 	KeSetEvent((KEVENT *)context, EVENT_INCREMENT, FALSE);
 }
@@ -87,10 +181,11 @@ void power_set_device_state(libusb_device_t *dev,
 
   KeInitializeEvent(&event, NotificationEvent, FALSE);
 
+  /* set the device power state and wait for completion */
   status = PoRequestPowerIrp(dev->physical_device_object, 
                              IRP_MN_SET_POWER, 
                              power_state,
-                             power_set_state_complete, 
+                             on_power_set_device_state_complete, 
                              &event, NULL);
 
   if(status == STATUS_PENDING)
@@ -98,4 +193,3 @@ void power_set_device_state(libusb_device_t *dev,
       KeWaitForSingleObject(&event, Executive, KernelMode, FALSE, NULL);
     }
 }			
-
