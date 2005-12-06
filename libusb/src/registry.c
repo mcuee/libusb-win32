@@ -466,18 +466,19 @@ bool_t usb_registry_remove_device_filter(void)
 static bool_t usb_registry_set_device_state(DWORD state, HDEVINFO dev_info, 
                                             SP_DEVINFO_DATA *dev_info_data)
 {
-  SP_PROPCHANGE_PARAMS params;
-  
-   memset(&params, 0, sizeof(SP_PROPCHANGE_PARAMS));
-  
-  params.ClassInstallHeader.cbSize = sizeof(SP_CLASSINSTALL_HEADER);
-  params.ClassInstallHeader.InstallFunction = DIF_PROPERTYCHANGE;
-  params.StateChange = state;
-  params.Scope = DICS_FLAG_CONFIGSPECIFIC;//DICS_FLAG_GLOBAL;
-  params.HwProfile = 0;
+  SP_PROPCHANGE_PARAMS prop_params;
+
+  memset(&prop_params, 0, sizeof(SP_PROPCHANGE_PARAMS));
+
+  prop_params.ClassInstallHeader.cbSize = sizeof(SP_CLASSINSTALL_HEADER);
+  prop_params.ClassInstallHeader.InstallFunction = DIF_PROPERTYCHANGE;
+  prop_params.StateChange = state;
+  prop_params.Scope = DICS_FLAG_CONFIGSPECIFIC;//DICS_FLAG_GLOBAL;
+  prop_params.HwProfile = 0;
 	  
+
   if(!SetupDiSetClassInstallParams(dev_info, dev_info_data,
-                                   (SP_CLASSINSTALL_HEADER *) &params,
+                                   (SP_CLASSINSTALL_HEADER *)&prop_params,
                                    sizeof(SP_PROPCHANGE_PARAMS)))
     {
       usb_error("usb_registry_set_device_state(): setting class "
@@ -486,8 +487,7 @@ static bool_t usb_registry_set_device_state(DWORD state, HDEVINFO dev_info,
     }
 	  
 
-  if(!SetupDiCallClassInstaller(DIF_PROPERTYCHANGE, dev_info, 
-                                dev_info_data))
+  if(!SetupDiCallClassInstaller(DIF_PROPERTYCHANGE, dev_info, dev_info_data))
     {
       usb_error("usb_registry_set_device_state(): calling class "
                 "installer failed");

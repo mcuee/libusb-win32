@@ -757,3 +757,47 @@ int usb_touch_inf_file_np(const char *inf_file)
 
   return 0;
 }
+
+int usb_install_needs_restart_np(void)
+{
+  HDEVINFO dev_info;
+  SP_DEVINFO_DATA dev_info_data;
+  int dev_index = 0;
+  SP_DEVINSTALL_PARAMS install_params;
+  int ret = FALSE;
+
+  dev_info_data.cbSize = sizeof(SP_DEVINFO_DATA);
+  dev_info = SetupDiGetClassDevs(NULL, NULL, NULL,
+                                 DIGCF_ALLCLASSES | DIGCF_PRESENT);
+  
+  SetEnvironmentVariable("LIBUSB_NEEDS_REBOOT", "1");
+
+  if(dev_info == INVALID_HANDLE_VALUE)
+    {
+      usb_error("usb_install_needs_restart_np(): getting "
+                "device info set failed");
+      return ret;
+    }
+  
+  while(SetupDiEnumDeviceInfo(dev_info, dev_index, &dev_info_data))
+    {
+      memset(&install_params, 0, sizeof(SP_PROPCHANGE_PARAMS));
+      install_params.cbSize = sizeof(SP_DEVINSTALL_PARAMS);
+
+      if(SetupDiGetDeviceInstallParams(dev_info, &dev_info_data, 
+                                       &install_params))
+        {
+          if(install_params.Flags & (DI_NEEDRESTART | DI_NEEDREBOOT))
+            {
+              usb_message("usb_install_needs_restart_np(): restart needed");
+              ret = TRUE;
+            }
+        }
+      
+      dev_index++;
+    }
+  
+  SetupDiDestroyDeviceInfoList(dev_info);
+
+  return ret;
+}

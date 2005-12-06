@@ -68,3 +68,17 @@ Filename: "{app}\bin\install-filter.exe"; Parameters: "-u"
 
 [Messages]
 StatusUninstalling=Uninstalling %1 (this may take a few seconds) ...
+
+
+[Code]
+
+function needs_restart(): Integer; 
+external 'usb_install_needs_restart_np@libusb0.dll cdecl delayload';
+
+function NeedRestart(): Boolean;
+begin
+  if needs_restart() > 0 then begin
+    Result := True;
+    MsgBox('fsdfsd', mbConfirmation, MB_YESNO);
+  end;
+end;

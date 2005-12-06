@@ -41,6 +41,7 @@ EXPORTS
     usb_reap_async_nocancel
     usb_cancel_async
     usb_free_async  
+    usb_install_needs_restart_np
 
 
 
