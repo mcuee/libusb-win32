@@ -143,6 +143,7 @@ struct _libusb_device_t
   DEVICE_OBJECT	*physical_device_object;
   DEVICE_OBJECT	*next_stack_device;
   DEVICE_OBJECT	*target_device;
+  DRIVER_OBJECT *driver;
   libusb_remove_lock_t remove_lock; 
   USBD_CONFIGURATION_HANDLE configuration_handle;
   LONG ref_count;
@@ -151,6 +152,7 @@ struct _libusb_device_t
   int id;
   int configuration;
   POWER_STATE power_state;
+  DEVICE_POWER_STATE device_power_states[PowerSystemMaximum];
   libusb_topology_t topology;
   libusb_interface_t interfaces[LIBUSB_MAX_NUMBER_OF_INTERFACES];
 };
@@ -174,6 +176,8 @@ extern driver_globals_t driver_globals;
 #endif
 
 
+NTSTATUS DDKAPI add_device(DRIVER_OBJECT *driver_object, 
+                           DEVICE_OBJECT *physical_device_object);
 
 NTSTATUS DDKAPI dispatch(DEVICE_OBJECT *device_object, IRP *irp);
 NTSTATUS dispatch_pnp(libusb_device_t *dev, IRP *irp);
