@@ -16,7 +16,7 @@
 
 char usb_error_str[1024] = "";
 int usb_error_errno = 0;
-int __usb_debug = 0;
+int __usb_debug = LIBUSB_DEBUG_MSG;
 usb_error_type_t usb_error_type = USB_ERROR_TYPE_NONE;
 
 static void output_debug_string(const char *s, ...);

@@ -114,6 +114,7 @@ int APIENTRY WinMain(HINSTANCE instance, HINSTANCE prev_instance,
       return FALSE;
     }
 
+
   exit_button = CreateWindow("BUTTON", "Exit",
                              WS_VISIBLE | WS_CHILD | BS_DEFPUSHBUTTON,
                              10, 10, 
