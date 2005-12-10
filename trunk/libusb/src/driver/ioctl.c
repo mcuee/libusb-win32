@@ -41,12 +41,12 @@ NTSTATUS dispatch_ioctl(libusb_device_t *dev, IRP *irp)
   char *input_buffer = (char *)irp->AssociatedIrp.SystemBuffer;
   MDL *transfer_buffer_mdl = irp->MdlAddress;
 
-  status = remove_lock_acquire(&dev->remove_lock);
+  status = remove_lock_acquire(dev);
 
   if(!NT_SUCCESS(status))
     { 
       status = complete_irp(irp, status, 0);
-      remove_lock_release(&dev->remove_lock);
+      remove_lock_release(dev);
       return status;
     }
 
@@ -55,7 +55,7 @@ NTSTATUS dispatch_ioctl(libusb_device_t *dev, IRP *irp)
       DEBUG_ERROR("dispatch_ioctl(): invalid input or output buffer\n");
 
       status = complete_irp(irp, STATUS_INVALID_PARAMETER, 0);
-      remove_lock_release(&dev->remove_lock);
+      remove_lock_release(dev);
       return status;
     }
 
@@ -335,7 +335,7 @@ NTSTATUS dispatch_ioctl(libusb_device_t *dev, IRP *irp)
     }
 
   status = complete_irp(irp, status, ret);  
-  remove_lock_release(&dev->remove_lock);
+  remove_lock_release(dev);
 
   return status;
 }
