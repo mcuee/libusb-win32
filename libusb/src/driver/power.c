@@ -38,7 +38,7 @@ NTSTATUS dispatch_power(libusb_device_t *dev, IRP *irp)
   POWER_STATE power_state;
   NTSTATUS status;
 
-  status = remove_lock_acquire(&dev->remove_lock);;
+  status = remove_lock_acquire(dev);;
 
   if(!NT_SUCCESS(status)) 
     {
@@ -91,7 +91,7 @@ NTSTATUS dispatch_power(libusb_device_t *dev, IRP *irp)
       PoStartNextPowerIrp(irp);
       IoSkipCurrentIrpStackLocation(irp);
       status = PoCallDriver(dev->next_stack_device, irp);
-      remove_lock_release(&dev->remove_lock);
+      remove_lock_release(dev);
       
       return status;
     }
@@ -153,7 +153,7 @@ on_power_state_complete(DEVICE_OBJECT *device_object,
       DEBUG_MESSAGE("on_power_state_complete(): failed");
     }
 
-  remove_lock_release(&dev->remove_lock);
+  remove_lock_release(dev);
 
   return STATUS_SUCCESS;
 }

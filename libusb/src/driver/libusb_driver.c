@@ -117,7 +117,7 @@ NTSTATUS DDKAPI add_device(DRIVER_OBJECT *driver_object,
 
       if(NT_SUCCESS(status))
         {
-          DEBUG_MESSAGE("add_device(): device %d created", i);
+          DEBUG_MESSAGE("add_device(): device #%d created", i);
           break;
         }
     }
@@ -200,7 +200,7 @@ NTSTATUS DDKAPI add_device(DRIVER_OBJECT *driver_object,
   clear_pipe_info(dev);
   device_list_insert(dev);
 
-  remove_lock_initialize(&dev->remove_lock);
+  remove_lock_initialize(dev);
 
   device_object->Flags &= ~DO_DEVICE_INITIALIZING;
 
@@ -394,23 +394,23 @@ int update_pipe_info(libusb_device_t *dev, int interface,
   return TRUE;
 }
 
-void remove_lock_initialize(libusb_remove_lock_t *remove_lock)
+void remove_lock_initialize(libusb_device_t *dev)
 {
-  KeInitializeEvent(&remove_lock->event, NotificationEvent, FALSE);
-  remove_lock->usage_count = 1;
-  remove_lock->remove_pending = FALSE;
+  KeInitializeEvent(&dev->remove_lock.event, NotificationEvent, FALSE);
+  dev->remove_lock.usage_count = 1;
+  dev->remove_lock.remove_pending = FALSE;
 }
 
 
-NTSTATUS remove_lock_acquire(libusb_remove_lock_t *remove_lock)
+NTSTATUS remove_lock_acquire(libusb_device_t *dev)
 {
-  InterlockedIncrement(&remove_lock->usage_count);
+  InterlockedIncrement(&dev->remove_lock.usage_count);
 
-  if(remove_lock->remove_pending)
+  if(dev->remove_lock.remove_pending)
     {
-      if(InterlockedDecrement(&remove_lock->usage_count) == 0)
+      if(InterlockedDecrement(&dev->remove_lock.usage_count) == 0)
         {
-          KeSetEvent(&remove_lock->event, 0, FALSE);
+          KeSetEvent(&dev->remove_lock.event, 0, FALSE);
         }      
       return STATUS_DELETE_PENDING;
     }
@@ -418,21 +418,21 @@ NTSTATUS remove_lock_acquire(libusb_remove_lock_t *remove_lock)
 }
 
 
-void remove_lock_release(libusb_remove_lock_t *remove_lock)
+void remove_lock_release(libusb_device_t *dev)
 {
-  if(InterlockedDecrement(&remove_lock->usage_count) == 0)
+  if(InterlockedDecrement(&dev->remove_lock.usage_count) == 0)
     {
-      KeSetEvent(&remove_lock->event, 0, FALSE);
+      KeSetEvent(&dev->remove_lock.event, 0, FALSE);
     }
 }
 
 
-void remove_lock_release_and_wait(libusb_remove_lock_t *remove_lock)
+void remove_lock_release_and_wait(libusb_device_t *dev)
 {
-  remove_lock->remove_pending = TRUE;
-  remove_lock_release(remove_lock);
-  remove_lock_release(remove_lock);
-  KeWaitForSingleObject(&remove_lock->event, Executive, KernelMode,
+  dev->remove_lock.remove_pending = TRUE;
+  remove_lock_release(dev);
+  remove_lock_release(dev);
+  KeWaitForSingleObject(&dev->remove_lock.event, Executive, KernelMode,
                         FALSE, NULL);
 }
 

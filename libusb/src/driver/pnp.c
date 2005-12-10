@@ -45,7 +45,7 @@ NTSTATUS dispatch_pnp(libusb_device_t *dev, IRP *irp)
   UNICODE_STRING symbolic_link_name;
   WCHAR tmp_name[128];
 
-  status = remove_lock_acquire(&dev->remove_lock);
+  status = remove_lock_acquire(dev);
   
   if(!NT_SUCCESS(status))
     { 
@@ -61,11 +61,11 @@ NTSTATUS dispatch_pnp(libusb_device_t *dev, IRP *irp)
       DEBUG_MESSAGE("dispatch_pnp(): IRP_MN_REMOVE_DEVICE");
 
       dev->is_started = FALSE;
-      remove_lock_release_and_wait(&dev->remove_lock);
+      remove_lock_release_and_wait(dev);
 
       status = pass_irp_down(dev, irp, NULL, NULL); 
 
-      DEBUG_MESSAGE("dispatch_pnp(): deleting device %d", dev->id);
+      DEBUG_MESSAGE("dispatch_pnp(): deleting device #%d", dev->id);
       
       _snwprintf(tmp_name, sizeof(tmp_name)/sizeof(WCHAR), L"%s%04d", 
                  LIBUSB_SYMBOLIC_LINK_NAME, dev->id);
@@ -89,7 +89,7 @@ NTSTATUS dispatch_pnp(libusb_device_t *dev, IRP *irp)
 
       DEBUG_MESSAGE("dispatch_pnp(): IRP_MN_START_DEVICE");
 
-      if(!dev->topology.is_hub )
+      if(!dev->topology.is_hub)
         {
           if(NT_SUCCESS(set_configuration(dev, 1, 1000)))
             {
@@ -155,14 +155,14 @@ NTSTATUS dispatch_pnp(libusb_device_t *dev, IRP *irp)
       ;
     }
 
-  remove_lock_release(&dev->remove_lock);
+  remove_lock_release(dev);
   return pass_irp_down(dev, irp, NULL, NULL);
 }
 
 static NTSTATUS DDKAPI 
 on_start_complete(DEVICE_OBJECT *device_object, IRP *irp, void *context)
 {
-  libusb_device_t *dev = (libusb_device_t *)device_object->DeviceExtension;
+  libusb_device_t *dev = device_object->DeviceExtension;
 
   if(irp->PendingReturned)
     {
@@ -174,9 +174,12 @@ on_start_complete(DEVICE_OBJECT *device_object, IRP *irp, void *context)
       device_object->Characteristics |= FILE_REMOVABLE_MEDIA;
     }
   
-  remove_lock_release(&dev->remove_lock);
-  
+    DEBUG_MESSAGE("dispatch_pnp(): Type: 0x%x", 
+                  dev->next_stack_device->DeviceType);
+
   dev->is_started = TRUE;
+
+  remove_lock_release(dev);
 
   return STATUS_SUCCESS;
 }
@@ -185,7 +188,7 @@ static NTSTATUS DDKAPI
 on_device_usage_notification_complete(DEVICE_OBJECT *device_object,
                                       IRP *irp, void *context)
 {
-  libusb_device_t *dev = (libusb_device_t *)device_object->DeviceExtension;
+  libusb_device_t *dev = device_object->DeviceExtension;
 
   if(irp->PendingReturned)
     {
@@ -197,7 +200,7 @@ on_device_usage_notification_complete(DEVICE_OBJECT *device_object,
       device_object->Flags &= ~DO_POWER_PAGABLE;
     }
 
-  remove_lock_release(&dev->remove_lock);
+  remove_lock_release(dev);
 
   return STATUS_SUCCESS;
 }
@@ -206,7 +209,7 @@ static NTSTATUS DDKAPI
 on_query_capabilities_complete(DEVICE_OBJECT *device_object,
                                IRP *irp, void *context)
 {
-  libusb_device_t *dev = (libusb_device_t *)device_object->DeviceExtension;
+  libusb_device_t *dev = device_object->DeviceExtension;
   IO_STACK_LOCATION *stack_location = IoGetCurrentIrpStackLocation(irp);
 
   if(irp->PendingReturned)
@@ -241,7 +244,7 @@ on_query_capabilities_complete(DEVICE_OBJECT *device_object,
              sizeof(dev->device_power_states));
     }
 
-  remove_lock_release(&dev->remove_lock);
+  remove_lock_release(dev);
 
   return STATUS_SUCCESS;
 }
@@ -250,7 +253,7 @@ static NTSTATUS DDKAPI
 on_query_device_relations_complete(DEVICE_OBJECT *device_object,
                                    IRP *irp, void *context)
 {
-  libusb_device_t *dev = (libusb_device_t *)device_object->DeviceExtension;
+  libusb_device_t *dev = device_object->DeviceExtension;
   DEVICE_RELATIONS *device_relations;
   int i;
 
@@ -280,7 +283,7 @@ on_query_device_relations_complete(DEVICE_OBJECT *device_object,
         }
     }
 
-  remove_lock_release(&dev->remove_lock);
+  remove_lock_release(dev);
 
   return STATUS_SUCCESS;
 }

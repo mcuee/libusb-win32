@@ -21,7 +21,7 @@
 
 NTSTATUS DDKAPI dispatch(DEVICE_OBJECT *device_object, IRP *irp)
 {
-  libusb_device_t *dev = (libusb_device_t *)device_object->DeviceExtension;
+  libusb_device_t *dev = device_object->DeviceExtension;
 
   switch(IoGetCurrentIrpStackLocation(irp)->MajorFunction) 
     {

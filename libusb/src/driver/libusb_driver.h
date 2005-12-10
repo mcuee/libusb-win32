@@ -200,10 +200,10 @@ void clear_pipe_info(libusb_device_t *dev);
 int update_pipe_info(libusb_device_t *dev, int interface,
                      USBD_INTERFACE_INFORMATION *interface_info);
 
-void remove_lock_initialize(libusb_remove_lock_t *remove_lock);
-NTSTATUS remove_lock_acquire(libusb_remove_lock_t *remove_lock);
-void remove_lock_release(libusb_remove_lock_t *remove_lock);
-void remove_lock_release_and_wait(libusb_remove_lock_t *remove_lock);
+void remove_lock_initialize(libusb_device_t *dev);
+NTSTATUS remove_lock_acquire(libusb_device_t *dev);
+void remove_lock_release(libusb_device_t *dev);
+void remove_lock_release_and_wait(libusb_device_t *dev);
 
 NTSTATUS set_configuration(libusb_device_t *dev,
                            int configuration, int timeout);
