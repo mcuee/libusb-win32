@@ -23,7 +23,6 @@
 typedef struct {
   URB *urb;
   int sequence;
-  libusb_remove_lock_t *remove_lock;
 } context_t;
 
 static int sequence = 0;
@@ -67,7 +66,7 @@ NTSTATUS transfer(libusb_device_t *dev, IRP *irp,
   if(!dev->configuration)
     {
       DEBUG_ERROR("transfer(): invalid configuration 0");
-      remove_lock_release(&dev->remove_lock);
+      remove_lock_release(dev);
       return complete_irp(irp, STATUS_INVALID_DEVICE_STATE, 0);
     }
   
@@ -75,7 +74,7 @@ NTSTATUS transfer(libusb_device_t *dev, IRP *irp,
 
   if(!context)
     {
-      remove_lock_release(&dev->remove_lock);
+      remove_lock_release(dev);
       return complete_irp(irp, STATUS_NO_MEMORY, 0);
     }
 
@@ -85,11 +84,10 @@ NTSTATUS transfer(libusb_device_t *dev, IRP *irp,
   if(!NT_SUCCESS(status))
     {
       ExFreePool(context);
-      remove_lock_release(&dev->remove_lock);
+      remove_lock_release(dev);
       return complete_irp(irp, status, 0);
     }
 
-  context->remove_lock = &dev->remove_lock;
   context->sequence = sequence++;
 
   stack_location = IoGetNextIrpStackLocation(irp);
@@ -111,8 +109,12 @@ NTSTATUS DDKAPI transfer_complete(DEVICE_OBJECT *device_object, IRP *irp,
 {
   context_t *c = (context_t *)context;
   int transmitted = 0;
-  libusb_remove_lock_t *remove_lock = c->remove_lock;
+  libusb_device_t *dev = device_object->DeviceExtension;
 
+  if(irp->PendingReturned)
+    {
+      IoMarkIrpPending(irp);
+    }
 
   if(NT_SUCCESS(irp->IoStatus.Status) 
      && USBD_SUCCESS(c->urb->UrbHeader.Status))
@@ -149,10 +151,11 @@ NTSTATUS DDKAPI transfer_complete(DEVICE_OBJECT *device_object, IRP *irp,
   ExFreePool(c->urb);
   ExFreePool(c);
 
-  complete_irp(irp, irp->IoStatus.Status, transmitted);
-  remove_lock_release(remove_lock);
+  irp->IoStatus.Information = transmitted;
 
-  return STATUS_MORE_PROCESSING_REQUIRED;
+  remove_lock_release(dev);
+
+  return STATUS_SUCCESS;
 }
 
 
