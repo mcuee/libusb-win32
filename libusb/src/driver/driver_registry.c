@@ -20,11 +20,11 @@
 #include "libusb_driver.h"
 
 /* missing in mingw's ddk headers */
+#ifndef PLUGPLAY_REGKEY_DEVICE
 #define PLUGPLAY_REGKEY_DEVICE  1
-#define PLUGPLAY_REGKEY_DRIVER  2
-#define PLUGPLAY_REGKEY_CURRENT_HWPROFILE 4
+#endif
 
-#define LIBUSB_REG_IS_DEVICE_DRIVER L"libusb_is_device_driver"
+#define LIBUSB_REG_SURPRISE_REMOVAL_OK L"SurpriseRemovalOK"
 
 
 static int reg_get_property(DEVICE_OBJECT *physical_device_object, 
@@ -65,111 +65,31 @@ static int reg_get_property(DEVICE_OBJECT *physical_device_object,
   return FALSE;
 }
 
-int reg_is_usb_device(DEVICE_OBJECT *physical_device_object)
-{
-  char tmp[256];
 
-  if(!physical_device_object)
-    {
-      return FALSE;
-    }
-
-  if(reg_get_property(physical_device_object, DevicePropertyHardwareID, 
-                      tmp, sizeof(tmp)))
-    {
-      if(strstr(tmp, "usb\\"))
-        {
-          return TRUE;
-        }
-    }
-  
-  return FALSE;
-}
-
-int reg_is_root_hub(DEVICE_OBJECT *physical_device_object)
-{
-  char tmp[256];
-
-  if(!physical_device_object)
-    {
-      return FALSE;
-    }
-
-  if(reg_get_property(physical_device_object, DevicePropertyHardwareID,
-                      tmp, sizeof(tmp)))
-    {
-      if(strstr(tmp, "root_hub"))
-        {
-          return TRUE;
-        }
-    }
-  
-  return FALSE;
-}
-
-int reg_is_hub(DEVICE_OBJECT *physical_device_object)
-{
-  char tmp[256];
-
-  if(!physical_device_object)
-    {
-      return FALSE;
-    }
-
-  if(reg_get_property(physical_device_object, DevicePropertyHardwareID,
-                      tmp, sizeof(tmp)))
-    {
-      if(strstr(tmp, "hub"))
-        {
-          return TRUE;
-        }
-    }
-  
-  return FALSE;
-}
-
-int reg_is_composite_interface(DEVICE_OBJECT *physical_device_object)
-{
-  char tmp[256];
-
-  if(!physical_device_object)
-    {
-      return FALSE;
-    }
-
-  if(reg_get_property(physical_device_object, DevicePropertyHardwareID, 
-                      tmp, sizeof(tmp)))
-    {
-      if(strstr(tmp, "&mi_"))
-        {
-          return TRUE;
-        }
-    }
-  
-  return FALSE;
-}
-
-int reg_is_filter_driver(DEVICE_OBJECT *physical_device_object)
+int reg_get_properties(libusb_device_t *dev)
 {
   HANDLE key = NULL;
   NTSTATUS status;
   UNICODE_STRING name;
   KEY_VALUE_FULL_INFORMATION *info;
   ULONG length;
-  int ret = TRUE;
 
-  if(!physical_device_object)
+  if(!dev->physical_device_object)
     {
       return FALSE;
     }
 
-  status = IoOpenDeviceRegistryKey(physical_device_object,
+  /* default settings */
+  dev->surprise_removal_ok = FALSE;
+  dev->is_filter = TRUE;
+
+  status = IoOpenDeviceRegistryKey(dev->physical_device_object,
                                    PLUGPLAY_REGKEY_DEVICE,
                                    STANDARD_RIGHTS_ALL,
                                    &key);
   if(NT_SUCCESS(status)) 
     {
-      RtlInitUnicodeString(&name, LIBUSB_REG_IS_DEVICE_DRIVER);
+      RtlInitUnicodeString(&name, LIBUSB_REG_SURPRISE_REMOVAL_OK);
       
       length = sizeof(KEY_VALUE_FULL_INFORMATION) + name.MaximumLength
         + sizeof(ULONG);
@@ -178,12 +98,17 @@ int reg_is_filter_driver(DEVICE_OBJECT *physical_device_object)
       
       if(info) 
         {
+          memset(info, 0, length);
+
           status = ZwQueryValueKey(key, &name, KeyValueFullInformation,
                                    info, length, &length);
           
-          if(NT_SUCCESS(status)) 
+          if(NT_SUCCESS(status) && (info->Type == REG_DWORD))
             {
-              ret = FALSE;
+              ULONG val = *((ULONG *)(((char *)info) + info->DataOffset));
+
+              dev->surprise_removal_ok = val ? TRUE : FALSE;
+              dev->is_filter = FALSE;
             }
           
           ExFreePool(info);
@@ -192,10 +117,11 @@ int reg_is_filter_driver(DEVICE_OBJECT *physical_device_object)
       ZwClose(key);
     }
 
-  return ret;
+  return TRUE;
 }
 
-int reg_get_id(DEVICE_OBJECT *physical_device_object, char *data, int size)
+int reg_get_hardware_id(DEVICE_OBJECT *physical_device_object, 
+                        char *data, int size)
 {
   if(!physical_device_object || !data || !size)
     {
@@ -203,5 +129,17 @@ int reg_get_id(DEVICE_OBJECT *physical_device_object, char *data, int size)
     }
 
   return reg_get_property(physical_device_object, DevicePropertyHardwareID, 
+                          data, size);
+}
+
+int reg_get_compatible_id(DEVICE_OBJECT *physical_device_object, 
+                          char *data, int size)
+{
+  if(!physical_device_object || !data || !size)
+    {
+      return FALSE;
+    }
+
+  return reg_get_property(physical_device_object, DevicePropertyCompatibleIDs, 
                           data, size);
 }

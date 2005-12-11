@@ -837,54 +837,7 @@ void usb_registry_mz_string_lower(char *src)
     }
 }
 
-
-int usb_registry_get_num_busses(void)
-{
-  HDEVINFO dev_info;
-  SP_DEVINFO_DATA dev_info_data;
-  int dev_index = 0;
-  char id[MAX_PATH];
-  int ret = 0;
-
-  dev_info_data.cbSize = sizeof(SP_DEVINFO_DATA);
-
-  dev_info = SetupDiGetClassDevs(NULL, "USB", NULL,
-                                 DIGCF_ALLCLASSES | DIGCF_PRESENT);
-  
-  if(dev_info == INVALID_HANDLE_VALUE)
-    {
-      usb_error("usb_registry_get_num_busses(): getting "
-                "device info set failed");
-      return 0;
-    }
-  
-  while(SetupDiEnumDeviceInfo(dev_info, dev_index, &dev_info_data))
-    {
-      if(!usb_registry_get_property(SPDRP_HARDWAREID, dev_info, &dev_info_data,
-                                    id, sizeof(id)))
-        {
-          usb_error("usb_registry_get_num_busses(): getting hardware "
-                    "id failed");
-          dev_index++;
-          continue;
-        }
-      
-      usb_registry_mz_string_lower(id);
-      
-      /* search for USB root hubs */
-      if(usb_registry_mz_string_find_sub(id, "root_hub"))
-        {
-          ret++;
-        }
-      dev_index++;
-    }
-  
-  SetupDiDestroyDeviceInfoList(dev_info);
-
-  return ret;
-}
-
-bool_t usb_registry_restart_root_hubs(void)
+bool_t usb_registry_restart_all_devices(void)
 {
   HDEVINFO dev_info;
   SP_DEVINFO_DATA dev_info_data;
@@ -899,7 +852,7 @@ bool_t usb_registry_restart_root_hubs(void)
   
   if(dev_info == INVALID_HANDLE_VALUE)
     {
-      usb_error("usb_registry_restart_root_hubs(): getting "
+      usb_error("usb_registry_restart_all_devices(): getting "
                 "device info set failed");
       return FALSE;
     }
@@ -909,7 +862,7 @@ bool_t usb_registry_restart_root_hubs(void)
       if(!usb_registry_get_property(SPDRP_HARDWAREID, dev_info, 
                                     &dev_info_data, id, sizeof(id)))
         {
-          usb_error("usb_registry_restart_root_hubs(): getting hardware "
+          usb_error("usb_registry_restart_all_devices(): getting hardware "
                     "id failed");
           dev_index++;
           continue;
@@ -917,7 +870,7 @@ bool_t usb_registry_restart_root_hubs(void)
         
       usb_registry_mz_string_lower(id);
         
-      /* search for USB root hubs */
+      /* restart root hubs */
       if(usb_registry_mz_string_find_sub(id, "root_hub"))
         {
           usb_registry_restart_device(dev_info, &dev_info_data);

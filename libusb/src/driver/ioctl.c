@@ -315,20 +315,6 @@ NTSTATUS dispatch_ioctl(libusb_device_t *dev, IRP *irp)
                       request->endpoint.packet_size, transfer_buffer_mdl, 
                       transfer_buffer_length);
 
-    case LIBUSB_IOCTL_GET_DEVICE_INFO:
-
-      if(!request || output_buffer_length < sizeof(libusb_request))
-        {
-          DEBUG_ERROR("dispatch_ioctl(), get_device_info: invalid output "
-                      "buffer");
-          status = STATUS_INVALID_PARAMETER;
-          break;
-        }
-
-      status = get_device_info(dev, request, &ret);
-
-      break;
-
     default:
       
       status = STATUS_INVALID_PARAMETER;

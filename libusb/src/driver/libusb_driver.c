@@ -21,6 +21,7 @@
 
 #include "libusb_driver.h"
 
+extern int debug_level;
 
 static void DDKAPI unload(DRIVER_OBJECT *driver_object);
 
@@ -36,10 +37,7 @@ NTSTATUS DDKAPI DriverEntry(DRIVER_OBJECT *driver_object,
   DEBUG_MESSAGE("DriverEntry(): loading driver");
 
   /* initialize global variables */
-  driver_globals.bus_index = 1;
-  driver_globals.debug_level = LIBUSB_DEBUG_MSG;
-
-  device_list_init();
+  debug_level = LIBUSB_DEBUG_MSG;
 
   /* initialize the driver object's dispatch table */
   for(i = 0; i <= IRP_MJ_MAXIMUM_FUNCTION; i++) 
@@ -59,31 +57,38 @@ NTSTATUS DDKAPI add_device(DRIVER_OBJECT *driver_object,
   NTSTATUS status;
   DEVICE_OBJECT *device_object = NULL;
   libusb_device_t *dev;
-  ULONG device_type = FILE_DEVICE_UNKNOWN;
+  ULONG device_type;
 
   UNICODE_STRING nt_device_name;
   UNICODE_STRING symbolic_link_name;
   WCHAR tmp_name_0[128];
   WCHAR tmp_name_1[128];
-  char id[128];
+  char id[256];
   int i;
 
-  /* check whether the device object's registry settings are readable */
-  if(!reg_get_id(physical_device_object, id, sizeof(id)))
+  /* get the hardware ID from the registry */
+  if(!reg_get_hardware_id(physical_device_object, id, sizeof(id)))
     {
       DEBUG_ERROR("add_device(): unable to read registry");
       return STATUS_SUCCESS;
     }
 
-  /* only attach the driver to USB devices */
-  if(!reg_is_usb_device(physical_device_object))
+  /* only attach the (filter) driver to USB devices, skip root-hubs, */
+  /* and interfaces of composite devices */
+  if(!strstr(id, "usb\\") || strstr(id, "root_hub") || strstr(id, "&mi_"))
     {
       return STATUS_SUCCESS;
     }
 
-  /* don't attach the class filter to interfaces of composite USB devices */
-  if(reg_is_filter_driver(physical_device_object)
-     && reg_is_composite_interface(physical_device_object))
+  /* get the compatible ID from the registry */
+  if(!reg_get_compatible_id(physical_device_object, id, sizeof(id)))
+    {
+      DEBUG_ERROR("add_device(): unable to read registry");
+      return STATUS_SUCCESS;
+    }
+
+  /* skip hubs */
+  if(strstr(id, "usb\\class_09"))
     {
       return STATUS_SUCCESS;
     }
@@ -96,20 +101,24 @@ NTSTATUS DDKAPI add_device(DRIVER_OBJECT *driver_object,
       device_type = device_object->DeviceType;
       ObDereferenceObject(device_object);
     }
+  else
+    {
+      device_type = FILE_DEVICE_UNKNOWN;
+    }
 
   /* try to create a new device object */
   for(i = 1; i < LIBUSB_MAX_NUMBER_OF_DEVICES; i++)
     {
-      device_object = NULL;
-
+      /* initialize some unicode strings */
       _snwprintf(tmp_name_0, sizeof(tmp_name_0)/sizeof(WCHAR), L"%s%04d", 
                  LIBUSB_NT_DEVICE_NAME, i);
       _snwprintf(tmp_name_1, sizeof(tmp_name_1)/sizeof(WCHAR), L"%s%04d", 
                  LIBUSB_SYMBOLIC_LINK_NAME, i);
-    
+
       RtlInitUnicodeString(&nt_device_name, tmp_name_0);  
       RtlInitUnicodeString(&symbolic_link_name, tmp_name_1);
 
+      /* create the object */
       status = IoCreateDevice(driver_object, 
                               sizeof(libusb_device_t), 
                               &nt_device_name, device_type, 0, FALSE, 
@@ -120,6 +129,10 @@ NTSTATUS DDKAPI add_device(DRIVER_OBJECT *driver_object,
           DEBUG_MESSAGE("add_device(): device #%d created", i);
           break;
         }
+
+      device_object = NULL;
+
+      /* continue until an unused device name is found */
     }
 
   if(!device_object)
@@ -138,7 +151,7 @@ NTSTATUS DDKAPI add_device(DRIVER_OBJECT *driver_object,
     }
 
   /* setup the "device object" */
-  dev = (libusb_device_t *)device_object->DeviceExtension;
+  dev = device_object->DeviceExtension;
 
   memset(dev, 0, sizeof(libusb_device_t));
 
@@ -157,28 +170,14 @@ NTSTATUS DDKAPI add_device(DRIVER_OBJECT *driver_object,
 
   dev->self = device_object;
   dev->physical_device_object = physical_device_object;
-  dev->id = i;  
-  dev->driver = driver_object;
+  dev->id = i;
 
   /* set initial power states */
   dev->power_state.DeviceState = PowerDeviceD0;
   dev->power_state.SystemState = PowerSystemWorking;
 
-  /* set topology information */
-  dev->topology.is_hub = reg_is_hub(physical_device_object);
-  dev->topology.is_root_hub = reg_is_root_hub(physical_device_object);
-  dev->is_filter = reg_is_filter_driver(physical_device_object); 
-
-  if(dev->topology.is_root_hub)
-    {
-      dev->topology.bus = driver_globals.bus_index;
-      InterlockedIncrement(&driver_globals.bus_index);
-    }
-  else
-    {
-      /* default bus, will be set later */
-      dev->topology.bus = 1;
-    }
+  /* get device properties from the registry */
+  reg_get_properties(dev);
 
   if(dev->is_filter)
     {
@@ -198,7 +197,6 @@ NTSTATUS DDKAPI add_device(DRIVER_OBJECT *driver_object,
     }
 
   clear_pipe_info(dev);
-  device_list_insert(dev);
 
   remove_lock_initialize(dev);
 
@@ -284,6 +282,7 @@ static NTSTATUS DDKAPI on_usbd_complete(DEVICE_OBJECT *device_object,
                                         IRP *irp, void *context)
 {
   KeSetEvent((KEVENT *) context, IO_NO_INCREMENT, FALSE);
+
   return STATUS_MORE_PROCESSING_REQUIRED;
 }
 
@@ -308,12 +307,15 @@ NTSTATUS pass_irp_down(libusb_device_t *dev, IRP *irp,
 
 bool_t accept_irp(libusb_device_t *dev, IRP *irp)
 {
-  /* check if the IRP is sent to libusb's device object */
+  /* check if the IRP is sent to libusb's device object or to */
+  /* the lower one. This check is neccassary since the device object */
+  /* might be a filter */
   if(irp->Tail.Overlay.OriginalFileObject)
     {
      return irp->Tail.Overlay.OriginalFileObject->DeviceObject
          == dev->self ? TRUE : FALSE;
     }
+
   return FALSE;
 }
 
@@ -336,6 +338,7 @@ int get_pipe_handle(libusb_device_t *dev, int endpoint_address,
             }
         }
     }
+
   return FALSE;
 }
 
@@ -436,146 +439,6 @@ void remove_lock_release_and_wait(libusb_device_t *dev)
                         FALSE, NULL);
 }
 
-NTSTATUS get_device_info(libusb_device_t *dev, libusb_request *request, 
-                         int *ret)
-{
-  int i;
-
-  if(dev->topology.update)
-    {
-      update_topology(dev);
-      dev->topology.update = FALSE;
-    }
-
-  DEBUG_MESSAGE("get_device_info(): id: 0x%x", dev->id);
-  DEBUG_MESSAGE("get_device_info(): port: 0x%x", dev->topology.port);
-  DEBUG_MESSAGE("get_device_info(): parent: 0x%x", dev->topology.parent);
-  DEBUG_MESSAGE("get_device_info(): bus: 0x%x", dev->topology.bus);
-  DEBUG_MESSAGE("get_device_info(): num_children: 0x%x", 
-                dev->topology.num_children);
-
-  for(i = 0; i < dev->topology.num_children; i++)
-    {
-      DEBUG_MESSAGE("get_device_info(): child #%d: id: 0x%x, port: 0x%x",
-                    i, 
-                    dev->topology.children[i].id,
-                    dev->topology.children[i].port);  
-    }
-
-  DEBUG_PRINT_NL();
-
-
-  memset(request, 0, sizeof(libusb_request));
-
-  request->device_info.port = dev->topology.port;
-  request->device_info.parent_id = dev->topology.parent;
-  request->device_info.bus = dev->topology.bus;
-  request->device_info.id = dev->id;
-
-  *ret = sizeof(libusb_request);
-
-  return STATUS_SUCCESS;
-}
-
-void device_list_init(void)
-{
-  device_list_t *list = &driver_globals.device_list;
-
-  list->head = NULL;
-  KeInitializeSpinLock(&list->lock);
-}
-
-void device_list_insert(libusb_device_t *dev)
-{
-  KIRQL irql;
-  device_list_t *list = &driver_globals.device_list;
-
-  KeAcquireSpinLock(&list->lock, &irql);
-
-  dev->next = driver_globals.device_list.head;
-  driver_globals.device_list.head = dev;
-
-  KeReleaseSpinLock(&list->lock, irql);
-}
-
-void device_list_remove(libusb_device_t *dev)
-{
-  KIRQL irql;
-  libusb_device_t *p;
-  device_list_t *list = &driver_globals.device_list;
-
-  KeAcquireSpinLock(&list->lock, &irql);
-
-  if(list->head == dev)
-    {
-      list->head = dev->next;
-    }
-  else
-    {
-      p = list->head;
-      
-      while(p)
-        {
-          if(p->next == dev)
-            {
-              p->next = dev->next;
-              break;
-            }
-          p = p->next;
-        }
-    }
-
-  KeReleaseSpinLock(&list->lock, irql);
-}
-
-void update_topology(libusb_device_t *dev)
-{
-  int i;
-  KIRQL irql;
-  libusb_device_t *child_dev;
-  device_list_t *list = &driver_globals.device_list;
-
-  dev->topology.num_children = 0;
-
-  memset(&dev->topology.children, 0, sizeof(dev->topology.children));
-
-  KeAcquireSpinLock(&list->lock, &irql);
-
-  for(i = 0; i < dev->topology.num_child_pdos; i++)
-    {
-      child_dev = list->head;
-      
-      /* find the child device */
-      while(child_dev)
-        {
-          if(child_dev->physical_device_object == dev->topology.child_pdos[i])
-            {
-              break;
-            }
-          
-          child_dev = child_dev->next;
-        }
-
-      if(child_dev)
-        {
-          child_dev->topology.parent = dev->id;
-          child_dev->topology.bus = dev->topology.bus;
-
-          if(dev->topology.num_children < LIBUSB_MAX_NUMBER_OF_CHILDREN)
-            {
-              dev->topology.children[dev->topology.num_children].id 
-                = child_dev->id;
-
-              dev->topology.children[dev->topology.num_children].port
-                = child_dev->topology.port;
-
-              dev->topology.num_children++;
-            }
-        }
-    }
-
-  KeReleaseSpinLock(&list->lock, irql);
-}
 
 USB_INTERFACE_DESCRIPTOR *
 find_interface_desc(USB_CONFIGURATION_DESCRIPTOR *config_desc,

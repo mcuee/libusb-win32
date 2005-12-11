@@ -33,10 +33,6 @@ static NTSTATUS DDKAPI
 on_query_capabilities_complete(DEVICE_OBJECT *device_object,
                                IRP *irp, void *context);
 
-static NTSTATUS DDKAPI 
-on_query_device_relations_complete(DEVICE_OBJECT *device_object,
-                                   IRP *irp, void *context);
-
 
 NTSTATUS dispatch_pnp(libusb_device_t *dev, IRP *irp)
 {
@@ -61,6 +57,8 @@ NTSTATUS dispatch_pnp(libusb_device_t *dev, IRP *irp)
       DEBUG_MESSAGE("dispatch_pnp(): IRP_MN_REMOVE_DEVICE");
 
       dev->is_started = FALSE;
+      
+      /* wait until all outstanding requests are finished */
       remove_lock_release_and_wait(dev);
 
       status = pass_irp_down(dev, irp, NULL, NULL); 
@@ -70,10 +68,11 @@ NTSTATUS dispatch_pnp(libusb_device_t *dev, IRP *irp)
       _snwprintf(tmp_name, sizeof(tmp_name)/sizeof(WCHAR), L"%s%04d", 
                  LIBUSB_SYMBOLIC_LINK_NAME, dev->id);
       
+      /* delete the symbolic link */
       RtlInitUnicodeString(&symbolic_link_name, tmp_name);
       IoDeleteSymbolicLink(&symbolic_link_name);
 
-      device_list_remove(dev);
+      /* delete the device object */
       IoDetachDevice(dev->next_stack_device);
       IoDeleteDevice(dev->self);
 
@@ -89,22 +88,14 @@ NTSTATUS dispatch_pnp(libusb_device_t *dev, IRP *irp)
 
       DEBUG_MESSAGE("dispatch_pnp(): IRP_MN_START_DEVICE");
 
-      if(!dev->topology.is_hub)
+      if(!NT_SUCCESS(set_configuration(dev, 1, 1000)))
         {
-          if(NT_SUCCESS(set_configuration(dev, 1, 1000)))
-            {
-              dev->configuration = 1;
-            }
-          else
-            {
-              DEBUG_ERROR("dispatch_pnp(): IRP_MN_START_DEVICE: selecting "
-                          "configuration failed");
-              dev->configuration = 0;
-            }
+          DEBUG_ERROR("dispatch_pnp(): IRP_MN_START_DEVICE: selecting "
+                      "configuration failed");
         }
 
       /* report device state to Power Manager */
-      /* DeviceState has been set to D0 by add_device() */
+      /* power_state.DeviceState has been set to D0 by add_device() */
       PoSetPowerState(dev->self, DevicePowerState, dev->power_state);
 
       return pass_irp_down(dev, irp, on_start_complete, NULL);
@@ -118,6 +109,7 @@ NTSTATUS dispatch_pnp(libusb_device_t *dev, IRP *irp)
     case IRP_MN_DEVICE_USAGE_NOTIFICATION:
 
       DEBUG_MESSAGE("dispatch_pnp(): IRP_MN_DEVICE_USAGE_NOTIFICATION");
+
       if(!dev->self->AttachedDevice
          || (dev->self->AttachedDevice->Flags & DO_POWER_PAGABLE))
         {
@@ -133,23 +125,12 @@ NTSTATUS dispatch_pnp(libusb_device_t *dev, IRP *irp)
 
       if(!dev->is_filter)
         {
+          /* apply registry setting */
           stack_location->Parameters.DeviceCapabilities.Capabilities
-            ->SurpriseRemovalOK = TRUE;
+            ->SurpriseRemovalOK = dev->surprise_removal_ok;
         }
 
       return pass_irp_down(dev, irp, on_query_capabilities_complete,  NULL);
-
-    case IRP_MN_QUERY_DEVICE_RELATIONS:
-
-      DEBUG_MESSAGE("dispatch_pnp(): IRP_MN_QUERY_DEVICE_RELATIONS");
-
-      if(stack_location->Parameters.QueryDeviceRelations.Type == BusRelations)
-        { 
-          return pass_irp_down(dev, irp, on_query_device_relations_complete, 
-                               NULL);
-        }
-
-      break;
 
     default:
       ;
@@ -174,9 +155,6 @@ on_start_complete(DEVICE_OBJECT *device_object, IRP *irp, void *context)
       device_object->Characteristics |= FILE_REMOVABLE_MEDIA;
     }
   
-    DEBUG_MESSAGE("dispatch_pnp(): Type: 0x%x", 
-                  dev->next_stack_device->DeviceType);
-
   dev->is_started = TRUE;
 
   remove_lock_release(dev);
@@ -221,66 +199,15 @@ on_query_capabilities_complete(DEVICE_OBJECT *device_object,
     {
       if(!dev->is_filter)
         {
+          /* apply registry setting */
           stack_location->Parameters.DeviceCapabilities.Capabilities
-            ->SurpriseRemovalOK = TRUE;
-        }
-
-      if(dev->topology.is_root_hub)
-        {
-          dev->topology.port = 
-            stack_location
-            ->Parameters.DeviceCapabilities.Capabilities->Address + 1;
-        }
-      else
-        {
-          dev->topology.port
-            = stack_location
-            ->Parameters.DeviceCapabilities.Capabilities->Address;
+            ->SurpriseRemovalOK = dev->surprise_removal_ok;
         }
 
       /* save supported device power states */
       memcpy(dev->device_power_states, stack_location
              ->Parameters.DeviceCapabilities.Capabilities->DeviceState,
              sizeof(dev->device_power_states));
-    }
-
-  remove_lock_release(dev);
-
-  return STATUS_SUCCESS;
-}
-
-static NTSTATUS DDKAPI 
-on_query_device_relations_complete(DEVICE_OBJECT *device_object,
-                                   IRP *irp, void *context)
-{
-  libusb_device_t *dev = device_object->DeviceExtension;
-  DEVICE_RELATIONS *device_relations;
-  int i;
-
-  if(irp->PendingReturned)
-    {
-      IoMarkIrpPending(irp);
-    }
-
-  if(NT_SUCCESS(irp->IoStatus.Status))
-    {
-      device_relations = (DEVICE_RELATIONS *)irp->IoStatus.Information;
-
-      if(device_relations)
-        {
-          memset(&dev->topology.child_pdos, 0,
-                 sizeof(dev->topology.child_pdos));
-
-          dev->topology.num_child_pdos = 0;
-          dev->topology.update = TRUE;
-
-          for(i = 0; (i < (int)device_relations->Count)
-                && (i < LIBUSB_MAX_NUMBER_OF_CHILDREN); i++)
-            {
-              dev->topology.child_pdos[i] = device_relations->Objects[i];
-              dev->topology.num_child_pdos++;
-            }
-        }
     }
 
   remove_lock_release(dev);

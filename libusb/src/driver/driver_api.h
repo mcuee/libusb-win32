@@ -103,9 +103,6 @@ enum {
 #define LIBUSB_IOCTL_RELEASE_INTERFACE CTL_CODE(FILE_DEVICE_UNKNOWN,\
 0x816, METHOD_BUFFERED, FILE_ANY_ACCESS)
 
-#define LIBUSB_IOCTL_GET_DEVICE_INFO CTL_CODE(FILE_DEVICE_UNKNOWN,\
-0x817, METHOD_BUFFERED, FILE_ANY_ACCESS)
-
 #include <pshpack1.h> 
 
 
@@ -163,13 +160,6 @@ typedef struct {
       unsigned int micro;
       unsigned int nano;
     } version;
-    struct
-    {
-      unsigned int bus;
-      unsigned int port;
-      unsigned int id;
-      unsigned int parent_id;
-    } device_info;
   };
 } libusb_request;
     

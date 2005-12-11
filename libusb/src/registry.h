@@ -56,7 +56,7 @@ bool_t usb_registry_set_property(DWORD which, HDEVINFO dev_info,
                                  SP_DEVINFO_DATA *dev_info_data, 
                                  char *buf, int size);
 
-bool_t usb_registry_restart_root_hubs(void);
+bool_t usb_registry_restart_all_devices(void);
 
 bool_t usb_registry_insert_class_filter(void);
 bool_t usb_registry_remove_class_filter(void);
@@ -78,6 +78,5 @@ bool_t usb_registry_mz_string_insert(char *src, const char *str);
 bool_t usb_registry_mz_string_remove(char *src, const char *str);
 void usb_registry_mz_string_lower(char *src);
 
-int usb_registry_get_num_busses(void);
 
 #endif

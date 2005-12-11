@@ -25,7 +25,7 @@ void usage(void)
 {
   printf("Usage: install-filter.exe [option]\n"
          "Options:\n"
-         "-h  prints the help message\n"
+         "-h  prints this help message\n"
          "-i  installs the filter driver\n"
          "-u  uninstalls the filter driver\n");
 }

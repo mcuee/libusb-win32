@@ -120,9 +120,6 @@ int usb_install_service_np(void)
   char display_name[MAX_PATH];
   int ret = 0;
 
-
-  memset(display_name, 0, sizeof(display_name));
-
   /* uninstall old filter driver */
   usb_uninstall_service_np();
 
@@ -133,6 +130,8 @@ int usb_install_service_np(void)
 
   if(usb_registry_is_nt())
     {
+      memset(display_name, 0, sizeof(display_name));
+
       /* create the Display Name */
       _snprintf(display_name, sizeof(display_name) - 1,
                 "LibUsb-Win32 - Kernel Driver, Version %d.%d.%d.%d", 
@@ -152,7 +151,7 @@ int usb_install_service_np(void)
   usb_registry_insert_class_filter();
 
   /* restart the whole USB system so that the new drivers will be loaded */
-  usb_registry_restart_root_hubs(); 
+  usb_registry_restart_all_devices(); 
 
   return ret;
 }
@@ -162,7 +161,7 @@ int usb_uninstall_service_np(void)
   HANDLE win; 
   HKEY reg_key = NULL;
 
-  /* remove old system service */
+  /* older version of libusb used a system service, just remove it */
   if(usb_registry_is_nt())
     {
       usb_service_stop(LIBUSB_OLD_SERVICE_NAME_NT);
@@ -189,12 +188,14 @@ int usb_uninstall_service_np(void)
         }
     } 
 
-  /* remove old filter drivers */
-  usb_registry_remove_class_filter();
+  /* old versions used device filters that have to be removed */
   usb_registry_remove_device_filter();
 
-  /* unload old filter drivers */
-  usb_registry_restart_root_hubs(); 
+  /* remove class filter driver */
+  usb_registry_remove_class_filter();
+
+  /* unload filter drivers */
+  usb_registry_restart_all_devices(); 
 
   return 0;
 }
