@@ -367,7 +367,7 @@ extern "C" {
   void CALLBACK usb_touch_inf_file_np_rundll(HWND wnd, HINSTANCE instance,
                                              LPSTR cmd_line, int cmd_show);
 
-  #define LIBUSB_HAS_TOUCH_INF_FILE_NP 1
+  #define LIBUSB_HAS_INSTALL_NEEDS_RESTART_NP 1
   int usb_install_needs_restart_np(void);
 
   const struct usb_version *usb_get_version(void);

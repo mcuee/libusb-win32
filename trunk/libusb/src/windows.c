@@ -874,34 +874,24 @@ int usb_control_msg(usb_dev_handle *dev, int requesttype, int request,
 
 int usb_os_find_busses(struct usb_bus **busses)
 {
-  struct usb_bus *fbus = NULL;
   struct usb_bus *bus = NULL;
-  int num_busses;
-  int i;
 
-  num_busses = usb_registry_get_num_busses();
+  /* create one 'virtual' bus */
+  
+  bus = malloc(sizeof(struct usb_bus));
 
-  for(i = 1; i <= num_busses; i++)
+  if(!bus)
     {
-      bus = malloc(sizeof(struct usb_bus));
-
-      if(!bus)
-        {
-          usb_error("usb_os_find_busses: memory allocation failed");
-          return -ENOMEM;
-        }
-
-      memset(bus, 0, sizeof(*bus));
-      sprintf(bus->dirname, "%s%d", LIBUSB_BUS_NAME, i);
-      
-      bus->location = i;
-
-      usb_message("usb_os_find_busses: found %s", bus->dirname);
-
-      LIST_ADD(fbus, bus);
+      usb_error("usb_os_find_busses: memory allocation failed");
+      return -ENOMEM;
     }
   
-  *busses = fbus;
+  memset(bus, 0, sizeof(*bus));
+  sprintf(bus->dirname, "%s%d", LIBUSB_BUS_NAME, 0);
+  
+  usb_message("usb_os_find_busses: found %s", bus->dirname);
+  
+  *busses = bus;
 
   return 0;
 }
@@ -909,14 +899,11 @@ int usb_os_find_busses(struct usb_bus **busses)
 int usb_os_find_devices(struct usb_bus *bus, struct usb_device **devices)
 {
   int i;
-  unsigned int num_busses;
   struct usb_device *dev, *fdev = NULL;
   char dev_name[LIBUSB_PATH_MAX];
   DWORD ret;
   HANDLE handle;
   libusb_request req;
-
-  num_busses = usb_registry_get_num_busses();
 
   for(i = 1; i < LIBUSB_MAX_DEVICES; i++)
     {
@@ -946,31 +933,7 @@ int usb_os_find_devices(struct usb_bus *bus, struct usb_device **devices)
           continue;
         }
 
-      if(!DeviceIoControl(handle, LIBUSB_IOCTL_GET_DEVICE_INFO, 
-                          &req, sizeof(libusb_request), 
-                          &req, sizeof(libusb_request), 
-                          &ret, NULL))
-        {
-          usb_error("usb_os_find_devices: getting device info failed");
-          CloseHandle(handle);
-          free(dev);
-          continue;
-        }
-
-      /* make sure that the bus info is valid, otherwise connect this device */
-      /* to bus 1 */
-      if((req.device_info.bus > num_busses) || !req.device_info.bus)
-        {
-          req.device_info.bus = 1;
-        }
-
-      if(req.device_info.bus != bus->location)
-        {
-          CloseHandle(handle);
-          free(dev);
-          continue;
-        }
-
+      /* retrieve device descriptor */
       req.descriptor.type = USB_DT_DEVICE;
       req.descriptor.index = 0;
       req.descriptor.language_id = 0;
@@ -1207,91 +1170,7 @@ void usb_set_debug(int level)
 
 int usb_os_determine_children(struct usb_bus *bus)
 {
-  libusb_request req;
-  struct usb_device *dev;
-  int i = 0, j = 0, dev_count = 0;
-  DWORD ret;
-  usb_dev_handle *hdev;
-
-  struct {
-    struct usb_device *device;
-    unsigned long id;
-    unsigned long parent_id;
-    int child_index;
-  } dev_info[256];
-
-  memset(dev_info, 0, sizeof(dev_info));
-
-  /* get device info for all devices */
-  for(dev = bus->devices; dev; dev = dev->next, i++)
-    {
-      hdev = usb_open(dev);
-
-      if(!hdev)
-        continue;
-
-      if(!DeviceIoControl(hdev->impl_info, LIBUSB_IOCTL_GET_DEVICE_INFO, 
-                          &req, sizeof(libusb_request), 
-                          &req, sizeof(libusb_request), 
-                          &ret, NULL))
-        {
-          usb_close(hdev);
-          continue;
-        }
-
-      dev_info[i].device = dev;
-      dev_info[i].id = req.device_info.id;
-      dev_info[i].parent_id = req.device_info.parent_id;
-      dev_info[i].device->num_children = 0;
-      dev_info[i].child_index = 0;
-      
-      dev_count++;
-
-      usb_close(hdev);
-    }
-
-  /* determine the number of children */
-  for(i = 0; i < dev_count; i++)
-    {
-      for(j = 0; j < dev_count; j++)
-        {
-          if(dev_info[i].id == dev_info[j].parent_id)
-            dev_info[i].device->num_children++;
-        }
-    }
-
-  /* allocate memory for child device pointers */
-  for(i = 0; i < dev_count; i++)
-    {
-      if(dev_info[i].device->num_children)
-        dev_info[i].device->children = malloc(dev_info[i].device->num_children
-                                              * sizeof(struct usb_device *));
-    }
-
-  /* find the children */
-  for(i = 0; i < dev_count; i++)
-    {
-      for(j = 0; j < dev_count; j++)
-        {
-          if(dev_info[i].id == dev_info[j].parent_id)
-            {
-              dev_info[i].device->children[dev_info[i].child_index++]
-                = dev_info[j].device;
-            }
-        }
-    }
-
-
-  /* search for the root device */
-  for(i = 0; i < dev_count; i++)
-    {
-      if(!dev_info[i].parent_id)
-        {
-          bus->root_dev = dev_info[i].device;
-          break;
-        }
-    }
-
+  /* nothing to do here, bus topology not supported */
   return 0;
 }
 

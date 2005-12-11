@@ -113,67 +113,28 @@ typedef struct
   libusb_endpoint_t endpoints[LIBUSB_MAX_NUMBER_OF_ENDPOINTS];
 } libusb_interface_t;
 
-typedef struct 
-{
-  int id;
-  int port;
-} child_info_t;
-
-typedef struct
-{
-  int bus;
-  int port;
-  int parent;
-  int is_root_hub;
-  int is_hub;
-  int num_child_pdos;
-  int num_children;
-  int update;
-  DEVICE_OBJECT *child_pdos[LIBUSB_MAX_NUMBER_OF_CHILDREN];
-  child_info_t children[LIBUSB_MAX_NUMBER_OF_CHILDREN];
-} libusb_topology_t;
-
 
 typedef struct _libusb_device_t libusb_device_t;
 
 struct _libusb_device_t
 {
-  libusb_device_t *next;
   DEVICE_OBJECT	*self;
   DEVICE_OBJECT	*physical_device_object;
   DEVICE_OBJECT	*next_stack_device;
   DEVICE_OBJECT	*target_device;
-  DRIVER_OBJECT *driver;
   libusb_remove_lock_t remove_lock; 
   USBD_CONFIGURATION_HANDLE configuration_handle;
   LONG ref_count;
   bool_t is_filter;
   bool_t is_started;
+  bool_t surprise_removal_ok;
   int id;
   int configuration;
   POWER_STATE power_state;
   DEVICE_POWER_STATE device_power_states[PowerSystemMaximum];
-  libusb_topology_t topology;
   libusb_interface_t interfaces[LIBUSB_MAX_NUMBER_OF_INTERFACES];
 };
 
-typedef struct 
-{
-  libusb_device_t *head;
-  KSPIN_LOCK lock;
-} device_list_t;
-
-typedef struct {
-  LONG bus_index;
-  int debug_level;
-  device_list_t device_list;
-} driver_globals_t;
-
-#ifdef __LIBUSB_DRIVER_C__
-driver_globals_t driver_globals;
-#else
-extern driver_globals_t driver_globals;
-#endif
 
 
 NTSTATUS DDKAPI add_device(DRIVER_OBJECT *driver_object, 
@@ -246,20 +207,14 @@ NTSTATUS claim_interface(libusb_device_t *dev, int interface);
 NTSTATUS release_interface(libusb_device_t *dev, int interface);
 NTSTATUS release_all_interfaces(libusb_device_t *dev);
 
-NTSTATUS get_device_info(libusb_device_t *dev, libusb_request *request, 
-                         int *ret);
 
-int reg_is_usb_device(DEVICE_OBJECT *physical_device_object);
-int reg_is_root_hub(DEVICE_OBJECT *physical_device_object);
-int reg_is_hub(DEVICE_OBJECT *physical_device_object);
-int reg_is_composite_interface(DEVICE_OBJECT *physical_device_object);
-int reg_get_id(DEVICE_OBJECT *physical_device_object, char *data, int size);
+int reg_get_hardware_id(DEVICE_OBJECT *physical_device_object, 
+                        char *data, int size);
+int reg_get_compatible_id(DEVICE_OBJECT *physical_device_object, 
+                          char *data, int size);
+int reg_get_properties(libusb_device_t *dev);
 
 
-void device_list_init(void);
-void device_list_insert(libusb_device_t *dev);
-void device_list_remove(libusb_device_t *dev);
-void update_topology(libusb_device_t *dev);
 
 int reg_is_filter_driver(DEVICE_OBJECT *physical_device_object);
 

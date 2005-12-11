@@ -21,12 +21,12 @@
 #include <stdio.h>
 #include <stdarg.h>
 
-//extern int __cdecl _vsnprintf(char *, size_t, const char *, va_list);
+int debug_level;
 
 void DEBUG_PRINT_NL()
 {
 #ifdef DBG
-  if(driver_globals.debug_level >= LIBUSB_DEBUG_MSG) 
+  if(debug_level >= LIBUSB_DEBUG_MSG) 
     DbgPrint(("\n"));
 #endif
 }
@@ -34,7 +34,7 @@ void DEBUG_PRINT_NL()
 void DEBUG_SET_LEVEL(int level)
 {
 #ifdef DBG
-  driver_globals.debug_level = level;
+  debug_level = level;
 #endif
 }
 
@@ -44,7 +44,7 @@ void DEBUG_MESSAGE(const char *format, ...)
   
   char tmp[256];
   
-  if(driver_globals.debug_level >= LIBUSB_DEBUG_MSG)
+  if(debug_level >= LIBUSB_DEBUG_MSG)
     {
       va_list args;
       va_start(args, format);
@@ -62,7 +62,7 @@ void DEBUG_ERROR(const char *format, ...)
   
   char tmp[256];
   
-  if(driver_globals.debug_level >= LIBUSB_DEBUG_ERR)
+  if(debug_level >= LIBUSB_DEBUG_ERR)
     {
       va_list args;
       va_start(args, format);

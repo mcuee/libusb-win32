@@ -147,7 +147,7 @@ install-filter.exe: install_filter.o
 testlibusb-win.exe: testlibusb_win.o
 	$(CC) $(WIN_CFLAGS) -o $@ -I./src  $^ $(WIN_LDFLAGS)
 
-%.o: %.c
+%.o: %.c libusb_driver.h driver_api.h
 	$(CC) -c $< -o $@ $(CFLAGS) $(CPPFLAGS) $(INCLUDES) 
 
 %.o: %.rc
