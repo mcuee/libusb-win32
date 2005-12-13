@@ -16,14 +16,18 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
-
+#ifdef __GNUC__
 #define _WIN32_IE 0x0400
 #define WINVER 0x0500
+#endif
+
 #define INITGUID
 
 #include <windows.h>
+#include <commdlg.h>
 #include <dbt.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <initguid.h>
 #include <commctrl.h>
 #include <setupapi.h>

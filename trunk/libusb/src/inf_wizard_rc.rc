@@ -1,5 +1,7 @@
 
+#ifdef __GNUC__
 #define _WIN32_IE 0x0400
+#endif
 
 #include <windows.h>
 #include <commctrl.h>
