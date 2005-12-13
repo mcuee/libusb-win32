@@ -16,4 +16,5 @@ How to compile:
     make_dll.bat: builds the DLL
     make_test.bat: builds the command line version of the test tool
     make_test_win.bat: builds the Windows version of the test tool
-    make_all.bat: builds everything, driver, DLL, and the test tools
+    make_inf_wizard.bat: builds the .inf-file creation wizard
+    make_all.bat: builds everything, driver, DLL, and the tools
