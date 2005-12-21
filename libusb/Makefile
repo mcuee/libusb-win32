@@ -52,6 +52,7 @@ VERSION_NANO = 2
 VERSION = $(VERSION_MAJOR).$(VERSION_MINOR).$(VERSION_MICRO).$(VERSION_NANO)
 RC_VERSION = $(VERSION_MAJOR),$(VERSION_MINOR),$(VERSION_MICRO),$(VERSION_NANO)
 RC_VERSION_STR = '\"$(VERSION)\"'
+INST_VERSION = $(VERSION)
 
 INF_DATE = $(shell date +"%m/%d/%Y")
 DATE = $(shell date +"%Y%m%d")
@@ -73,9 +74,9 @@ DRIVER_OBJECTS = abort_endpoint.o claim_interface.o clear_feature.o \
 	set_feature.o set_interface.o transfer.o vendor_request.o \
 	power.o driver_registry.o driver_debug.o libusb_driver_rc.o 
 
-INSTALLER_NAME = $(TARGET)-win32-filter-bin-$(VERSION).exe
-SRC_DIST_DIR = $(TARGET)-win32-src-$(VERSION)
-BIN_DIST_DIR = $(TARGET)-win32-device-bin-$(VERSION)
+INSTALLER_NAME = $(TARGET)-win32-filter-bin-$(INST_VERSION).exe
+SRC_DIST_DIR = $(TARGET)-win32-src-$(INST_VERSION)
+BIN_DIST_DIR = $(TARGET)-win32-device-bin-$(INST_VERSION)
 
 
 DIST_SOURCE_FILES = ./src
@@ -154,7 +155,7 @@ testlibusb-win.exe: testlibusb_win.o
 	$(WINDRES) $(WINDRES_FLAGS) $< -o $@
 
 README.txt: README.in
-	sed -e 's/@VERSION@/$(VERSION)/' $< > $@
+	sed -e 's/@VERSION@/$(INST_VERSION)/' $< > $@
 
 
 .PHONY: bcc_implib
@@ -225,7 +226,7 @@ src_dist:
 
 .PHONY: dist
 dist: bin_dist src_dist
-	sed -e 's/@VERSION@/$(VERSION)/' \
+	sed -e 's/@VERSION@/$(INST_VERSION)/' \
 		-e 's/@BIN_DIST_DIR@/$(BIN_DIST_DIR)/' \
 		-e 's/@SRC_DIST_DIR@/$(SRC_DIST_DIR)/' \
 		-e 's/@INSTALLER_TARGET@/$(INSTALLER_TARGET)/' \
@@ -238,7 +239,7 @@ dist: bin_dist src_dist
 	$(RM) $(BIN_DIST_DIR)
 
 .PHONY: snapshot
-snapshot: VERSION = $(DATE)
+snapshot: INST_VERSION = $(DATE)
 snapshot: dist
 
 .PHONY: clean
