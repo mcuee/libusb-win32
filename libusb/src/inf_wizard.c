@@ -640,12 +640,13 @@ static int save_file(HWND dialog, device_context_t *device)
   open_file.hwndOwner = dialog;
   open_file.lpstrFile = inf_path;
   open_file.nMaxFile = sizeof(inf_path);
-  open_file.lpstrFilter = "*.inf\0";
-  open_file.nFilterIndex = 0;
+  open_file.lpstrFilter = "*.inf\0*.inf\0";
+  open_file.nFilterIndex = 1;
   open_file.lpstrFileTitle = inf_name;
   open_file.nMaxFileTitle = sizeof(inf_name);
   open_file.lpstrInitialDir = NULL;
   open_file.Flags = OFN_PATHMUSTEXIST;
+  open_file.lpstrDefExt = "inf";
   
   if(GetSaveFileName(&open_file))
     {
