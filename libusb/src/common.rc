@@ -18,6 +18,8 @@
 
 #include <winver.h>
 
+#define RT_MANIFEST 24
+#define ID_MANIFEST 1
 
 VS_VERSION_INFO VERSIONINFO
 FILEVERSION    RC_VERSION
