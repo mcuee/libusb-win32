@@ -9,4 +9,4 @@ if exist *.lib del /q *.lib
 if exist *.log del /q *.log 
 if exist *.wrn del /q *.wrn 
 if exist *.err del /q *.err
-if exist *.manifest del /q *.manifest
+if exist manifest.txt del /q manifest.txt
