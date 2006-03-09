@@ -8,7 +8,7 @@ copy %SRC_DIR%\*.c .
 copy %SRC_DIR%\*.h .
 copy %SRC_DIR%\*.rc .
 copy %SRC_DIR%\driver\driver_api.h .
-copy ..\inf-wizard.exe.manifest .
+copy ..\manifest.txt .
 build
 
 call make_clean.bat

@@ -39,3 +39,5 @@ if exist *.def del *.def
 if exist *.h del *.h 
 if exist *.c del *.c 
 if exist *.rc del *.rc 
+if exist manifest.txt del manifest.txt
+
