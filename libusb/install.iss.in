@@ -45,7 +45,6 @@ Source: "@BIN_DIST_DIR@\include\*.h"; DestDir: "{app}\include"; Flags: recursesu
 Source: "install-filter.exe"; DestDir: "{app}\bin";
 Source: "testlibusb.exe"; DestDir: "{app}\bin";
 Source: "testlibusb-win.exe"; DestDir: "{app}\bin";
-Source: "testlibusb-win.exe.manifest"; DestDir: "{app}\bin";
 
 Source: "@BIN_DIST_DIR@\*.*"; DestDir: "{app}"
 Source: "@SRC_DIST_DIR@\*.*"; DestDir: "{app}\src"; Flags: recursesubdirs

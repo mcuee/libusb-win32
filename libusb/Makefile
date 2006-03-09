@@ -145,7 +145,7 @@ testlibusb.exe: testlibusb.o
 install-filter.exe: install_filter.o
 	$(CC) $(CFLAGS) -o $@ -I./src  $^ $(WIN_LDFLAGS)
 
-testlibusb-win.exe: testlibusb_win.o
+testlibusb-win.exe: testlibusb_win.o testlibusb_win_rc.o
 	$(CC) $(WIN_CFLAGS) -o $@ -I./src  $^ $(WIN_LDFLAGS)
 
 %.o: %.c libusb_driver.h driver_api.h
@@ -178,7 +178,6 @@ bin_dist: all
 	$(INSTALL) -d $(BIN_DIST_DIR)/examples
 
 	$(INSTALL) $(EXE_FILES) $(BIN_DIST_DIR)/bin
-	$(INSTALL) *.manifest $(BIN_DIST_DIR)/bin
 
 	$(INSTALL) $(DRIVER_TARGET) $(BIN_DIST_DIR)/bin
 	$(INSTALL) $(DLL_TARGET).dll $(BIN_DIST_DIR)/bin
@@ -219,7 +218,8 @@ src_dist:
 	$(INSTALL) $(SRC_DIR)/driver/*.rc $(SRC_DIST_DIR)/src/driver
 
 	$(INSTALL) ./tests/*.c $(SRC_DIST_DIR)/tests
-	$(INSTALL) $(DIST_MISC_FILES) *.in Makefile *.manifest *.def \
+	$(INSTALL) ./tests/*.rc $(SRC_DIST_DIR)/tests
+	$(INSTALL) $(DIST_MISC_FILES) *.in Makefile manifest.txt *.def \
 		installer_license.txt $(SRC_DIST_DIR)
 	$(UNIX2DOS) $(SRC_DIST_DIR)/*.txt
 
