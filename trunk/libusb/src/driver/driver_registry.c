@@ -27,11 +27,11 @@
 #define LIBUSB_REG_SURPRISE_REMOVAL_OK L"SurpriseRemovalOK"
 
 
-static int reg_get_property(DEVICE_OBJECT *physical_device_object, 
-                            int property, char *data, int size);
+static bool_t reg_get_property(DEVICE_OBJECT *physical_device_object, 
+                               int property, char *data, int size);
 
-static int reg_get_property(DEVICE_OBJECT *physical_device_object,
-                            int property, char *data, int size)
+static bool_t reg_get_property(DEVICE_OBJECT *physical_device_object,
+                               int property, char *data, int size)
 {
   WCHAR tmp[512];
   ULONG ret;
@@ -66,7 +66,7 @@ static int reg_get_property(DEVICE_OBJECT *physical_device_object,
 }
 
 
-int reg_get_properties(libusb_device_t *dev)
+bool_t reg_get_properties(libusb_device_t *dev)
 {
   HANDLE key = NULL;
   NTSTATUS status;
@@ -120,8 +120,8 @@ int reg_get_properties(libusb_device_t *dev)
   return TRUE;
 }
 
-int reg_get_hardware_id(DEVICE_OBJECT *physical_device_object, 
-                        char *data, int size)
+bool_t reg_get_hardware_id(DEVICE_OBJECT *physical_device_object, 
+                           char *data, int size)
 {
   if(!physical_device_object || !data || !size)
     {
@@ -132,14 +132,3 @@ int reg_get_hardware_id(DEVICE_OBJECT *physical_device_object,
                           data, size);
 }
 
-int reg_get_compatible_id(DEVICE_OBJECT *physical_device_object, 
-                          char *data, int size)
-{
-  if(!physical_device_object || !data || !size)
-    {
-      return FALSE;
-    }
-
-  return reg_get_property(physical_device_object, DevicePropertyCompatibleIDs, 
-                          data, size);
-}

@@ -73,27 +73,14 @@ NTSTATUS DDKAPI add_device(DRIVER_OBJECT *driver_object,
       return STATUS_SUCCESS;
     }
 
-  /* only attach the (filter) driver to USB devices, skip root-hubs, */
+  /* only attach the (filter) driver to USB devices, skip hubs */
   /* and interfaces of composite devices */
-  if(!strstr(id, "usb\\") || strstr(id, "root_hub") || strstr(id, "&mi_"))
+  if(!strstr(id, "usb\\") || strstr(id, "hub") || strstr(id, "&mi_"))
     {
       return STATUS_SUCCESS;
     }
 
-  /* get the compatible ID from the registry */
-  if(!reg_get_compatible_id(physical_device_object, id, sizeof(id)))
-    {
-      DEBUG_ERROR("add_device(): unable to read registry");
-      return STATUS_SUCCESS;
-    }
-
-  /* skip hubs */
-  if(strstr(id, "usb\\class_09"))
-    {
-      return STATUS_SUCCESS;
-    }
-
-  /* retrieve the device type of the lower device object */
+  /* retrieve the type of the lower device object */
   device_object = IoGetAttachedDeviceReference(physical_device_object);
 
   if(device_object)
@@ -319,8 +306,8 @@ bool_t accept_irp(libusb_device_t *dev, IRP *irp)
   return FALSE;
 }
 
-int get_pipe_handle(libusb_device_t *dev, int endpoint_address, 
-                    USBD_PIPE_HANDLE *pipe_handle)
+bool_t get_pipe_handle(libusb_device_t *dev, int endpoint_address, 
+                       USBD_PIPE_HANDLE *pipe_handle)
 {
   int i, j;
 
@@ -359,8 +346,8 @@ void clear_pipe_info(libusb_device_t *dev)
     }
 }
 
-int update_pipe_info(libusb_device_t *dev, int interface,
-                     USBD_INTERFACE_INFORMATION *interface_info)
+bool_t update_pipe_info(libusb_device_t *dev, int interface,
+                        USBD_INTERFACE_INFORMATION *interface_info)
 {
   int i;
 
@@ -448,7 +435,7 @@ find_interface_desc(USB_CONFIGURATION_DESCRIPTOR *config_desc,
   char *p = (char *)desc;
   USB_INTERFACE_DESCRIPTOR *if_desc = NULL;
 
-  if(!desc || (desc->length > size))
+  if(!config_desc || (size < config_desc->wTotalLength))
     return NULL;
 
   while(desc->length <= size)

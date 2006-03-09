@@ -50,7 +50,10 @@ NTSTATUS dispatch_ioctl(libusb_device_t *dev, IRP *irp)
       return status;
     }
 
-  if(!request || input_buffer_length < sizeof(libusb_request))
+  if(!request || input_buffer_length < sizeof(libusb_request)
+     || input_buffer_length > LIBUSB_MAX_READ_WRITE
+     || output_buffer_length > LIBUSB_MAX_READ_WRITE
+     || transfer_buffer_length > LIBUSB_MAX_READ_WRITE)
     { 
       DEBUG_ERROR("dispatch_ioctl(): invalid input or output buffer\n");
 
