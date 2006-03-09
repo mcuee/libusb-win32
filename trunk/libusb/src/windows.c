@@ -76,7 +76,7 @@ static int usb_io_sync(HANDLE dev, unsigned int code, void *in, int in_size,
                        void *out, int out_size, int *ret);
 
 static int _usb_reap_async(void *context, int timeout, int cancel);
-
+static int _usb_add_virtual_hub(struct usb_bus *bus);
 
 /* DLL main entry point */
 BOOL WINAPI DllMain(HANDLE module, DWORD reason, LPVOID reserved)
@@ -748,7 +748,7 @@ int usb_control_msg(usb_dev_handle *dev, int requesttype, int request,
         }
       
       memcpy(out, &req, sizeof(libusb_request));
-      memcpy(out + sizeof(libusb_request), bytes, size);
+      memcpy((char *)out + sizeof(libusb_request), bytes, size);
       out_size = sizeof(libusb_request) + size;
     }
 
@@ -1058,7 +1058,22 @@ void usb_set_debug(int level)
 
 int usb_os_determine_children(struct usb_bus *bus)
 {
-  /* nothing to do here, bus topology not supported */
+  struct usb_device *dev;
+  int i = 0;
+
+  /* add a virtual hub to the bus to emulate this feature */
+  if(_usb_add_virtual_hub(bus))
+    {
+      for(dev = bus->devices; dev; dev = dev->next)
+        bus->root_dev->num_children++;
+
+      bus->root_dev->children 
+        = malloc(sizeof(struct usb_device *) * bus->root_dev->num_children);
+
+      for(dev = bus->devices; dev; dev = dev->next)
+          bus->root_dev->children[i++] = dev; 
+    }
+
   return 0;
 }
 
@@ -1129,4 +1144,35 @@ static int usb_io_sync(HANDLE dev, unsigned int code, void *out, int out_size,
     }
   
   return FALSE;
+}
+
+static int _usb_add_virtual_hub(struct usb_bus *bus)
+{
+  struct usb_device *dev;
+
+  if(!(dev = malloc(sizeof(*dev))))
+    return FALSE;
+  
+  memset(dev, 0, sizeof(*dev));
+  strcpy(dev->filename, "virtual-hub");
+  dev->bus = bus;
+  
+  dev->descriptor.bLength = USB_DT_DEVICE_SIZE;
+  dev->descriptor.bDescriptorType = USB_DT_DEVICE;
+  dev->descriptor.bcdUSB = 0x0200;
+  dev->descriptor.bDeviceClass = USB_CLASS_HUB;
+  dev->descriptor.bDeviceSubClass = 0;
+  dev->descriptor.bDeviceProtocol = 0;
+  dev->descriptor.bMaxPacketSize0 = 64;
+  dev->descriptor.idVendor = 0;
+  dev->descriptor.idProduct = 0;
+  dev->descriptor.bcdDevice = 0x100;
+  dev->descriptor.iManufacturer = 0;
+  dev->descriptor.iProduct = 0;
+  dev->descriptor.iSerialNumber = 0;
+  dev->descriptor.bNumConfigurations = 0;
+
+  bus->root_dev = dev;
+
+  return TRUE;
 }
