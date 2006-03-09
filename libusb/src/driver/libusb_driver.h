@@ -79,6 +79,13 @@
 #define DDKAPI
 #endif
 
+#ifndef FALSE
+#define FALSE 0
+#endif
+
+#ifndef TRUE
+#define TRUE (!(FALSE))
+#endif
 
 typedef int bool_t;
 
@@ -155,11 +162,11 @@ NTSTATUS pass_irp_down(libusb_device_t *dev, IRP *irp,
 
 bool_t accept_irp(libusb_device_t *dev, IRP *irp);
 
-int get_pipe_handle(libusb_device_t *dev, 
-                    int endpoint_address, USBD_PIPE_HANDLE *pipe_handle);
+bool_t get_pipe_handle(libusb_device_t *dev, int endpoint_address, 
+                       USBD_PIPE_HANDLE *pipe_handle);
 void clear_pipe_info(libusb_device_t *dev);
-int update_pipe_info(libusb_device_t *dev, int interface,
-                     USBD_INTERFACE_INFORMATION *interface_info);
+bool_t update_pipe_info(libusb_device_t *dev, int interface,
+                        USBD_INTERFACE_INFORMATION *interface_info);
 
 void remove_lock_initialize(libusb_device_t *dev);
 NTSTATUS remove_lock_acquire(libusb_device_t *dev);
@@ -208,15 +215,9 @@ NTSTATUS release_interface(libusb_device_t *dev, int interface);
 NTSTATUS release_all_interfaces(libusb_device_t *dev);
 
 
-int reg_get_hardware_id(DEVICE_OBJECT *physical_device_object, 
-                        char *data, int size);
-int reg_get_compatible_id(DEVICE_OBJECT *physical_device_object, 
-                          char *data, int size);
-int reg_get_properties(libusb_device_t *dev);
-
-
-
-int reg_is_filter_driver(DEVICE_OBJECT *physical_device_object);
+bool_t reg_get_hardware_id(DEVICE_OBJECT *physical_device_object, 
+                           char *data, int size);
+bool_t reg_get_properties(libusb_device_t *dev);
 
 
 void power_set_device_state(libusb_device_t *dev, 
