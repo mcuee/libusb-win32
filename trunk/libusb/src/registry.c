@@ -746,7 +746,7 @@ int usb_registry_mz_string_size(const char *src)
       p += (strlen(p) + 1);
     }
   
-  return p - src + 1;
+  return (int)(p - src) + 1;
 }
 
 char *usb_registry_mz_string_find_sub(const char *src, const char *str)

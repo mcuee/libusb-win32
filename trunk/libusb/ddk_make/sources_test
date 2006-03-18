@@ -1,5 +1,5 @@
 TARGETNAME = testlibusb
-TARGETPATH = obj
+TARGETPATH = output
 TARGETTYPE = PROGRAM
 UMTYPE = console
 USE_MSVCRT = 1

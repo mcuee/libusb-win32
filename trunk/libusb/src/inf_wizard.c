@@ -216,44 +216,36 @@ int APIENTRY WinMain(HINSTANCE instance, HINSTANCE prev_instance,
       switch(next_dialog)
         {
           case ID_DIALOG_0:
-            next_dialog = DialogBoxParam(instance, 
-                                         MAKEINTRESOURCE(next_dialog), 
-                                         NULL, dialog_proc_0,
-                                         (LPARAM)&device);
+            next_dialog = (int)DialogBoxParam(instance, 
+                                              MAKEINTRESOURCE(next_dialog), 
+                                              NULL, (DLGPROC)dialog_proc_0,
+                                              (LPARAM)&device);
 
             break;
           case ID_DIALOG_1:
-            next_dialog = DialogBoxParam(instance, 
-                                         MAKEINTRESOURCE(next_dialog), 
-                                         NULL, dialog_proc_1,
-                                         (LPARAM)&device);
+            next_dialog = (int)DialogBoxParam(instance, 
+                                              MAKEINTRESOURCE(next_dialog), 
+                                              NULL, (DLGPROC)dialog_proc_1,
+                                              (LPARAM)&device);
             break;
           case ID_DIALOG_2:
-            next_dialog = DialogBoxParam(instance, 
-                                         MAKEINTRESOURCE(next_dialog), 
-                                         NULL, dialog_proc_2,
-                                         (LPARAM)&device);
+            next_dialog = (int)DialogBoxParam(instance, 
+                                              MAKEINTRESOURCE(next_dialog), 
+                                              NULL, (DLGPROC)dialog_proc_2,
+                                              (LPARAM)&device);
             break;
           case ID_DIALOG_3:
-            next_dialog = DialogBoxParam(instance, 
-                                         MAKEINTRESOURCE(next_dialog), 
-                                         NULL, dialog_proc_3,
-                                         (LPARAM)&device);
+            next_dialog = (int)DialogBoxParam(instance, 
+                                              MAKEINTRESOURCE(next_dialog), 
+                                              NULL, (DLGPROC)dialog_proc_3,
+                                              (LPARAM)&device);
             break;
         default:
           ;
         }
     }
 
-  PostQuitMessage(0);
-
-  while(GetMessage(&msg, NULL, 0, 0) ) 
-    {
-      TranslateMessage(&msg);
-      DispatchMessage(&msg);
-    }
-
-  return msg.wParam;
+  return 0;
 }
 
 
