@@ -1,5 +1,5 @@
 TARGETNAME = testlibusb-win
-TARGETPATH = obj
+TARGETPATH = output
 TARGETTYPE = PROGRAM
 UMTYPE = windows
 UMENTRY = winmain
