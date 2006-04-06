@@ -16,7 +16,7 @@
 
 char usb_error_str[1024] = "";
 int usb_error_errno = 0;
-int __usb_debug = LIBUSB_DEBUG_MSG;
+int __usb_debug = LIBUSB_DEBUG_OFF;
 usb_error_type_t usb_error_type = USB_ERROR_TYPE_NONE;
 
 static void output_debug_string(const char *s, ...);
@@ -58,14 +58,14 @@ void usb_error(char *format, ...)
 
   va_start(args, format);
   _vsnprintf(usb_error_str, sizeof(usb_error_str) - 1, format, args);
+  va_end(args);
 
   if(__usb_debug >= LIBUSB_DEBUG_ERR)
     {
       fprintf(stderr, "LIBUSB_DLL: error: %s\n", usb_error_str);
+      fflush(stderr);
       output_debug_string("LIBUSB_DLL: error: %s\n", usb_error_str);
     }
-  
-  va_end(args);
 }
 
 void usb_message(char *format, ...)
@@ -77,10 +77,11 @@ void usb_message(char *format, ...)
    {  
      va_start(args, format);
      _vsnprintf(tmp, sizeof(tmp) - 1, format, args);
-  
-     fprintf(stderr, "LIBUSB_DLL: info: %s\n", tmp);
-     output_debug_string("LIBUSB_DLL: info: %s\n", tmp);
      va_end(args);
+
+     fprintf(stderr, "LIBUSB_DLL: info: %s\n", tmp);
+     fflush(stderr);
+     output_debug_string("LIBUSB_DLL: info: %s\n", tmp);
    }
 }
 
