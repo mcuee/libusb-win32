@@ -21,7 +21,8 @@
 #define __DRIVER_API_H__
 
 enum {
-  LIBUSB_DEBUG_ERR = 1,
+  LIBUSB_DEBUG_OFF,
+  LIBUSB_DEBUG_ERR,
   LIBUSB_DEBUG_MSG,
 };
 

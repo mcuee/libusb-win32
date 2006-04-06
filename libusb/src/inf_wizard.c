@@ -200,7 +200,6 @@ static int save_file(HWND dialog, device_context_t *device);
 int APIENTRY WinMain(HINSTANCE instance, HINSTANCE prev_instance,
                      LPSTR cmd_line, int cmd_show)
 {
-  MSG msg;
   int next_dialog;
   device_context_t device;
 

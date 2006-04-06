@@ -48,6 +48,8 @@ NTSTATUS DDKAPI DriverEntry(DRIVER_OBJECT *driver_object,
   driver_object->DriverExtension->AddDevice = add_device;
   driver_object->DriverUnload = unload;
 
+  DEBUG_SET_LEVEL(LIBUSB_DEBUG_OFF);
+
   return STATUS_SUCCESS;
 }
 
