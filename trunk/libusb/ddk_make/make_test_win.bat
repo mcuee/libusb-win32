@@ -3,6 +3,8 @@
 set TESTS_DIR=..\tests
 set SRC_DIR=..\src
 
+call make_clean.bat
+
 copy sources_test_win sources
 copy %TESTS_DIR%\testlibusb_win.c .
 copy %TESTS_DIR%\testlibusb_win_rc.rc .

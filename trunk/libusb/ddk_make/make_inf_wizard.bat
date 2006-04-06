@@ -3,6 +3,8 @@
 set TESTS_DIR=..\tests
 set SRC_DIR=..\src
 
+call make_clean.bat
+
 copy sources_inf_wizard sources
 copy %SRC_DIR%\*.c .
 copy %SRC_DIR%\*.h .

@@ -2,6 +2,8 @@
 
 set SRC_DIR=..\src
 
+call make_clean.bat
+
 copy sources_dll sources
 copy %SRC_DIR%\*.c .
 copy ..\*.def .

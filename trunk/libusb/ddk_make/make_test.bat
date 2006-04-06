@@ -3,6 +3,8 @@
 set TESTS_DIR=..\tests
 set SRC_DIR=..\src
 
+call make_clean.bat
+
 copy sources_test sources
 copy %TESTS_DIR%\testlibusb.c .
 copy %SRC_DIR%\usb.h .
