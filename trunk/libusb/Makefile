@@ -211,6 +211,7 @@ src_dist:
 	$(INSTALL) ./ddk_make/makefile $(SRC_DIST_DIR)/ddk_make
 	$(INSTALL) ./ddk_make/*.txt $(SRC_DIST_DIR)/ddk_make
 	$(INSTALL) ./ddk_make/*.bat $(SRC_DIST_DIR)/ddk_make
+	$(UNIX2DOS)	$(SRC_DIST_DIR)/ddk_make/*
 
 	$(INSTALL) $(SRC_DIR)/driver/*.h $(SRC_DIST_DIR)/src/driver
 	$(INSTALL) $(SRC_DIR)/driver/*.c $(SRC_DIST_DIR)/src/driver
