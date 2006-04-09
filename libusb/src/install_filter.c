@@ -23,11 +23,11 @@ void usage(void);
 
 void usage(void)
 {
-  printf("Usage: install-filter.exe [option]\n"
-         "Options:\n"
-         "-h  prints this help message\n"
-         "-i  installs the filter driver\n"
-         "-u  uninstalls the filter driver\n");
+  fprintf(stderr, "Usage: install-filter.exe [option]\n"
+          "Options:\n"
+          "-h  prints this help message\n"
+          "-i  installs the filter driver\n"
+          "-u  uninstalls the filter driver\n");
 }
 
 int main(int argc, char **argv)

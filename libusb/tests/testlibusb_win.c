@@ -170,7 +170,7 @@ int APIENTRY WinMain(HINSTANCE instance, HINSTANCE prev_instance,
   DestroyWindow(main_win);
   UnregisterClass(LIBUSB_WINDOW_CLASS, instance);
 
-  return msg.wParam;
+  return 0;
 }
 
 

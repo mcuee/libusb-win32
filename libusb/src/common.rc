@@ -38,7 +38,7 @@ BEGIN
             VALUE "FileDescription", RC_PRODUCT_STR
             VALUE "FileVersion",     RC_VERSION_STR
             VALUE "InternalName",    RC_FILE_NAME_STR
-            VALUE "LegalCopyright",  "© 2002-2005 S. Meyer, <ste_meyer@web.de>"
+            VALUE "LegalCopyright",  "@ 2002-2005 S. Meyer, <ste_meyer@web.de>"
             VALUE "OriginalFilename",RC_FILE_NAME_STR
             VALUE "ProductName",     RC_PRODUCT_STR
             VALUE "ProductVersion",  RC_VERSION_STR
