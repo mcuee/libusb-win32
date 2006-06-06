@@ -55,11 +55,11 @@ NTSTATUS DDKAPI dispatch(DEVICE_OBJECT *device_object, IRP *irp)
             {
               if(InterlockedIncrement(&dev->ref_count) == 1)
                 {
-                  /* power up the device */
-                  // if(!dev->topology.is_root_hub)
                   if(dev->power_state.DeviceState != PowerDeviceD0)
                     {
-                      power_set_device_state(dev, PowerDeviceD0);
+                      /* power up the device, block until the call */
+                      /* completes */
+                      power_set_device_state(dev, PowerDeviceD0, TRUE);
                     }
                 }
 

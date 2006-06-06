@@ -23,28 +23,30 @@
 
 NTSTATUS release_interface(libusb_device_t *dev, int interface)
 {
+  int index;
+
   DEBUG_MESSAGE("release_interface(): interface %d", interface);
 
-  if(interface >= LIBUSB_MAX_NUMBER_OF_INTERFACES)
+  if(!interface_to_index(dev, interface, &index))
     {
       DEBUG_ERROR("release_interface(): invalid interface %d", interface);
       return STATUS_INVALID_PARAMETER;
     }
 
-  if(!dev->interfaces[interface].valid)
+  if(!dev->interfaces[index].valid)
     {
       DEBUG_ERROR("release_interface(): invalid interface %02d", interface);
       return STATUS_INVALID_PARAMETER;
     }
 
-  if(!dev->interfaces[interface].claimed)
+  if(!dev->interfaces[index].claimed)
     {
       DEBUG_ERROR("claim_interface(): could not release interface %d, "
                   "interface is not claimed", interface);
       return STATUS_INVALID_DEVICE_STATE;
     }
 
-  dev->interfaces[interface].claimed = FALSE;
+  dev->interfaces[index].claimed = FALSE;
 
   return STATUS_SUCCESS;
 }
