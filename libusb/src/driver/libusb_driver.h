@@ -117,6 +117,7 @@ typedef struct
 {
   int valid;
   int claimed;
+  int number;
   libusb_endpoint_t endpoints[LIBUSB_MAX_NUMBER_OF_ENDPOINTS];
 } libusb_interface_t;
 
@@ -167,6 +168,8 @@ bool_t get_pipe_handle(libusb_device_t *dev, int endpoint_address,
 void clear_pipe_info(libusb_device_t *dev);
 bool_t update_pipe_info(libusb_device_t *dev, int interface,
                         USBD_INTERFACE_INFORMATION *interface_info);
+bool_t interface_to_index(const libusb_device_t *dev, int interface,
+                          int *index);
 
 void remove_lock_initialize(libusb_device_t *dev);
 NTSTATUS remove_lock_acquire(libusb_device_t *dev);
@@ -221,11 +224,14 @@ bool_t reg_get_properties(libusb_device_t *dev);
 
 
 void power_set_device_state(libusb_device_t *dev, 
-                            DEVICE_POWER_STATE device_state);
+                            DEVICE_POWER_STATE device_state, bool_t block);
 
 USB_INTERFACE_DESCRIPTOR *
 find_interface_desc(USB_CONFIGURATION_DESCRIPTOR *config_desc, 
                     unsigned int size, int interface, int altsetting);
+USB_INTERFACE_DESCRIPTOR *
+find_interface_desc_by_index(USB_CONFIGURATION_DESCRIPTOR *config_desc,
+                             unsigned int size, int index, int altsetting);
 
 
 

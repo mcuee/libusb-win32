@@ -155,18 +155,21 @@ NTSTATUS set_configuration(libusb_device_t *dev, int configuration,
   for(i = 0; i < configuration_descriptor->bNumInterfaces; i++)
     {
       interface_descriptor =
-        find_interface_desc(configuration_descriptor, desc_size, i, 0);
+        find_interface_desc_by_index(configuration_descriptor, 
+                                     desc_size, i, 0);
 
       if(!interface_descriptor)
         {
-          DEBUG_ERROR("set_configuration(): interface %d not found", i);
+          DEBUG_ERROR("set_configuration(): unable to find interface "
+                      "descriptor at index %d", i);
           ExFreePool(interfaces);
           ExFreePool(configuration_descriptor);
           return STATUS_INVALID_PARAMETER;
         }
       else
         {
-          DEBUG_MESSAGE("set_configuration(): interface %d found", i);
+          DEBUG_MESSAGE("set_configuration(): found interface desciptor "
+                        "at index %d", i);
           interfaces[i].InterfaceDescriptor = interface_descriptor;
         }
     }
@@ -184,9 +187,6 @@ NTSTATUS set_configuration(libusb_device_t *dev, int configuration,
 
   for(i = 0; i < configuration_descriptor->bNumInterfaces; i++)
     {
-      interfaces[i].Interface->InterfaceNumber = (UCHAR)i;
-      interfaces[i].Interface->AlternateSetting = 0;
-
       for(j = 0; j < (int)interfaces[i].Interface->NumberOfPipes; j++)
         {
           interfaces[i].Interface->Pipes[j].MaximumTransferSize 

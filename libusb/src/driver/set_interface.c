@@ -154,7 +154,10 @@ NTSTATUS set_interface(libusb_device_t *dev, int interface, int altsetting,
       return STATUS_UNSUCCESSFUL;
     }
 
-  update_pipe_info(dev, interface, interface_information);
+  if(interface_to_index(dev, interface, &i))
+    update_pipe_info(dev, i, interface_information);
+  else
+    status = STATUS_INVALID_PARAMETER;
 
   ExFreePool(configuration_descriptor);
   ExFreePool(urb);

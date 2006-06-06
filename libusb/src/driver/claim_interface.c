@@ -24,28 +24,30 @@
 
 NTSTATUS claim_interface(libusb_device_t *dev, int interface)
 {
+  int index;
+
   DEBUG_MESSAGE("claim_interface(): interface %d", interface);
 
-  if(interface >= LIBUSB_MAX_NUMBER_OF_INTERFACES)
+  if(!interface_to_index(dev, interface, &index))
     {
       DEBUG_ERROR("claim_interface(): invalid interface %d", interface);
       return STATUS_INVALID_PARAMETER;
     }
 
-  if(!dev->interfaces[interface].valid)
+  if(!dev->interfaces[index].valid)
     {
       DEBUG_ERROR("claim_interface(): invalid interface %d", interface);
       return STATUS_INVALID_PARAMETER;
     }
 
-  if(dev->interfaces[interface].claimed)
+  if(dev->interfaces[index].claimed)
     {
       DEBUG_ERROR("claim_interface(): could not claim interface %d, "
                   "interface is already claimed", interface);
       return STATUS_DEVICE_BUSY;
     }
 
-  dev->interfaces[interface].claimed = TRUE;
+  dev->interfaces[index].claimed = TRUE;
 
   return STATUS_SUCCESS;
 }

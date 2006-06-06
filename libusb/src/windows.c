@@ -120,6 +120,12 @@ int usb_os_open(usb_dev_handle *dev)
   char *p;
   int config;
 
+  if(!dev)
+    {
+      usb_error("usb_os_open: invalid device handle %p", dev);
+      return -EINVAL;
+    }
+
   dev->impl_info = INVALID_HANDLE_VALUE;
   dev->config = 0;
   dev->interface = -1;
@@ -234,13 +240,6 @@ int usb_claim_interface(usb_dev_handle *dev, int interface)
        return -EINVAL;
     }
   
-  if(interface >= dev->device->config[dev->config - 1].bNumInterfaces)
-    {
-      usb_error("usb_claim_interface: could not claim interface %d, "
-                "interface is invalid", interface);
-      return -EINVAL;
-    }
-
   req.interface.interface = interface;
 
   if(!usb_io_sync(dev->impl_info, LIBUSB_IOCTL_CLAIM_INTERFACE, 

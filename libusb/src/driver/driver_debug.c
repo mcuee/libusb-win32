@@ -21,7 +21,7 @@
 #include <stdio.h>
 #include <stdarg.h>
 
-int debug_level;
+int debug_level = LIBUSB_DEBUG_MSG;
 
 void DEBUG_PRINT_NL()
 {
