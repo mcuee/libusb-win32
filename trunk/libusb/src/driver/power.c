@@ -130,7 +130,9 @@ on_power_state_complete(DEVICE_OBJECT *device_object,
           /* get supported device power state from the array reported by */
           /* IRP_MN_QUERY_CAPABILITIES */
           dev_power_state = dev->device_power_states[power_state.SystemState];
-          power_set_device_state(dev, dev_power_state);
+
+          /* set the device power state, but don't block the thread */
+          power_set_device_state(dev, dev_power_state, FALSE);
         }
       else /* DevicePowerState */
         {
@@ -171,7 +173,7 @@ on_power_set_device_state_complete(DEVICE_OBJECT *device_object,
 
 
 void power_set_device_state(libusb_device_t *dev, 
-                            DEVICE_POWER_STATE device_state)
+                            DEVICE_POWER_STATE device_state, bool_t block)
 {
   NTSTATUS status;
   KEVENT event;
@@ -179,17 +181,25 @@ void power_set_device_state(libusb_device_t *dev,
 
   power_state.DeviceState = device_state;
 
-  KeInitializeEvent(&event, NotificationEvent, FALSE);
-
-  /* set the device power state and wait for completion */
-  status = PoRequestPowerIrp(dev->physical_device_object, 
-                             IRP_MN_SET_POWER, 
-                             power_state,
-                             on_power_set_device_state_complete, 
-                             &event, NULL);
-
-  if(status == STATUS_PENDING)
+  if(block) /* wait for IRP to complete */
     {
-      KeWaitForSingleObject(&event, Executive, KernelMode, FALSE, NULL);
+      KeInitializeEvent(&event, NotificationEvent, FALSE);
+      
+      /* set the device power state and wait for completion */
+      status = PoRequestPowerIrp(dev->physical_device_object, 
+                                 IRP_MN_SET_POWER, 
+                                 power_state,
+                                 on_power_set_device_state_complete, 
+                                 &event, NULL);
+      
+      if(status == STATUS_PENDING)
+        {
+          KeWaitForSingleObject(&event, Executive, KernelMode, FALSE, NULL);
+        }
+    }
+  else
+    {
+      PoRequestPowerIrp(dev->physical_device_object, IRP_MN_SET_POWER,
+                        power_state, NULL, NULL, NULL);
     }
 }			
