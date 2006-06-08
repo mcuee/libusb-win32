@@ -381,7 +381,6 @@ static int usb_setup_async(usb_dev_handle *dev, void **context,
 
 int usb_submit_async(void *context, char *bytes, int size)
 {
-  DWORD ret;
   usb_context_t *c = (usb_context_t *)context;
 
   if(!c)
@@ -420,7 +419,7 @@ int usb_submit_async(void *context, char *bytes, int size)
                       c->control_code, 
                       &c->req, sizeof(libusb_request), 
                       c->bytes, 
-                      c->size, &ret, &c->ol))
+                      c->size, NULL, &c->ol))
     {
       if(GetLastError() != ERROR_IO_PENDING)
         {
@@ -430,7 +429,7 @@ int usb_submit_async(void *context, char *bytes, int size)
         }
     }
 
-  return ret;
+  return 0;
 }
 
 static int _usb_reap_async(void *context, int timeout, int cancel)
