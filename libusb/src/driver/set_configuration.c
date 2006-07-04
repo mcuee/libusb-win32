@@ -31,6 +31,7 @@ NTSTATUS set_configuration(libusb_device_t *dev, int configuration,
   USB_INTERFACE_DESCRIPTOR *interface_descriptor = NULL;
   USBD_INTERFACE_LIST_ENTRY *interfaces = NULL;
   int desc_size, i, j;
+  int interface_number;
   volatile int config_full_size;
 
   DEBUG_PRINT_NL();
@@ -152,11 +153,20 @@ NTSTATUS set_configuration(libusb_device_t *dev, int configuration,
   memset(interfaces, 0, (configuration_descriptor->bNumInterfaces + 1) 
          * sizeof(USBD_INTERFACE_LIST_ENTRY));
 
+  interface_number = 0;
+
   for(i = 0; i < configuration_descriptor->bNumInterfaces; i++)
     {
-      interface_descriptor =
-        find_interface_desc_by_index(configuration_descriptor, 
-                                     desc_size, i, 0);
+      for(j = interface_number; j < LIBUSB_MAX_NUMBER_OF_INTERFACES; j++)
+        {
+          interface_descriptor =
+            find_interface_desc(configuration_descriptor, desc_size, j, 0);
+          if(interface_descriptor) 
+            {
+              interface_number = ++j;
+              break;
+            }
+        }
 
       if(!interface_descriptor)
         {
@@ -168,8 +178,8 @@ NTSTATUS set_configuration(libusb_device_t *dev, int configuration,
         }
       else
         {
-          DEBUG_MESSAGE("set_configuration(): found interface desciptor "
-                        "at index %d", i);
+          DEBUG_MESSAGE("set_configuration(): found interface %d",
+                        interface_descriptor->bInterfaceNumber);
           interfaces[i].InterfaceDescriptor = interface_descriptor;
         }
     }
@@ -216,7 +226,7 @@ NTSTATUS set_configuration(libusb_device_t *dev, int configuration,
 
   for(i = 0; i < configuration_descriptor->bNumInterfaces; i++)
     {
-      update_pipe_info(dev, i, interfaces[i].Interface);
+      update_pipe_info(dev, interfaces[i].Interface);
     }
 
   ExFreePool(interfaces);
