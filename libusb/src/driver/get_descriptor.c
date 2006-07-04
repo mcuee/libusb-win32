@@ -64,3 +64,43 @@ NTSTATUS get_descriptor(libusb_device_t *dev,
 
   return status;
 }
+
+USB_CONFIGURATION_DESCRIPTOR *
+get_config_descriptor(libusb_device_t *dev, int configuration, int *size)
+{
+  USB_CONFIGURATION_DESCRIPTOR *desc;
+  volatile int desc_size = sizeof(USB_CONFIGURATION_DESCRIPTOR);
+
+  if(!(desc = ExAllocatePool(NonPagedPool, desc_size)))
+    {
+      return NULL;
+    }
+
+  if(!NT_SUCCESS(get_descriptor(dev, desc, desc_size, 
+                          USB_CONFIGURATION_DESCRIPTOR_TYPE,
+                          configuration - 1,
+                          0, size, LIBUSB_DEFAULT_TIMEOUT)))
+    {
+      ExFreePool(desc);
+      return NULL;
+    }
+  
+  desc_size = desc->wTotalLength;
+  ExFreePool(desc);
+    
+  if(!(desc = ExAllocatePool(NonPagedPool, desc_size)))
+    {
+      return NULL;
+    }
+
+  if(!NT_SUCCESS(get_descriptor(dev, desc, desc_size,
+                          USB_CONFIGURATION_DESCRIPTOR_TYPE,
+                          configuration - 1,
+                          0, size, LIBUSB_DEFAULT_TIMEOUT)))
+    {
+      ExFreePool(desc);
+      return NULL;
+    }
+
+  return desc;
+}

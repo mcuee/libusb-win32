@@ -195,6 +195,9 @@ NTSTATUS set_descriptor(libusb_device_t *dev,
 NTSTATUS get_descriptor(libusb_device_t *dev, void *buffer, int size, 
                         int type, int index, int language_id, int *received, 
                         int timeout);
+USB_CONFIGURATION_DESCRIPTOR *
+get_config_descriptor(libusb_device_t *dev, int configuration, int *size);
+
 NTSTATUS transfer(libusb_device_t *dev, IRP *irp, 
                   int direction, int urb_function, int endpoint, 
                   int packet_size, MDL *buffer, int size);
