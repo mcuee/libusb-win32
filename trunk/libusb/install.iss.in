@@ -54,7 +54,7 @@ Source: "@SRC_DIST_DIR@\*.*"; DestDir: "{app}\src"; Flags: recursesubdirs
 Name: "{group}\Test Program"; Filename: "{app}\bin\testlibusb-win.exe"; 
 Name: "{group}\Uninstall LibUsb-Win32"; Filename: "{uninstallexe}"
 Name: "{group}\GPL License"; Filename: "{app}\COPYING_GPL.txt"
-Name: "{group}\LGPL License"; Filename: "{app}\COPYING_GPL.txt"
+Name: "{group}\LGPL License"; Filename: "{app}\COPYING_LGPL.txt"
 
 
 [Run]
@@ -69,15 +69,3 @@ Filename: "{app}\bin\install-filter.exe"; Parameters: "-u"
 StatusUninstalling=Uninstalling %1 (this may take a few seconds) ...
 
 
-[Code]
-
-function needs_restart(): Integer; 
-external 'usb_install_needs_restart_np@libusb0.dll cdecl delayload';
-
-function NeedRestart(): Boolean;
-begin
-  if needs_restart() > 0 then begin
-    Result := True;
-    MsgBox('fsdfsd', mbConfirmation, MB_YESNO);
-  end;
-end;
