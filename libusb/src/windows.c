@@ -205,6 +205,13 @@ int usb_set_configuration(usb_dev_handle *dev, int configuration)
       return -EINVAL;
     }
 
+  if(dev->interface >= 0)
+    {
+      usb_error("usb_set_configuration: can't change configuration, "
+                "an interface is still in use (claimed)");
+      return -EINVAL;
+    }
+
   req.configuration.configuration = configuration;
   req.timeout = LIBUSB_DEFAULT_TIMEOUT;
 
@@ -302,10 +309,17 @@ int usb_set_altinterface(usb_dev_handle *dev, int alternate)
        return -EINVAL;
     }
 
+  if(dev->config <= 0)
+    {
+      usb_error("usb_set_altinterface: could not set alt interface %d: "
+                "invalid configuration %d", alternate, dev->config);
+       return -EINVAL;
+    }
+
   if(dev->interface < 0)
     {
-       usb_error("usb_set_altinterface: could not set alt interface %d/%d: "
-                 "no interface claimed", dev->interface, alternate);
+       usb_error("usb_set_altinterface: could not set alt interface %d: "
+                 "no interface claimed", alternate);
        return -EINVAL;
     }
 
