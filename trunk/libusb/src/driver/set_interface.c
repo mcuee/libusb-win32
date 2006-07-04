@@ -25,8 +25,7 @@ NTSTATUS set_interface(libusb_device_t *dev, int interface, int altsetting,
 {
   NTSTATUS status = STATUS_SUCCESS;
   URB *urb;
-  int i, desc_size;
-  volatile int tmp_size, config_full_size;
+  int i, config_size, tmp_size;
 
   USB_CONFIGURATION_DESCRIPTOR *configuration_descriptor = NULL;
   USB_INTERFACE_DESCRIPTOR *interface_descriptor = NULL;
@@ -43,56 +42,16 @@ NTSTATUS set_interface(libusb_device_t *dev, int interface, int altsetting,
       return STATUS_INVALID_DEVICE_STATE;
     }
 
-  configuration_descriptor = (USB_CONFIGURATION_DESCRIPTOR *)
-    ExAllocatePool(NonPagedPool, sizeof(USB_CONFIGURATION_DESCRIPTOR));
-
+  configuration_descriptor = get_config_descriptor(dev, dev->configuration, 
+                                                   &config_size);
   if(!configuration_descriptor)
     {
       DEBUG_ERROR("set_interface(): memory_allocation error");
       return STATUS_NO_MEMORY;
-    }
-
-  status = get_descriptor(dev, configuration_descriptor,
-                          sizeof(USB_CONFIGURATION_DESCRIPTOR), 
-                          USB_CONFIGURATION_DESCRIPTOR_TYPE,
-                          dev->configuration - 1,
-                          0, &desc_size, LIBUSB_DEFAULT_TIMEOUT);
-
-  if(!NT_SUCCESS(status))
-    {
-      DEBUG_ERROR("set_interface(): getting configuration descriptor failed");
-      ExFreePool(configuration_descriptor);
-      return status;
-    }
-  
-  config_full_size = configuration_descriptor->wTotalLength;
-
-  ExFreePool(configuration_descriptor);
-
-  configuration_descriptor = (USB_CONFIGURATION_DESCRIPTOR *)
-    ExAllocatePool(NonPagedPool, config_full_size);
-  
-  if(!configuration_descriptor)
-    {
-      DEBUG_ERROR("set_interface(): memory_allocation error");
-      return STATUS_NO_MEMORY;
-    }
-
-  status = get_descriptor(dev, configuration_descriptor,
-                          config_full_size, 
-                          USB_CONFIGURATION_DESCRIPTOR_TYPE,
-                          dev->configuration - 1,
-                          0, &desc_size, LIBUSB_DEFAULT_TIMEOUT);
-
-  if(!NT_SUCCESS(status))
-    {
-      DEBUG_ERROR("set_interface(): getting configuration descriptor failed");
-      ExFreePool(configuration_descriptor);
-      return status;
     }
 
   interface_descriptor =
-    find_interface_desc(configuration_descriptor, desc_size, 
+    find_interface_desc(configuration_descriptor, config_size, 
                         interface, altsetting);
 
   if(!interface_descriptor)
@@ -108,7 +67,7 @@ NTSTATUS set_interface(libusb_device_t *dev, int interface, int altsetting,
     * sizeof(USBD_PIPE_INFORMATION);
 
 
-  urb = (URB *)ExAllocatePool(NonPagedPool, tmp_size);
+  urb = ExAllocatePool(NonPagedPool, tmp_size);
 
   if(!urb)
     {
