@@ -39,7 +39,7 @@ NTSTATUS set_interface(libusb_device_t *dev, int interface, int altsetting,
 
   if(!dev->configuration)
     {
-      DEBUG_ERROR("set_interface(): invalid configuration 0"); 
+      DEBUG_ERROR("release_interface(): device is not configured"); 
       return STATUS_INVALID_DEVICE_STATE;
     }
 
@@ -128,7 +128,7 @@ NTSTATUS set_interface(libusb_device_t *dev, int interface, int altsetting,
   urb->UrbSelectInterface.Interface.NumberOfPipes = 
     interface_descriptor->bNumEndpoints;
   urb->UrbSelectInterface.Interface.Length +=
-    interface_descriptor->bNumEndpoints
+    interface_descriptor->bNumEndpoints 
     * sizeof(struct _USBD_PIPE_INFORMATION);
 
   urb->UrbSelectInterface.Interface.InterfaceNumber = (UCHAR)interface;
@@ -154,10 +154,7 @@ NTSTATUS set_interface(libusb_device_t *dev, int interface, int altsetting,
       return STATUS_UNSUCCESSFUL;
     }
 
-  if(interface_to_index(dev, interface, &i))
-    update_pipe_info(dev, i, interface_information);
-  else
-    status = STATUS_INVALID_PARAMETER;
+  update_pipe_info(dev, interface_information);
 
   ExFreePool(configuration_descriptor);
   ExFreePool(urb);

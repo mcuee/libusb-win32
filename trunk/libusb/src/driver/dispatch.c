@@ -80,7 +80,7 @@ NTSTATUS DDKAPI dispatch(DEVICE_OBJECT *device_object, IRP *irp)
           return complete_irp(irp, STATUS_SUCCESS, 0);
           
         case IRP_MJ_CLEANUP:
-          
+
           return complete_irp(irp, STATUS_SUCCESS, 0);
           
         default:

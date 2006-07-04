@@ -315,13 +315,16 @@ bool_t get_pipe_handle(libusb_device_t *dev, int endpoint_address,
 
   for(i = 0; i < LIBUSB_MAX_NUMBER_OF_INTERFACES; i++)
     {
-      for(j = 0; j < LIBUSB_MAX_NUMBER_OF_ENDPOINTS; j++)
+      if(dev->interfaces[i].valid)
         {
-          if(dev->interfaces[i].endpoints[j].address == endpoint_address)
+          for(j = 0; j < LIBUSB_MAX_NUMBER_OF_ENDPOINTS; j++)
             {
-              *pipe_handle = dev->interfaces[i].endpoints[j].handle;
-
-              return !*pipe_handle ? FALSE : TRUE;
+              if(dev->interfaces[i].endpoints[j].address == endpoint_address)
+                {
+                  *pipe_handle = dev->interfaces[i].endpoints[j].handle;
+                  
+                  return !*pipe_handle ? FALSE : TRUE;
+                }
             }
         }
     }
@@ -337,7 +340,6 @@ void clear_pipe_info(libusb_device_t *dev)
     {
       dev->interfaces[i].valid = FALSE;
       dev->interfaces[i].claimed = FALSE;
-      dev->interfaces[i].number = -1;
 
       for(j = 0; j < LIBUSB_MAX_NUMBER_OF_ENDPOINTS; j++)
         {
@@ -347,39 +349,45 @@ void clear_pipe_info(libusb_device_t *dev)
     }
 }
 
-bool_t update_pipe_info(libusb_device_t *dev, int index,
+bool_t update_pipe_info(libusb_device_t *dev,
                         USBD_INTERFACE_INFORMATION *interface_info)
 {
   int i;
+  int number;
 
-  if(index >= LIBUSB_MAX_NUMBER_OF_INTERFACES)
+  if(!interface_info)
     {
       return FALSE;
     }
 
-  DEBUG_MESSAGE("update_pipe_info(): interface index %d", index);
+  number = interface_info->InterfaceNumber;
 
-  dev->interfaces[index].valid = TRUE;
+  if(interface_info->InterfaceNumber >= LIBUSB_MAX_NUMBER_OF_INTERFACES)
+    {
+      return FALSE;
+    }
+
+  DEBUG_MESSAGE("update_pipe_info(): interface %d", number);
+
+  dev->interfaces[number].valid = TRUE;
 
   for(i = 0; i < LIBUSB_MAX_NUMBER_OF_ENDPOINTS; i++)
     {
-      dev->interfaces[index].endpoints[i].address = 0;
-      dev->interfaces[index].endpoints[i].handle = NULL;
+      dev->interfaces[number].endpoints[i].address = 0;
+      dev->interfaces[number].endpoints[i].handle = NULL;
     } 
 
   if(interface_info)
     {
-      dev->interfaces[index].number = interface_info->InterfaceNumber;
-
       for(i = 0; i < (int)interface_info->NumberOfPipes
             && i < LIBUSB_MAX_NUMBER_OF_ENDPOINTS; i++) 
         {
           DEBUG_MESSAGE("update_pipe_info(): endpoint address 0x%02x",
                         interface_info->Pipes[i].EndpointAddress);	  
 
-          dev->interfaces[index].endpoints[i].handle
+          dev->interfaces[number].endpoints[i].handle
             = interface_info->Pipes[i].PipeHandle;	
-          dev->interfaces[index].endpoints[i].address = 
+          dev->interfaces[number].endpoints[i].address = 
             interface_info->Pipes[i].EndpointAddress;
         }
     }
@@ -387,21 +395,6 @@ bool_t update_pipe_info(libusb_device_t *dev, int index,
   return TRUE;
 }
 
-bool_t interface_to_index(const libusb_device_t *dev, int interface,
-                          int *index)
-{
-  int i;
-
-  for(i = 0; i < LIBUSB_MAX_NUMBER_OF_INTERFACES; i++)
-    {
-      if(dev->interfaces[i].number == interface)
-        {
-          *index = i;
-          return TRUE;
-        }
-    }
-  return FALSE;
-}
 
 void remove_lock_initialize(libusb_device_t *dev)
 {
@@ -448,7 +441,7 @@ void remove_lock_release_and_wait(libusb_device_t *dev)
 
 USB_INTERFACE_DESCRIPTOR *
 find_interface_desc(USB_CONFIGURATION_DESCRIPTOR *config_desc,
-                    unsigned int size, int interface, int altsetting)
+                    unsigned int size, int interface_number, int altsetting)
 {
   usb_descriptor_header_t *desc = (usb_descriptor_header_t *)config_desc;
   char *p = (char *)desc;
@@ -463,7 +456,7 @@ find_interface_desc(USB_CONFIGURATION_DESCRIPTOR *config_desc,
         {
           if_desc = (USB_INTERFACE_DESCRIPTOR *)desc;
 
-          if((if_desc->bInterfaceNumber == (UCHAR)interface)
+          if((if_desc->bInterfaceNumber == (UCHAR)interface_number)
              && (if_desc->bAlternateSetting == (UCHAR)altsetting))
           {
             return if_desc;
@@ -478,36 +471,3 @@ find_interface_desc(USB_CONFIGURATION_DESCRIPTOR *config_desc,
   return NULL;
 }
 
-USB_INTERFACE_DESCRIPTOR *
-find_interface_desc_by_index(USB_CONFIGURATION_DESCRIPTOR *config_desc,
-                             unsigned int size, int index, int altsetting)
-{
-  usb_descriptor_header_t *desc = (usb_descriptor_header_t *)config_desc;
-  char *p = (char *)desc;
-  USB_INTERFACE_DESCRIPTOR *if_desc = NULL;
-
-  if(!config_desc || (size < config_desc->wTotalLength))
-    return NULL;
-
-  while(size && desc->length <= size)
-    {
-      if(desc->type == USB_INTERFACE_DESCRIPTOR_TYPE)
-        {
-          if_desc = (USB_INTERFACE_DESCRIPTOR *)desc;
-
-          if(if_desc->bAlternateSetting == (UCHAR)altsetting)
-          {
-            if(!index)
-              return if_desc;
-            else
-              index--;
-          }
-        }
-
-      size -= desc->length;
-      p += desc->length;
-      desc = (usb_descriptor_header_t *)p;
-    }
-
-  return NULL;
-}
