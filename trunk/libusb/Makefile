@@ -103,8 +103,8 @@ CPPFLAGS = -DVERSION_MAJOR=$(VERSION_MAJOR) \
 WINDRES_FLAGS = -I./src -DRC_VERSION='$(RC_VERSION)' \
 								-DRC_VERSION_STR=$(RC_VERSION_STR)
 
-LDFLAGS = -s -mno-cygwin -L. -lusb -lgdi32 -luser32 -lsetupapi \
-	 				-lcfgmgr32 -lcomctl32
+LDFLAGS = -s -mno-cygwin -L. -lusb -lgdi32 -luser32 -lcfgmgr32 \
+	 				-lsetupapi -lcomctl32
 WIN_LDFLAGS = $(LDFLAGS) -mwindows
 
 
@@ -112,7 +112,7 @@ DLL_LDFLAGS = -s -mwindows -shared -mno-cygwin \
 	-Wl,--kill-at \
 	-Wl,--out-implib,$(LIB_TARGET).a \
 	-Wl,--enable-stdcall-fixup \
-	-L. -lsetupapi -lcfgmgr32
+	-L. -lcfgmgr32 -lsetupapi 
 
 
 DRIVER_LDFLAGS = -s -shared -Wl,--entry,_DriverEntry@8 \
