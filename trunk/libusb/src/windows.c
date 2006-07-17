@@ -751,7 +751,7 @@ int usb_control_msg(usb_dev_handle *dev, int requesttype, int request,
     }
   
   /* out request? */
-  if(!(requesttype & 0x80))
+  if(!(requesttype & USB_ENDPOINT_IN))
     {
       if(!(out = malloc(sizeof(libusb_request) + size)))
         {
@@ -771,10 +771,14 @@ int usb_control_msg(usb_dev_handle *dev, int requesttype, int request,
       ret = -usb_win_error_to_errno();
     }
 
-  if(!(requesttype & 0x80))
-    free(out);
-
-  return ret;
+  /* out request? */
+  if(!(requesttype & USB_ENDPOINT_IN))
+    {
+      free(out);
+      return size;
+    }
+  else
+    return ret;
 }
 
 

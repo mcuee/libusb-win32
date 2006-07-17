@@ -24,10 +24,12 @@ NTSTATUS vendor_class_request(libusb_device_t *dev,
                               int type, int recipient,
                               int request, int value, int index, 
                               void *buffer, int size, int direction,
-                              int *sent, int timeout)
+                              int *ret, int timeout)
 {
   NTSTATUS status = STATUS_SUCCESS;
   URB urb;
+
+  *ret = 0;
 
   DEBUG_PRINT_NL();
 
@@ -122,12 +124,13 @@ NTSTATUS vendor_class_request(libusb_device_t *dev,
     {
      DEBUG_ERROR("vendor_class_request(): request failed: status: 0x%x, "
                  "urb-status: 0x%x", status, urb.UrbHeader.Status);
-      *sent = 0;
     }
   else
     {
-      *sent = urb.UrbControlVendorClassRequest.TransferBufferLength;
-      DEBUG_MESSAGE("vendor_class_request(): %d bytes transmitted", *sent);
+      if(direction == USBD_TRANSFER_DIRECTION_IN)
+        *ret = urb.UrbControlVendorClassRequest.TransferBufferLength;
+      DEBUG_MESSAGE("vendor_class_request(): %d bytes transmitted", 
+                    urb.UrbControlVendorClassRequest.TransferBufferLength);
     }
 
   return status;

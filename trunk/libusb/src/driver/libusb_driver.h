@@ -206,7 +206,7 @@ NTSTATUS vendor_class_request(libusb_device_t *dev,
                               int type, int recipient,
                               int request, int value, int index,
                               void *buffer, int size, int direction,
-                              int *sent, int timeout);
+                              int *ret, int timeout);
 
 NTSTATUS abort_endpoint(libusb_device_t *dev, int endpoint, int timeout);
 NTSTATUS reset_endpoint(libusb_device_t *dev, int endpoint, int timeout);
