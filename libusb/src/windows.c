@@ -768,7 +768,7 @@ int usb_control_msg(usb_dev_handle *dev, int requesttype, int request,
     {
       usb_error("usb_control_msg: sending control message failed, "
                 "win error: %s", usb_win_error_to_string());
-      ret = -usb_win_error_to_errno();
+      return -usb_win_error_to_errno();
     }
 
   /* out request? */
