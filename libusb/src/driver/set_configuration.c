@@ -86,7 +86,7 @@ NTSTATUS set_configuration(libusb_device_t *dev, int configuration,
       return STATUS_INVALID_PARAMETER;
     }
 
-  configuration_descriptor = get_config_descriptor(dev, dev->configuration, 
+  configuration_descriptor = get_config_descriptor(dev, configuration, 
                                                    &desc_size);
   
   if(!configuration_descriptor)
