@@ -22,7 +22,7 @@
 
 
 NTSTATUS set_descriptor(libusb_device_t *dev,
-                        void *buffer, int size, int type, 
+                        void *buffer, int size, int type, int recipient,
                         int index, int language_id, int *sent, int timeout)
 {
   NTSTATUS status = STATUS_SUCCESS;
@@ -31,13 +31,30 @@ NTSTATUS set_descriptor(libusb_device_t *dev,
   DEBUG_PRINT_NL();
   DEBUG_MESSAGE("set_descriptor(): buffer size %d", size);
   DEBUG_MESSAGE("set_descriptor(): type %04d", type);
+  DEBUG_MESSAGE("set_descriptor(): recipient %04d", recipient);
   DEBUG_MESSAGE("set_descriptor(): index %04d", index);
   DEBUG_MESSAGE("set_descriptor(): language id %04d", language_id);
   DEBUG_MESSAGE("set_descriptor(): timeout %d", timeout);
 
   memset(&urb, 0, sizeof(struct _URB_CONTROL_DESCRIPTOR_REQUEST));
 
-  urb.UrbHeader.Function =  URB_FUNCTION_SET_DESCRIPTOR_TO_DEVICE;
+
+  switch(recipient)
+    {
+    case USB_RECIP_DEVICE:
+      urb.UrbHeader.Function = URB_FUNCTION_SET_DESCRIPTOR_TO_DEVICE;
+      break;
+    case USB_RECIP_INTERFACE:
+      urb.UrbHeader.Function = URB_FUNCTION_SET_DESCRIPTOR_TO_INTERFACE;
+      break;
+    case USB_RECIP_ENDPOINT:
+      urb.UrbHeader.Function = URB_FUNCTION_SET_DESCRIPTOR_TO_ENDPOINT;
+      break;
+    default:
+      DEBUG_ERROR("set_descriptor(): invalid recipient");
+      return STATUS_INVALID_PARAMETER;
+    }
+
   urb.UrbHeader.Length = sizeof(struct _URB_CONTROL_DESCRIPTOR_REQUEST);
   urb.UrbControlDescriptorRequest.TransferBufferLength = size;
   urb.UrbControlDescriptorRequest.TransferBuffer = buffer;

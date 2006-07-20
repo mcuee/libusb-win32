@@ -22,7 +22,7 @@
 
 
 NTSTATUS get_descriptor(libusb_device_t *dev,
-                        void *buffer, int size, int type, 
+                        void *buffer, int size, int type, int recipient,
                         int index, int language_id, int *received, int timeout)
 {
   NTSTATUS status = STATUS_SUCCESS;
@@ -31,6 +31,7 @@ NTSTATUS get_descriptor(libusb_device_t *dev,
   DEBUG_PRINT_NL();
   DEBUG_MESSAGE("get_descriptor(): buffer size %d", size);
   DEBUG_MESSAGE("get_descriptor(): type %04d", type);
+  DEBUG_MESSAGE("get_descriptor(): recipient %04d", recipient);
   DEBUG_MESSAGE("get_descriptor(): index %04d", index);
   DEBUG_MESSAGE("get_descriptor(): language id %04d", language_id);
   DEBUG_MESSAGE("get_descriptor(): timeout %d", timeout);
@@ -38,7 +39,23 @@ NTSTATUS get_descriptor(libusb_device_t *dev,
 
   memset(&urb, 0, sizeof(struct _URB_CONTROL_DESCRIPTOR_REQUEST));
 
-  urb.UrbHeader.Function = URB_FUNCTION_GET_DESCRIPTOR_FROM_DEVICE;
+  switch(recipient)
+    {
+    case USB_RECIP_DEVICE:
+      urb.UrbHeader.Function = URB_FUNCTION_GET_DESCRIPTOR_FROM_DEVICE;
+      break;
+    case USB_RECIP_INTERFACE:
+      urb.UrbHeader.Function = URB_FUNCTION_GET_DESCRIPTOR_FROM_INTERFACE;
+      break;
+    case USB_RECIP_ENDPOINT:
+      urb.UrbHeader.Function = URB_FUNCTION_GET_DESCRIPTOR_FROM_ENDPOINT;
+      break;
+    default:
+      DEBUG_ERROR("get_descriptor(): invalid recipient");
+      return STATUS_INVALID_PARAMETER;
+    }
+
+
   urb.UrbHeader.Length = sizeof(struct _URB_CONTROL_DESCRIPTOR_REQUEST);
   urb.UrbControlDescriptorRequest.TransferBufferLength = size;
   urb.UrbControlDescriptorRequest.TransferBuffer = buffer;
@@ -77,9 +94,10 @@ get_config_descriptor(libusb_device_t *dev, int configuration, int *size)
     }
 
   if(!NT_SUCCESS(get_descriptor(dev, desc, desc_size, 
-                          USB_CONFIGURATION_DESCRIPTOR_TYPE,
-                          configuration - 1,
-                          0, size, LIBUSB_DEFAULT_TIMEOUT)))
+                                USB_CONFIGURATION_DESCRIPTOR_TYPE,
+                                USB_RECIP_DEVICE,
+                                configuration - 1,
+                                0, size, LIBUSB_DEFAULT_TIMEOUT)))
     {
       ExFreePool(desc);
       return NULL;
@@ -94,9 +112,10 @@ get_config_descriptor(libusb_device_t *dev, int configuration, int *size)
     }
 
   if(!NT_SUCCESS(get_descriptor(dev, desc, desc_size,
-                          USB_CONFIGURATION_DESCRIPTOR_TYPE,
-                          configuration - 1,
-                          0, size, LIBUSB_DEFAULT_TIMEOUT)))
+                                USB_CONFIGURATION_DESCRIPTOR_TYPE,
+                                USB_RECIP_DEVICE,
+                                configuration - 1,
+                                0, size, LIBUSB_DEFAULT_TIMEOUT)))
     {
       ExFreePool(desc);
       return NULL;

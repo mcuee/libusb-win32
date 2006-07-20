@@ -190,11 +190,11 @@ NTSTATUS get_status(libusb_device_t *dev, int recipient,
                     int index, char *status, int *ret, int timeout);
 NTSTATUS set_descriptor(libusb_device_t *dev,
                         void *buffer, int size, 
-                        int type, int index, int language_id, 
+                        int type, int recipient, int index, int language_id, 
                         int *sent, int timeout);
 NTSTATUS get_descriptor(libusb_device_t *dev, void *buffer, int size, 
-                        int type, int index, int language_id, int *received, 
-                        int timeout);
+                        int type, int recipient, int index, int language_id,
+                        int *received, int timeout);
 USB_CONFIGURATION_DESCRIPTOR *
 get_config_descriptor(libusb_device_t *dev, int configuration, int *size);
 

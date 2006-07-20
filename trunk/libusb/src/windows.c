@@ -161,18 +161,18 @@ int usb_os_open(usb_dev_handle *dev)
     }
   
   /* now, retrieve the device's current configuration, except from hubs */
-  if(dev->device->config && dev->device->config->interface
-     && dev->device->config->interface[0].altsetting
-     && dev->device->config->interface[0].altsetting[0].bInterfaceClass 
-     != USB_CLASS_HUB)
-    {
-      config = usb_get_configuration(dev);
+/*   if(dev->device->config && dev->device->config->interface */
+/*      && dev->device->config->interface[0].altsetting */
+/*      && dev->device->config->interface[0].altsetting[0].bInterfaceClass  */
+/*      != USB_CLASS_HUB) */
+/*     { */
+/*       config = usb_get_configuration(dev); */
       
-      if(config > 0)
-        {
-          dev->config = config;
-        }
-    }
+/*       if(config > 0) */
+/*         { */
+/*           dev->config = config; */
+/*         } */
+/*     } */
 
   return 0;
 }
@@ -688,7 +688,8 @@ int usb_control_msg(usb_dev_handle *dev, int requesttype, int request,
           code = LIBUSB_IOCTL_SET_FEATURE;
           break;
 
-        case USB_REQ_GET_DESCRIPTOR:     	  
+        case USB_REQ_GET_DESCRIPTOR:
+          req.descriptor.recipient = requesttype & 0x1F;
           req.descriptor.type = (value >> 8) & 0xFF;
           req.descriptor.index = value & 0xFF;
           req.descriptor.language_id = index;
@@ -696,6 +697,7 @@ int usb_control_msg(usb_dev_handle *dev, int requesttype, int request,
           break;
 	  
         case USB_REQ_SET_DESCRIPTOR:
+          req.descriptor.recipient = requesttype & 0x1F;
           req.descriptor.type = (value >> 8) & 0xFF;
           req.descriptor.index = value & 0xFF;
           req.descriptor.language_id = index;
@@ -768,7 +770,7 @@ int usb_control_msg(usb_dev_handle *dev, int requesttype, int request,
     {
       usb_error("usb_control_msg: sending control message failed, "
                 "win error: %s", usb_win_error_to_string());
-      return -usb_win_error_to_errno();
+      ret = -usb_win_error_to_errno();
     }
 
   /* out request? */
@@ -843,6 +845,7 @@ int usb_os_find_devices(struct usb_bus *bus, struct usb_device **devices)
 
       /* retrieve device descriptor */
       req.descriptor.type = USB_DT_DEVICE;
+      req.descriptor.recipient = USB_RECIP_DEVICE;
       req.descriptor.index = 0;
       req.descriptor.language_id = 0;
       req.timeout = LIBUSB_DEFAULT_TIMEOUT;
