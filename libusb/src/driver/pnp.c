@@ -88,11 +88,11 @@ NTSTATUS dispatch_pnp(libusb_device_t *dev, IRP *irp)
 
       DEBUG_MESSAGE("dispatch_pnp(): IRP_MN_START_DEVICE");
 
-      if(!NT_SUCCESS(set_configuration(dev, 1, 1000)))
-        {
-          DEBUG_ERROR("dispatch_pnp(): IRP_MN_START_DEVICE: selecting "
-                      "configuration failed");
-        }
+/*       if(!NT_SUCCESS(set_configuration(dev, 1, 1000))) */
+/*         { */
+/*           DEBUG_ERROR("dispatch_pnp(): IRP_MN_START_DEVICE: selecting " */
+/*                       "configuration failed"); */
+/*         } */
 
       /* report device state to Power Manager */
       /* power_state.DeviceState has been set to D0 by add_device() */
