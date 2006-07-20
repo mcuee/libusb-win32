@@ -149,6 +149,7 @@ typedef struct {
       unsigned int type;
       unsigned int index;
       unsigned int language_id;
+      unsigned int recipient;
     } descriptor;    
     struct
     {

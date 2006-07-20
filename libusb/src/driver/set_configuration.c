@@ -71,6 +71,7 @@ NTSTATUS set_configuration(libusb_device_t *dev, int configuration,
   status = get_descriptor(dev, &device_descriptor,
                           sizeof(USB_DEVICE_DESCRIPTOR), 
                           USB_DEVICE_DESCRIPTOR_TYPE,
+                          USB_RECIP_DEVICE,
                           0, 0, &desc_size, LIBUSB_DEFAULT_TIMEOUT);  
 
   if(!NT_SUCCESS(status))

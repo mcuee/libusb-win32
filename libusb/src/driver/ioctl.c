@@ -150,6 +150,7 @@ NTSTATUS dispatch_ioctl(libusb_device_t *dev, IRP *irp)
                               input_buffer + sizeof(libusb_request), 
                               input_buffer_length - sizeof(libusb_request), 
                               request->descriptor.type,
+                              request->descriptor.recipient,
                               request->descriptor.index,
                               request->descriptor.language_id, 
                               &ret, request->timeout);
@@ -169,6 +170,7 @@ NTSTATUS dispatch_ioctl(libusb_device_t *dev, IRP *irp)
       status = get_descriptor(dev, output_buffer, 
                               output_buffer_length,
                               request->descriptor.type,
+                              request->descriptor.recipient,
                               request->descriptor.index,
                               request->descriptor.language_id, 
                               &ret, request->timeout);
