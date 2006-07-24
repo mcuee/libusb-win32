@@ -645,7 +645,7 @@ int usb_interrupt_setup_async(usb_dev_handle *dev, void **context,
 int usb_control_msg(usb_dev_handle *dev, int requesttype, int request,
                     int value, int index, char *bytes, int size, int timeout)
 {
-  int ret = 0;
+  int read = 0;
   libusb_request req;
   void *out = &req;
   int out_size = sizeof(libusb_request);
@@ -766,11 +766,11 @@ int usb_control_msg(usb_dev_handle *dev, int requesttype, int request,
       out_size = sizeof(libusb_request) + size;
     }
 
-  if(!usb_io_sync(dev->impl_info, code, out, out_size, in, in_size, &ret))
+  if(!usb_io_sync(dev->impl_info, code, out, out_size, in, in_size, &read))
     {
       usb_error("usb_control_msg: sending control message failed, "
                 "win error: %s", usb_win_error_to_string());
-      ret = -usb_win_error_to_errno();
+      return -usb_win_error_to_errno();
     }
 
   /* out request? */
@@ -780,7 +780,7 @@ int usb_control_msg(usb_dev_handle *dev, int requesttype, int request,
       return size;
     }
   else
-    return ret;
+    return read;
 }
 
 
