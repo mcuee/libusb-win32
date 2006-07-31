@@ -68,7 +68,7 @@ static int usb_transfer_sync(usb_dev_handle *dev, int control_code,
                              int ep, int pktsize, char *bytes, int size, 
                              int timeout);
 
-static int usb_get_configuration(usb_dev_handle *dev);
+/* static int usb_get_configuration(usb_dev_handle *dev); */
 static int usb_cancel_io(usb_context_t *context);
 static int usb_abort_ep(usb_dev_handle *dev, unsigned int ep);
 
@@ -97,28 +97,28 @@ BOOL WINAPI DllMain(HANDLE module, DWORD reason, LPVOID reserved)
   return TRUE;
 }
 
-static int usb_get_configuration(usb_dev_handle *dev)
-{
-  int ret;
-  char config;
+/* static int usb_get_configuration(usb_dev_handle *dev) */
+/* { */
+/*   int ret; */
+/*   char config; */
 
-  ret = usb_control_msg(dev, USB_RECIP_DEVICE | USB_ENDPOINT_IN, 
-                        USB_REQ_GET_CONFIGURATION, 0, 0, &config, 1, 
-                        LIBUSB_DEFAULT_TIMEOUT);
+/*   ret = usb_control_msg(dev, USB_RECIP_DEVICE | USB_ENDPOINT_IN,  */
+/*                         USB_REQ_GET_CONFIGURATION, 0, 0, &config, 1,  */
+/*                         LIBUSB_DEFAULT_TIMEOUT); */
   
-  if(ret >= 0)
-    {
-      return config;
-    }
+/*   if(ret >= 0) */
+/*     { */
+/*       return config; */
+/*     } */
 
-  return ret;
-}
+/*   return ret; */
+/* } */
 
 int usb_os_open(usb_dev_handle *dev)
 {
   char dev_name[LIBUSB_PATH_MAX];
   char *p;
-  int config;
+/*   int config; */
 
   if(!dev)
     {
@@ -1083,6 +1083,11 @@ int usb_os_determine_children(struct usb_bus *bus)
   /* add a virtual hub to the bus to emulate this feature */
   if(_usb_add_virtual_hub(bus))
     {
+      if(bus->root_dev->children)
+        {
+          free(bus->root_dev->children);
+        }
+
       for(dev = bus->devices; dev; dev = dev->next)
         bus->root_dev->num_children++;
 
@@ -1169,29 +1174,32 @@ static int _usb_add_virtual_hub(struct usb_bus *bus)
 {
   struct usb_device *dev;
 
-  if(!(dev = malloc(sizeof(*dev))))
-    return FALSE;
-  
-  memset(dev, 0, sizeof(*dev));
-  strcpy(dev->filename, "virtual-hub");
-  dev->bus = bus;
-  
-  dev->descriptor.bLength = USB_DT_DEVICE_SIZE;
-  dev->descriptor.bDescriptorType = USB_DT_DEVICE;
-  dev->descriptor.bcdUSB = 0x0200;
-  dev->descriptor.bDeviceClass = USB_CLASS_HUB;
-  dev->descriptor.bDeviceSubClass = 0;
-  dev->descriptor.bDeviceProtocol = 0;
-  dev->descriptor.bMaxPacketSize0 = 64;
-  dev->descriptor.idVendor = 0;
-  dev->descriptor.idProduct = 0;
-  dev->descriptor.bcdDevice = 0x100;
-  dev->descriptor.iManufacturer = 0;
-  dev->descriptor.iProduct = 0;
-  dev->descriptor.iSerialNumber = 0;
-  dev->descriptor.bNumConfigurations = 0;
-
-  bus->root_dev = dev;
+  if(!bus->root_dev)
+    {
+      if(!(dev = malloc(sizeof(*dev))))
+        return FALSE;
+      
+      memset(dev, 0, sizeof(*dev));
+      strcpy(dev->filename, "virtual-hub");
+      dev->bus = bus;
+      
+      dev->descriptor.bLength = USB_DT_DEVICE_SIZE;
+      dev->descriptor.bDescriptorType = USB_DT_DEVICE;
+      dev->descriptor.bcdUSB = 0x0200;
+      dev->descriptor.bDeviceClass = USB_CLASS_HUB;
+      dev->descriptor.bDeviceSubClass = 0;
+      dev->descriptor.bDeviceProtocol = 0;
+      dev->descriptor.bMaxPacketSize0 = 64;
+      dev->descriptor.idVendor = 0;
+      dev->descriptor.idProduct = 0;
+      dev->descriptor.bcdDevice = 0x100;
+      dev->descriptor.iManufacturer = 0;
+      dev->descriptor.iProduct = 0;
+      dev->descriptor.iSerialNumber = 0;
+      dev->descriptor.bNumConfigurations = 0;
+      
+      bus->root_dev = dev;
+    }
 
   return TRUE;
 }
