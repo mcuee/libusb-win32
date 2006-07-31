@@ -5,6 +5,10 @@
 
 #include "error.h"
 
+typedef unsigned char uint8_t; 
+typedef unsigned short uint16_t; 
+typedef unsigned long uint32_t; 
+
 extern int usb_debug;
 
 /* Some quick and generic macros for the simple kind of lists we use */
@@ -31,6 +35,13 @@ extern int usb_debug;
 	  ent->next = NULL; \
 	} while (0)
 
+#define DESC_HEADER_LENGTH		2
+#define DEVICE_DESC_LENGTH		18
+#define CONFIG_DESC_LENGTH		9
+#define INTERFACE_DESC_LENGTH		9
+#define ENDPOINT_DESC_LENGTH		7
+#define ENDPOINT_AUDIO_DESC_LENGTH	9
+
 struct usb_dev_handle {
   int fd;
 
@@ -46,7 +57,9 @@ struct usb_dev_handle {
 };
 
 /* descriptors.c */
-int usb_parse_configuration(struct usb_config_descriptor *config, char *buffer);
+int usb_parse_descriptor(unsigned char *source, char *description, void *dest);
+int usb_parse_configuration(struct usb_config_descriptor *config,
+	unsigned char *buffer);
 void usb_fetch_and_parse_descriptors(usb_dev_handle *udev);
 void usb_destroy_configuration(struct usb_device *dev);
 

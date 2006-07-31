@@ -11,11 +11,10 @@
 #include <string.h>	/* strcmp */
 #include <errno.h>
 
-#define __USB_C__
 #include "usbi.h"
 
 int usb_debug = 0;
-struct usb_bus *usb_busses = NULL;
+struct usb_bus *_usb_busses = NULL;
 
 int usb_find_busses(void)
 {
@@ -32,7 +31,7 @@ int usb_find_busses(void)
    * If we don't find it in the new list, the bus was removed. Any
    * busses still in the new list, are new to us.
    */
-  bus = usb_busses;
+  bus = _usb_busses;
   while (bus) {
     int found = 0;
     struct usb_bus *nbus, *tbus = bus->next;
@@ -55,7 +54,7 @@ int usb_find_busses(void)
 
     if (!found) {
       /* The bus was removed from the system */
-      LIST_DEL(usb_busses, bus);
+      LIST_DEL(_usb_busses, bus);
       usb_free_bus(bus);
       changes++;
     }
@@ -77,7 +76,7 @@ int usb_find_busses(void)
      */
     LIST_DEL(busses, bus);
 
-    LIST_ADD(usb_busses, bus);
+    LIST_ADD(_usb_busses, bus);
 
     changes++;
 
@@ -179,17 +178,6 @@ int usb_find_devices(void)
   return changes;
 }
 
-/* reimplemented in windows.c */
-
-/* void usb_set_debug(int level) */
-/* { */
-/*   if (usb_debug || level) */
-/*     fprintf(stderr, "usb_set_debug: Setting debugging level to %d (%s)\n", */
-/* 	level, level ? "on" : "off"); */
-
-/*   usb_debug = level; */
-/* } */
-
 void usb_init(void)
 {
   if (getenv("USB_DEBUG"))
@@ -233,8 +221,7 @@ int usb_get_string(usb_dev_handle *dev, int index, int langid, char *buf,
 int usb_get_string_simple(usb_dev_handle *dev, int index, char *buf, size_t buflen)
 {
   char tbuf[255];	/* Some devices choke on size > 255 */
-  int ret, langid;
-  unsigned int si, di;
+  int ret, langid, si, di;
 
   /*
    * Asking for the zero'th index is special - it returns a string
@@ -262,8 +249,8 @@ int usb_get_string_simple(usb_dev_handle *dev, int index, char *buf, size_t bufl
   if (tbuf[0] > ret)
     return -EFBIG;
 
-  for (di = 0, si = 2; si < (unsigned int) tbuf[0]; si += 2) {
-    if (di >= (buflen - 1))
+  for (di = 0, si = 2; si < tbuf[0]; si += 2) {
+    if (di >= ((int)buflen - 1))
       break;
 
     if (tbuf[si + 1])	/* high byte */
@@ -295,12 +282,13 @@ struct usb_device *usb_device(usb_dev_handle *dev)
 void usb_free_dev(struct usb_device *dev)
 {
   usb_destroy_configuration(dev);
+  free(dev->children);
   free(dev);
 }
 
 struct usb_bus *usb_get_busses(void)
 {
-  return usb_busses;
+  return _usb_busses;
 }
 
 void usb_free_bus(struct usb_bus *bus)

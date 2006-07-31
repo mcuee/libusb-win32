@@ -9,7 +9,6 @@
 #include <stdio.h>
 #include <string.h>
 #include "usbi.h"
-#include "error.h"
 
 int usb_get_descriptor_by_endpoint(usb_dev_handle *udev, int ep,
 	unsigned char type, unsigned char index, void *buf, int size)
@@ -29,6 +28,43 @@ int usb_get_descriptor(usb_dev_handle *udev, unsigned char type,
                         (type << 8) + index, 0, buf, size, 1000);
 }
 
+int usb_parse_descriptor(unsigned char *source, char *description, void *dest)
+{
+  unsigned char *sp = source, *dp = dest;
+  uint16_t w;
+  uint32_t d;
+  char *cp;
+
+  for (cp = description; *cp; cp++) {
+    switch (*cp) {
+    case 'b':	/* 8-bit byte */
+      *dp++ = *sp++;
+      break;
+    case 'w':	/* 16-bit word, convert from little endian to CPU */
+      w = (sp[1] << 8) | sp[0]; sp += 2;
+      dp += ((unsigned long)dp & 1);	/* Align to word boundary */
+      *((uint16_t *)dp) = w; dp += 2;
+      break;
+    case 'd':	/* 32-bit dword, convert from little endian to CPU */
+      d = (sp[3] << 24) | (sp[2] << 16) | (sp[1] << 8) | sp[0]; sp += 4;
+      dp += ((unsigned long)dp & 2);	/* Align to dword boundary */
+      *((uint32_t *)dp) = d; dp += 4;
+      break;
+    /* These two characters are undocumented and just a hack for Linux */
+    case 'W':	/* 16-bit word, keep CPU endianess */
+      dp += ((unsigned long)dp & 1);	/* Align to word boundary */
+      memcpy(dp, sp, 2); sp += 2; dp += 2;
+      break;
+    case 'D':	/* 32-bit dword, keep CPU endianess */
+      dp += ((unsigned long)dp & 2);	/* Align to dword boundary */
+      memcpy(dp, sp, 4); sp += 4; dp += 4;
+      break;
+    }
+  }
+
+  return sp - source;
+}
+
 /*
  * This code looks surprisingly similar to the code I wrote for the Linux
  * kernel. It's not a coincidence :)
@@ -36,68 +72,67 @@ int usb_get_descriptor(usb_dev_handle *udev, unsigned char type,
 
 static int usb_parse_endpoint(struct usb_endpoint_descriptor *endpoint, unsigned char *buffer, int size)
 {
-  struct usb_descriptor_header *header;
+  struct usb_descriptor_header header;
   unsigned char *begin;
   int parsed = 0, len, numskipped;
 
-  header = (struct usb_descriptor_header *)buffer;
+  usb_parse_descriptor(buffer, "bb", &header);
 
   /* Everything should be fine being passed into here, but we sanity */
   /*  check JIC */
-  if (header->bLength > size) {
+  if (header.bLength > size) {
     if (usb_debug >= 1)
-      usb_error("ran out of descriptors parsing\n");
+      fprintf(stderr, "ran out of descriptors parsing\n");
     return -1;
   }
                 
-  if (header->bDescriptorType != USB_DT_ENDPOINT) {
+  if (header.bDescriptorType != USB_DT_ENDPOINT) {
     if (usb_debug >= 2)
-      usb_error("unexpected descriptor 0x%X, expecting endpoint descriptor, type 0x%X\n",
-         endpoint->bDescriptorType, USB_DT_ENDPOINT);
+      fprintf(stderr, "unexpected descriptor 0x%X, expecting endpoint descriptor, type 0x%X\n",
+         header.bDescriptorType, USB_DT_ENDPOINT);
     return parsed;
   }
-  if (header->bLength == USB_DT_ENDPOINT_AUDIO_SIZE)
-    memcpy(endpoint, buffer, USB_DT_ENDPOINT_AUDIO_SIZE);
-  else
-    memcpy(endpoint, buffer, USB_DT_ENDPOINT_SIZE);
-        
-  USB_LE16_TO_CPU(endpoint->wMaxPacketSize);
 
-  buffer += header->bLength;
-  size -= header->bLength;
-  parsed += header->bLength;
+  if (header.bLength >= ENDPOINT_AUDIO_DESC_LENGTH)
+    usb_parse_descriptor(buffer, "bbbbwbbb", endpoint);
+  else if (header.bLength >= ENDPOINT_DESC_LENGTH)
+    usb_parse_descriptor(buffer, "bbbbwb", endpoint);
+
+  buffer += header.bLength;
+  size -= header.bLength;
+  parsed += header.bLength;
 
   /* Skip over the rest of the Class Specific or Vendor Specific */
   /*  descriptors */
   begin = buffer;
   numskipped = 0;
-  while (size >= sizeof(struct usb_descriptor_header)) {
-    header = (struct usb_descriptor_header *)buffer;
+  while (size >= DESC_HEADER_LENGTH) {
+    usb_parse_descriptor(buffer, "bb", &header);
 
-    if (header->bLength < 2) {
+    if (header.bLength < 2) {
       if (usb_debug >= 1)
-        usb_error("invalid descriptor length of %d\n", header->bLength);
+        fprintf(stderr, "invalid descriptor length of %d\n", header.bLength);
       return -1;
     }
 
     /* If we find another "proper" descriptor then we're done  */
-    if ((header->bDescriptorType == USB_DT_ENDPOINT) ||
-        (header->bDescriptorType == USB_DT_INTERFACE) ||
-        (header->bDescriptorType == USB_DT_CONFIG) ||
-        (header->bDescriptorType == USB_DT_DEVICE))
+    if ((header.bDescriptorType == USB_DT_ENDPOINT) ||
+        (header.bDescriptorType == USB_DT_INTERFACE) ||
+        (header.bDescriptorType == USB_DT_CONFIG) ||
+        (header.bDescriptorType == USB_DT_DEVICE))
       break;
 
     if (usb_debug >= 1)
-      usb_error("skipping descriptor 0x%X\n", header->bDescriptorType);
+      fprintf(stderr, "skipping descriptor 0x%X\n", header.bDescriptorType);
     numskipped++;
 
-    buffer += header->bLength;
-    size -= header->bLength;
-    parsed += header->bLength;
+    buffer += header.bLength;
+    size -= header.bLength;
+    parsed += header.bLength;
   }
 
   if (numskipped && usb_debug >= 2)
-    usb_error("skipped %d class/vendor specific endpoint descriptors\n", numskipped);
+    fprintf(stderr, "skipped %d class/vendor specific endpoint descriptors\n", numskipped);
 
   /* Copy any unknown descriptors into a storage area for drivers */
   /*  to later parse */
@@ -111,7 +146,7 @@ static int usb_parse_endpoint(struct usb_endpoint_descriptor *endpoint, unsigned
   endpoint->extra = malloc(len);
   if (!endpoint->extra) {
     if (usb_debug >= 1)
-      usb_error("couldn't allocate memory for endpoint extra descriptors\n");
+      fprintf(stderr, "couldn't allocate memory for endpoint extra descriptors\n");
     endpoint->extralen = 0;
     return parsed;
   }
@@ -126,24 +161,24 @@ static int usb_parse_interface(struct usb_interface *interface,
 	unsigned char *buffer, int size)
 {
   int i, len, numskipped, retval, parsed = 0;
-  struct usb_descriptor_header *header;
+  struct usb_descriptor_header header;
   struct usb_interface_descriptor *ifp;
   unsigned char *begin;
 
   interface->num_altsetting = 0;
 
-  while (size > 0) {
+  while (size >= INTERFACE_DESC_LENGTH) {
     interface->altsetting = realloc(interface->altsetting, sizeof(struct usb_interface_descriptor) * (interface->num_altsetting + 1));
     if (!interface->altsetting) {
       if (usb_debug >= 1)
-        usb_error("couldn't malloc interface->altsetting\n");
+        fprintf(stderr, "couldn't malloc interface->altsetting\n");
       return -1;
     }
 
     ifp = interface->altsetting + interface->num_altsetting;
     interface->num_altsetting++;
 
-    memcpy(ifp, buffer, USB_DT_INTERFACE_SIZE);
+    usb_parse_descriptor(buffer, "bbbbbbbbb", ifp);
 
     /* Skip over the interface */
     buffer += ifp->bLength;
@@ -154,31 +189,31 @@ static int usb_parse_interface(struct usb_interface *interface,
     numskipped = 0;
 
     /* Skip over any interface, class or vendor descriptors */
-    while (size >= sizeof(struct usb_descriptor_header)) {
-      header = (struct usb_descriptor_header *)buffer;
+    while (size >= DESC_HEADER_LENGTH) {
+      usb_parse_descriptor(buffer, "bb", &header);
 
-      if (header->bLength < 2) {
+      if (header.bLength < 2) {
         if (usb_debug >= 1)
-          usb_error("invalid descriptor length of %d\n", header->bLength);
+          fprintf(stderr, "invalid descriptor length of %d\n", header.bLength);
         return -1;
       }
 
       /* If we find another "proper" descriptor then we're done */
-      if ((header->bDescriptorType == USB_DT_INTERFACE) ||
-          (header->bDescriptorType == USB_DT_ENDPOINT) ||
-          (header->bDescriptorType == USB_DT_CONFIG) ||
-          (header->bDescriptorType == USB_DT_DEVICE))
+      if ((header.bDescriptorType == USB_DT_INTERFACE) ||
+          (header.bDescriptorType == USB_DT_ENDPOINT) ||
+          (header.bDescriptorType == USB_DT_CONFIG) ||
+          (header.bDescriptorType == USB_DT_DEVICE))
         break;
 
       numskipped++;
 
-      buffer += header->bLength;
-      parsed += header->bLength;
-      size -= header->bLength;
+      buffer += header.bLength;
+      parsed += header.bLength;
+      size -= header.bLength;
     }
 
     if (numskipped && usb_debug >= 2)
-      usb_error("skipped %d class/vendor specific interface descriptors\n", numskipped);
+      fprintf(stderr, "skipped %d class/vendor specific interface descriptors\n", numskipped);
 
     /* Copy any unknown descriptors into a storage area for */
     /*  drivers to later parse */
@@ -190,7 +225,7 @@ static int usb_parse_interface(struct usb_interface *interface,
       ifp->extra = malloc(len);
       if (!ifp->extra) {
         if (usb_debug >= 1)
-          usb_error("couldn't allocate memory for interface extra descriptors\n");
+          fprintf(stderr, "couldn't allocate memory for interface extra descriptors\n");
         ifp->extralen = 0;
         return -1;
       }
@@ -199,47 +234,50 @@ static int usb_parse_interface(struct usb_interface *interface,
     }
 
     /* Did we hit an unexpected descriptor? */
-    header = (struct usb_descriptor_header *)buffer;
-    if ((size >= sizeof(struct usb_descriptor_header)) &&
-        ((header->bDescriptorType == USB_DT_CONFIG) ||
-        (header->bDescriptorType == USB_DT_DEVICE)))
+    usb_parse_descriptor(buffer, "bb", &header);
+    if ((size >= DESC_HEADER_LENGTH) &&
+        ((header.bDescriptorType == USB_DT_CONFIG) ||
+        (header.bDescriptorType == USB_DT_DEVICE)))
       return parsed;
 
     if (ifp->bNumEndpoints > USB_MAXENDPOINTS) {
       if (usb_debug >= 1)
-        usb_error("too many endpoints\n");
+        fprintf(stderr, "too many endpoints\n");
       return -1;
     }
 
-    ifp->endpoint = (struct usb_endpoint_descriptor *)
-                     malloc(ifp->bNumEndpoints *
-                     sizeof(struct usb_endpoint_descriptor));
-    if (!ifp->endpoint) {
-      if (usb_debug >= 1)
-        usb_error("couldn't allocate memory for ifp->endpoint\n");
-      return -1;      
-    }
-
-    memset(ifp->endpoint, 0, ifp->bNumEndpoints *
-           sizeof(struct usb_endpoint_descriptor));
-
-    for (i = 0; i < ifp->bNumEndpoints; i++) {
-      header = (struct usb_descriptor_header *)buffer;
-
-      if (header->bLength > size) {
+    if (ifp->bNumEndpoints > 0) {
+      ifp->endpoint = (struct usb_endpoint_descriptor *)
+                       malloc(ifp->bNumEndpoints *
+                       sizeof(struct usb_endpoint_descriptor));
+      if (!ifp->endpoint) {
         if (usb_debug >= 1)
-          usb_error("ran out of descriptors parsing\n");
-        return -1;
+          fprintf(stderr, "couldn't allocate memory for ifp->endpoint\n");
+        return -1;      
       }
-                
-      retval = usb_parse_endpoint(ifp->endpoint + i, buffer, size);
-      if (retval < 0)
-        return retval;
 
-      buffer += retval;
-      parsed += retval;
-      size -= retval;
-    }
+      memset(ifp->endpoint, 0, ifp->bNumEndpoints *
+             sizeof(struct usb_endpoint_descriptor));
+
+      for (i = 0; i < ifp->bNumEndpoints; i++) {
+        usb_parse_descriptor(buffer, "bb", &header);
+  
+        if (header.bLength > size) {
+          if (usb_debug >= 1)
+            fprintf(stderr, "ran out of descriptors parsing\n");
+          return -1;
+        }
+                
+        retval = usb_parse_endpoint(ifp->endpoint + i, buffer, size);
+        if (retval < 0)
+          return retval;
+
+        buffer += retval;
+        parsed += retval;
+        size -= retval;
+      }
+    } else
+      ifp->endpoint = NULL;
 
     /* We check to see if it's an alternate to this one */
     ifp = (struct usb_interface_descriptor *)buffer;
@@ -252,18 +290,18 @@ static int usb_parse_interface(struct usb_interface *interface,
   return parsed;
 }
 
-int usb_parse_configuration(struct usb_config_descriptor *config, char *buffer)
+int usb_parse_configuration(struct usb_config_descriptor *config,
+	unsigned char *buffer)
 {
   int i, retval, size;
-  struct usb_descriptor_header *header;
+  struct usb_descriptor_header header;
 
-  memcpy(config, buffer, USB_DT_CONFIG_SIZE);
-  USB_LE16_TO_CPU(config->wTotalLength);
+  usb_parse_descriptor(buffer, "bbwbbbbb", config);
   size = config->wTotalLength;
 
   if (config->bNumInterfaces > USB_MAXINTERFACES) {
     if (usb_debug >= 1)
-      usb_error("too many interfaces\n");
+      fprintf(stderr, "too many interfaces\n");
     return -1;
   }
 
@@ -272,7 +310,7 @@ int usb_parse_configuration(struct usb_config_descriptor *config, char *buffer)
                        sizeof(struct usb_interface));
   if (!config->interface) {
     if (usb_debug >= 1)
-      usb_error("out of memory\n");
+      fprintf(stderr, "out of memory\n");
     return -1;      
   }
 
@@ -286,38 +324,38 @@ int usb_parse_configuration(struct usb_config_descriptor *config, char *buffer)
 
   for (i = 0; i < config->bNumInterfaces; i++) {
     int numskipped, len;
-    char *begin;
+    unsigned char *begin;
 
     /* Skip over the rest of the Class Specific or Vendor */
     /*  Specific descriptors */
     begin = buffer;
     numskipped = 0;
-    while (size >= sizeof(struct usb_descriptor_header)) {
-      header = (struct usb_descriptor_header *)buffer;
+    while (size >= DESC_HEADER_LENGTH) {
+      usb_parse_descriptor(buffer, "bb", &header);
 
-      if ((header->bLength > size) || (header->bLength < 2)) {
+      if ((header.bLength > size) || (header.bLength < DESC_HEADER_LENGTH)) {
         if (usb_debug >= 1)
-          usb_error("invalid descriptor length of %d\n", header->bLength);
+          fprintf(stderr, "invalid descriptor length of %d\n", header.bLength);
         return -1;
       }
 
       /* If we find another "proper" descriptor then we're done */
-      if ((header->bDescriptorType == USB_DT_ENDPOINT) ||
-          (header->bDescriptorType == USB_DT_INTERFACE) ||
-          (header->bDescriptorType == USB_DT_CONFIG) ||
-          (header->bDescriptorType == USB_DT_DEVICE))
+      if ((header.bDescriptorType == USB_DT_ENDPOINT) ||
+          (header.bDescriptorType == USB_DT_INTERFACE) ||
+          (header.bDescriptorType == USB_DT_CONFIG) ||
+          (header.bDescriptorType == USB_DT_DEVICE))
         break;
 
       if (usb_debug >= 2)
-        usb_error("skipping descriptor 0x%X\n", header->bDescriptorType);
+        fprintf(stderr, "skipping descriptor 0x%X\n", header.bDescriptorType);
       numskipped++;
 
-      buffer += header->bLength;
-      size -= header->bLength;
+      buffer += header.bLength;
+      size -= header.bLength;
     }
 
     if (numskipped && usb_debug >= 2)
-      usb_error("skipped %d class/vendor specific endpoint descriptors\n", numskipped);
+      fprintf(stderr, "skipped %d class/vendor specific endpoint descriptors\n", numskipped);
 
     /* Copy any unknown descriptors into a storage area for */
     /*  drivers to later parse */
@@ -328,7 +366,7 @@ int usb_parse_configuration(struct usb_config_descriptor *config, char *buffer)
         config->extra = malloc(len);
         if (!config->extra) {
           if (usb_debug >= 1)
-            usb_error("couldn't allocate memory for config extra descriptors\n");
+            fprintf(stderr, "couldn't allocate memory for config extra descriptors\n");
           config->extralen = 0;
           return -1;
         }
@@ -360,13 +398,13 @@ void usb_destroy_configuration(struct usb_device *dev)
     struct usb_config_descriptor *cf = &dev->config[c];
 
     if (!cf->interface)
-      break;
+      continue;
 
     for (i = 0; i < cf->bNumInterfaces; i++) {
       struct usb_interface *ifp = &cf->interface[i];
                                 
       if (!ifp->altsetting)
-        break;
+        continue;
 
       for (j = 0; j < ifp->num_altsetting; j++) {
         struct usb_interface_descriptor *as = &ifp->altsetting[j];
@@ -375,7 +413,7 @@ void usb_destroy_configuration(struct usb_device *dev)
           free(as->extra);
 
         if (!as->endpoint)
-          break;
+          continue;
                                         
         for (k = 0; k < as->bNumEndpoints; k++) {
           if (as->endpoint[k].extra)
@@ -400,20 +438,20 @@ void usb_fetch_and_parse_descriptors(usb_dev_handle *udev)
 
   if (dev->descriptor.bNumConfigurations > USB_MAXCONFIG) {
     if (usb_debug >= 1)
-      usb_error("Too many configurations (%d > %d)\n", dev->descriptor.bNumConfigurations, USB_MAXCONFIG);
+      fprintf(stderr, "Too many configurations (%d > %d)\n", dev->descriptor.bNumConfigurations, USB_MAXCONFIG);
     return;
   }
 
   if (dev->descriptor.bNumConfigurations < 1) {
     if (usb_debug >= 1)
-      usb_error("Not enough configurations (%d < %d)\n", dev->descriptor.bNumConfigurations, 1);
+      fprintf(stderr, "Not enough configurations (%d < %d)\n", dev->descriptor.bNumConfigurations, 1);
     return;
   }
 
   dev->config = (struct usb_config_descriptor *)malloc(dev->descriptor.bNumConfigurations * sizeof(struct usb_config_descriptor));
   if (!dev->config) {
     if (usb_debug >= 1)
-      usb_error("Unable to allocate memory for config descriptor\n");
+      fprintf(stderr, "Unable to allocate memory for config descriptor\n");
     return;
   }
 
@@ -421,39 +459,40 @@ void usb_fetch_and_parse_descriptors(usb_dev_handle *udev)
 	sizeof(struct usb_config_descriptor));
 
   for (i = 0; i < dev->descriptor.bNumConfigurations; i++) {
-    char buffer[8], *bigbuffer;
-    struct usb_config_descriptor *desc = (struct usb_config_descriptor *)buffer;
+    unsigned char buffer[8], *bigbuffer;
+    struct usb_config_descriptor config;
     int res;
 
     /* Get the first 8 bytes so we can figure out what the total length is */
-    res = usb_get_descriptor(udev, USB_DT_CONFIG, (unsigned char) i, buffer, 8);
+    res = usb_get_descriptor(udev, USB_DT_CONFIG, (unsigned char)i, buffer, 8);
     if (res < 8) {
       if (usb_debug >= 1) {
         if (res < 0)
-          usb_error("Unable to get descriptor (%d)\n", res);
+          fprintf(stderr, "Unable to get descriptor (%d)\n", res);
         else
-          usb_error("Config descriptor too short (expected %d, got %d)\n", 8, res);
+          fprintf(stderr, "Config descriptor too short (expected %d, got %d)\n", 8, res);
       }
 
       goto err;
     }
 
-    USB_LE16_TO_CPU(desc->wTotalLength);
+    usb_parse_descriptor(buffer, "bbw", &config);
 
-    bigbuffer = malloc(desc->wTotalLength);
+    bigbuffer = malloc(config.wTotalLength);
     if (!bigbuffer) {
       if (usb_debug >= 1)
-        usb_error("Unable to allocate memory for descriptors\n");
+        fprintf(stderr, "Unable to allocate memory for descriptors\n");
       goto err;
     }
 
-    res = usb_get_descriptor(udev, USB_DT_CONFIG, (unsigned char) i, bigbuffer, desc->wTotalLength);
-    if (res < desc->wTotalLength) {
+    res = usb_get_descriptor(udev, USB_DT_CONFIG, (unsigned char)i, bigbuffer,
+                             config.wTotalLength);
+    if (res < config.wTotalLength) {
       if (usb_debug >= 1) {
         if (res < 0)
-          usb_error("Unable to get descriptor (%d)\n", res);
+          fprintf(stderr, "Unable to get descriptor (%d)\n", res);
         else
-          usb_error("Config descriptor too short (expected %d, got %d)\n", desc->wTotalLength, res);
+          fprintf(stderr, "Config descriptor too short (expected %d, got %d)\n", config.wTotalLength, res);
       }
 
       free(bigbuffer);
@@ -463,9 +502,9 @@ void usb_fetch_and_parse_descriptors(usb_dev_handle *udev)
     res = usb_parse_configuration(&dev->config[i], bigbuffer);
     if (usb_debug >= 2) {
       if (res > 0)
-        usb_error("Descriptor data still left\n");
+        fprintf(stderr, "Descriptor data still left\n");
       else if (res < 0)
-        usb_error("Unable to parse descriptors\n");
+        fprintf(stderr, "Unable to parse descriptors\n");
     }
 
     free(bigbuffer);
