@@ -61,22 +61,25 @@ static struct usb_version _usb_version = {
 };
 
 
-static int usb_setup_async(usb_dev_handle *dev, void **context, 
-                           DWORD control_code,
-                           unsigned char ep, int pktsize);
-static int usb_transfer_sync(usb_dev_handle *dev, int control_code,
-                             int ep, int pktsize, char *bytes, int size, 
-                             int timeout);
+static int _usb_setup_async(usb_dev_handle *dev, void **context, 
+                            DWORD control_code,
+                            unsigned char ep, int pktsize);
+static int _usb_transfer_sync(usb_dev_handle *dev, int control_code,
+                              int ep, int pktsize, char *bytes, int size, 
+                              int timeout);
 
 /* static int usb_get_configuration(usb_dev_handle *dev); */
-static int usb_cancel_io(usb_context_t *context);
-static int usb_abort_ep(usb_dev_handle *dev, unsigned int ep);
+static int _usb_cancel_io(usb_context_t *context);
+static int _usb_abort_ep(usb_dev_handle *dev, unsigned int ep);
 
-static int usb_io_sync(HANDLE dev, unsigned int code, void *in, int in_size,
-                       void *out, int out_size, int *ret);
-
+static int _usb_io_sync(HANDLE dev, unsigned int code, void *in, int in_size,
+                        void *out, int out_size, int *ret);
 static int _usb_reap_async(void *context, int timeout, int cancel);
 static int _usb_add_virtual_hub(struct usb_bus *bus);
+
+static void _usb_free_bus_list(struct usb_bus *bus);
+static void _usb_free_dev_list(struct usb_device *dev);
+static void _usb_deinit(void);
 
 /* DLL main entry point */
 BOOL WINAPI DllMain(HANDLE module, DWORD reason, LPVOID reserved)
@@ -86,6 +89,7 @@ BOOL WINAPI DllMain(HANDLE module, DWORD reason, LPVOID reserved)
     case DLL_PROCESS_ATTACH:
       break;
     case DLL_PROCESS_DETACH:
+      _usb_deinit();
       break;
     case DLL_THREAD_ATTACH:
       break;
@@ -118,7 +122,7 @@ int usb_os_open(usb_dev_handle *dev)
 {
   char dev_name[LIBUSB_PATH_MAX];
   char *p;
-/*   int config; */
+  /*   int config; */
 
   if(!dev)
     {
@@ -133,8 +137,8 @@ int usb_os_open(usb_dev_handle *dev)
 
   if(!dev->device->filename)
     {
-       usb_error("usb_os_open: invalid file name");
-       return -ENOENT;
+      usb_error("usb_os_open: invalid file name");
+      return -ENOENT;
     }
 
   /* build the Windows file name from the unique device name */ 
@@ -161,18 +165,18 @@ int usb_os_open(usb_dev_handle *dev)
     }
   
   /* now, retrieve the device's current configuration, except from hubs */
-/*   if(dev->device->config && dev->device->config->interface */
-/*      && dev->device->config->interface[0].altsetting */
-/*      && dev->device->config->interface[0].altsetting[0].bInterfaceClass  */
-/*      != USB_CLASS_HUB) */
-/*     { */
-/*       config = usb_get_configuration(dev); */
+  /*   if(dev->device->config && dev->device->config->interface */
+  /*      && dev->device->config->interface[0].altsetting */
+  /*      && dev->device->config->interface[0].altsetting[0].bInterfaceClass  */
+  /*      != USB_CLASS_HUB) */
+  /*     { */
+  /*       config = usb_get_configuration(dev); */
       
-/*       if(config > 0) */
-/*         { */
-/*           dev->config = config; */
-/*         } */
-/*     } */
+  /*       if(config > 0) */
+  /*         { */
+  /*           dev->config = config; */
+  /*         } */
+  /*     } */
 
   return 0;
 }
@@ -215,8 +219,8 @@ int usb_set_configuration(usb_dev_handle *dev, int configuration)
   req.configuration.configuration = configuration;
   req.timeout = LIBUSB_DEFAULT_TIMEOUT;
 
-  if(!usb_io_sync(dev->impl_info, LIBUSB_IOCTL_SET_CONFIGURATION, 
-                  &req, sizeof(libusb_request), NULL, 0, NULL))
+  if(!_usb_io_sync(dev->impl_info, LIBUSB_IOCTL_SET_CONFIGURATION, 
+                   &req, sizeof(libusb_request), NULL, 0, NULL))
     {
       usb_error("usb_set_configuration: could not set config %d: "
                 "win error: %s", configuration, usb_win_error_to_string());
@@ -236,31 +240,31 @@ int usb_claim_interface(usb_dev_handle *dev, int interface)
 
   if(dev->impl_info == INVALID_HANDLE_VALUE)
     {
-       usb_error("usb_claim_interface: device not open");
-       return -EINVAL;
+      usb_error("usb_claim_interface: device not open");
+      return -EINVAL;
     }
 
   if(!dev->config)
     {
-       usb_error("usb_claim_interface: could not claim interface %d, invalid "
-                 "configuration %d", interface, dev->config);
-       return -EINVAL;
+      usb_error("usb_claim_interface: could not claim interface %d, invalid "
+                "configuration %d", interface, dev->config);
+      return -EINVAL;
     }
   
   req.interface.interface = interface;
 
-  if(!usb_io_sync(dev->impl_info, LIBUSB_IOCTL_CLAIM_INTERFACE, 
-                  &req, sizeof(libusb_request), NULL, 0, NULL))
+  if(!_usb_io_sync(dev->impl_info, LIBUSB_IOCTL_CLAIM_INTERFACE, 
+                   &req, sizeof(libusb_request), NULL, 0, NULL))
     {
-       usb_error("usb_claim_interface: could not claim interface %d, "
-                 "win error: %s", interface, usb_win_error_to_string());
-       return -usb_win_error_to_errno();
+      usb_error("usb_claim_interface: could not claim interface %d, "
+                "win error: %s", interface, usb_win_error_to_string());
+      return -usb_win_error_to_errno();
     }
   else
     {
-       dev->interface = interface;
-       dev->altsetting = 0;
-       return 0;
+      dev->interface = interface;
+      dev->altsetting = 0;
+      return 0;
     }
 }
 
@@ -276,19 +280,19 @@ int usb_release_interface(usb_dev_handle *dev, int interface)
 
   if(!dev->config)
     {
-       usb_error("usb_release_interface: could not release interface %d, "
-                 "invalid configuration %d", interface, dev->config);
-       return -EINVAL;
+      usb_error("usb_release_interface: could not release interface %d, "
+                "invalid configuration %d", interface, dev->config);
+      return -EINVAL;
     }
 
   req.interface.interface = interface;
 
-  if(!usb_io_sync(dev->impl_info, LIBUSB_IOCTL_RELEASE_INTERFACE, 
-                  &req, sizeof(libusb_request), NULL, 0, NULL))
+  if(!_usb_io_sync(dev->impl_info, LIBUSB_IOCTL_RELEASE_INTERFACE, 
+                   &req, sizeof(libusb_request), NULL, 0, NULL))
     {
-       usb_error("usb_release_interface: could not release interface %d, "
-                 "win error: %s", interface, usb_win_error_to_string());
-       return -usb_win_error_to_errno();
+      usb_error("usb_release_interface: could not release interface %d, "
+                "win error: %s", interface, usb_win_error_to_string());
+      return -usb_win_error_to_errno();
     }
   else
     {
@@ -305,36 +309,36 @@ int usb_set_altinterface(usb_dev_handle *dev, int alternate)
 
   if(dev->impl_info == INVALID_HANDLE_VALUE)
     {
-       usb_error("usb_set_altinterface: device not open");
-       return -EINVAL;
+      usb_error("usb_set_altinterface: device not open");
+      return -EINVAL;
     }
 
   if(dev->config <= 0)
     {
       usb_error("usb_set_altinterface: could not set alt interface %d: "
                 "invalid configuration %d", alternate, dev->config);
-       return -EINVAL;
+      return -EINVAL;
     }
 
   if(dev->interface < 0)
     {
-       usb_error("usb_set_altinterface: could not set alt interface %d: "
-                 "no interface claimed", alternate);
-       return -EINVAL;
+      usb_error("usb_set_altinterface: could not set alt interface %d: "
+                "no interface claimed", alternate);
+      return -EINVAL;
     }
 
   req.interface.interface = dev->interface;
   req.interface.altsetting = alternate;
   req.timeout = LIBUSB_DEFAULT_TIMEOUT;
   
-  if(!usb_io_sync(dev->impl_info, LIBUSB_IOCTL_SET_INTERFACE, 
-                  &req, sizeof(libusb_request), 
-                  NULL, 0, NULL))
+  if(!_usb_io_sync(dev->impl_info, LIBUSB_IOCTL_SET_INTERFACE, 
+                   &req, sizeof(libusb_request), 
+                   NULL, 0, NULL))
     {
-       usb_error("usb_set_altinterface: could not set alt interface "
-                 "%d/%d: win error: %s",
-                 dev->interface, alternate, usb_win_error_to_string());
-       return -usb_win_error_to_errno();
+      usb_error("usb_set_altinterface: could not set alt interface "
+                "%d/%d: win error: %s",
+                dev->interface, alternate, usb_win_error_to_string());
+      return -usb_win_error_to_errno();
     }
   
   dev->altsetting = alternate;
@@ -342,9 +346,9 @@ int usb_set_altinterface(usb_dev_handle *dev, int alternate)
   return 0;
 }
 
-static int usb_setup_async(usb_dev_handle *dev, void **context, 
-                           DWORD control_code,
-                           unsigned char ep, int pktsize)
+static int _usb_setup_async(usb_dev_handle *dev, void **context, 
+                            DWORD control_code,
+                            unsigned char ep, int pktsize)
 {
   usb_context_t **c = (usb_context_t **)context;
   
@@ -352,7 +356,7 @@ static int usb_setup_async(usb_dev_handle *dev, void **context,
       || (control_code == LIBUSB_IOCTL_ISOCHRONOUS_WRITE)) 
      && (ep & USB_ENDPOINT_IN))
     {
-      usb_error("usb_setup_async: invalid endpoint 0x%02x", ep);
+      usb_error("_usb_setup_async: invalid endpoint 0x%02x", ep);
       return -EINVAL;
     }
 
@@ -360,7 +364,7 @@ static int usb_setup_async(usb_dev_handle *dev, void **context,
       || (control_code == LIBUSB_IOCTL_ISOCHRONOUS_READ))
      && !(ep & USB_ENDPOINT_IN))
     {
-      usb_error("usb_setup_async: invalid endpoint 0x%02x", ep);
+      usb_error("_usb_setup_async: invalid endpoint 0x%02x", ep);
       return -EINVAL;
     }
 
@@ -368,7 +372,7 @@ static int usb_setup_async(usb_dev_handle *dev, void **context,
   
   if(!*c)
     {
-      usb_error("usb_setup_async: memory allocation error");
+      usb_error("_usb_setup_async: memory allocation error");
       return -ENOMEM;
     }
 
@@ -383,11 +387,11 @@ static int usb_setup_async(usb_dev_handle *dev, void **context,
 
   if(!(*c)->ol.hEvent)
     {
-       free(*c);
-       *c = NULL;
-       usb_error("usb_setup_async: creating event failed: win error: %s", 
-                 usb_win_error_to_string());
-       return -usb_win_error_to_errno();
+      free(*c);
+      *c = NULL;
+      usb_error("_usb_setup_async: creating event failed: win error: %s", 
+                usb_win_error_to_string());
+      return -usb_win_error_to_errno();
     }
 
   return 0;
@@ -439,7 +443,7 @@ int usb_submit_async(void *context, char *bytes, int size)
         {
           usb_error("usb_submit_async: submitting request failed, "
                     "win error: %s", usb_win_error_to_string());
-           return -usb_win_error_to_errno();
+          return -usb_win_error_to_errno();
         }
     }
 
@@ -462,14 +466,14 @@ static int _usb_reap_async(void *context, int timeout, int cancel)
       /* request timed out */
       if(cancel)
         {
-          usb_cancel_io(c);
+          _usb_cancel_io(c);
 
           /* wait until the request is cancelled */
           WaitForSingleObject(c->ol.hEvent, 0);
         }
 
-       usb_error("usb_reap: timeout error");
-       return -ETIMEDOUT;
+      usb_error("usb_reap: timeout error");
+      return -ETIMEDOUT;
     }
   
   if(!GetOverlappedResult(c->dev->impl_info, &c->ol, &ret, TRUE))
@@ -503,17 +507,17 @@ int usb_cancel_async(void *context)
   
   if(!c)
     {
-       usb_error("usb_cancel_async: invalid context");
-       return -EINVAL;
+      usb_error("usb_cancel_async: invalid context");
+      return -EINVAL;
     }
 
   if(c->dev->impl_info == INVALID_HANDLE_VALUE)
     {
-       usb_error("usb_cancel_async: device not open");
-       return -EINVAL;
+      usb_error("usb_cancel_async: device not open");
+      return -EINVAL;
     }
   
-  usb_cancel_io(c);
+  _usb_cancel_io(c);
 
   return 0;
 }
@@ -524,8 +528,8 @@ int usb_free_async(void **context)
 
   if(!*c)
     {
-       usb_error("usb_free_async: invalid context");
-       return -EINVAL;
+      usb_error("usb_free_async: invalid context");
+      return -EINVAL;
     }
 
   CloseHandle((*c)->ol.hEvent);
@@ -536,17 +540,17 @@ int usb_free_async(void **context)
   return 0;
 }
 
-static int usb_transfer_sync(usb_dev_handle *dev, int control_code,
-                             int ep, int pktsize, char *bytes, int size,
-                             int timeout)
+static int _usb_transfer_sync(usb_dev_handle *dev, int control_code,
+                              int ep, int pktsize, char *bytes, int size,
+                              int timeout)
 {
   void *context = NULL;
   int transmitted = 0;
   int ret;
   int requested;
 
-  ret = usb_setup_async(dev, &context, control_code, (unsigned char )ep, 
-                        pktsize);
+  ret = _usb_setup_async(dev, &context, control_code, (unsigned char )ep, 
+                         pktsize);
 
   if(ret < 0)
     {
@@ -585,61 +589,61 @@ static int usb_transfer_sync(usb_dev_handle *dev, int control_code,
 int usb_bulk_write(usb_dev_handle *dev, int ep, char *bytes, int size,
                    int timeout)
 {
-  return usb_transfer_sync(dev, LIBUSB_IOCTL_INTERRUPT_OR_BULK_WRITE,
-                           ep, 0, bytes, size, timeout);
+  return _usb_transfer_sync(dev, LIBUSB_IOCTL_INTERRUPT_OR_BULK_WRITE,
+                            ep, 0, bytes, size, timeout);
 }
 
 int usb_bulk_read(usb_dev_handle *dev, int ep, char *bytes, int size,
                   int timeout)
 {
-  return usb_transfer_sync(dev, LIBUSB_IOCTL_INTERRUPT_OR_BULK_READ,
-                           ep, 0, bytes, size, timeout);
+  return _usb_transfer_sync(dev, LIBUSB_IOCTL_INTERRUPT_OR_BULK_READ,
+                            ep, 0, bytes, size, timeout);
 }
 
 int usb_interrupt_write(usb_dev_handle *dev, int ep, char *bytes, int size,
                         int timeout)
 {
-  return usb_transfer_sync(dev, LIBUSB_IOCTL_INTERRUPT_OR_BULK_WRITE,
-                           ep, 0, bytes, size, timeout);
+  return _usb_transfer_sync(dev, LIBUSB_IOCTL_INTERRUPT_OR_BULK_WRITE,
+                            ep, 0, bytes, size, timeout);
 }
 
 int usb_interrupt_read(usb_dev_handle *dev, int ep, char *bytes, int size,
                        int timeout)
 {
-  return usb_transfer_sync(dev, LIBUSB_IOCTL_INTERRUPT_OR_BULK_READ,
-                           ep, 0, bytes, size, timeout);
+  return _usb_transfer_sync(dev, LIBUSB_IOCTL_INTERRUPT_OR_BULK_READ,
+                            ep, 0, bytes, size, timeout);
 }
 
 int usb_isochronous_setup_async(usb_dev_handle *dev, void **context, 
                                 unsigned char ep, int pktsize)
 {
   if(ep & 0x80)
-    return usb_setup_async(dev, context, LIBUSB_IOCTL_ISOCHRONOUS_READ,
-                           ep, pktsize);
+    return _usb_setup_async(dev, context, LIBUSB_IOCTL_ISOCHRONOUS_READ,
+                            ep, pktsize);
   else
-    return usb_setup_async(dev, context, LIBUSB_IOCTL_ISOCHRONOUS_WRITE,
-                           ep, pktsize);    
+    return _usb_setup_async(dev, context, LIBUSB_IOCTL_ISOCHRONOUS_WRITE,
+                            ep, pktsize);    
 }
 
 int usb_bulk_setup_async(usb_dev_handle *dev, void **context, unsigned char ep)
 {
   if(ep & 0x80)
-    return usb_setup_async(dev, context, LIBUSB_IOCTL_INTERRUPT_OR_BULK_READ,
-                           ep, 0);
+    return _usb_setup_async(dev, context, LIBUSB_IOCTL_INTERRUPT_OR_BULK_READ,
+                            ep, 0);
   else
-    return usb_setup_async(dev, context, LIBUSB_IOCTL_INTERRUPT_OR_BULK_WRITE,
-                           ep, 0);    
+    return _usb_setup_async(dev, context, LIBUSB_IOCTL_INTERRUPT_OR_BULK_WRITE,
+                            ep, 0);    
 }
 
 int usb_interrupt_setup_async(usb_dev_handle *dev, void **context, 
                               unsigned char ep)
 {
   if(ep & 0x80)
-    return usb_setup_async(dev, context, LIBUSB_IOCTL_INTERRUPT_OR_BULK_READ,
-                           ep, 0);
+    return _usb_setup_async(dev, context, LIBUSB_IOCTL_INTERRUPT_OR_BULK_READ,
+                            ep, 0);
   else
-    return usb_setup_async(dev, context, LIBUSB_IOCTL_INTERRUPT_OR_BULK_WRITE,
-                           ep, 0);    
+    return _usb_setup_async(dev, context, LIBUSB_IOCTL_INTERRUPT_OR_BULK_WRITE,
+                            ep, 0);    
 }
 
 int usb_control_msg(usb_dev_handle *dev, int requesttype, int request,
@@ -766,7 +770,7 @@ int usb_control_msg(usb_dev_handle *dev, int requesttype, int request,
       out_size = sizeof(libusb_request) + size;
     }
 
-  if(!usb_io_sync(dev->impl_info, code, out, out_size, in, in_size, &read))
+  if(!_usb_io_sync(dev->impl_info, code, out, out_size, in, in_size, &read))
     {
       usb_error("usb_control_msg: sending control message failed, "
                 "win error: %s", usb_win_error_to_string());
@@ -850,9 +854,9 @@ int usb_os_find_devices(struct usb_bus *bus, struct usb_device **devices)
       req.descriptor.language_id = 0;
       req.timeout = LIBUSB_DEFAULT_TIMEOUT;
       
-      usb_io_sync(handle, LIBUSB_IOCTL_GET_DESCRIPTOR, 
-                  &req, sizeof(libusb_request), 
-                  &dev->descriptor, USB_DT_DEVICE_SIZE, &ret);
+      _usb_io_sync(handle, LIBUSB_IOCTL_GET_DESCRIPTOR, 
+                   &req, sizeof(libusb_request), 
+                   &dev->descriptor, USB_DT_DEVICE_SIZE, &ret);
       
       if(ret < USB_DT_DEVICE_SIZE) 
         {
@@ -906,9 +910,9 @@ void usb_os_init(void)
           continue;
         }
       
-      if(!usb_io_sync(dev, LIBUSB_IOCTL_GET_VERSION,
-                      &req, sizeof(libusb_request), 
-                      &req, sizeof(libusb_request), &ret) 
+      if(!_usb_io_sync(dev, LIBUSB_IOCTL_GET_VERSION,
+                       &req, sizeof(libusb_request), 
+                       &req, sizeof(libusb_request), &ret) 
          || (ret < sizeof(libusb_request)))
         {
           usb_error("usb_os_init: getting driver version failed");
@@ -923,16 +927,16 @@ void usb_os_init(void)
           _usb_version.driver.nano = req.version.nano;
 	  
           usb_message("usb_os_init: driver version: %d.%d.%d.%d",
-                          req.version.major, req.version.minor, 
-                          req.version.micro, req.version.nano);
+                      req.version.major, req.version.minor, 
+                      req.version.micro, req.version.nano);
       
           /* set debug level */
           req.timeout = 0;
           req.debug.level = __usb_debug;
           
-          if(!usb_io_sync(dev, LIBUSB_IOCTL_SET_DEBUG_LEVEL, 
-                          &req, sizeof(libusb_request), 
-                          NULL, 0, NULL))
+          if(!_usb_io_sync(dev, LIBUSB_IOCTL_SET_DEBUG_LEVEL, 
+                           &req, sizeof(libusb_request), 
+                           NULL, 0, NULL))
             {
               usb_error("usb_os_init: setting debug level failed");
             }
@@ -957,16 +961,16 @@ int usb_resetep(usb_dev_handle *dev, unsigned int ep)
   req.endpoint.endpoint = (int)ep;
   req.timeout = LIBUSB_DEFAULT_TIMEOUT;
 
-  if(!usb_io_sync(dev->impl_info, LIBUSB_IOCTL_ABORT_ENDPOINT, &req, 
-                  sizeof(libusb_request), NULL, 0, NULL))
+  if(!_usb_io_sync(dev->impl_info, LIBUSB_IOCTL_ABORT_ENDPOINT, &req, 
+                   sizeof(libusb_request), NULL, 0, NULL))
     {
       usb_error("usb_resetep: could not abort ep 0x%02x, win error: %s", 
                 ep, usb_win_error_to_string());
-       return -usb_win_error_to_errno();
+      return -usb_win_error_to_errno();
     }
 
-  if(!usb_io_sync(dev->impl_info, LIBUSB_IOCTL_RESET_ENDPOINT, &req, 
-                  sizeof(libusb_request), NULL, 0, NULL))
+  if(!_usb_io_sync(dev->impl_info, LIBUSB_IOCTL_RESET_ENDPOINT, &req, 
+                   sizeof(libusb_request), NULL, 0, NULL))
     {
       usb_error("usb_resetep: could not reset ep 0x%02x, win error: %s", 
                 ep, usb_win_error_to_string());
@@ -989,12 +993,12 @@ int usb_clear_halt(usb_dev_handle *dev, unsigned int ep)
   req.endpoint.endpoint = (int)ep;
   req.timeout = LIBUSB_DEFAULT_TIMEOUT;
 
-  if(!usb_io_sync(dev->impl_info, LIBUSB_IOCTL_RESET_ENDPOINT, &req, 
-                  sizeof(libusb_request), NULL, 0, NULL))
+  if(!_usb_io_sync(dev->impl_info, LIBUSB_IOCTL_RESET_ENDPOINT, &req, 
+                   sizeof(libusb_request), NULL, 0, NULL))
     {
       usb_error("usb_clear_halt: could not clear halt, ep 0x%02x, "
                 "win error: %s", ep, usb_win_error_to_string());
-       return -usb_win_error_to_errno();
+      return -usb_win_error_to_errno();
     }
   
   return 0;
@@ -1012,8 +1016,8 @@ int usb_reset(usb_dev_handle *dev)
 
   req.timeout = LIBUSB_DEFAULT_TIMEOUT;
 
-  if(!usb_io_sync(dev->impl_info, LIBUSB_IOCTL_RESET_DEVICE,
-                  &req, sizeof(libusb_request), NULL, 0, NULL))
+  if(!_usb_io_sync(dev->impl_info, LIBUSB_IOCTL_RESET_DEVICE,
+                   &req, sizeof(libusb_request), NULL, 0, NULL))
     {
       usb_error("usb_reset: could not reset device, win error: %s", 
                 usb_win_error_to_string());
@@ -1062,9 +1066,9 @@ void usb_set_debug(int level)
       req.timeout = 0;
       req.debug.level = __usb_debug;
       
-      if(!usb_io_sync(dev, LIBUSB_IOCTL_SET_DEBUG_LEVEL, 
-                      &req, sizeof(libusb_request), 
-                      NULL, 0, NULL))
+      if(!_usb_io_sync(dev, LIBUSB_IOCTL_SET_DEBUG_LEVEL, 
+                       &req, sizeof(libusb_request), 
+                       NULL, 0, NULL))
         {
           usb_error("usb_os_init: setting debug level failed");
         }
@@ -1095,36 +1099,36 @@ int usb_os_determine_children(struct usb_bus *bus)
         = malloc(sizeof(struct usb_device *) * bus->root_dev->num_children);
 
       for(dev = bus->devices; dev; dev = dev->next)
-          bus->root_dev->children[i++] = dev; 
+        bus->root_dev->children[i++] = dev; 
     }
 
   return 0;
 }
 
-static int usb_cancel_io(usb_context_t *context)
+static int _usb_cancel_io(usb_context_t *context)
 {
-  return usb_abort_ep(context->dev, context->req.endpoint.endpoint);
+  return _usb_abort_ep(context->dev, context->req.endpoint.endpoint);
   
   //return CancelIo(context->dev->impl_info) ? 0 : -1;
 }
 
-static int usb_abort_ep(usb_dev_handle *dev, unsigned int ep)
+static int _usb_abort_ep(usb_dev_handle *dev, unsigned int ep)
 {
   libusb_request req;
 
   if(dev->impl_info == INVALID_HANDLE_VALUE)
     {
-       usb_error("usb_abort_ep: device not open");
-       return -EINVAL;
+      usb_error("_usb_abort_ep: device not open");
+      return -EINVAL;
     }
 
   req.endpoint.endpoint = (int)ep;
   req.timeout = LIBUSB_DEFAULT_TIMEOUT;
 
-  if(!usb_io_sync(dev->impl_info, LIBUSB_IOCTL_ABORT_ENDPOINT, &req, 
-                  sizeof(libusb_request), NULL, 0, NULL))
+  if(!_usb_io_sync(dev->impl_info, LIBUSB_IOCTL_ABORT_ENDPOINT, &req, 
+                   sizeof(libusb_request), NULL, 0, NULL))
     {
-      usb_error("usb_abort_ep: could not abort ep 0x%02x, win error: %s", 
+      usb_error("_usb_abort_ep: could not abort ep 0x%02x, win error: %s", 
                 ep, usb_win_error_to_string());
       return -usb_win_error_to_errno();
     }
@@ -1132,8 +1136,8 @@ static int usb_abort_ep(usb_dev_handle *dev, unsigned int ep)
   return 0;
 }
 
-static int usb_io_sync(HANDLE dev, unsigned int code, void *out, int out_size,
-                       void *in, int in_size, int *ret)
+static int _usb_io_sync(HANDLE dev, unsigned int code, void *out, int out_size,
+                        void *in, int in_size, int *ret)
 {
   OVERLAPPED ol;
   DWORD _ret;
@@ -1159,14 +1163,13 @@ static int usb_io_sync(HANDLE dev, unsigned int code, void *out, int out_size,
 
   if(GetOverlappedResult(dev, &ol, &_ret, TRUE))
     {
-      CloseHandle(ol.hEvent);
-
       if(ret)
         *ret = (int)_ret;
-
+      CloseHandle(ol.hEvent);
       return TRUE;
     }
   
+  CloseHandle(ol.hEvent);
   return FALSE;
 }
 
@@ -1202,4 +1205,30 @@ static int _usb_add_virtual_hub(struct usb_bus *bus)
     }
 
   return TRUE;
+}
+
+static void _usb_free_bus_list(struct usb_bus *bus)
+{
+  if(bus)
+    {
+      _usb_free_bus_list(bus->next);
+      if(bus->root_dev)
+        usb_free_dev(bus->root_dev);
+      _usb_free_dev_list(bus->devices);
+      usb_free_bus(bus);
+    }
+}
+
+static void _usb_free_dev_list(struct usb_device *dev)
+{
+  if(dev)
+    {
+      _usb_free_dev_list(dev->next);
+      usb_free_dev(dev);
+    }
+}
+
+static void _usb_deinit(void)
+{
+  _usb_free_bus_list(usb_get_busses());
 }
