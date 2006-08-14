@@ -42,21 +42,21 @@ int usb_parse_descriptor(unsigned char *source, char *description, void *dest)
       break;
     case 'w':	/* 16-bit word, convert from little endian to CPU */
       w = (sp[1] << 8) | sp[0]; sp += 2;
-      dp += ((unsigned long)dp & 1);	/* Align to word boundary */
+      //dp += ((unsigned long)dp & 1);	/* Align to word boundary */
       *((uint16_t *)dp) = w; dp += 2;
       break;
     case 'd':	/* 32-bit dword, convert from little endian to CPU */
       d = (sp[3] << 24) | (sp[2] << 16) | (sp[1] << 8) | sp[0]; sp += 4;
-      dp += ((unsigned long)dp & 2);	/* Align to dword boundary */
+      //dp += ((unsigned long)dp & 2);	/* Align to dword boundary */
       *((uint32_t *)dp) = d; dp += 4;
       break;
     /* These two characters are undocumented and just a hack for Linux */
     case 'W':	/* 16-bit word, keep CPU endianess */
-      dp += ((unsigned long)dp & 1);	/* Align to word boundary */
+      //dp += ((unsigned long)dp & 1);	/* Align to word boundary */
       memcpy(dp, sp, 2); sp += 2; dp += 2;
       break;
     case 'D':	/* 32-bit dword, keep CPU endianess */
-      dp += ((unsigned long)dp & 2);	/* Align to dword boundary */
+      //dp += ((unsigned long)dp & 2);	/* Align to dword boundary */
       memcpy(dp, sp, 4); sp += 4; dp += 4;
       break;
     }
