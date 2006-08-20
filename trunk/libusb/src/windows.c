@@ -209,6 +209,11 @@ int usb_set_configuration(usb_dev_handle *dev, int configuration)
       return -EINVAL;
     }
 
+  if(dev->config == configuration)
+    {
+      return 0;
+    }
+
   if(dev->interface >= 0)
     {
       usb_error("usb_set_configuration: can't change configuration, "
@@ -251,6 +256,11 @@ int usb_claim_interface(usb_dev_handle *dev, int interface)
       return -EINVAL;
     }
   
+  if(dev->interface == interface)
+    {
+      return 0;
+    }
+
   req.interface.interface = interface;
 
   if(!_usb_io_sync(dev->impl_info, LIBUSB_IOCTL_CLAIM_INTERFACE, 
