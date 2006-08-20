@@ -32,7 +32,7 @@ NTSTATUS get_interface(libusb_device_t *dev,
   DEBUG_MESSAGE("get_interface(): interface %d", interface);
   DEBUG_MESSAGE("get_interface(): timeout %d", timeout);
 
-  if(!dev->configuration)
+  if(!dev->config.value)
     {
       DEBUG_ERROR("get_interface(): invalid configuration 0"); 
       return STATUS_INVALID_DEVICE_STATE;

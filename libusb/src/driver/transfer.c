@@ -63,7 +63,7 @@ NTSTATUS transfer(libusb_device_t *dev, IRP *irp,
   DEBUG_MESSAGE("transfer(): sequence %d", sequence);
   DEBUG_PRINT_NL();
 
-  if(!dev->configuration)
+  if(!dev->config.value)
     {
       DEBUG_ERROR("transfer(): invalid configuration 0");
       remove_lock_release(dev);

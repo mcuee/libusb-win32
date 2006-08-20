@@ -120,26 +120,26 @@ typedef struct
 } libusb_interface_t;
 
 
-typedef struct _libusb_device_t libusb_device_t;
-
-struct _libusb_device_t
+typedef struct
 {
   DEVICE_OBJECT	*self;
   DEVICE_OBJECT	*physical_device_object;
   DEVICE_OBJECT	*next_stack_device;
   DEVICE_OBJECT	*target_device;
   libusb_remove_lock_t remove_lock; 
-  USBD_CONFIGURATION_HANDLE configuration_handle;
   LONG ref_count;
   bool_t is_filter;
   bool_t is_started;
   bool_t surprise_removal_ok;
   int id;
-  int configuration;
+  struct {
+    USBD_CONFIGURATION_HANDLE handle;
+    int value;
+    libusb_interface_t interfaces[LIBUSB_MAX_NUMBER_OF_INTERFACES];
+  } config;
   POWER_STATE power_state;
   DEVICE_POWER_STATE device_power_states[PowerSystemMaximum];
-  libusb_interface_t interfaces[LIBUSB_MAX_NUMBER_OF_INTERFACES];
-};
+} libusb_device_t;
 
 
 
@@ -196,7 +196,7 @@ NTSTATUS get_descriptor(libusb_device_t *dev, void *buffer, int size,
                         int type, int recipient, int index, int language_id,
                         int *received, int timeout);
 USB_CONFIGURATION_DESCRIPTOR *
-get_config_descriptor(libusb_device_t *dev, int configuration, int *size);
+get_config_descriptor(libusb_device_t *dev, int value, int *size);
 
 NTSTATUS transfer(libusb_device_t *dev, IRP *irp, 
                   int direction, int urb_function, int endpoint, 

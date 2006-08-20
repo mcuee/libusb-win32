@@ -30,7 +30,7 @@ NTSTATUS reset_endpoint(libusb_device_t *dev, int endpoint, int timeout)
   DEBUG_MESSAGE("reset_endpoint(): endpoint 0x%02x", endpoint);
   DEBUG_MESSAGE("reset_endpoint(): timeout %d", timeout);
 
-  if(!dev->configuration)
+  if(!dev->config.value)
     {
       DEBUG_ERROR("reset_endpoint(): invalid configuration 0"); 
       return STATUS_INVALID_DEVICE_STATE;

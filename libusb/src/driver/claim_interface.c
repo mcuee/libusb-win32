@@ -26,7 +26,7 @@ NTSTATUS claim_interface(libusb_device_t *dev, int interface)
 {
   DEBUG_MESSAGE("claim_interface(): interface %d", interface);
 
-  if(!dev->configuration)
+  if(!dev->config.value)
     {
       DEBUG_ERROR("claim_interface(): device is not configured"); 
       return STATUS_INVALID_DEVICE_STATE;
@@ -39,20 +39,20 @@ NTSTATUS claim_interface(libusb_device_t *dev, int interface)
       return STATUS_INVALID_PARAMETER;
     }
 
-  if(!dev->interfaces[interface].valid)
+  if(!dev->config.interfaces[interface].valid)
     {
       DEBUG_ERROR("claim_interface(): interface %d does not exist", interface);
       return STATUS_INVALID_PARAMETER;
     }
 
-  if(dev->interfaces[interface].claimed)
+  if(dev->config.interfaces[interface].claimed)
     {
       DEBUG_ERROR("claim_interface(): could not claim interface %d, "
                   "interface is already claimed", interface);
       return STATUS_DEVICE_BUSY;
     }
 
-  dev->interfaces[interface].claimed = TRUE;
+  dev->config.interfaces[interface].claimed = TRUE;
 
   return STATUS_SUCCESS;
 }

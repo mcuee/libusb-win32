@@ -33,12 +33,6 @@ NTSTATUS set_feature(libusb_device_t *dev, int recipient, int index,
   DEBUG_MESSAGE("set_feature(): feature %04d", feature);
   DEBUG_MESSAGE("set_feature(): timeout %d", timeout);
 
-  if(!dev->configuration && recipient != USB_RECIP_DEVICE)
-    {
-      DEBUG_ERROR("set_feature(): invalid configuration 0"); 
-      return STATUS_INVALID_PARAMETER;
-    }
-
   memset(&urb, 0, sizeof(struct _URB_CONTROL_FEATURE_REQUEST));
 
   switch(recipient)

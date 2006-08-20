@@ -32,7 +32,7 @@ NTSTATUS abort_endpoint(libusb_device_t *dev, int endpoint, int timeout)
 
   memset(&urb, 0, sizeof(struct _URB_PIPE_REQUEST));
 
-  if(!dev->configuration)
+  if(!dev->config.value)
     {
       DEBUG_ERROR("abort_endpoint(): invalid configuration 0");
       return STATUS_INVALID_DEVICE_STATE;

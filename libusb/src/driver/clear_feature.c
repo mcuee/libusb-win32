@@ -31,11 +31,6 @@ NTSTATUS clear_feature(libusb_device_t *dev,
   DEBUG_MESSAGE("clear_feature(): feature %04d", feature);
   DEBUG_MESSAGE("clear_feature(): timeout %d", timeout);
 
-  if(!dev->configuration && recipient != USB_RECIP_DEVICE)
-    {
-      DEBUG_ERROR("clear_feature(): invalid configuration 0"); 
-      return STATUS_INVALID_DEVICE_STATE;
-    }
 
   memset(&urb, 0, sizeof(struct _URB_CONTROL_FEATURE_REQUEST));
 

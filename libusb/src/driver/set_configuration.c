@@ -26,7 +26,6 @@ NTSTATUS set_configuration(libusb_device_t *dev, int configuration,
 {
   NTSTATUS status = STATUS_SUCCESS;
   URB urb, *urb_ptr = NULL;
-  USB_DEVICE_DESCRIPTOR device_descriptor;
   USB_CONFIGURATION_DESCRIPTOR *configuration_descriptor = NULL;
   USB_INTERFACE_DESCRIPTOR *interface_descriptor = NULL;
   USBD_INTERFACE_LIST_ENTRY *interfaces = NULL;
@@ -36,7 +35,7 @@ NTSTATUS set_configuration(libusb_device_t *dev, int configuration,
   DEBUG_MESSAGE("set_configuration(): configuration %d", configuration);
   DEBUG_MESSAGE("set_configuration(): timeout %d", timeout);
 
-  if(dev->configuration == configuration)
+  if(dev->config.value == configuration)
     {
       return STATUS_SUCCESS;
     }
@@ -58,45 +57,23 @@ NTSTATUS set_configuration(libusb_device_t *dev, int configuration,
           return status;
         }
 
-      dev->configuration_handle =
-        urb.UrbSelectConfiguration.ConfigurationHandle;
-     
-      dev->configuration = configuration;
+      dev->config.handle =  urb.UrbSelectConfiguration.ConfigurationHandle;
+      dev->config.value = 0;
 
       clear_pipe_info(dev);
 
       return status;
     }
 
-  status = get_descriptor(dev, &device_descriptor,
-                          sizeof(USB_DEVICE_DESCRIPTOR), 
-                          USB_DEVICE_DESCRIPTOR_TYPE,
-                          USB_RECIP_DEVICE,
-                          0, 0, &desc_size, LIBUSB_DEFAULT_TIMEOUT);  
-
-  if(!NT_SUCCESS(status))
-    {
-      DEBUG_ERROR("set_configuration(): getting device descriptor failed");
-      return status;
-    }
-
-  if(device_descriptor.bNumConfigurations < configuration)
-    {
-      DEBUG_ERROR("set_configuration(): invalid configuration %d", 
-                  configuration);
-      return STATUS_INVALID_PARAMETER;
-    }
-
   configuration_descriptor = get_config_descriptor(dev, configuration, 
                                                    &desc_size);
-  
   if(!configuration_descriptor)
     {
       DEBUG_ERROR("set_configuration(): getting configuration descriptor "
                   "failed");
-      return STATUS_NO_MEMORY;
+      return STATUS_INVALID_PARAMETER;
     }
-  
+
   interfaces = 
     ExAllocatePool(NonPagedPool,(configuration_descriptor->bNumInterfaces + 1)
                    * sizeof(USBD_INTERFACE_LIST_ENTRY));
@@ -175,10 +152,8 @@ NTSTATUS set_configuration(libusb_device_t *dev, int configuration,
       return status;
     }
 
-  dev->configuration_handle =
-    urb_ptr->UrbSelectConfiguration.ConfigurationHandle;
-  
-  dev->configuration = configuration;
+  dev->config.handle = urb_ptr->UrbSelectConfiguration.ConfigurationHandle;
+  dev->config.value = configuration;
 
   clear_pipe_info(dev);
 
