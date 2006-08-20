@@ -83,43 +83,76 @@ NTSTATUS get_descriptor(libusb_device_t *dev,
 }
 
 USB_CONFIGURATION_DESCRIPTOR *
-get_config_descriptor(libusb_device_t *dev, int configuration, int *size)
+get_config_descriptor(libusb_device_t *dev, int value, int *size)
 {
-  USB_CONFIGURATION_DESCRIPTOR *desc;
-  volatile int desc_size = sizeof(USB_CONFIGURATION_DESCRIPTOR);
+  NTSTATUS status;
+  USB_CONFIGURATION_DESCRIPTOR *desc = NULL;
+  USB_DEVICE_DESCRIPTOR device_descriptor;
+  int i;
+  volatile int desc_size;
 
-  if(!(desc = ExAllocatePool(NonPagedPool, desc_size)))
+  status = get_descriptor(dev, &device_descriptor,
+                          sizeof(USB_DEVICE_DESCRIPTOR), 
+                          USB_DEVICE_DESCRIPTOR_TYPE,
+                          USB_RECIP_DEVICE,
+                          0, 0, size, LIBUSB_DEFAULT_TIMEOUT);  
+
+  if(!NT_SUCCESS(status) || *size != sizeof(USB_DEVICE_DESCRIPTOR))
     {
+      DEBUG_ERROR("get_config_descriptor(): getting device descriptor failed");
       return NULL;
     }
 
-  if(!NT_SUCCESS(get_descriptor(dev, desc, desc_size, 
-                                USB_CONFIGURATION_DESCRIPTOR_TYPE,
-                                USB_RECIP_DEVICE,
-                                configuration - 1,
-                                0, size, LIBUSB_DEFAULT_TIMEOUT)))
+  if(!(desc = ExAllocatePool(NonPagedPool, 
+                             sizeof(USB_CONFIGURATION_DESCRIPTOR))))
+    {
+      DEBUG_ERROR("get_config_descriptor(): memory allocation error");
+      return NULL;
+    }
+
+  for(i = 0; i < device_descriptor.bNumConfigurations; i++)
+    {
+
+      if(!NT_SUCCESS(get_descriptor(dev, desc, 
+                                    sizeof(USB_CONFIGURATION_DESCRIPTOR), 
+                                    USB_CONFIGURATION_DESCRIPTOR_TYPE,
+                                    USB_RECIP_DEVICE,
+                                    i, 0, size, LIBUSB_DEFAULT_TIMEOUT)))
+        {
+          DEBUG_ERROR("get_config_descriptor(): getting configuration "
+                      "descriptor failed");
+          break;
+        }
+
+      if(desc->bConfigurationValue == value)
+        {
+          desc_size = desc->wTotalLength;
+          ExFreePool(desc);
+
+          if(!(desc = ExAllocatePool(NonPagedPool, desc_size)))
+            {
+              DEBUG_ERROR("get_config_descriptor(): memory allocation error");
+              break;
+            }
+          
+          if(!NT_SUCCESS(get_descriptor(dev, desc, desc_size,
+                                        USB_CONFIGURATION_DESCRIPTOR_TYPE,
+                                        USB_RECIP_DEVICE,
+                                        i, 0, size, LIBUSB_DEFAULT_TIMEOUT)))
+            {
+              DEBUG_ERROR("get_config_descriptor(): getting configuration "
+                          "descriptor failed");
+              break;
+            }
+          
+          return desc;
+        }
+    }
+
+  if(desc)
     {
       ExFreePool(desc);
-      return NULL;
-    }
-  
-  desc_size = desc->wTotalLength;
-  ExFreePool(desc);
-    
-  if(!(desc = ExAllocatePool(NonPagedPool, desc_size)))
-    {
-      return NULL;
     }
 
-  if(!NT_SUCCESS(get_descriptor(dev, desc, desc_size,
-                                USB_CONFIGURATION_DESCRIPTOR_TYPE,
-                                USB_RECIP_DEVICE,
-                                configuration - 1,
-                                0, size, LIBUSB_DEFAULT_TIMEOUT)))
-    {
-      ExFreePool(desc);
-      return NULL;
-    }
-
-  return desc;
+  return NULL;
 }

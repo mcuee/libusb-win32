@@ -315,13 +315,14 @@ bool_t get_pipe_handle(libusb_device_t *dev, int endpoint_address,
 
   for(i = 0; i < LIBUSB_MAX_NUMBER_OF_INTERFACES; i++)
     {
-      if(dev->interfaces[i].valid)
+      if(dev->config.interfaces[i].valid)
         {
           for(j = 0; j < LIBUSB_MAX_NUMBER_OF_ENDPOINTS; j++)
             {
-              if(dev->interfaces[i].endpoints[j].address == endpoint_address)
+              if(dev->config.interfaces[i].endpoints[j].address 
+                 == endpoint_address)
                 {
-                  *pipe_handle = dev->interfaces[i].endpoints[j].handle;
+                  *pipe_handle = dev->config.interfaces[i].endpoints[j].handle;
                   
                   return !*pipe_handle ? FALSE : TRUE;
                 }
@@ -334,19 +335,7 @@ bool_t get_pipe_handle(libusb_device_t *dev, int endpoint_address,
 
 void clear_pipe_info(libusb_device_t *dev)
 {
-  int i, j;
-  
-  for(i = 0; i < LIBUSB_MAX_NUMBER_OF_INTERFACES; i++)
-    {
-      dev->interfaces[i].valid = FALSE;
-      dev->interfaces[i].claimed = FALSE;
-
-      for(j = 0; j < LIBUSB_MAX_NUMBER_OF_ENDPOINTS; j++)
-        {
-          dev->interfaces[i].endpoints[j].address = 0;
-          dev->interfaces[i].endpoints[j].handle = NULL;
-        } 
-    }
+  memset(dev->config.interfaces, 0 , sizeof(dev->config.interfaces));
 }
 
 bool_t update_pipe_info(libusb_device_t *dev,
@@ -369,12 +358,12 @@ bool_t update_pipe_info(libusb_device_t *dev,
 
   DEBUG_MESSAGE("update_pipe_info(): interface %d", number);
 
-  dev->interfaces[number].valid = TRUE;
+  dev->config.interfaces[number].valid = TRUE;
 
   for(i = 0; i < LIBUSB_MAX_NUMBER_OF_ENDPOINTS; i++)
     {
-      dev->interfaces[number].endpoints[i].address = 0;
-      dev->interfaces[number].endpoints[i].handle = NULL;
+      dev->config.interfaces[number].endpoints[i].address = 0;
+      dev->config.interfaces[number].endpoints[i].handle = NULL;
     } 
 
   if(interface_info)
@@ -385,9 +374,9 @@ bool_t update_pipe_info(libusb_device_t *dev,
           DEBUG_MESSAGE("update_pipe_info(): endpoint address 0x%02x",
                         interface_info->Pipes[i].EndpointAddress);	  
 
-          dev->interfaces[number].endpoints[i].handle
+          dev->config.interfaces[number].endpoints[i].handle
             = interface_info->Pipes[i].PipeHandle;	
-          dev->interfaces[number].endpoints[i].address = 
+          dev->config.interfaces[number].endpoints[i].address = 
             interface_info->Pipes[i].EndpointAddress;
         }
     }

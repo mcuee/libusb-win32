@@ -36,13 +36,13 @@ NTSTATUS set_interface(libusb_device_t *dev, int interface, int altsetting,
   DEBUG_MESSAGE("set_interface(): altsetting %d", altsetting);
   DEBUG_MESSAGE("set_interface(): timeout %d", timeout);
 
-  if(!dev->configuration)
+  if(!dev->config.value)
     {
       DEBUG_ERROR("release_interface(): device is not configured"); 
       return STATUS_INVALID_DEVICE_STATE;
     }
 
-  configuration_descriptor = get_config_descriptor(dev, dev->configuration, 
+  configuration_descriptor = get_config_descriptor(dev, dev->config.value, 
                                                    &config_size);
   if(!configuration_descriptor)
     {
@@ -81,7 +81,7 @@ NTSTATUS set_interface(libusb_device_t *dev, int interface, int altsetting,
   urb->UrbHeader.Function = URB_FUNCTION_SELECT_INTERFACE;
   urb->UrbHeader.Length = (USHORT)tmp_size;
 
-  urb->UrbSelectInterface.ConfigurationHandle = dev->configuration_handle;
+  urb->UrbSelectInterface.ConfigurationHandle = dev->config.handle;
   urb->UrbSelectInterface.Interface.Length =
     sizeof(struct _USBD_INTERFACE_INFORMATION);
   urb->UrbSelectInterface.Interface.NumberOfPipes = 
