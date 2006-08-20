@@ -43,11 +43,15 @@
 
 #define INSTALLFLAG_FORCE 0x00000001
 
+/* newdev.dll exports */
 typedef BOOL (WINAPI * update_driver_for_plug_and_play_devices_t)(HWND, 
                                                                   LPCSTR, 
                                                                   LPCSTR, 
                                                                   DWORD,
                                                                   PBOOL);
+/* setupapi.dll exports */
+typedef BOOL (WINAPI * setup_copy_oem_inf_t)(PCSTR, PCSTR, DWORD, DWORD,
+                                             PSTR, DWORD, PDWORD, PSTR*);
 
 /* advapi32.dll exports */
 typedef SC_HANDLE (WINAPI * open_sc_manager_t)(LPCTSTR, LPCTSTR, DWORD);
@@ -214,9 +218,10 @@ int usb_install_driver_np(const char *inf_file)
   char *p;
   int dev_index;
   HINSTANCE newdev_dll = NULL;
-  
-  update_driver_for_plug_and_play_devices_t UpdateDriverForPlugAndPlayDevices;
+  HMODULE setupapi_dll = NULL;
 
+  update_driver_for_plug_and_play_devices_t UpdateDriverForPlugAndPlayDevices;
+  setup_copy_oem_inf_t SetupCopyOEMInf;
   newdev_dll = LoadLibrary("newdev.dll");
 
   if(!newdev_dll)
@@ -235,6 +240,21 @@ int usb_install_driver_np(const char *inf_file)
       return -1;
     }
 
+  setupapi_dll = GetModuleHandle("setupapi.dll");
+  
+  if(!setupapi_dll)
+    {
+      usb_error("usb_install_driver(): loading setupapi.dll failed\n");
+      return -1;
+    }
+  SetupCopyOEMInf = (setup_copy_oem_inf_t)
+    GetProcAddress(setupapi_dll, "SetupCopyOEMInfA");
+  
+  if(!SetupCopyOEMInf)
+    {
+      usb_error("usb_install_driver(): loading setupapi.dll failed\n");
+      return -1;
+    }
 
   dev_info_data.cbSize = sizeof(SP_DEVINFO_DATA);
 
