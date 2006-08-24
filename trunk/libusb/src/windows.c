@@ -784,6 +784,10 @@ int usb_control_msg(usb_dev_handle *dev, int requesttype, int request,
     {
       usb_error("usb_control_msg: sending control message failed, "
                 "win error: %s", usb_win_error_to_string());
+      if(!(requesttype & USB_ENDPOINT_IN))
+        {
+          free(out);
+        }
       return -usb_win_error_to_errno();
     }
 
@@ -1102,6 +1106,7 @@ int usb_os_determine_children(struct usb_bus *bus)
           free(bus->root_dev->children);
         }
 
+      bus->root_dev->num_children = 0;
       for(dev = bus->devices; dev; dev = dev->next)
         bus->root_dev->num_children++;
 
