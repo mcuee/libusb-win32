@@ -7,8 +7,6 @@ C_DEFINES = /DVERSION_MAJOR=0 /DVERSION_MINOR=1 /DVERSION_MICRO=10 \
             /DVERSION_NANO=2 /DRC_VERSION=0,1,10,2 \
             /DRC_VERSION_STR="\"0.1.10.2\""
 
-
-    
 SOURCES = abort_endpoint.c \
 claim_interface.c \
 clear_feature.c \

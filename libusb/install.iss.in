@@ -36,11 +36,18 @@ PrivilegesRequired=admin
 
 
 [Files]
-Source: "*.sys"; DestDir: "{win}\system32\drivers"; Flags: uninsneveruninstall replacesameversion restartreplace promptifolder
-Source: "*.dll"; DestDir: "{win}\system32"; Flags: uninsneveruninstall replacesameversion restartreplace promptifolder
+; XP 32bit or lower
+Source: "libusb0.sys"; DestDir: "{win}\system32\drivers"; Flags: uninsneveruninstall replacesameversion restartreplace promptifolder; OnlyBelowVersion: 0, 5.02.3790
+Source: "libusb0.dll"; DestDir: "{win}\system32"; Flags: uninsneveruninstall replacesameversion restartreplace promptifolder; OnlyBelowVersion: 0, 5.02.3790
+
+; XP 64bit or higher
+Source: ".\ddk_make\libusb0.sys"; DestDir: "{win}\system32\drivers"; Flags: uninsneveruninstall replacesameversion restartreplace promptifolder; MinVersion: 0, 5.02.3790
+Source: ".\ddk_make\libusb0.dll"; DestDir: "{win}\system32"; Flags: uninsneveruninstall replacesameversion restartreplace promptifolder; MinVersion: 0, 5.02.3790
+Source: "libusb0.dll"; DestDir: "{syswow64}"; Flags: uninsneveruninstall replacesameversion restartreplace promptifolder; MinVersion: 0, 5.02.3790
 
 Source: "@BIN_DIST_DIR@\lib\*.*"; DestDir: "{app}\lib"; Flags: recursesubdirs
-Source: "@BIN_DIST_DIR@\include\*.h"; DestDir: "{app}\include"; Flags: recursesubdirs
+Source: "@BIN_DIST_DIR@\include\*.*"; DestDir: "{app}\include"; Flags: recursesubdirs
+Source: "@BIN_DIST_DIR@\examples\*.*"; DestDir: "{app}\examples"; Flags: recursesubdirs
 
 Source: "install-filter.exe"; DestDir: "{app}\bin";
 Source: "testlibusb.exe"; DestDir: "{app}\bin";

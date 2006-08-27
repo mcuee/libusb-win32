@@ -57,10 +57,15 @@ INST_VERSION = $(VERSION)
 INF_DATE = $(shell date +"%m/%d/%Y")
 DATE = $(shell date +"%Y%m%d")
 
+DDK_MAKE_DIR = ./ddk_make
+
 TARGET = libusb
 DLL_TARGET = $(TARGET)$(VERSION_MAJOR)
 LIB_TARGET = $(TARGET)
 DRIVER_TARGET = $(TARGET)$(VERSION_MAJOR).sys
+
+DLL_TARGET_X64 = $(TARGET)$(VERSION_MAJOR)_x64
+DRIVER_TARGET_X64 = $(TARGET)$(VERSION_MAJOR)_x64.sys
 
 INSTALL_DIR = /usr
 DLL_OBJECTS = usb.o error.o descriptors.o windows.o resource.o install.o \
@@ -172,6 +177,7 @@ bin_dist: all
 	$(INSTALL) -d $(BIN_DIST_DIR)/lib/gcc
 	$(INSTALL) -d $(BIN_DIST_DIR)/lib/bcc
 	$(INSTALL) -d $(BIN_DIST_DIR)/lib/msvc
+	$(INSTALL) -d $(BIN_DIST_DIR)/lib/msvc_x64
 	$(INSTALL) -d $(BIN_DIST_DIR)/lib/dynamic
 	$(INSTALL) -d $(BIN_DIST_DIR)/include
 	$(INSTALL) -d $(BIN_DIST_DIR)/bin
@@ -182,15 +188,20 @@ bin_dist: all
 	$(INSTALL) $(DRIVER_TARGET) $(BIN_DIST_DIR)/bin
 	$(INSTALL) $(DLL_TARGET).dll $(BIN_DIST_DIR)/bin
 
+	$(INSTALL) $(DDK_MAKE_DIR)/$(DRIVER_TARGET) $(BIN_DIST_DIR)/bin/$(DRIVER_TARGET_X64)
+	$(INSTALL) $(DDK_MAKE_DIR)/$(DLL_TARGET).dll $(BIN_DIST_DIR)/bin/$(DLL_TARGET_X64).dll
+
 	$(INSTALL) $(SRC_DIR)/usb.h $(BIN_DIST_DIR)/include
 	$(INSTALL) $(LIB_TARGET).a $(BIN_DIST_DIR)/lib/gcc
 	$(MAKE) bcc_lib 
 	$(INSTALL) $(LIB_TARGET).lib $(BIN_DIST_DIR)/lib/bcc
 	$(MAKE) msvc_lib
 	$(INSTALL) $(LIB_TARGET).lib $(BIN_DIST_DIR)/lib/msvc
+	$(INSTALL) $(DDK_MAKE_DIR)/$(LIB_TARGET).lib $(BIN_DIST_DIR)/lib/msvc_x64
 	$(INSTALL) $(SRC_DIR)/libusb_dyn.c $(BIN_DIST_DIR)/lib/dynamic
 	$(INSTALL) $(DIST_MISC_FILES) README.txt $(BIN_DIST_DIR)
 	$(INSTALL) ./examples/*.iss $(BIN_DIST_DIR)/examples
+	$(INSTALL) ./examples/*.c $(BIN_DIST_DIR)/examples
 	$(UNIX2DOS) $(BIN_DIST_DIR)/examples/*.iss
 	$(UNIX2DOS) $(BIN_DIST_DIR)/*.txt
 
