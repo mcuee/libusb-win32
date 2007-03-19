@@ -113,7 +113,7 @@ LDFLAGS = -s -mno-cygwin -L. -lusb -lgdi32 -luser32 -lcfgmgr32 \
 WIN_LDFLAGS = $(LDFLAGS) -mwindows
 
 
-DLL_LDFLAGS = -s -mwindows -shared -mno-cygwin \
+DLL_LDFLAGS = -s -mdll -mno-cygwin \
 	-Wl,--kill-at \
 	-Wl,--out-implib,$(LIB_TARGET).a \
 	-Wl,--enable-stdcall-fixup \
