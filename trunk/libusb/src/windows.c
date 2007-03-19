@@ -477,9 +477,6 @@ static int _usb_reap_async(void *context, int timeout, int cancel)
       if(cancel)
         {
           _usb_cancel_io(c);
-
-          /* wait until the request is cancelled */
-          WaitForSingleObject(c->ol.hEvent, 0);
         }
 
       usb_error("usb_reap: timeout error");
@@ -1122,9 +1119,10 @@ int usb_os_determine_children(struct usb_bus *bus)
 
 static int _usb_cancel_io(usb_context_t *context)
 {
-  return _usb_abort_ep(context->dev, context->req.endpoint.endpoint);
-  
-  //return CancelIo(context->dev->impl_info) ? 0 : -1;
+  int ret;
+  ret = _usb_abort_ep(context->dev, context->req.endpoint.endpoint);
+  WaitForSingleObject(context->ol.hEvent, 0);
+  return ret; 
 }
 
 static int _usb_abort_ep(usb_dev_handle *dev, unsigned int ep)
