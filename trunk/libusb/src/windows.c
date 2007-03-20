@@ -775,6 +775,7 @@ int usb_control_msg(usb_dev_handle *dev, int requesttype, int request,
       memcpy(out, &req, sizeof(libusb_request));
       memcpy((char *)out + sizeof(libusb_request), bytes, size);
       out_size = sizeof(libusb_request) + size;
+      in = NULL; in_size = 0;
     }
 
   if(!_usb_io_sync(dev->impl_info, code, out, out_size, in, in_size, &read))
