@@ -75,7 +75,7 @@ NTSTATUS DDKAPI add_device(DRIVER_OBJECT *driver_object,
 
   /* only attach the (filter) driver to USB devices, skip hubs */
   /* and interfaces of composite devices */
-  if(!strstr(id, "usb\\") || strstr(id, "hub") || strstr(id, "&mi_"))
+  if(!strstr(id, "usb\\") || strstr(id, "hub"))
     {
       return STATUS_SUCCESS;
     }
