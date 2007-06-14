@@ -22,8 +22,9 @@
 NTSTATUS DDKAPI dispatch(DEVICE_OBJECT *device_object, IRP *irp)
 {
   libusb_device_t *dev = device_object->DeviceExtension;
+  IO_STACK_LOCATION *stack_location = IoGetCurrentIrpStackLocation(irp);
 
-  switch(IoGetCurrentIrpStackLocation(irp)->MajorFunction) 
+  switch(stack_location->MajorFunction) 
     {
     case IRP_MJ_PNP:
       return dispatch_pnp(dev, irp);
@@ -36,7 +37,7 @@ NTSTATUS DDKAPI dispatch(DEVICE_OBJECT *device_object, IRP *irp)
   /* the IRP is sent to this device object or to the lower one */
   if(accept_irp(dev, irp))
     {
-      switch(IoGetCurrentIrpStackLocation(irp)->MajorFunction) 
+      switch(stack_location->MajorFunction) 
         {
         case IRP_MJ_DEVICE_CONTROL:
           
@@ -53,16 +54,12 @@ NTSTATUS DDKAPI dispatch(DEVICE_OBJECT *device_object, IRP *irp)
           
           if(dev->is_started)
             {
-              if(InterlockedIncrement(&dev->ref_count) == 1)
+              if(dev->power_state.DeviceState != PowerDeviceD0)
                 {
-                  if(dev->power_state.DeviceState != PowerDeviceD0)
-                    {
-                      /* power up the device, block until the call */
-                      /* completes */
-                      power_set_device_state(dev, PowerDeviceD0, TRUE);
-                    }
+                  /* power up the device, block until the call */
+                  /* completes */
+                  power_set_device_state(dev, PowerDeviceD0, TRUE);
                 }
-
               return complete_irp(irp, STATUS_SUCCESS, 0);
             }
           else /* not started yet */
@@ -72,11 +69,8 @@ NTSTATUS DDKAPI dispatch(DEVICE_OBJECT *device_object, IRP *irp)
           
         case IRP_MJ_CLOSE:
           
-          if(!InterlockedDecrement(&dev->ref_count))
-            {
-              /* release all interfaces when the last handle is closed */
-              release_all_interfaces(dev);
-            }
+          /* release all interfaces bound to this file object */
+          release_all_interfaces(dev, stack_location->FileObject);
           return complete_irp(irp, STATUS_SUCCESS, 0);
           
         case IRP_MJ_CLEANUP:

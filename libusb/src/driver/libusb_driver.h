@@ -115,7 +115,7 @@ typedef struct
 typedef struct
 {
   int valid;
-  int claimed;
+  FILE_OBJECT *file_object; /* file object this interface is bound to */
   libusb_endpoint_t endpoints[LIBUSB_MAX_NUMBER_OF_ENDPOINTS];
 } libusb_interface_t;
 
@@ -127,7 +127,6 @@ typedef struct
   DEVICE_OBJECT	*next_stack_device;
   DEVICE_OBJECT	*target_device;
   libusb_remove_lock_t remove_lock; 
-  LONG ref_count;
   bool_t is_filter;
   bool_t is_started;
   bool_t surprise_removal_ok;
@@ -212,9 +211,12 @@ NTSTATUS abort_endpoint(libusb_device_t *dev, int endpoint, int timeout);
 NTSTATUS reset_endpoint(libusb_device_t *dev, int endpoint, int timeout);
 NTSTATUS reset_device(libusb_device_t *dev, int timeout);
 
-NTSTATUS claim_interface(libusb_device_t *dev, int interface);
-NTSTATUS release_interface(libusb_device_t *dev, int interface);
-NTSTATUS release_all_interfaces(libusb_device_t *dev);
+NTSTATUS claim_interface(libusb_device_t *dev, FILE_OBJECT *file_object,
+                         int interface);
+NTSTATUS release_interface(libusb_device_t *dev, FILE_OBJECT *file_object,
+                           int interface);
+NTSTATUS release_all_interfaces(libusb_device_t *dev, 
+                                FILE_OBJECT *file_object);
 
 
 bool_t reg_get_hardware_id(DEVICE_OBJECT *physical_device_object, 
