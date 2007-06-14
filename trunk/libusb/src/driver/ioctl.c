@@ -284,11 +284,13 @@ NTSTATUS dispatch_ioctl(libusb_device_t *dev, IRP *irp)
       break;
 
     case LIBUSB_IOCTL_CLAIM_INTERFACE:
-      status = claim_interface(dev, request->interface.interface);
+      status = claim_interface(dev, stack_location->FileObject,
+                               request->interface.interface);
       break;
 
     case LIBUSB_IOCTL_RELEASE_INTERFACE:
-      status = release_interface(dev, request->interface.interface);
+      status = release_interface(dev, stack_location->FileObject,
+                                 request->interface.interface);
       break;
 
     case LIBUSB_IOCTL_ISOCHRONOUS_READ:

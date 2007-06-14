@@ -22,7 +22,8 @@
 
 
 
-NTSTATUS claim_interface(libusb_device_t *dev, int interface)
+NTSTATUS claim_interface(libusb_device_t *dev, FILE_OBJECT *file_object,
+                         int interface)
 {
   DEBUG_MESSAGE("claim_interface(): interface %d", interface);
 
@@ -45,14 +46,19 @@ NTSTATUS claim_interface(libusb_device_t *dev, int interface)
       return STATUS_INVALID_PARAMETER;
     }
 
-  if(dev->config.interfaces[interface].claimed)
+  if(dev->config.interfaces[interface].file_object == file_object)
+    {
+      return STATUS_SUCCESS;
+    }
+
+  if(dev->config.interfaces[interface].file_object)
     {
       DEBUG_ERROR("claim_interface(): could not claim interface %d, "
                   "interface is already claimed", interface);
       return STATUS_DEVICE_BUSY;
     }
 
-  dev->config.interfaces[interface].claimed = TRUE;
+  dev->config.interfaces[interface].file_object = file_object;
 
   return STATUS_SUCCESS;
 }
