@@ -114,7 +114,7 @@ typedef struct
 
 typedef struct
 {
-  int valid;
+  bool_t valid;
   FILE_OBJECT *file_object; /* file object this interface is bound to */
   libusb_endpoint_t endpoints[LIBUSB_MAX_NUMBER_OF_ENDPOINTS];
 } libusb_interface_t;
