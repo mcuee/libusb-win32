@@ -1,0 +1,49 @@
+[Version]
+Signature = "$Chicago$"
+Provider  = %manufacturer%
+DriverVer = 04/25/2007,1.0.0.0
+Class     = USB
+ClassGUID = {36FC9E60-C465-11CF-8056-444553540000}
+
+CatalogFile = fx2_winusb.cat
+CatalogFile.NT = fx2_winusb.cat
+CatalogFile.NTAMD64 = fx2_winusb_x64.cat
+
+[Manufacturer]
+%manufacturer%=Devices
+
+[LIBUSB_DEV]
+Include = winusb.inf
+Needs   = WINUSB.NT
+
+[LIBUSB_DEV.HW]
+AddReg = LIBUSB_DEV.ADDREG.HW
+
+[LIBUSB_DEV.Services]
+Include    = winusb.inf
+AddService = WinUsb, 0x00000002, WINUSB.AddService
+
+[LIBUSB_DEV.ADDREG.HW]
+HKR,,DeviceInterfaceGUIDs, 0x10000,"{EAD8C4F6-6102-45c7-AA66-36E6D7204600}"
+
+;--------------------------------------------------------------------------
+; Devices
+;--------------------------------------------------------------------------
+
+[Devices]
+"EZUSB-FX2 - WinUSB"=LIBUSB_DEV, USB\VID_04b4&PID_8613
+
+[Devices.NT]
+"EZUSB-FX2 - WinUSB"=LIBUSB_DEV, USB\VID_04b4&PID_8613
+
+[Devices.NTAMD64]
+"EZUSB-FX2 - WinUSB"=LIBUSB_DEV, USB\VID_04b4&PID_8613
+
+
+;--------------------------------------------------------------------------
+; Strings
+;--------------------------------------------------------------------------
+
+[Strings]
+Include = winusb.inf
+manufacturer = "Stephan"

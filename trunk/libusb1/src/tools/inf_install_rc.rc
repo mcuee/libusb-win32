@@ -1,0 +1,47 @@
+
+#ifdef __GNUC__
+#define _WIN32_IE 0x0400
+#endif
+
+#include <windows.h>
+#include <commctrl.h>
+
+#define ID_DIALOG 10000
+
+#define ID_BUTTON_CANCEL 10003
+#define ID_BUTTON_INSTALL 10004
+#define ID_BUTTON_FILE 10005
+#define ID_TEXT_FILE 10006
+
+#define ID_DUMMY 10007
+
+
+#ifndef __INF_INSTALL_C__
+
+
+#define RC_FILE_TYPE      VFT_APP
+#define RC_FILE_SUB_TYPE  VFT2_UNKNOWN
+#define RC_PRODUCT_STR    "LibUsb-Win32 - Inf-Installer"
+#define RC_FILE_NAME_STR  "inf-install.exe"
+
+#include "common.rc"
+
+
+ID_DIALOG DIALOG DISCARDABLE  0, 0, 310, 105
+STYLE DS_MODALFRAME | DS_SETFOREGROUND | DS_CENTER | 
+    WS_MINIMIZEBOX | WS_POPUP | WS_VISIBLE | WS_CAPTION | WS_SYSMENU
+CAPTION "LibUSB-Win32 - Inf-Installer"
+FONT 8, "MS Sans Serif"
+BEGIN
+    GROUPBOX        "Filename",ID_DUMMY,10,10,285,50
+    EDITTEXT        ID_TEXT_FILE,25,30,190,15
+    PUSHBUTTON      "Select...",ID_BUTTON_FILE,230,30,50,15
+    DEFPUSHBUTTON   "Install",ID_BUTTON_INSTALL,185,80,50,15
+    PUSHBUTTON      "Cancel",ID_BUTTON_CANCEL,245,80,50,15
+END
+
+
+ID_MANIFEST RT_MANIFEST "manifest.txt"
+
+#endif
+
