@@ -177,9 +177,22 @@ static NTSTATUS create_urb(libusb_device_t *dev, URB **urb, int direction,
   
   /* isochronous transfer */
   if(urb_function == URB_FUNCTION_ISOCH_TRANSFER)
-    {
-      num_packets = (size + packet_size - 1) / packet_size;
+    { 
+      if(packet_size <= 0)
+        {
+          DEBUG_ERROR("create_urb(): invalid packet size = %d", packet_size);
+          return STATUS_INVALID_PARAMETER;
+        }
       
+      num_packets = size / packet_size;
+      
+      if(num_packets <= 0)
+        {
+          DEBUG_ERROR("create_urb(): invalid number of packets = %d",
+                      num_packets);
+          return STATUS_INVALID_PARAMETER;
+        }
+
       if(num_packets > 255)
         {
           DEBUG_ERROR("create_urb(): transfer size too large");
