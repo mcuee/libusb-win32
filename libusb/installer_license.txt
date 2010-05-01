@@ -4,6 +4,7 @@ COPYRIGHT:
 Copyright (c) 2002-2004 Stephan Meyer, <ste_meyer@web.de>
 Copyright (c) 2000-2004 Johannes Erdfelt, <johannes@erdfelt.com>
 Copyright (c) Thomas Sailer, <sailer@ife.ee.ethz.ch>
+Copyright (c) Travis Robinson, <libusbdotnet@gmail.com>
 
 
 LICENSE:

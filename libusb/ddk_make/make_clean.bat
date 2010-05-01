@@ -7,10 +7,10 @@ if exist .\output\amd64 set OUTDIR=.\output\amd64
 if exist .\output\ia64  set OUTDIR=.\output\ia64
 
 if not OUTDIR=="" (
-  if exist %OUTDIR%\*.exe copy /y %OUTDIR%\*.exe .
-  if exist %OUTDIR%\*.dll copy /y %OUTDIR%\*.dll .
-  if exist %OUTDIR%\*.lib copy /y %OUTDIR%\*.lib .
-  if exist %OUTDIR%\*.sys copy /y %OUTDIR%\*.sys .
+  if exist %OUTDIR%\*.exe copy /y %OUTDIR%\*.exe . %~1
+  if exist %OUTDIR%\*.dll copy /y %OUTDIR%\*.dll . %~1
+  if exist %OUTDIR%\*.lib copy /y %OUTDIR%\*.lib . %~1
+  if exist %OUTDIR%\*.sys copy /y %OUTDIR%\*.sys . %~1
 )
 
 if exist .\output rmdir /s /q .\output
@@ -20,6 +20,8 @@ if exist .\objchk_wnet_IA64 rmdir /s /q .\objchk_wnet_IA64
 if exist .\objfre_wxp_x86 rmdir /s /q .\objfre_wxp_x86
 if exist .\objfre_wnet_AMD64 rmdir /s /q .\objfre_wnet_AMD64
 if exist .\objfre_wnet_IA64 rmdir /s /q .\objfre_wnet_IA64
+if exist .\objfre_wxp_ia64 rmdir /s /q .\objfre_wxp_ia64
+if exist .\objfre_w2k_x86 rmdir /s /q .\objfre_w2k_x86
 
 if exist sources del /q sources 
 if exist *.def del *.def 
@@ -28,3 +30,8 @@ if exist *.c del *.c
 if exist *.rc del *.rc 
 if exist manifest.txt del manifest.txt
 
+DEL /Q "..\*.o" "..\*.dll" "..\*.a" "..\*.exp" "..\*.lib" "..\*.exe" 2>NUL>NUL
+DEL /Q "..\*.tar.gz" "..\*.iss" "..\*.rc" "..\*.h" "..\*.sys" "..\*.log" 2>NUL>NUL
+DEL /Q /S "..\*~" 2>NUL>NUL
+DEL /Q "..\README.txt" 2>NUL>NUL
+SET ERRORLEVEL=0
