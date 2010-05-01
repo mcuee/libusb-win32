@@ -30,18 +30,32 @@ void usage(void)
           "-u  uninstalls the filter driver\n");
 }
 
+void print_user_status(char* install_type)
+{
+  fprintf(stdout, "\n[LIBUSB-WIN32 (v%u.%u.%u.%u) %s filter]\n\n",
+	  VERSION_MAJOR,VERSION_MINOR,VERSION_MICRO,VERSION_NANO,
+	  install_type);
+
+  fprintf(stdout, "This could take up to 20 seconds to complete.\n"
+	              "During this time USB devices may stop responding.\n"
+				  "Please wait while the filter is %sed..\n",install_type);
+
+}
+
 int main(int argc, char **argv)
 {
   if(argc == 2)
     {
       if(!strcmp(argv[1], "-i"))
         {
+		  print_user_status("install");
           usb_install_service_np();
           return 0;
         }
       
       if(!strcmp(argv[1], "-u"))
         {
+ 		  print_user_status("uninstall");
           usb_uninstall_service_np();
           return 0;
         }
