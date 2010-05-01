@@ -22,48 +22,48 @@
 NTSTATUS clear_feature(libusb_device_t *dev,
                        int recipient, int index, int feature, int timeout)
 {
-  NTSTATUS status = STATUS_SUCCESS;
-  URB urb;
+    NTSTATUS status = STATUS_SUCCESS;
+    URB urb;
 
-  DEBUG_PRINT_NL();
-  DEBUG_MESSAGE("clear_feature(): recipient %02d", recipient);
-  DEBUG_MESSAGE("clear_feature(): index %04d", index);
-  DEBUG_MESSAGE("clear_feature(): feature %04d", feature);
-  DEBUG_MESSAGE("clear_feature(): timeout %d", timeout);
+    DEBUG_PRINT_NL();
+    DEBUG_MESSAGE("clear_feature(): recipient %02d", recipient);
+    DEBUG_MESSAGE("clear_feature(): index %04d", index);
+    DEBUG_MESSAGE("clear_feature(): feature %04d", feature);
+    DEBUG_MESSAGE("clear_feature(): timeout %d", timeout);
 
 
-  memset(&urb, 0, sizeof(struct _URB_CONTROL_FEATURE_REQUEST));
+    memset(&urb, 0, sizeof(struct _URB_CONTROL_FEATURE_REQUEST));
 
-  switch(recipient)
+    switch (recipient)
     {
     case USB_RECIP_DEVICE:
-      urb.UrbHeader.Function = URB_FUNCTION_CLEAR_FEATURE_TO_DEVICE;
-      break;
+        urb.UrbHeader.Function = URB_FUNCTION_CLEAR_FEATURE_TO_DEVICE;
+        break;
     case USB_RECIP_INTERFACE:
-      urb.UrbHeader.Function = URB_FUNCTION_CLEAR_FEATURE_TO_INTERFACE;
-      break;
+        urb.UrbHeader.Function = URB_FUNCTION_CLEAR_FEATURE_TO_INTERFACE;
+        break;
     case USB_RECIP_ENDPOINT:
-      urb.UrbHeader.Function = URB_FUNCTION_CLEAR_FEATURE_TO_ENDPOINT;
-      break;
+        urb.UrbHeader.Function = URB_FUNCTION_CLEAR_FEATURE_TO_ENDPOINT;
+        break;
     case USB_RECIP_OTHER:
-      urb.UrbHeader.Function = URB_FUNCTION_CLEAR_FEATURE_TO_OTHER;
-      break;
+        urb.UrbHeader.Function = URB_FUNCTION_CLEAR_FEATURE_TO_OTHER;
+        break;
     default:
-      DEBUG_ERROR("clear_feature(): invalid recipient");
-      return STATUS_INVALID_PARAMETER;
+        DEBUG_ERROR("clear_feature(): invalid recipient");
+        return STATUS_INVALID_PARAMETER;
     }
-  
-  urb.UrbHeader.Length = sizeof(struct _URB_CONTROL_FEATURE_REQUEST);
-  urb.UrbControlFeatureRequest.FeatureSelector = (USHORT)feature;
-  urb.UrbControlFeatureRequest.Index = (USHORT)index; 
-  
-  status = call_usbd(dev, &urb, IOCTL_INTERNAL_USB_SUBMIT_URB, timeout);
-  
-  if(!NT_SUCCESS(status) || !USBD_SUCCESS(urb.UrbHeader.Status))
+
+    urb.UrbHeader.Length = sizeof(struct _URB_CONTROL_FEATURE_REQUEST);
+    urb.UrbControlFeatureRequest.FeatureSelector = (USHORT)feature;
+    urb.UrbControlFeatureRequest.Index = (USHORT)index;
+
+    status = call_usbd(dev, &urb, IOCTL_INTERNAL_USB_SUBMIT_URB, timeout);
+
+    if (!NT_SUCCESS(status) || !USBD_SUCCESS(urb.UrbHeader.Status))
     {
-      DEBUG_ERROR("set_feature(): clearing feature failed: status: 0x%x, "
-                  "urb-status: 0x%x", status, urb.UrbHeader.Status);
+        DEBUG_ERROR("set_feature(): clearing feature failed: status: 0x%x, "
+                    "urb-status: 0x%x", status, urb.UrbHeader.Status);
     }
-  
-  return status;
+
+    return status;
 }

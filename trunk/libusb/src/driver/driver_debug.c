@@ -26,32 +26,32 @@ int debug_level = LIBUSB_DEBUG_MSG;
 void DEBUG_PRINT_NL()
 {
 #ifdef DBG
-  if(debug_level >= LIBUSB_DEBUG_MSG) 
-    DbgPrint(("\n"));
+    if (debug_level >= LIBUSB_DEBUG_MSG)
+        DbgPrint(("\n"));
 #endif
 }
 
 void DEBUG_SET_LEVEL(int level)
 {
 #ifdef DBG
-  debug_level = level;
+    debug_level = level;
 #endif
 }
 
 void DEBUG_MESSAGE(const char *format, ...)
 {
 #ifdef DBG
-  
-  char tmp[256];
-  
-  if(debug_level >= LIBUSB_DEBUG_MSG)
-    {
-      va_list args;
-      va_start(args, format);
-      _vsnprintf(tmp, sizeof(tmp) - 1, format, args);
-      va_end(args);
 
-      DbgPrint("LIBUSB-DRIVER - %s", tmp);
+    char tmp[256];
+
+    if (debug_level >= LIBUSB_DEBUG_MSG)
+    {
+        va_list args;
+        va_start(args, format);
+        _vsnprintf(tmp, sizeof(tmp) - 1, format, args);
+        va_end(args);
+
+        DbgPrint("LIBUSB-DRIVER - %s", tmp);
     }
 #endif
 }
@@ -59,17 +59,17 @@ void DEBUG_MESSAGE(const char *format, ...)
 void DEBUG_ERROR(const char *format, ...)
 {
 #ifdef DBG
-  
-  char tmp[256];
-  
-  if(debug_level >= LIBUSB_DEBUG_ERR)
-    {
-      va_list args;
-      va_start(args, format);
-      _vsnprintf(tmp, sizeof(tmp) - 1, format, args);
-      va_end(args);
 
-      DbgPrint("LIBUSB-DRIVER - %s", tmp);
+    char tmp[256];
+
+    if (debug_level >= LIBUSB_DEBUG_ERR)
+    {
+        va_list args;
+        va_start(args, format);
+        _vsnprintf(tmp, sizeof(tmp) - 1, format, args);
+        va_end(args);
+
+        DbgPrint("LIBUSB-DRIVER - %s", tmp);
     }
 #endif
 }

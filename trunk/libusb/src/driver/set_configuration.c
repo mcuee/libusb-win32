@@ -21,150 +21,150 @@
 
 
 
-NTSTATUS set_configuration(libusb_device_t *dev, int configuration, 
+NTSTATUS set_configuration(libusb_device_t *dev, int configuration,
                            int timeout)
 {
-  NTSTATUS status = STATUS_SUCCESS;
-  URB urb, *urb_ptr = NULL;
-  USB_CONFIGURATION_DESCRIPTOR *configuration_descriptor = NULL;
-  USB_INTERFACE_DESCRIPTOR *interface_descriptor = NULL;
-  USBD_INTERFACE_LIST_ENTRY *interfaces = NULL;
-  int i, j, interface_number, desc_size;
+    NTSTATUS status = STATUS_SUCCESS;
+    URB urb, *urb_ptr = NULL;
+    USB_CONFIGURATION_DESCRIPTOR *configuration_descriptor = NULL;
+    USB_INTERFACE_DESCRIPTOR *interface_descriptor = NULL;
+    USBD_INTERFACE_LIST_ENTRY *interfaces = NULL;
+    int i, j, interface_number, desc_size;
 
-  DEBUG_PRINT_NL();
-  DEBUG_MESSAGE("set_configuration(): configuration %d", configuration);
-  DEBUG_MESSAGE("set_configuration(): timeout %d", timeout);
+    DEBUG_PRINT_NL();
+    DEBUG_MESSAGE("set_configuration(): configuration %d", configuration);
+    DEBUG_MESSAGE("set_configuration(): timeout %d", timeout);
 
-  if(dev->config.value == configuration)
+    if (dev->config.value == configuration)
     {
-      return STATUS_SUCCESS;
+        return STATUS_SUCCESS;
     }
 
-  memset(&urb, 0, sizeof(URB));
+    memset(&urb, 0, sizeof(URB));
 
-  if(!configuration)
+    if (!configuration)
     {
-      urb.UrbHeader.Function = URB_FUNCTION_SELECT_CONFIGURATION;
-      urb.UrbHeader.Length = sizeof(struct _URB_SELECT_CONFIGURATION);
+        urb.UrbHeader.Function = URB_FUNCTION_SELECT_CONFIGURATION;
+        urb.UrbHeader.Length = sizeof(struct _URB_SELECT_CONFIGURATION);
 
-      status = call_usbd(dev, &urb, IOCTL_INTERNAL_USB_SUBMIT_URB, timeout);
-      
-      if(!NT_SUCCESS(status) || !USBD_SUCCESS(urb.UrbHeader.Status))
+        status = call_usbd(dev, &urb, IOCTL_INTERNAL_USB_SUBMIT_URB, timeout);
+
+        if (!NT_SUCCESS(status) || !USBD_SUCCESS(urb.UrbHeader.Status))
         {
-          DEBUG_ERROR("set_configuration(): setting configuration %d failed: "
-                      "status: 0x%x, urb-status: 0x%x", 
-                      configuration, status, urb.UrbHeader.Status);
-          return status;
+            DEBUG_ERROR("set_configuration(): setting configuration %d failed: "
+                        "status: 0x%x, urb-status: 0x%x",
+                        configuration, status, urb.UrbHeader.Status);
+            return status;
         }
 
-      dev->config.handle =  urb.UrbSelectConfiguration.ConfigurationHandle;
-      dev->config.value = 0;
+        dev->config.handle =  urb.UrbSelectConfiguration.ConfigurationHandle;
+        dev->config.value = 0;
 
-      clear_pipe_info(dev);
+        clear_pipe_info(dev);
 
-      return status;
+        return status;
     }
 
-  configuration_descriptor = get_config_descriptor(dev, configuration, 
-                                                   &desc_size);
-  if(!configuration_descriptor)
+    configuration_descriptor = get_config_descriptor(dev, configuration,
+                               &desc_size);
+    if (!configuration_descriptor)
     {
-      DEBUG_ERROR("set_configuration(): getting configuration descriptor "
-                  "failed");
-      return STATUS_INVALID_PARAMETER;
+        DEBUG_ERROR("set_configuration(): getting configuration descriptor "
+                    "failed");
+        return STATUS_INVALID_PARAMETER;
     }
 
-  interfaces = 
-    ExAllocatePool(NonPagedPool,(configuration_descriptor->bNumInterfaces + 1)
-                   * sizeof(USBD_INTERFACE_LIST_ENTRY));
+    interfaces =
+        ExAllocatePool(NonPagedPool,(configuration_descriptor->bNumInterfaces + 1)
+                       * sizeof(USBD_INTERFACE_LIST_ENTRY));
 
-  if(!interfaces)
+    if (!interfaces)
     {
-      DEBUG_ERROR("set_configuration(): memory allocation failed");
-      ExFreePool(configuration_descriptor);
-      return STATUS_NO_MEMORY;
+        DEBUG_ERROR("set_configuration(): memory allocation failed");
+        ExFreePool(configuration_descriptor);
+        return STATUS_NO_MEMORY;
     }
 
-  memset(interfaces, 0, (configuration_descriptor->bNumInterfaces + 1) 
-         * sizeof(USBD_INTERFACE_LIST_ENTRY));
+    memset(interfaces, 0, (configuration_descriptor->bNumInterfaces + 1)
+           * sizeof(USBD_INTERFACE_LIST_ENTRY));
 
-  interface_number = 0;
+    interface_number = 0;
 
-  for(i = 0; i < configuration_descriptor->bNumInterfaces; i++)
+    for (i = 0; i < configuration_descriptor->bNumInterfaces; i++)
     {
-      for(j = interface_number; j < LIBUSB_MAX_NUMBER_OF_INTERFACES; j++)
+        for (j = interface_number; j < LIBUSB_MAX_NUMBER_OF_INTERFACES; j++)
         {
-          interface_descriptor =
-            find_interface_desc(configuration_descriptor, desc_size, j, 0);
-          if(interface_descriptor) 
+            interface_descriptor =
+                find_interface_desc(configuration_descriptor, desc_size, j, 0);
+            if (interface_descriptor)
             {
-              interface_number = ++j;
-              break;
+                interface_number = ++j;
+                break;
             }
         }
 
-      if(!interface_descriptor)
+        if (!interface_descriptor)
         {
-          DEBUG_ERROR("set_configuration(): unable to find interface "
-                      "descriptor at index %d", i);
-          ExFreePool(interfaces);
-          ExFreePool(configuration_descriptor);
-          return STATUS_INVALID_PARAMETER;
+            DEBUG_ERROR("set_configuration(): unable to find interface "
+                        "descriptor at index %d", i);
+            ExFreePool(interfaces);
+            ExFreePool(configuration_descriptor);
+            return STATUS_INVALID_PARAMETER;
         }
-      else
+        else
         {
-          DEBUG_MESSAGE("set_configuration(): found interface %d",
-                        interface_descriptor->bInterfaceNumber);
-          interfaces[i].InterfaceDescriptor = interface_descriptor;
+            DEBUG_MESSAGE("set_configuration(): found interface %d",
+                          interface_descriptor->bInterfaceNumber);
+            interfaces[i].InterfaceDescriptor = interface_descriptor;
         }
     }
 
-  urb_ptr = USBD_CreateConfigurationRequestEx(configuration_descriptor,
-                                              interfaces);
+    urb_ptr = USBD_CreateConfigurationRequestEx(configuration_descriptor,
+              interfaces);
 
-  if(!urb_ptr)
+    if (!urb_ptr)
     {
-      DEBUG_ERROR("set_configuration(): memory allocation failed");
-      ExFreePool(interfaces);
-      ExFreePool(configuration_descriptor);
-      return STATUS_NO_MEMORY;
+        DEBUG_ERROR("set_configuration(): memory allocation failed");
+        ExFreePool(interfaces);
+        ExFreePool(configuration_descriptor);
+        return STATUS_NO_MEMORY;
     }
 
-  for(i = 0; i < configuration_descriptor->bNumInterfaces; i++)
+    for (i = 0; i < configuration_descriptor->bNumInterfaces; i++)
     {
-      for(j = 0; j < (int)interfaces[i].Interface->NumberOfPipes; j++)
+        for (j = 0; j < (int)interfaces[i].Interface->NumberOfPipes; j++)
         {
-          interfaces[i].Interface->Pipes[j].MaximumTransferSize 
+            interfaces[i].Interface->Pipes[j].MaximumTransferSize
             = LIBUSB_MAX_READ_WRITE;
         }
     }
 
-  status = call_usbd(dev, urb_ptr, IOCTL_INTERNAL_USB_SUBMIT_URB, timeout);
+    status = call_usbd(dev, urb_ptr, IOCTL_INTERNAL_USB_SUBMIT_URB, timeout);
 
-  if(!NT_SUCCESS(status) || !USBD_SUCCESS(urb_ptr->UrbHeader.Status))
+    if (!NT_SUCCESS(status) || !USBD_SUCCESS(urb_ptr->UrbHeader.Status))
     {
-      DEBUG_ERROR("set_configuration(): setting configuration %d failed: "
-                  "status: 0x%x, urb-status: 0x%x", 
-                  configuration, status, urb_ptr->UrbHeader.Status);
-      ExFreePool(interfaces);
-      ExFreePool(configuration_descriptor);
-      ExFreePool(urb_ptr);
-      return status;
+        DEBUG_ERROR("set_configuration(): setting configuration %d failed: "
+                    "status: 0x%x, urb-status: 0x%x",
+                    configuration, status, urb_ptr->UrbHeader.Status);
+        ExFreePool(interfaces);
+        ExFreePool(configuration_descriptor);
+        ExFreePool(urb_ptr);
+        return status;
     }
 
-  dev->config.handle = urb_ptr->UrbSelectConfiguration.ConfigurationHandle;
-  dev->config.value = configuration;
+    dev->config.handle = urb_ptr->UrbSelectConfiguration.ConfigurationHandle;
+    dev->config.value = configuration;
 
-  clear_pipe_info(dev);
+    clear_pipe_info(dev);
 
-  for(i = 0; i < configuration_descriptor->bNumInterfaces; i++)
+    for (i = 0; i < configuration_descriptor->bNumInterfaces; i++)
     {
-      update_pipe_info(dev, interfaces[i].Interface);
+        update_pipe_info(dev, interfaces[i].Interface);
     }
 
-  ExFreePool(interfaces);
-  ExFreePool(urb_ptr);
-  ExFreePool(configuration_descriptor);
+    ExFreePool(interfaces);
+    ExFreePool(urb_ptr);
+    ExFreePool(configuration_descriptor);
 
-  return status;
+    return status;
 }

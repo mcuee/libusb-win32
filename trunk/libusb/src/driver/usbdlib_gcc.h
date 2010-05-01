@@ -7,16 +7,18 @@
 #endif
 
 #ifdef __cplusplus
-extern "C" {
+extern "C"
+{
 #endif
 
 #pragma pack(push,4)
 
 
-  typedef struct _USBD_INTERFACE_LIST_ENTRY {
-    PUSB_INTERFACE_DESCRIPTOR InterfaceDescriptor;
-    PUSBD_INTERFACE_INFORMATION Interface;
-  } USBD_INTERFACE_LIST_ENTRY, *PUSBD_INTERFACE_LIST_ENTRY;
+    typedef struct _USBD_INTERFACE_LIST_ENTRY
+    {
+        PUSB_INTERFACE_DESCRIPTOR InterfaceDescriptor;
+        PUSBD_INTERFACE_INFORMATION Interface;
+    } USBD_INTERFACE_LIST_ENTRY, *PUSBD_INTERFACE_LIST_ENTRY;
 
 
 #define URB_STATUS(urb) ((urb)->UrbHeader.Status)
@@ -60,7 +62,7 @@ extern "C" {
             (urb)->UrbBulkOrInterruptTransfer.TransferFlags = \
                    (transferFlags); \
             (urb)->UrbBulkOrInterruptTransfer.UrbLink = (link); }
-            
+
 
 #define UsbBuildGetDescriptorRequest(urb, \
                                      length, \
@@ -199,103 +201,103 @@ extern "C" {
             (urb)->UrbOSFeatureDescriptorRequest.UrbLink = (link); }
 
 
-  VOID
-  DDKAPI
-  USBD_Debug_LogEntry(
-                      IN CHAR *Name, 
-                      IN ULONG Info1,
-                      IN ULONG Info2,
-                      IN ULONG Info3
-                      );
+    VOID
+    DDKAPI
+    USBD_Debug_LogEntry(
+        IN CHAR *Name,
+        IN ULONG Info1,
+        IN ULONG Info2,
+        IN ULONG Info3
+    );
 
-  VOID
-  DDKAPI 
-  USBD_GetUSBDIVersion(
-                       PUSBD_VERSION_INFORMATION VersionInformation
-                       );
+    VOID
+    DDKAPI
+    USBD_GetUSBDIVersion(
+        PUSBD_VERSION_INFORMATION VersionInformation
+    );
 
 
-  PUSB_INTERFACE_DESCRIPTOR
-  DDKAPI 
-  USBD_ParseConfigurationDescriptor(
-                                    IN PUSB_CONFIGURATION_DESCRIPTOR ConfigurationDescriptor,
-                                    IN UCHAR InterfaceNumber,
-                                    IN UCHAR AlternateSetting
-                                    );
+    PUSB_INTERFACE_DESCRIPTOR
+    DDKAPI
+    USBD_ParseConfigurationDescriptor(
+        IN PUSB_CONFIGURATION_DESCRIPTOR ConfigurationDescriptor,
+        IN UCHAR InterfaceNumber,
+        IN UCHAR AlternateSetting
+    );
 
-  PURB
-  DDKAPI
-  USBD_CreateConfigurationRequest(
-                                  IN PUSB_CONFIGURATION_DESCRIPTOR ConfigurationDescriptor,
-                                  IN OUT PUSHORT Siz
-                                  );
+    PURB
+    DDKAPI
+    USBD_CreateConfigurationRequest(
+        IN PUSB_CONFIGURATION_DESCRIPTOR ConfigurationDescriptor,
+        IN OUT PUSHORT Siz
+    );
 
-  PUSB_COMMON_DESCRIPTOR
-  DDKAPI
-  USBD_ParseDescriptors(
-                        IN PVOID DescriptorBuffer,
-                        IN ULONG TotalLength,
-                        IN PVOID StartPosition,
-                        IN LONG DescriptorType
-                        );
+    PUSB_COMMON_DESCRIPTOR
+    DDKAPI
+    USBD_ParseDescriptors(
+        IN PVOID DescriptorBuffer,
+        IN ULONG TotalLength,
+        IN PVOID StartPosition,
+        IN LONG DescriptorType
+    );
 
-  PUSB_INTERFACE_DESCRIPTOR
-  DDKAPI
-  USBD_ParseConfigurationDescriptorEx(
-                                      IN PUSB_CONFIGURATION_DESCRIPTOR ConfigurationDescriptor,
-                                      IN PVOID StartPosition,
-                                      IN LONG InterfaceNumber,
-                                      IN LONG AlternateSetting,
-                                      IN LONG InterfaceClass,
-                                      IN LONG InterfaceSubClass,
-                                      IN LONG InterfaceProtocol
-                                      );
+    PUSB_INTERFACE_DESCRIPTOR
+    DDKAPI
+    USBD_ParseConfigurationDescriptorEx(
+        IN PUSB_CONFIGURATION_DESCRIPTOR ConfigurationDescriptor,
+        IN PVOID StartPosition,
+        IN LONG InterfaceNumber,
+        IN LONG AlternateSetting,
+        IN LONG InterfaceClass,
+        IN LONG InterfaceSubClass,
+        IN LONG InterfaceProtocol
+    );
 
-  PURB
-  DDKAPI
-  USBD_CreateConfigurationRequestEx(
-                                    IN PUSB_CONFIGURATION_DESCRIPTOR ConfigurationDescriptor,
-                                    IN PUSBD_INTERFACE_LIST_ENTRY InterfaceList
-                                    );
+    PURB
+    DDKAPI
+    USBD_CreateConfigurationRequestEx(
+        IN PUSB_CONFIGURATION_DESCRIPTOR ConfigurationDescriptor,
+        IN PUSBD_INTERFACE_LIST_ENTRY InterfaceList
+    );
 
-  ULONG
-  DDKAPI
-  USBD_GetInterfaceLength(
-                          IN PUSB_INTERFACE_DESCRIPTOR InterfaceDescriptor,
-                          IN PUCHAR BufferEnd
-                          );
+    ULONG
+    DDKAPI
+    USBD_GetInterfaceLength(
+        IN PUSB_INTERFACE_DESCRIPTOR InterfaceDescriptor,
+        IN PUCHAR BufferEnd
+    );
 
-  VOID
-  DDKAPI
-  USBD_RegisterHcFilter(
-                        PDEVICE_OBJECT DeviceObject,
-                        PDEVICE_OBJECT FilterDeviceObject
-                        );
+    VOID
+    DDKAPI
+    USBD_RegisterHcFilter(
+        PDEVICE_OBJECT DeviceObject,
+        PDEVICE_OBJECT FilterDeviceObject
+    );
 
-  NTSTATUS
-  DDKAPI
-  USBD_GetPdoRegistryParameter(
-                               IN PDEVICE_OBJECT PhysicalDeviceObject,
-                               IN OUT PVOID Parameter,
-                               IN ULONG ParameterLength,
-                               IN PWCHAR KeyName,
-                               IN ULONG KeyNameLength
-                               );
+    NTSTATUS
+    DDKAPI
+    USBD_GetPdoRegistryParameter(
+        IN PDEVICE_OBJECT PhysicalDeviceObject,
+        IN OUT PVOID Parameter,
+        IN ULONG ParameterLength,
+        IN PWCHAR KeyName,
+        IN ULONG KeyNameLength
+    );
 
-  NTSTATUS
-  DDKAPI
-  USBD_QueryBusTime(
-                    IN PDEVICE_OBJECT RootHubPdo,
-                    IN PULONG CurrentFrame
-                    );
+    NTSTATUS
+    DDKAPI
+    USBD_QueryBusTime(
+        IN PDEVICE_OBJECT RootHubPdo,
+        IN PULONG CurrentFrame
+    );
 
-  ULONG
-  DDKAPI
-  USBD_CalculateUsbBandwidth(
-                             ULONG MaxPacketSize,
-                             UCHAR EndpointType,
-                             BOOLEAN LowSpeed
-                             );
+    ULONG
+    DDKAPI
+    USBD_CalculateUsbBandwidth(
+        ULONG MaxPacketSize,
+        UCHAR EndpointType,
+        BOOLEAN LowSpeed
+    );
 
 
 #pragma pack(pop)
@@ -305,4 +307,4 @@ extern "C" {
 #endif
 
 #endif /* __USBDLIB_H */
- 
+

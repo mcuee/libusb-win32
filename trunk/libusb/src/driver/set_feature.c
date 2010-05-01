@@ -21,51 +21,51 @@
 
 
 
-NTSTATUS set_feature(libusb_device_t *dev, int recipient, int index, 
+NTSTATUS set_feature(libusb_device_t *dev, int recipient, int index,
                      int feature, int timeout)
 {
-  NTSTATUS status = STATUS_SUCCESS;
-  URB urb;
+    NTSTATUS status = STATUS_SUCCESS;
+    URB urb;
 
-  DEBUG_PRINT_NL();
-  DEBUG_MESSAGE("set_feature(): recipient %02d", recipient);
-  DEBUG_MESSAGE("set_feature(): index %04d", index);
-  DEBUG_MESSAGE("set_feature(): feature %04d", feature);
-  DEBUG_MESSAGE("set_feature(): timeout %d", timeout);
+    DEBUG_PRINT_NL();
+    DEBUG_MESSAGE("set_feature(): recipient %02d", recipient);
+    DEBUG_MESSAGE("set_feature(): index %04d", index);
+    DEBUG_MESSAGE("set_feature(): feature %04d", feature);
+    DEBUG_MESSAGE("set_feature(): timeout %d", timeout);
 
-  memset(&urb, 0, sizeof(struct _URB_CONTROL_FEATURE_REQUEST));
+    memset(&urb, 0, sizeof(struct _URB_CONTROL_FEATURE_REQUEST));
 
-  switch(recipient)
+    switch (recipient)
     {
     case USB_RECIP_DEVICE:
-      urb.UrbHeader.Function = URB_FUNCTION_SET_FEATURE_TO_DEVICE;
-      break;
+        urb.UrbHeader.Function = URB_FUNCTION_SET_FEATURE_TO_DEVICE;
+        break;
     case USB_RECIP_INTERFACE:
-      urb.UrbHeader.Function = URB_FUNCTION_SET_FEATURE_TO_INTERFACE;
-      break;
+        urb.UrbHeader.Function = URB_FUNCTION_SET_FEATURE_TO_INTERFACE;
+        break;
     case USB_RECIP_ENDPOINT:
-      urb.UrbHeader.Function = URB_FUNCTION_SET_FEATURE_TO_ENDPOINT;
-      break;
+        urb.UrbHeader.Function = URB_FUNCTION_SET_FEATURE_TO_ENDPOINT;
+        break;
     case USB_RECIP_OTHER:
-      urb.UrbHeader.Function = URB_FUNCTION_SET_FEATURE_TO_OTHER;
-      urb.UrbControlFeatureRequest.Index = 0; 
-      break;
+        urb.UrbHeader.Function = URB_FUNCTION_SET_FEATURE_TO_OTHER;
+        urb.UrbControlFeatureRequest.Index = 0;
+        break;
     default:
-      DEBUG_ERROR("set_feature(): invalid recipient");
-      return STATUS_INVALID_PARAMETER;
+        DEBUG_ERROR("set_feature(): invalid recipient");
+        return STATUS_INVALID_PARAMETER;
     }
-  
-  urb.UrbHeader.Length = sizeof(struct _URB_CONTROL_FEATURE_REQUEST);
-  urb.UrbControlFeatureRequest.FeatureSelector = (USHORT)feature;
-  urb.UrbControlFeatureRequest.Index = (USHORT)index; 
-  
-  status = call_usbd(dev, &urb, IOCTL_INTERNAL_USB_SUBMIT_URB, timeout);
-  
-  if(!NT_SUCCESS(status) || !USBD_SUCCESS(urb.UrbHeader.Status))
+
+    urb.UrbHeader.Length = sizeof(struct _URB_CONTROL_FEATURE_REQUEST);
+    urb.UrbControlFeatureRequest.FeatureSelector = (USHORT)feature;
+    urb.UrbControlFeatureRequest.Index = (USHORT)index;
+
+    status = call_usbd(dev, &urb, IOCTL_INTERNAL_USB_SUBMIT_URB, timeout);
+
+    if (!NT_SUCCESS(status) || !USBD_SUCCESS(urb.UrbHeader.Status))
     {
-      DEBUG_ERROR("set_feature(): setting feature failed: status: 0x%x, "
-                  "urb-status: 0x%x", status, urb.UrbHeader.Status);
+        DEBUG_ERROR("set_feature(): setting feature failed: status: 0x%x, "
+                    "urb-status: 0x%x", status, urb.UrbHeader.Status);
     }
-  
-  return status;
+
+    return status;
 }

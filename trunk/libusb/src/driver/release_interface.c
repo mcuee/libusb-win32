@@ -24,60 +24,60 @@
 NTSTATUS release_interface(libusb_device_t *dev, FILE_OBJECT *file_object,
                            int interface)
 {
-  DEBUG_MESSAGE("release_interface(): interface %d", interface);
+    DEBUG_MESSAGE("release_interface(): interface %d", interface);
 
-  if(!dev->config.value)
+    if (!dev->config.value)
     {
-      DEBUG_ERROR("release_interface(): device is not configured"); 
-      return STATUS_INVALID_DEVICE_STATE;
+        DEBUG_ERROR("release_interface(): device is not configured");
+        return STATUS_INVALID_DEVICE_STATE;
     }
 
-  if(interface >= LIBUSB_MAX_NUMBER_OF_INTERFACES)
+    if (interface >= LIBUSB_MAX_NUMBER_OF_INTERFACES)
     {
-      DEBUG_ERROR("release_interface(): interface number %d too high", 
-                  interface);
-      return STATUS_INVALID_PARAMETER;
+        DEBUG_ERROR("release_interface(): interface number %d too high",
+                    interface);
+        return STATUS_INVALID_PARAMETER;
     }
 
-  if(!dev->config.interfaces[interface].valid)
+    if (!dev->config.interfaces[interface].valid)
     {
-      DEBUG_ERROR("release_interface(): invalid interface %02d", interface);
-      return STATUS_INVALID_PARAMETER;
+        DEBUG_ERROR("release_interface(): invalid interface %02d", interface);
+        return STATUS_INVALID_PARAMETER;
     }
 
-  if(!dev->config.interfaces[interface].file_object)
+    if (!dev->config.interfaces[interface].file_object)
     {
-      DEBUG_ERROR("claim_interface(): could not release interface %d, "
-                  "interface is not claimed", interface);
-      return STATUS_INVALID_DEVICE_STATE;
+        DEBUG_ERROR("claim_interface(): could not release interface %d, "
+                    "interface is not claimed", interface);
+        return STATUS_INVALID_DEVICE_STATE;
     }
 
-  if(dev->config.interfaces[interface].file_object != file_object)
+    if (dev->config.interfaces[interface].file_object != file_object)
     {
-      DEBUG_ERROR("claim_interface(): could not release interface %d, "
-                  "interface is not bound to this file object", interface);
-      return STATUS_DEVICE_BUSY;
+        DEBUG_ERROR("claim_interface(): could not release interface %d, "
+                    "interface is not bound to this file object", interface);
+        return STATUS_DEVICE_BUSY;
     }
 
-  dev->config.interfaces[interface].file_object = NULL;
+    dev->config.interfaces[interface].file_object = NULL;
 
-  return STATUS_SUCCESS;
+    return STATUS_SUCCESS;
 }
 
 NTSTATUS release_all_interfaces(libusb_device_t *dev, FILE_OBJECT *file_object)
 {
-  int i;
-  
-  DEBUG_MESSAGE("release_all_interfaces(): releasing all interfaces"
-                " bound to file object 0x%x", file_object);
+    int i;
 
-  for(i = 0; i < LIBUSB_MAX_NUMBER_OF_INTERFACES; i++)
+    DEBUG_MESSAGE("release_all_interfaces(): releasing all interfaces"
+                  " bound to file object 0x%x", file_object);
+
+    for (i = 0; i < LIBUSB_MAX_NUMBER_OF_INTERFACES; i++)
     {
-      if(dev->config.interfaces[i].file_object == file_object)
+        if (dev->config.interfaces[i].file_object == file_object)
         {
-          dev->config.interfaces[i].file_object = NULL;
+            dev->config.interfaces[i].file_object = NULL;
         }
     }
 
-  return STATUS_SUCCESS;
+    return STATUS_SUCCESS;
 }

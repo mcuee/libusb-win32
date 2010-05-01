@@ -2,12 +2,13 @@
 #define __ERROR_H__
 
 /* Connection timed out */
-#define ETIMEDOUT 116	
+#define ETIMEDOUT 116
 
-typedef enum {
-  USB_ERROR_TYPE_NONE = 0,
-  USB_ERROR_TYPE_STRING,
-  USB_ERROR_TYPE_ERRNO,
+typedef enum
+{
+    USB_ERROR_TYPE_NONE = 0,
+    USB_ERROR_TYPE_STRING,
+    USB_ERROR_TYPE_ERRNO,
 } usb_error_type_t;
 
 

@@ -20,10 +20,11 @@
 #ifndef __DRIVER_API_H__
 #define __DRIVER_API_H__
 
-enum {
-  LIBUSB_DEBUG_OFF,
-  LIBUSB_DEBUG_ERR,
-  LIBUSB_DEBUG_MSG,
+enum
+{
+    LIBUSB_DEBUG_OFF,
+    LIBUSB_DEBUG_ERR,
+    LIBUSB_DEBUG_MSG,
 };
 
 
@@ -99,67 +100,69 @@ enum {
 #define LIBUSB_IOCTL_RELEASE_INTERFACE CTL_CODE(FILE_DEVICE_UNKNOWN,\
 0x816, METHOD_BUFFERED, FILE_ANY_ACCESS)
 
-#include <pshpack1.h> 
+#include <pshpack1.h>
 
 
-typedef struct {
-  unsigned int timeout;
-  union {
-    struct
+typedef struct
+{
+    unsigned int timeout;
+    union
     {
-      unsigned int configuration;
-    } configuration;
-    struct
-    {
-      unsigned int interface;
-      unsigned int altsetting;
-    } interface;
-    struct
-    {
-      unsigned int endpoint;
-      unsigned int packet_size;
-    } endpoint;    
-    struct
-    {
-      unsigned int type;
-      unsigned int recipient;
-      unsigned int request;
-      unsigned int value;
-      unsigned int index;
-    } vendor;
-    struct
-    {
-      unsigned int recipient;
-      unsigned int feature;
-      unsigned int index;
-    } feature;
-    struct
-    {
-      unsigned int recipient;
-      unsigned int index;
-      unsigned int status;
-    } status;
-    struct
-    {
-      unsigned int type;
-      unsigned int index;
-      unsigned int language_id;
-      unsigned int recipient;
-    } descriptor;    
-    struct
-    {
-      unsigned int level;
-    } debug;
-    struct
-    {
-      unsigned int major;
-      unsigned int minor;
-      unsigned int micro;
-      unsigned int nano;
-    } version;
-  };
+        struct
+        {
+            unsigned int configuration;
+        } configuration;
+        struct
+        {
+            unsigned int interface;
+            unsigned int altsetting;
+        } interface;
+        struct
+        {
+            unsigned int endpoint;
+            unsigned int packet_size;
+        } endpoint;
+        struct
+        {
+            unsigned int type;
+            unsigned int recipient;
+            unsigned int request;
+            unsigned int value;
+            unsigned int index;
+        } vendor;
+        struct
+        {
+            unsigned int recipient;
+            unsigned int feature;
+            unsigned int index;
+        } feature;
+        struct
+        {
+            unsigned int recipient;
+            unsigned int index;
+            unsigned int status;
+        } status;
+        struct
+        {
+            unsigned int type;
+            unsigned int index;
+            unsigned int language_id;
+            unsigned int recipient;
+        } descriptor;
+        struct
+        {
+            unsigned int level;
+        } debug;
+        struct
+        {
+            unsigned int major;
+            unsigned int minor;
+            unsigned int micro;
+            unsigned int nano;
+        } version;
+    };
 } libusb_request;
-    
+
 #include <poppack.h>
 
 #endif

@@ -25,40 +25,40 @@
 NTSTATUS claim_interface(libusb_device_t *dev, FILE_OBJECT *file_object,
                          int interface)
 {
-  DEBUG_MESSAGE("claim_interface(): interface %d", interface);
+    DEBUG_MESSAGE("claim_interface(): interface %d", interface);
 
-  if(!dev->config.value)
+    if (!dev->config.value)
     {
-      DEBUG_ERROR("claim_interface(): device is not configured"); 
-      return STATUS_INVALID_DEVICE_STATE;
+        DEBUG_ERROR("claim_interface(): device is not configured");
+        return STATUS_INVALID_DEVICE_STATE;
     }
 
-  if(interface >= LIBUSB_MAX_NUMBER_OF_INTERFACES)
+    if (interface >= LIBUSB_MAX_NUMBER_OF_INTERFACES)
     {
-      DEBUG_ERROR("claim_interface(): interface number %d too high", 
-                  interface);
-      return STATUS_INVALID_PARAMETER;
+        DEBUG_ERROR("claim_interface(): interface number %d too high",
+                    interface);
+        return STATUS_INVALID_PARAMETER;
     }
 
-  if(!dev->config.interfaces[interface].valid)
+    if (!dev->config.interfaces[interface].valid)
     {
-      DEBUG_ERROR("claim_interface(): interface %d does not exist", interface);
-      return STATUS_INVALID_PARAMETER;
+        DEBUG_ERROR("claim_interface(): interface %d does not exist", interface);
+        return STATUS_INVALID_PARAMETER;
     }
 
-  if(dev->config.interfaces[interface].file_object == file_object)
+    if (dev->config.interfaces[interface].file_object == file_object)
     {
-      return STATUS_SUCCESS;
+        return STATUS_SUCCESS;
     }
 
-  if(dev->config.interfaces[interface].file_object)
+    if (dev->config.interfaces[interface].file_object)
     {
-      DEBUG_ERROR("claim_interface(): could not claim interface %d, "
-                  "interface is already claimed", interface);
-      return STATUS_DEVICE_BUSY;
+        DEBUG_ERROR("claim_interface(): could not claim interface %d, "
+                    "interface is already claimed", interface);
+        return STATUS_DEVICE_BUSY;
     }
 
-  dev->config.interfaces[interface].file_object = file_object;
+    dev->config.interfaces[interface].file_object = file_object;
 
-  return STATUS_SUCCESS;
+    return STATUS_SUCCESS;
 }
