@@ -1,0 +1,22 @@
+TARGETNAME = install-filter
+TARGETPATH = output
+TARGETTYPE = PROGRAM
+UMTYPE = console
+USE_MSVCRT = 1
+386_STDCALL = 0
+USER_C_FLAGS = /Gd /O2
+C_DEFINES = /DVERSION_MAJOR=$(VERSION_MAJOR) /DVERSION_MINOR=$(VERSION_MINOR) \
+            /DVERSION_MICRO=$(VERSION_MICRO) /DVERSION_NANO=$(VERSION_NANO) \
+            /DINF_VERSION=$(VERSION_MAJOR).$(VERSION_MINOR).$(VERSION_MICRO).$(VERSION_NANO) \
+            /DRC_VERSION=$(VERSION_MAJOR),$(VERSION_MINOR),$(VERSION_MICRO),$(VERSION_NANO) \
+            /DRC_VERSION_STR="\"$(VERSION_MAJOR).$(VERSION_MINOR).$(VERSION_MICRO).$(VERSION_NANO)\"" \
+            /Dsnprintf=_snprintf
+
+TARGETLIBS=$(SDK_LIB_PATH)\kernel32.lib \
+           $(SDK_LIB_PATH)\advapi32.lib \
+           $(SDK_LIB_PATH)\user32.lib \
+           $(SDK_LIB_PATH)\shell32.lib \
+           $(SDK_LIB_PATH)\setupapi.lib \
+           $(SDK_LIB_PATH)\ole32.lib
+           
+SOURCES = install_filter.c install.c registry.c error.c

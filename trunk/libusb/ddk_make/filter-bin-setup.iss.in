@@ -1,0 +1,108 @@
+; LIBUSB-WIN32, Generic Windows USB Library
+; Copyright (c) 2002-2010 Stephan Meyer <ste_meyer@web.de>
+; Copyright (c) 2010 Travis Robinson <libusbdotnet@gmail.com>
+;
+; This program is free software; you can redistribute it and/or modify
+; it under the terms of the GNU General Public License as published by
+; the Free Software Foundation; either version 2 of the License, or
+; (at your option) any later version.
+; 
+; This program is distributed in the hope that it will be useful,
+; but WITHOUT ANY WARRANTY; without even the implied warranty of
+; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+; GNU General Public License for more details.
+; 
+; You should have received a copy of the GNU General Public License
+; along with this program; if not, write to the Free Software
+; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+
+
+[Setup]
+AppName = LibUSB-Win32
+AppVerName = LibUSB-Win32-@VERSION@
+AppId = LibUSB-Win32
+AppPublisher = LibUSB-Win32 
+AppPublisherURL = http://libusb-win32.sourceforge.net
+AppVersion = @VERSION@
+VersionInfoVersion = @VERSION@
+DefaultDirName = {pf}\LibUSB-Win32
+DefaultGroupName = LibUSB-Win32
+LicenseFile = installer_license.txt
+Compression = lzma
+SolidCompression = yes
+OutputDir = .
+OutputBaseFilename = @PCKGNAME@
+; requires Win98SE, Win2k, or higher
+MinVersion = 4.1.2222, 5 
+PrivilegesRequired=admin
+
+[Code]
+function IsX64: Boolean;
+begin
+  Result := Is64BitInstallMode and (ProcessorArchitecture = paX64);
+end;
+
+function IsI64: Boolean;
+begin
+  Result := Is64BitInstallMode and (ProcessorArchitecture = paIA64);
+end;
+
+function IsX86: Boolean;
+begin
+  Result := not IsX64 and not IsI64;
+end;
+
+[Tasks]
+Name: tasklibusb; Flags:unchecked; Description: Enable libusb-win32 filter service? This allows access to USB devices without an INF file.  This can be loaded/unloaded at anytime from the libusb-win32 start menu; GroupDescription: libusb-win32;
+
+[Files]
+; LibUsb-win32 x86 (Windows 2000)
+Source: @PACKAGE_BIN_DIR@w2k\libusb0.dll; DestDir: {sys}; Flags: uninsneveruninstall replacesameversion restartreplace promptifolder; onlybelowversion: 0,5.01.2600;
+Source: @PACKAGE_BIN_DIR@w2k\libusb0.sys; DestDir: {sys}\drivers; Flags: uninsneveruninstall replacesameversion restartreplace promptifolder; onlybelowversion: 0,5.01.2600;
+Source: @PACKAGE_BIN_DIR@w2k\inf-wizard.exe; DestDir: {app}\bin; Flags: ignoreversion recursesubdirs createallsubdirs; onlybelowversion: 0,5.01.2600;
+Source: @PACKAGE_BIN_DIR@w2k\install-filter.exe; DestDir: {app}\bin; Flags: ignoreversion recursesubdirs createallsubdirs; onlybelowversion: 0,5.01.2600;
+Source: @PACKAGE_BIN_DIR@w2k\*; DestDir: {app}\bin; Flags: createallsubdirs ignoreversion recursesubdirs; onlybelowversion: 0,5.01.2600;
+
+; LibUsb-win32 x86 (XP and greater)
+Source: @PACKAGE_BIN_DIR@x86\libusb0.dll; DestDir: {sys}; Flags: uninsneveruninstall replacesameversion restartreplace promptifolder; minversion: 0,5.01.2600; Check: IsX86;
+Source: @PACKAGE_BIN_DIR@x86\libusb0.sys; DestDir: {sys}\drivers; Flags: uninsneveruninstall replacesameversion restartreplace promptifolder; minversion: 0,5.01.2600; Check: IsX86;
+Source: @PACKAGE_BIN_DIR@x86\inf-wizard.exe; DestDir: {app}\bin; Flags: ignoreversion recursesubdirs createallsubdirs; minversion: 0,5.01.2600; Check: IsX86;
+Source: @PACKAGE_BIN_DIR@x86\install-filter.exe; DestDir: {app}\bin; Flags: ignoreversion recursesubdirs createallsubdirs; minversion: 0,5.01.2600; Check: IsX86;
+Source: @PACKAGE_BIN_DIR@x86\*; DestDir: {app}\bin; Flags: createallsubdirs ignoreversion recursesubdirs; minversion: 0,5.01.2600; Check: IsX86;
+
+; LibUsb-win32 AMD 64bit
+Source: @PACKAGE_BIN_DIR@x86\libusb0.dll; DestDir: {syswow64}; Flags: uninsneveruninstall replacesameversion restartreplace promptifolder; Check: IsX64;
+Source: @PACKAGE_BIN_DIR@x64\libusb0.sys; DestDir: {sys}\drivers; Flags: uninsneveruninstall replacesameversion restartreplace promptifolder; Check: IsX64;
+Source: @PACKAGE_BIN_DIR@x64\libusb0.dll; DestDir: {sys}; Flags: uninsneveruninstall replacesameversion restartreplace promptifolder; Check: IsX64;
+Source: @PACKAGE_BIN_DIR@x64\inf-wizard.exe; DestDir: {app}\bin; Flags: ignoreversion recursesubdirs createallsubdirs; Check: IsX64;
+Source: @PACKAGE_BIN_DIR@x64\install-filter.exe; DestDir: {app}\bin; Flags: ignoreversion recursesubdirs createallsubdirs; Check: IsX64;
+Source: @PACKAGE_BIN_DIR@x64\*; DestDir: {app}\bin; Flags: createallsubdirs ignoreversion recursesubdirs; Check: IsX64;
+
+; LibUsb-win32 Itanium 64bit
+Source: @PACKAGE_BIN_DIR@x86\libusb0.dll; DestDir: {syswow64}; Flags: uninsneveruninstall replacesameversion restartreplace promptifolder; Check: IsI64;
+Source: @PACKAGE_BIN_DIR@I64\libusb0.sys; DestDir: {sys}\drivers; Flags: uninsneveruninstall replacesameversion restartreplace promptifolder; Check: IsI64;
+Source: @PACKAGE_BIN_DIR@I64\libusb0.dll; DestDir: {sys}; Flags: uninsneveruninstall replacesameversion restartreplace promptifolder; Check: IsI64;
+Source: @PACKAGE_BIN_DIR@I64\inf-wizard.exe; DestDir: {app}\bin; Flags: ignoreversion recursesubdirs createallsubdirs; Check: IsI64;
+Source: @PACKAGE_BIN_DIR@I64\install-filter.exe; DestDir: {app}\bin; Flags: ignoreversion recursesubdirs createallsubdirs; Check: IsI64;
+Source: @PACKAGE_BIN_DIR@I64\*; DestDir: {app}\bin; Flags: createallsubdirs ignoreversion recursesubdirs; Check: IsI64;
+
+; Other Files
+Source: *.txt; DestDir: {app}; Flags: ignoreversion;
+
+[Icons] 
+Name: {group}\Enable filter (admin only); Filename: {app}\bin\install-filter.exe; Parameters: -i; Flags: createonlyiffileexists
+Name: {group}\Disable filter (admin only); Filename: {app}\bin\install-filter.exe; Parameters: -u; Flags: createonlyiffileexists
+Name: "{group}\Test (Win) Program"; Filename: "{app}\bin\testlibusb-win.exe"; 
+Name: "{group}\INF Wizard"; Filename: "{app}\bin\inf-wizard.exe"; 
+Name: "{group}\Uninstall LibUsb-Win32"; Filename: "{uninstallexe}"
+Name: "{group}\GPL License"; Filename: "{app}\COPYING_GPL.txt"
+Name: "{group}\LGPL License"; Filename: "{app}\COPYING_LGPL.txt"
+
+[Run]
+Filename: "rundll32"; Parameters: "libusb0.dll,usb_install_service_np"; StatusMsg: Creating kernel service (this may take a few seconds) ...; Tasks: tasklibusb; 
+
+[UninstallRun]
+Filename: "rundll32"; Parameters: "libusb0.dll,usb_uninstall_service_np"; 
+
+[Messages]
+StatusUninstalling=Removing filter and uninstalling %1...
