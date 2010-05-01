@@ -21,38 +21,38 @@
 
 
 NTSTATUS get_configuration(libusb_device_t *dev,
-                           unsigned char *configuration, int *ret, 
+                           unsigned char *configuration, int *ret,
                            int timeout)
 {
-  NTSTATUS status = STATUS_SUCCESS;
-  URB urb;
+    NTSTATUS status = STATUS_SUCCESS;
+    URB urb;
 
-  DEBUG_PRINT_NL();
-  DEBUG_MESSAGE("get_configuration(): timeout %d", timeout);
+    DEBUG_PRINT_NL();
+    DEBUG_MESSAGE("get_configuration(): timeout %d", timeout);
 
-  memset(&urb, 0, sizeof(URB));
+    memset(&urb, 0, sizeof(URB));
 
-  urb.UrbHeader.Function = URB_FUNCTION_GET_CONFIGURATION;
-  urb.UrbHeader.Length = sizeof(struct _URB_CONTROL_GET_CONFIGURATION_REQUEST);
-  urb.UrbControlGetConfigurationRequest.TransferBufferLength = 1;
-  urb.UrbControlGetConfigurationRequest.TransferBuffer = configuration;
+    urb.UrbHeader.Function = URB_FUNCTION_GET_CONFIGURATION;
+    urb.UrbHeader.Length = sizeof(struct _URB_CONTROL_GET_CONFIGURATION_REQUEST);
+    urb.UrbControlGetConfigurationRequest.TransferBufferLength = 1;
+    urb.UrbControlGetConfigurationRequest.TransferBuffer = configuration;
 
 
-  status = call_usbd(dev, &urb, IOCTL_INTERNAL_USB_SUBMIT_URB, timeout);
+    status = call_usbd(dev, &urb, IOCTL_INTERNAL_USB_SUBMIT_URB, timeout);
 
-  if(!NT_SUCCESS(status) || !USBD_SUCCESS(urb.UrbHeader.Status))
+    if (!NT_SUCCESS(status) || !USBD_SUCCESS(urb.UrbHeader.Status))
     {
-      DEBUG_ERROR("get_configuration(): getting configuration failed: "
-                  "status: 0x%x, urb-status: 0x%x",
-                  status, urb.UrbHeader.Status);
-      *ret = 0;
+        DEBUG_ERROR("get_configuration(): getting configuration failed: "
+                    "status: 0x%x, urb-status: 0x%x",
+                    status, urb.UrbHeader.Status);
+        *ret = 0;
     }
-  else
+    else
     {
-      DEBUG_MESSAGE("get_configuration(): current configuration is: %d", 
-                    *configuration);
-      *ret = urb.UrbControlGetConfigurationRequest.TransferBufferLength;
+        DEBUG_MESSAGE("get_configuration(): current configuration is: %d",
+                      *configuration);
+        *ret = urb.UrbControlGetConfigurationRequest.TransferBufferLength;
     }
 
-  return status;
+    return status;
 }

@@ -22,25 +22,25 @@
 
 NTSTATUS reset_device(libusb_device_t *dev, int timeout)
 {
-  NTSTATUS status = STATUS_SUCCESS;
+    NTSTATUS status = STATUS_SUCCESS;
 
-  DEBUG_MESSAGE("reset_device()");
+    DEBUG_MESSAGE("reset_device()");
 
-  status = call_usbd(dev, NULL, IOCTL_INTERNAL_USB_RESET_PORT, timeout);
-  
-  if(!NT_SUCCESS(status))
+    status = call_usbd(dev, NULL, IOCTL_INTERNAL_USB_RESET_PORT, timeout);
+
+    if (!NT_SUCCESS(status))
     {
-      DEBUG_ERROR("reset_device(): IOCTL_INTERNAL_USB_RESET_PORT failed: "
-                  "status: 0x%x", status);
+        DEBUG_ERROR("reset_device(): IOCTL_INTERNAL_USB_RESET_PORT failed: "
+                    "status: 0x%x", status);
     }
 
-  status = call_usbd(dev, NULL, IOCTL_INTERNAL_USB_CYCLE_PORT, timeout);
-  
-  if(!NT_SUCCESS(status))
+    status = call_usbd(dev, NULL, IOCTL_INTERNAL_USB_CYCLE_PORT, timeout);
+
+    if (!NT_SUCCESS(status))
     {
-      DEBUG_ERROR("reset_device(): IOCTL_INTERNAL_USB_CYCLE_PORT failed: "
-                  "status: 0x%x", status);
+        DEBUG_ERROR("reset_device(): IOCTL_INTERNAL_USB_CYCLE_PORT failed: "
+                    "status: 0x%x", status);
     }
 
-  return status;
+    return status;
 }

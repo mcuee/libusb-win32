@@ -23,37 +23,37 @@
 
 NTSTATUS abort_endpoint(libusb_device_t *dev, int endpoint, int timeout)
 {
-  NTSTATUS status = STATUS_SUCCESS;
-  URB urb;
+    NTSTATUS status = STATUS_SUCCESS;
+    URB urb;
 
-  DEBUG_PRINT_NL();
-  DEBUG_MESSAGE("abort_endpoint(): endpoint 0x%02x\n", endpoint);
-  DEBUG_MESSAGE("abort_endpoint(): timeout %d\n", timeout);
+    DEBUG_PRINT_NL();
+    DEBUG_MESSAGE("abort_endpoint(): endpoint 0x%02x\n", endpoint);
+    DEBUG_MESSAGE("abort_endpoint(): timeout %d\n", timeout);
 
-  memset(&urb, 0, sizeof(struct _URB_PIPE_REQUEST));
+    memset(&urb, 0, sizeof(struct _URB_PIPE_REQUEST));
 
-  if(!dev->config.value)
+    if (!dev->config.value)
     {
-      DEBUG_ERROR("abort_endpoint(): invalid configuration 0");
-      return STATUS_INVALID_DEVICE_STATE;
+        DEBUG_ERROR("abort_endpoint(): invalid configuration 0");
+        return STATUS_INVALID_DEVICE_STATE;
     }
 
-  if(!get_pipe_handle(dev, endpoint, &urb.UrbPipeRequest.PipeHandle))
+    if (!get_pipe_handle(dev, endpoint, &urb.UrbPipeRequest.PipeHandle))
     {
-      DEBUG_ERROR("abort_endpoint(): getting endpoint pipe failed");
-      return STATUS_INVALID_PARAMETER;
+        DEBUG_ERROR("abort_endpoint(): getting endpoint pipe failed");
+        return STATUS_INVALID_PARAMETER;
     }
 
-  urb.UrbHeader.Length = (USHORT) sizeof(struct _URB_PIPE_REQUEST);
-  urb.UrbHeader.Function = URB_FUNCTION_ABORT_PIPE;
+    urb.UrbHeader.Length = (USHORT) sizeof(struct _URB_PIPE_REQUEST);
+    urb.UrbHeader.Function = URB_FUNCTION_ABORT_PIPE;
 
-  status = call_usbd(dev, &urb, IOCTL_INTERNAL_USB_SUBMIT_URB, timeout);
-  
-  if(!NT_SUCCESS(status) || !USBD_SUCCESS(urb.UrbHeader.Status))
+    status = call_usbd(dev, &urb, IOCTL_INTERNAL_USB_SUBMIT_URB, timeout);
+
+    if (!NT_SUCCESS(status) || !USBD_SUCCESS(urb.UrbHeader.Status))
     {
-      DEBUG_ERROR("abort_endpoint(): request failed: status: 0x%x, "
-                  "urb-status: 0x%x", status, urb.UrbHeader.Status);
+        DEBUG_ERROR("abort_endpoint(): request failed: status: 0x%x, "
+                    "urb-status: 0x%x", status, urb.UrbHeader.Status);
     }
-  
-  return status;
+
+    return status;
 }

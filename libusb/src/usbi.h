@@ -5,9 +5,9 @@
 
 #include "error.h"
 
-typedef unsigned char uint8_t; 
-typedef unsigned short uint16_t; 
-typedef unsigned long uint32_t; 
+typedef unsigned char uint8_t;
+typedef unsigned short uint16_t;
+typedef unsigned long uint32_t;
 
 extern int usb_debug;
 
@@ -42,24 +42,25 @@ extern int usb_debug;
 #define ENDPOINT_DESC_LENGTH		7
 #define ENDPOINT_AUDIO_DESC_LENGTH	9
 
-struct usb_dev_handle {
-  int fd;
+struct usb_dev_handle
+{
+    int fd;
 
-  struct usb_bus *bus;
-  struct usb_device *device;
+    struct usb_bus *bus;
+    struct usb_device *device;
 
-  int config;
-  int interface;
-  int altsetting;
+    int config;
+    int interface;
+    int altsetting;
 
-  /* Added by RMT so implementations can store other per-open-device data */
-  void *impl_info;
+    /* Added by RMT so implementations can store other per-open-device data */
+    void *impl_info;
 };
 
 /* descriptors.c */
 int usb_parse_descriptor(unsigned char *source, char *description, void *dest);
 int usb_parse_configuration(struct usb_config_descriptor *config,
-	unsigned char *buffer);
+                            unsigned char *buffer);
 void usb_fetch_and_parse_descriptors(usb_dev_handle *udev);
 void usb_destroy_configuration(struct usb_device *dev);
 

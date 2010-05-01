@@ -34,7 +34,7 @@ typedef int bool_t;
 #define FALSE 0
 #endif
 #ifndef TRUE
-#define TRUE (!(FALSE)) 
+#define TRUE (!(FALSE))
 #endif
 
 #define REGISTRY_BUF_SIZE 512
@@ -42,18 +42,18 @@ typedef int bool_t;
 
 bool_t usb_registry_is_nt(void);
 
-bool_t usb_registry_restart_device(HDEVINFO dev_info, 
+bool_t usb_registry_restart_device(HDEVINFO dev_info,
                                    SP_DEVINFO_DATA *dev_info_data);
-bool_t usb_registry_stop_device(HDEVINFO dev_info, 
+bool_t usb_registry_stop_device(HDEVINFO dev_info,
                                 SP_DEVINFO_DATA *dev_info_data);
-bool_t usb_registry_start_device(HDEVINFO dev_info, 
+bool_t usb_registry_start_device(HDEVINFO dev_info,
                                  SP_DEVINFO_DATA *dev_info_data);
 
-bool_t usb_registry_get_property(DWORD which, HDEVINFO dev_info, 
+bool_t usb_registry_get_property(DWORD which, HDEVINFO dev_info,
                                  SP_DEVINFO_DATA *dev_info_data,
                                  char *buf, int size);
-bool_t usb_registry_set_property(DWORD which, HDEVINFO dev_info, 
-                                 SP_DEVINFO_DATA *dev_info_data, 
+bool_t usb_registry_set_property(DWORD which, HDEVINFO dev_info,
+                                 SP_DEVINFO_DATA *dev_info_data,
                                  char *buf, int size);
 
 bool_t usb_registry_restart_all_devices(void);
@@ -67,9 +67,9 @@ void usb_registry_start_libusb_devices(void);
 
 bool_t usb_registry_match(HDEVINFO dev_info, SP_DEVINFO_DATA *dev_info_data);
 
-bool_t usb_registry_get_mz_value(const char *key, const char *value, 
+bool_t usb_registry_get_mz_value(const char *key, const char *value,
                                  char *buf, int size);
-bool_t usb_registry_set_mz_value(const char *key, const char *value, 
+bool_t usb_registry_set_mz_value(const char *key, const char *value,
                                  char *buf, int size);
 int usb_registry_mz_string_size(const char *src);
 char *usb_registry_mz_string_find(const char *src, const char *str);

@@ -23,37 +23,37 @@
 
 NTSTATUS reset_endpoint(libusb_device_t *dev, int endpoint, int timeout)
 {
-  NTSTATUS status = STATUS_SUCCESS;
-  URB urb;
+    NTSTATUS status = STATUS_SUCCESS;
+    URB urb;
 
-  DEBUG_PRINT_NL();
-  DEBUG_MESSAGE("reset_endpoint(): endpoint 0x%02x", endpoint);
-  DEBUG_MESSAGE("reset_endpoint(): timeout %d", timeout);
+    DEBUG_PRINT_NL();
+    DEBUG_MESSAGE("reset_endpoint(): endpoint 0x%02x", endpoint);
+    DEBUG_MESSAGE("reset_endpoint(): timeout %d", timeout);
 
-  if(!dev->config.value)
+    if (!dev->config.value)
     {
-      DEBUG_ERROR("reset_endpoint(): invalid configuration 0"); 
-      return STATUS_INVALID_DEVICE_STATE;
-    }
-  
-  memset(&urb, 0, sizeof(struct _URB_PIPE_REQUEST));
-
-  urb.UrbHeader.Length = (USHORT) sizeof(struct _URB_PIPE_REQUEST);
-  urb.UrbHeader.Function = URB_FUNCTION_RESET_PIPE;
-
-  if(!get_pipe_handle(dev, endpoint, &urb.UrbPipeRequest.PipeHandle))
-    {
-      DEBUG_ERROR("reset_endpoint(): getting endpoint pipe failed");
-      return STATUS_INVALID_PARAMETER;
-    }
-  
-  status = call_usbd(dev, &urb, IOCTL_INTERNAL_USB_SUBMIT_URB, timeout);
-  
-  if(!NT_SUCCESS(status) || !USBD_SUCCESS(urb.UrbHeader.Status))
-    {
-      DEBUG_ERROR("reset_endpoint(): request failed: status: 0x%x, "
-                  "urb-status: 0x%x", status, urb.UrbHeader.Status);
+        DEBUG_ERROR("reset_endpoint(): invalid configuration 0");
+        return STATUS_INVALID_DEVICE_STATE;
     }
 
-  return status;
+    memset(&urb, 0, sizeof(struct _URB_PIPE_REQUEST));
+
+    urb.UrbHeader.Length = (USHORT) sizeof(struct _URB_PIPE_REQUEST);
+    urb.UrbHeader.Function = URB_FUNCTION_RESET_PIPE;
+
+    if (!get_pipe_handle(dev, endpoint, &urb.UrbPipeRequest.PipeHandle))
+    {
+        DEBUG_ERROR("reset_endpoint(): getting endpoint pipe failed");
+        return STATUS_INVALID_PARAMETER;
+    }
+
+    status = call_usbd(dev, &urb, IOCTL_INTERNAL_USB_SUBMIT_URB, timeout);
+
+    if (!NT_SUCCESS(status) || !USBD_SUCCESS(urb.UrbHeader.Status))
+    {
+        DEBUG_ERROR("reset_endpoint(): request failed: status: 0x%x, "
+                    "urb-status: 0x%x", status, urb.UrbHeader.Status);
+    }
+
+    return status;
 }

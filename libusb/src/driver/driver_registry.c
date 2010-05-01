@@ -27,108 +27,108 @@
 #define LIBUSB_REG_SURPRISE_REMOVAL_OK L"SurpriseRemovalOK"
 
 
-static bool_t reg_get_property(DEVICE_OBJECT *physical_device_object, 
+static bool_t reg_get_property(DEVICE_OBJECT *physical_device_object,
                                int property, char *data, int size);
 
 static bool_t reg_get_property(DEVICE_OBJECT *physical_device_object,
                                int property, char *data, int size)
 {
-  WCHAR tmp[512];
-  ULONG ret;
-  ULONG i;
+    WCHAR tmp[512];
+    ULONG ret;
+    ULONG i;
 
-  if(!physical_device_object || !data || !size)
+    if (!physical_device_object || !data || !size)
     {
-      return FALSE;
+        return FALSE;
     }
 
-  memset(data, 0, size);
-  memset(tmp, 0, sizeof(tmp));
+    memset(data, 0, size);
+    memset(tmp, 0, sizeof(tmp));
 
-  if(NT_SUCCESS(IoGetDeviceProperty(physical_device_object,
-                                    property,
-                                    sizeof(tmp) - 2,
-                                    tmp,
-                                    &ret)) && ret)
+    if (NT_SUCCESS(IoGetDeviceProperty(physical_device_object,
+                                       property,
+                                       sizeof(tmp) - 2,
+                                       tmp,
+                                       &ret)) && ret)
     {
-      /* convert unicode string to normal character string */
-      for(i = 0; (i < ret/2) && (i < ((ULONG)size - 1)); i++)
+        /* convert unicode string to normal character string */
+        for (i = 0; (i < ret/2) && (i < ((ULONG)size - 1)); i++)
         {
-          data[i] = (char)tmp[i];
+            data[i] = (char)tmp[i];
         }
-      
-      _strlwr(data);
 
-      return TRUE;
+        _strlwr(data);
+
+        return TRUE;
     }
 
-  return FALSE;
+    return FALSE;
 }
 
 
 bool_t reg_get_properties(libusb_device_t *dev)
 {
-  HANDLE key = NULL;
-  NTSTATUS status;
-  UNICODE_STRING name;
-  KEY_VALUE_FULL_INFORMATION *info;
-  ULONG length;
+    HANDLE key = NULL;
+    NTSTATUS status;
+    UNICODE_STRING name;
+    KEY_VALUE_FULL_INFORMATION *info;
+    ULONG length;
 
-  if(!dev->physical_device_object)
+    if (!dev->physical_device_object)
     {
-      return FALSE;
+        return FALSE;
     }
 
-  /* default settings */
-  dev->surprise_removal_ok = FALSE;
-  dev->is_filter = TRUE;
+    /* default settings */
+    dev->surprise_removal_ok = FALSE;
+    dev->is_filter = TRUE;
 
-  status = IoOpenDeviceRegistryKey(dev->physical_device_object,
-                                   PLUGPLAY_REGKEY_DEVICE,
-                                   STANDARD_RIGHTS_ALL,
-                                   &key);
-  if(NT_SUCCESS(status)) 
+    status = IoOpenDeviceRegistryKey(dev->physical_device_object,
+                                     PLUGPLAY_REGKEY_DEVICE,
+                                     STANDARD_RIGHTS_ALL,
+                                     &key);
+    if (NT_SUCCESS(status))
     {
-      RtlInitUnicodeString(&name, LIBUSB_REG_SURPRISE_REMOVAL_OK);
-      
-      length = sizeof(KEY_VALUE_FULL_INFORMATION) + name.MaximumLength
-        + sizeof(ULONG);
+        RtlInitUnicodeString(&name, LIBUSB_REG_SURPRISE_REMOVAL_OK);
 
-      info = ExAllocatePool(NonPagedPool, length);
-      
-      if(info) 
+        length = sizeof(KEY_VALUE_FULL_INFORMATION) + name.MaximumLength
+                 + sizeof(ULONG);
+
+        info = ExAllocatePool(NonPagedPool, length);
+
+        if (info)
         {
-          memset(info, 0, length);
+            memset(info, 0, length);
 
-          status = ZwQueryValueKey(key, &name, KeyValueFullInformation,
-                                   info, length, &length);
-          
-          if(NT_SUCCESS(status) && (info->Type == REG_DWORD))
+            status = ZwQueryValueKey(key, &name, KeyValueFullInformation,
+                                     info, length, &length);
+
+            if (NT_SUCCESS(status) && (info->Type == REG_DWORD))
             {
-              ULONG val = *((ULONG *)(((char *)info) + info->DataOffset));
+                ULONG val = *((ULONG *)(((char *)info) + info->DataOffset));
 
-              dev->surprise_removal_ok = val ? TRUE : FALSE;
-              dev->is_filter = FALSE;
+                dev->surprise_removal_ok = val ? TRUE : FALSE;
+                dev->is_filter = FALSE;
             }
-          
-          ExFreePool(info);
+
+            ExFreePool(info);
         }
-      
-      ZwClose(key);
+
+        ZwClose(key);
     }
 
-  return TRUE;
+    return TRUE;
 }
 
-bool_t reg_get_hardware_id(DEVICE_OBJECT *physical_device_object, 
+bool_t reg_get_hardware_id(DEVICE_OBJECT *physical_device_object,
                            char *data, int size)
 {
-  if(!physical_device_object || !data || !size)
+    if (!physical_device_object || !data || !size)
     {
-      return FALSE;
+        return FALSE;
     }
 
-  return reg_get_property(physical_device_object, DevicePropertyHardwareID, 
-                          data, size);
+    return reg_get_property(physical_device_object, DevicePropertyHardwareID,
+                            data, size);
 }
 

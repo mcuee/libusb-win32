@@ -22,46 +22,46 @@
 
 
 NTSTATUS get_interface(libusb_device_t *dev,
-                       int interface, unsigned char *altsetting, 
+                       int interface, unsigned char *altsetting,
                        int *ret, int timeout)
 {
-  NTSTATUS status = STATUS_SUCCESS;
-  URB urb;
+    NTSTATUS status = STATUS_SUCCESS;
+    URB urb;
 
-  DEBUG_PRINT_NL();
-  DEBUG_MESSAGE("get_interface(): interface %d", interface);
-  DEBUG_MESSAGE("get_interface(): timeout %d", timeout);
+    DEBUG_PRINT_NL();
+    DEBUG_MESSAGE("get_interface(): interface %d", interface);
+    DEBUG_MESSAGE("get_interface(): timeout %d", timeout);
 
-  if(!dev->config.value)
+    if (!dev->config.value)
     {
-      DEBUG_ERROR("get_interface(): invalid configuration 0"); 
-      return STATUS_INVALID_DEVICE_STATE;
+        DEBUG_ERROR("get_interface(): invalid configuration 0");
+        return STATUS_INVALID_DEVICE_STATE;
     }
 
-  memset(&urb, 0, sizeof(URB));
+    memset(&urb, 0, sizeof(URB));
 
-  urb.UrbHeader.Function = URB_FUNCTION_GET_INTERFACE;
-  urb.UrbHeader.Length = sizeof(struct _URB_CONTROL_GET_INTERFACE_REQUEST);
-  urb.UrbControlGetInterfaceRequest.TransferBufferLength = 1;
-  urb.UrbControlGetInterfaceRequest.TransferBuffer = altsetting;
-  urb.UrbControlGetInterfaceRequest.Interface = (USHORT)interface;
-  
-  status = call_usbd(dev, &urb, IOCTL_INTERNAL_USB_SUBMIT_URB, timeout);
-  
-  if(!NT_SUCCESS(status) || !USBD_SUCCESS(urb.UrbHeader.Status))
+    urb.UrbHeader.Function = URB_FUNCTION_GET_INTERFACE;
+    urb.UrbHeader.Length = sizeof(struct _URB_CONTROL_GET_INTERFACE_REQUEST);
+    urb.UrbControlGetInterfaceRequest.TransferBufferLength = 1;
+    urb.UrbControlGetInterfaceRequest.TransferBuffer = altsetting;
+    urb.UrbControlGetInterfaceRequest.Interface = (USHORT)interface;
+
+    status = call_usbd(dev, &urb, IOCTL_INTERNAL_USB_SUBMIT_URB, timeout);
+
+    if (!NT_SUCCESS(status) || !USBD_SUCCESS(urb.UrbHeader.Status))
     {
-      DEBUG_ERROR("get_interface(): getting interface "
-                  "failed: status: 0x%x, urb-status: 0x%x", 
-                  status, urb.UrbHeader.Status);
-      *ret = 0;
+        DEBUG_ERROR("get_interface(): getting interface "
+                    "failed: status: 0x%x, urb-status: 0x%x",
+                    status, urb.UrbHeader.Status);
+        *ret = 0;
     }
-  else
+    else
     {
-      *ret = urb.UrbControlGetInterfaceRequest.TransferBufferLength;
-      DEBUG_MESSAGE("get_interface(): current altsetting is %d", *altsetting); 
+        *ret = urb.UrbControlGetInterfaceRequest.TransferBufferLength;
+        DEBUG_MESSAGE("get_interface(): current altsetting is %d", *altsetting);
     }
 
-  return status;
+    return status;
 }
 
 

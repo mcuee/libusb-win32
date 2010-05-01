@@ -24,54 +24,54 @@
 NTSTATUS get_status(libusb_device_t *dev, int recipient,
                     int index, char *status, int *ret, int timeout)
 {
-  NTSTATUS _status = STATUS_SUCCESS;
-  URB urb;
+    NTSTATUS _status = STATUS_SUCCESS;
+    URB urb;
 
-  DEBUG_PRINT_NL();
-  DEBUG_MESSAGE("get_status(): recipient %02d", recipient);
-  DEBUG_MESSAGE("get_status(): index %04d", index);
-  DEBUG_MESSAGE("get_status(): timeout %d", timeout);
+    DEBUG_PRINT_NL();
+    DEBUG_MESSAGE("get_status(): recipient %02d", recipient);
+    DEBUG_MESSAGE("get_status(): index %04d", index);
+    DEBUG_MESSAGE("get_status(): timeout %d", timeout);
 
-  memset(&urb, 0, sizeof(URB));
+    memset(&urb, 0, sizeof(URB));
 
-  switch(recipient)
+    switch (recipient)
     {
     case USB_RECIP_DEVICE:
-      urb.UrbHeader.Function = URB_FUNCTION_GET_STATUS_FROM_DEVICE;
-      break;
+        urb.UrbHeader.Function = URB_FUNCTION_GET_STATUS_FROM_DEVICE;
+        break;
     case USB_RECIP_INTERFACE:
-      urb.UrbHeader.Function = URB_FUNCTION_GET_STATUS_FROM_INTERFACE;
-      break;
+        urb.UrbHeader.Function = URB_FUNCTION_GET_STATUS_FROM_INTERFACE;
+        break;
     case USB_RECIP_ENDPOINT:
-      urb.UrbHeader.Function = URB_FUNCTION_GET_STATUS_FROM_ENDPOINT;
-      break;
+        urb.UrbHeader.Function = URB_FUNCTION_GET_STATUS_FROM_ENDPOINT;
+        break;
     case USB_RECIP_OTHER:
-      urb.UrbHeader.Function = URB_FUNCTION_GET_STATUS_FROM_OTHER;
-      break;
+        urb.UrbHeader.Function = URB_FUNCTION_GET_STATUS_FROM_OTHER;
+        break;
     default:
-      DEBUG_ERROR("get_status(): invalid recipient");
-      return STATUS_INVALID_PARAMETER;
+        DEBUG_ERROR("get_status(): invalid recipient");
+        return STATUS_INVALID_PARAMETER;
     }
 
-  urb.UrbHeader.Length = sizeof(struct _URB_CONTROL_GET_STATUS_REQUEST);
-  urb.UrbControlGetStatusRequest.TransferBufferLength = 2;
-  urb.UrbControlGetStatusRequest.TransferBuffer = status; 
-  urb.UrbControlGetStatusRequest.Index = (USHORT)index; 
-	
-  _status = call_usbd(dev, &urb, IOCTL_INTERNAL_USB_SUBMIT_URB, timeout);
-      
-  if(!NT_SUCCESS(_status) || !USBD_SUCCESS(urb.UrbHeader.Status))
+    urb.UrbHeader.Length = sizeof(struct _URB_CONTROL_GET_STATUS_REQUEST);
+    urb.UrbControlGetStatusRequest.TransferBufferLength = 2;
+    urb.UrbControlGetStatusRequest.TransferBuffer = status;
+    urb.UrbControlGetStatusRequest.Index = (USHORT)index;
+
+    _status = call_usbd(dev, &urb, IOCTL_INTERNAL_USB_SUBMIT_URB, timeout);
+
+    if (!NT_SUCCESS(_status) || !USBD_SUCCESS(urb.UrbHeader.Status))
     {
-      DEBUG_ERROR("get_status(): getting status failed: "
-                   "status: 0x%x, urb-status: 0x%x", 
-                   _status, urb.UrbHeader.Status);
-      *ret = 0;
+        DEBUG_ERROR("get_status(): getting status failed: "
+                    "status: 0x%x, urb-status: 0x%x",
+                    _status, urb.UrbHeader.Status);
+        *ret = 0;
     }
-  else
+    else
     {
-      *ret = urb.UrbControlGetStatusRequest.TransferBufferLength;
+        *ret = urb.UrbControlGetStatusRequest.TransferBufferLength;
     }
 
-  return _status;
+    return _status;
 }
 

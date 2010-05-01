@@ -42,7 +42,7 @@
 /* some missing defines */
 #ifdef __GNUC__
 
-#define USBD_TRANSFER_DIRECTION_OUT       0   
+#define USBD_TRANSFER_DIRECTION_OUT       0
 #define USBD_TRANSFER_DIRECTION_BIT       0
 #define USBD_TRANSFER_DIRECTION_IN        (1 << USBD_TRANSFER_DIRECTION_BIT)
 #define USBD_SHORT_TRANSFER_OK_BIT        1
@@ -90,10 +90,10 @@ typedef int bool_t;
 
 #include <pshpack1.h>
 
-typedef struct 
-{ 
-  unsigned char length;
-  unsigned char type;
+typedef struct
+{
+    unsigned char length;
+    unsigned char type;
 } usb_descriptor_header_t;
 
 #include <poppack.h>
@@ -101,48 +101,49 @@ typedef struct
 
 typedef struct
 {
-  long usage_count;
-  int remove_pending;
-  KEVENT event;
+    long usage_count;
+    int remove_pending;
+    KEVENT event;
 } libusb_remove_lock_t;
 
 typedef struct
 {
-  int address;
-  USBD_PIPE_HANDLE handle;
+    int address;
+    USBD_PIPE_HANDLE handle;
 } libusb_endpoint_t;
 
 typedef struct
 {
-  bool_t valid;
-  FILE_OBJECT *file_object; /* file object this interface is bound to */
-  libusb_endpoint_t endpoints[LIBUSB_MAX_NUMBER_OF_ENDPOINTS];
+    bool_t valid;
+    FILE_OBJECT *file_object; /* file object this interface is bound to */
+    libusb_endpoint_t endpoints[LIBUSB_MAX_NUMBER_OF_ENDPOINTS];
 } libusb_interface_t;
 
 
 typedef struct
 {
-  DEVICE_OBJECT	*self;
-  DEVICE_OBJECT	*physical_device_object;
-  DEVICE_OBJECT	*next_stack_device;
-  DEVICE_OBJECT	*target_device;
-  libusb_remove_lock_t remove_lock; 
-  bool_t is_filter;
-  bool_t is_started;
-  bool_t surprise_removal_ok;
-  int id;
-  struct {
-    USBD_CONFIGURATION_HANDLE handle;
-    int value;
-    libusb_interface_t interfaces[LIBUSB_MAX_NUMBER_OF_INTERFACES];
-  } config;
-  POWER_STATE power_state;
-  DEVICE_POWER_STATE device_power_states[PowerSystemMaximum];
+    DEVICE_OBJECT	*self;
+    DEVICE_OBJECT	*physical_device_object;
+    DEVICE_OBJECT	*next_stack_device;
+    DEVICE_OBJECT	*target_device;
+    libusb_remove_lock_t remove_lock;
+    bool_t is_filter;
+    bool_t is_started;
+    bool_t surprise_removal_ok;
+    int id;
+    struct
+    {
+        USBD_CONFIGURATION_HANDLE handle;
+        int value;
+        libusb_interface_t interfaces[LIBUSB_MAX_NUMBER_OF_INTERFACES];
+    } config;
+    POWER_STATE power_state;
+    DEVICE_POWER_STATE device_power_states[PowerSystemMaximum];
 } libusb_device_t;
 
 
 
-NTSTATUS DDKAPI add_device(DRIVER_OBJECT *driver_object, 
+NTSTATUS DDKAPI add_device(DRIVER_OBJECT *driver_object,
                            DEVICE_OBJECT *physical_device_object);
 
 NTSTATUS DDKAPI dispatch(DEVICE_OBJECT *device_object, IRP *irp);
@@ -154,13 +155,13 @@ NTSTATUS complete_irp(IRP *irp, NTSTATUS status, ULONG info);
 
 NTSTATUS call_usbd(libusb_device_t *dev, void *urb,
                    ULONG control_code, int timeout);
-NTSTATUS pass_irp_down(libusb_device_t *dev, IRP *irp, 
-                       PIO_COMPLETION_ROUTINE completion_routine, 
+NTSTATUS pass_irp_down(libusb_device_t *dev, IRP *irp,
+                       PIO_COMPLETION_ROUTINE completion_routine,
                        void *context);
 
 bool_t accept_irp(libusb_device_t *dev, IRP *irp);
 
-bool_t get_pipe_handle(libusb_device_t *dev, int endpoint_address, 
+bool_t get_pipe_handle(libusb_device_t *dev, int endpoint_address,
                        USBD_PIPE_HANDLE *pipe_handle);
 void clear_pipe_info(libusb_device_t *dev);
 bool_t update_pipe_info(libusb_device_t *dev,
@@ -174,12 +175,12 @@ void remove_lock_release_and_wait(libusb_device_t *dev);
 NTSTATUS set_configuration(libusb_device_t *dev,
                            int configuration, int timeout);
 NTSTATUS get_configuration(libusb_device_t *dev,
-                           unsigned char *configuration, int *ret, 
+                           unsigned char *configuration, int *ret,
                            int timeout);
 NTSTATUS set_interface(libusb_device_t *dev,
                        int interface, int altsetting, int timeout);
 NTSTATUS get_interface(libusb_device_t *dev,
-                       int interface, unsigned char *altsetting, 
+                       int interface, unsigned char *altsetting,
                        int *ret, int timeout);
 NTSTATUS set_feature(libusb_device_t *dev,
                      int recipient, int index, int feature, int timeout);
@@ -188,17 +189,17 @@ NTSTATUS clear_feature(libusb_device_t *dev,
 NTSTATUS get_status(libusb_device_t *dev, int recipient,
                     int index, char *status, int *ret, int timeout);
 NTSTATUS set_descriptor(libusb_device_t *dev,
-                        void *buffer, int size, 
-                        int type, int recipient, int index, int language_id, 
+                        void *buffer, int size,
+                        int type, int recipient, int index, int language_id,
                         int *sent, int timeout);
-NTSTATUS get_descriptor(libusb_device_t *dev, void *buffer, int size, 
+NTSTATUS get_descriptor(libusb_device_t *dev, void *buffer, int size,
                         int type, int recipient, int index, int language_id,
                         int *received, int timeout);
 USB_CONFIGURATION_DESCRIPTOR *
 get_config_descriptor(libusb_device_t *dev, int value, int *size);
 
-NTSTATUS transfer(libusb_device_t *dev, IRP *irp, 
-                  int direction, int urb_function, int endpoint, 
+NTSTATUS transfer(libusb_device_t *dev, IRP *irp,
+                  int direction, int urb_function, int endpoint,
                   int packet_size, MDL *buffer, int size);
 
 NTSTATUS vendor_class_request(libusb_device_t *dev,
@@ -215,20 +216,20 @@ NTSTATUS claim_interface(libusb_device_t *dev, FILE_OBJECT *file_object,
                          int interface);
 NTSTATUS release_interface(libusb_device_t *dev, FILE_OBJECT *file_object,
                            int interface);
-NTSTATUS release_all_interfaces(libusb_device_t *dev, 
+NTSTATUS release_all_interfaces(libusb_device_t *dev,
                                 FILE_OBJECT *file_object);
 
 
-bool_t reg_get_hardware_id(DEVICE_OBJECT *physical_device_object, 
+bool_t reg_get_hardware_id(DEVICE_OBJECT *physical_device_object,
                            char *data, int size);
 bool_t reg_get_properties(libusb_device_t *dev);
 
 
-void power_set_device_state(libusb_device_t *dev, 
+void power_set_device_state(libusb_device_t *dev,
                             DEVICE_POWER_STATE device_state, bool_t block);
 
 USB_INTERFACE_DESCRIPTOR *
-find_interface_desc(USB_CONFIGURATION_DESCRIPTOR *config_desc, 
+find_interface_desc(USB_CONFIGURATION_DESCRIPTOR *config_desc,
                     unsigned int size, int interface_number, int altsetting);
 
 
