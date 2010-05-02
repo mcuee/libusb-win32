@@ -112,7 +112,7 @@ NTSTATUS DDKAPI add_device(DRIVER_OBJECT *driver_object,
 
         if (NT_SUCCESS(status))
         {
-            DEBUG_MESSAGE("add_device(): device #%d created", i);
+            DEBUG_MESSAGE("add_device(): device #%d created\n", i);
             break;
         }
 
@@ -123,7 +123,7 @@ NTSTATUS DDKAPI add_device(DRIVER_OBJECT *driver_object,
 
     if (!device_object)
     {
-        DEBUG_ERROR("add_device(): creating device failed");
+        DEBUG_ERROR("add_device(): creating device failed\n");
         return status;
     }
 
@@ -131,7 +131,7 @@ NTSTATUS DDKAPI add_device(DRIVER_OBJECT *driver_object,
 
     if (!NT_SUCCESS(status))
     {
-        DEBUG_ERROR("add_device(): creating symbolic link failed");
+        DEBUG_ERROR("add_device(): creating symbolic link failed\n");
         IoDeleteDevice(device_object);
         return status;
     }
@@ -141,54 +141,81 @@ NTSTATUS DDKAPI add_device(DRIVER_OBJECT *driver_object,
 
     memset(dev, 0, sizeof(libusb_device_t));
 
+	// [trobinso] See patch: 2873573 (Tim Green)
+	dev->self = device_object;
+	dev->physical_device_object = physical_device_object;
+	dev->id = i;
+
+	/* set initial power states */
+	dev->power_state.DeviceState = PowerDeviceD0;
+	dev->power_state.SystemState = PowerSystemWorking;
+
+	/* get device properties from the registry */
+	if (!reg_get_properties(dev))
+	{
+        DEBUG_ERROR("add_device(): getting device properties failed\n");
+	    IoDeleteSymbolicLink(&symbolic_link_name);
+        IoDeleteDevice(device_object);
+        return STATUS_SUCCESS;
+	}
+
+	clear_pipe_info(dev);
+
+	remove_lock_initialize(dev);
+	
+	// [trobinso] lock the device while we finish setting it up
+	//      Note: This should always return STATUS_SUCCESS at this point.
+	if (!NT_SUCCESS(remove_lock_acquire(dev)))
+	{
+        DEBUG_ERROR("add_device(): remove_lock_acquire failed\n");
+	    IoDeleteSymbolicLink(&symbolic_link_name);
+        IoDeleteDevice(device_object);
+        return STATUS_SUCCESS;
+	}
 
     /* attach the newly created device object to the stack */
-    dev->next_stack_device =
-        IoAttachDeviceToDeviceStack(device_object, physical_device_object);
+    dev->next_stack_device = IoAttachDeviceToDeviceStack(device_object, physical_device_object);
 
     if (!dev->next_stack_device)
     {
-        DEBUG_ERROR("add_device(): attaching to device stack failed");
+        DEBUG_ERROR("add_device(): attaching to device stack failed\n");
         IoDeleteSymbolicLink(&symbolic_link_name);
         IoDeleteDevice(device_object);
+		remove_lock_release(dev); // always release acquired locks
         return STATUS_NO_SUCH_DEVICE;
     }
 
-    dev->self = device_object;
-    dev->physical_device_object = physical_device_object;
-    dev->id = i;
-
-    /* set initial power states */
-    dev->power_state.DeviceState = PowerDeviceD0;
-    dev->power_state.SystemState = PowerSystemWorking;
-
-    /* get device properties from the registry */
-    reg_get_properties(dev);
-
-    if (dev->is_filter)
+	if (dev->is_filter)
     {
+        DEBUG_MESSAGE("add_device(): running in filter mode\n");
+
         /* send all USB requests to the PDO in filter driver mode */
         dev->target_device = dev->physical_device_object;
 
         /* use the same flags as the underlying object */
         device_object->Flags |= dev->next_stack_device->Flags
                                 & (DO_BUFFERED_IO | DO_DIRECT_IO | DO_POWER_PAGABLE);
+
+		// [trobinso] use the same DeviceType as the underlying object
+		device_object->DeviceType = dev->next_stack_device->DeviceType;
+
+		// [trobinso] use the same Characteristics as the underlying object
+		device_object->Characteristics = dev->next_stack_device->Characteristics;
     }
     else
     {
-        /* send all USB requests to the lower object in device driver mode */
-        dev->target_device = dev->next_stack_device;
+        DEBUG_MESSAGE("add_device(): running in normal mode\n");
 
+		 /* send all USB requests to the lower object in device driver mode */
+        dev->target_device = dev->next_stack_device;
         device_object->Flags |= DO_DIRECT_IO | DO_POWER_PAGABLE;
     }
 
-    clear_pipe_info(dev);
-
-    remove_lock_initialize(dev);
-
     device_object->Flags &= ~DO_DEVICE_INITIALIZING;
+	remove_lock_release(dev); // always release acquired locks
 
-    return status;
+    DEBUG_MESSAGE("add_device(): complete status=%08X\n",status);
+	return status;
 }
 
 
