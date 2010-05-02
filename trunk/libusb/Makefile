@@ -60,12 +60,12 @@ DATE = $(shell date +"%Y%m%d")
 DDK_MAKE_DIR = ./ddk_make
 
 TARGET = libusb
-DLL_TARGET = $(TARGET)$(VERSION_MAJOR)
+DLL_TARGET = $(TARGET)0
 LIB_TARGET = $(TARGET)
-DRIVER_TARGET = $(TARGET)$(VERSION_MAJOR).sys
+DRIVER_TARGET = $(TARGET)0.sys
 
-DLL_TARGET_X64 = $(TARGET)$(VERSION_MAJOR)_x64
-DRIVER_TARGET_X64 = $(TARGET)$(VERSION_MAJOR)_x64.sys
+DLL_TARGET_X64 = $(TARGET)0_x64
+DRIVER_TARGET_X64 = $(TARGET)0_x64.sys
 
 INSTALL_DIR = /usr
 DLL_OBJECTS = usb.o error.o descriptors.o windows.o resource.o install.o \
