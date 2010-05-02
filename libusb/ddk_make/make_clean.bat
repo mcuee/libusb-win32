@@ -14,9 +14,13 @@ if not OUTDIR=="" (
 )
 
 if exist .\output rmdir /s /q .\output
+
 if exist .\objchk_wxp_x86 rmdir /s /q .\objchk_wxp_x86
 if exist .\objchk_wnet_AMD64 rmdir /s /q .\objchk_wnet_AMD64
 if exist .\objchk_wnet_IA64 rmdir /s /q .\objchk_wnet_IA64
+if exist .\objchk_wxp_ia64 rmdir /s /q .\objchk_wxp_ia64
+if exist .\objchk_w2k_x86 rmdir /s /q .\objchk_w2k_x86
+
 if exist .\objfre_wxp_x86 rmdir /s /q .\objfre_wxp_x86
 if exist .\objfre_wnet_AMD64 rmdir /s /q .\objfre_wnet_AMD64
 if exist .\objfre_wnet_IA64 rmdir /s /q .\objfre_wnet_IA64
