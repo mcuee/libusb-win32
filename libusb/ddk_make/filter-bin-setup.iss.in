@@ -94,9 +94,9 @@ Name: {group}\Enable filter (admin only); Filename: {app}\bin\install-filter.exe
 Name: {group}\Disable filter (admin only); Filename: {app}\bin\install-filter.exe; Parameters: -u; Flags: createonlyiffileexists
 Name: "{group}\Test (Win) Program"; Filename: "{app}\bin\testlibusb-win.exe"; 
 Name: "{group}\INF Wizard"; Filename: "{app}\bin\inf-wizard.exe"; 
+Name: "{group}\License\GPL License"; Filename: "{app}\COPYING_GPL.txt"
+Name: "{group}\License\LGPL License"; Filename: "{app}\COPYING_LGPL.txt"
 Name: "{group}\Uninstall LibUsb-Win32"; Filename: "{uninstallexe}"
-Name: "{group}\GPL License"; Filename: "{app}\COPYING_GPL.txt"
-Name: "{group}\LGPL License"; Filename: "{app}\COPYING_LGPL.txt"
 
 [Run]
 Filename: "rundll32"; Parameters: "libusb0.dll,usb_install_service_np"; StatusMsg: Creating kernel service (this may take a few seconds) ...; Tasks: tasklibusb; 
