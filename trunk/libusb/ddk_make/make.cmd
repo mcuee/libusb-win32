@@ -77,17 +77,20 @@ IF NOT DEFINED CMDVAR_ARCH (
 CALL :CheckWinDDK pre
 IF "!BUILD_ERRORLEVEL!" NEQ "0" GOTO CMDERROR
 
+SET _FRE_OR_CHECK_=fre
+IF /I "!CMDVAR_DEBUGMODE!" equ "true" SET _FRE_OR_CHECK_=chk
+
 IF /I "!CMDVAR_ARCH!" EQU "x86" (
-	CALL :SetDDK "!CMDVAR_WINDDK_DIR!" normal fre WXP
+	CALL :SetDDK "!CMDVAR_WINDDK_DIR!" normal !_FRE_OR_CHECK_! WXP
 	IF !BUILD_ERRORLEVEL! NEQ 0 GOTO CMDERROR
 ) ELSE IF /I "!CMDVAR_ARCH!" EQU "x64" (
-	CALL :SetDDK "!CMDVAR_WINDDK_DIR!" normal fre x64 WNET
+	CALL :SetDDK "!CMDVAR_WINDDK_DIR!" normal !_FRE_OR_CHECK_! x64 WNET
 	IF !BUILD_ERRORLEVEL! NEQ 0 GOTO CMDERROR
 ) ELSE IF /I "!CMDVAR_ARCH!" EQU "i64" (
-	CALL :SetDDK "!CMDVAR_WINDDK_DIR!" normal fre 64 WNET
+	CALL :SetDDK "!CMDVAR_WINDDK_DIR!" normal !_FRE_OR_CHECK_! 64 WNET
 	IF !BUILD_ERRORLEVEL! NEQ 0 GOTO CMDERROR
 ) ELSE IF /I "!CMDVAR_ARCH!" EQU "w2k" (
-	CALL :SetDDK "!CMDVAR_WINDDK_W2K_DIR!" forceoacr fre W2K 
+	CALL :SetDDK "!CMDVAR_WINDDK_W2K_DIR!" forceoacr !_FRE_OR_CHECK_! W2K 
 	IF !BUILD_ERRORLEVEL! NEQ 0 GOTO CMDERROR
 ) ELSE (
 	ECHO Invalid argument. arch=!CMDVAR_ARCH!
@@ -133,6 +136,7 @@ GOTO :EOF
 	SET _title=Building libusb-win32 !_LIBUSB_APP! (!BUILD_ALT_DIR!)
 	title !_title!
 	CALL make_clean.bat
+	
 	CALL make_!_LIBUSB_APP!.bat
 
 	IF !ERRORLEVEL! NEQ 0 SET BUILD_ERRORLEVEL=!ERRORLEVEL!
@@ -690,6 +694,10 @@ ECHO [opt] WINDDK    WinDDK directory for WXP-WIN7 builds
 ECHO                 [Default = see make.cfg]
 ECHO [opt] WIN2KDDK  WinDDK directory for Windows 2000 builds
 ECHO                 [Default = see make.cfg]
+ECHO [opt] DEBUGMODE Setting this option to true will make chk builds instead of fre.
+                     This also enables kernel debug messages.
+ECHO                 [Default = false]
+
 ECHO.
 ECHO [Note: See make.cfg for more options that can be used when building]
 ECHO.

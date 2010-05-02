@@ -13,6 +13,7 @@ IF "%VERSION_NANO%"=="" SET VERSION_NANO=0
 
 IF EXIST "build%BUILD_ALT_DIR%.err" DEL /Q "build%BUILD_ALT_DIR%.err"
 SET ERRORLEVEL=0
+
 build %1 %2 %3 %4 %5 %6 %7 %8 %9
 IF EXIST "build%BUILD_ALT_DIR%.err" SET ERRORLEVEL=1
 
