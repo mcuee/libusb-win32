@@ -59,34 +59,34 @@ Name: tasklibusb; Flags:unchecked; Description: Enable libusb-win32 filter servi
 ; LibUsb-win32 x86 (Windows 2000)
 Source: @PACKAGE_BIN_DIR@w2k\libusb0.dll; DestDir: {sys}; Flags: uninsneveruninstall replacesameversion restartreplace promptifolder; onlybelowversion: 0,5.01.2600;
 Source: @PACKAGE_BIN_DIR@w2k\libusb0.sys; DestDir: {sys}\drivers; Flags: uninsneveruninstall replacesameversion restartreplace promptifolder; onlybelowversion: 0,5.01.2600;
-Source: @PACKAGE_BIN_DIR@w2k\inf-wizard.exe; DestDir: {app}\bin; Flags: ignoreversion recursesubdirs createallsubdirs; onlybelowversion: 0,5.01.2600;
-Source: @PACKAGE_BIN_DIR@w2k\install-filter.exe; DestDir: {app}\bin; Flags: ignoreversion recursesubdirs createallsubdirs; onlybelowversion: 0,5.01.2600;
-Source: @PACKAGE_BIN_DIR@w2k\*; DestDir: {app}\bin; Flags: createallsubdirs ignoreversion recursesubdirs; onlybelowversion: 0,5.01.2600;
+Source: @PACKAGE_BIN_DIR@w2k\install-filter.exe; DestDir: {app}\bin; Flags: ignoreversion; onlybelowversion: 0,5.01.2600;
 
 ; LibUsb-win32 x86 (XP and greater)
 Source: @PACKAGE_BIN_DIR@x86\libusb0.dll; DestDir: {sys}; Flags: uninsneveruninstall replacesameversion restartreplace promptifolder; minversion: 0,5.01.2600; Check: IsX86;
 Source: @PACKAGE_BIN_DIR@x86\libusb0.sys; DestDir: {sys}\drivers; Flags: uninsneveruninstall replacesameversion restartreplace promptifolder; minversion: 0,5.01.2600; Check: IsX86;
-Source: @PACKAGE_BIN_DIR@x86\inf-wizard.exe; DestDir: {app}\bin; Flags: ignoreversion recursesubdirs createallsubdirs; minversion: 0,5.01.2600; Check: IsX86;
-Source: @PACKAGE_BIN_DIR@x86\install-filter.exe; DestDir: {app}\bin; Flags: ignoreversion recursesubdirs createallsubdirs; minversion: 0,5.01.2600; Check: IsX86;
-Source: @PACKAGE_BIN_DIR@x86\*; DestDir: {app}\bin; Flags: createallsubdirs ignoreversion recursesubdirs; minversion: 0,5.01.2600; Check: IsX86;
+Source: @PACKAGE_BIN_DIR@x86\install-filter.exe; DestDir: {app}\bin; Flags: ignoreversion; minversion: 0,5.01.2600; Check: IsX86;
 
 ; LibUsb-win32 AMD 64bit
 Source: @PACKAGE_BIN_DIR@x86\libusb0.dll; DestDir: {syswow64}; Flags: uninsneveruninstall replacesameversion restartreplace promptifolder; Check: IsX64;
 Source: @PACKAGE_BIN_DIR@x64\libusb0.sys; DestDir: {sys}\drivers; Flags: uninsneveruninstall replacesameversion restartreplace promptifolder; Check: IsX64;
 Source: @PACKAGE_BIN_DIR@x64\libusb0.dll; DestDir: {sys}; Flags: uninsneveruninstall replacesameversion restartreplace promptifolder; Check: IsX64;
-Source: @PACKAGE_BIN_DIR@x64\inf-wizard.exe; DestDir: {app}\bin; Flags: ignoreversion recursesubdirs createallsubdirs; Check: IsX64;
 Source: @PACKAGE_BIN_DIR@x64\install-filter.exe; DestDir: {app}\bin; Flags: ignoreversion recursesubdirs createallsubdirs; Check: IsX64;
-Source: @PACKAGE_BIN_DIR@x64\*; DestDir: {app}\bin; Flags: createallsubdirs ignoreversion recursesubdirs; Check: IsX64;
 
 ; LibUsb-win32 Itanium 64bit
 Source: @PACKAGE_BIN_DIR@x86\libusb0.dll; DestDir: {syswow64}; Flags: uninsneveruninstall replacesameversion restartreplace promptifolder; Check: IsI64;
 Source: @PACKAGE_BIN_DIR@I64\libusb0.sys; DestDir: {sys}\drivers; Flags: uninsneveruninstall replacesameversion restartreplace promptifolder; Check: IsI64;
 Source: @PACKAGE_BIN_DIR@I64\libusb0.dll; DestDir: {sys}; Flags: uninsneveruninstall replacesameversion restartreplace promptifolder; Check: IsI64;
-Source: @PACKAGE_BIN_DIR@I64\inf-wizard.exe; DestDir: {app}\bin; Flags: ignoreversion recursesubdirs createallsubdirs; Check: IsI64;
 Source: @PACKAGE_BIN_DIR@I64\install-filter.exe; DestDir: {app}\bin; Flags: ignoreversion recursesubdirs createallsubdirs; Check: IsI64;
-Source: @PACKAGE_BIN_DIR@I64\*; DestDir: {app}\bin; Flags: createallsubdirs ignoreversion recursesubdirs; Check: IsI64;
 
-; Other Files
+; WXP-WIN7 (x86 runtimes)
+Source: @PACKAGE_BIN_DIR@x86\inf-wizard.exe; DestDir: {app}\bin; Flags: ignoreversion; minversion: 0,5.01.2600;
+Source: @PACKAGE_BIN_DIR@x86\testlibusb-win.exe; DestDir: {app}\bin; Flags: ignoreversion; minversion: 0,5.01.2600;
+
+; Windows 2000 (x86 runtimes)
+Source: @PACKAGE_BIN_DIR@w2k\inf-wizard.exe; DestDir: {app}\bin; Flags: ignoreversion; onlybelowversion: 0,5.01.2600;
+Source: @PACKAGE_BIN_DIR@w2k\testlibusb-win.exe; DestDir: {app}\bin; Flags: ignoreversion; onlybelowversion: 0,5.01.2600;
+
+; Text, Licenses
 Source: *.txt; DestDir: {app}; Flags: ignoreversion;
 
 [Icons] 
