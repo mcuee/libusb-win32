@@ -232,6 +232,16 @@ USB_INTERFACE_DESCRIPTOR *
 find_interface_desc(USB_CONFIGURATION_DESCRIPTOR *config_desc,
                     unsigned int size, int interface_number, int altsetting);
 
+/*
+Gets a device property for the device_object.
 
+Returns: NTSTATUS code from IoGetDeviceProperty 
+         STATUS_INVALID_PARAMETER
+*/
+NTSTATUS reg_get_device_property(PDEVICE_OBJECT device_object,
+							   int property, 
+							   char* data_buffer,
+							   int data_length,
+							   int* actual_length);
 
 #endif

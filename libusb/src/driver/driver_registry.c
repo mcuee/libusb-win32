@@ -132,3 +132,32 @@ bool_t reg_get_hardware_id(DEVICE_OBJECT *physical_device_object,
                             data, size);
 }
 
+/*
+Gets a device property for the device_object.
+
+Returns: NTSTATUS code from IoGetDeviceProperty 
+         STATUS_INVALID_PARAMETER
+*/
+NTSTATUS reg_get_device_property(PDEVICE_OBJECT device_object,
+							   int property, 
+							   char* data_buffer,
+							   int data_length,
+							   int* actual_length)
+{
+    ULONG ret;
+    ULONG i;
+	NTSTATUS status = STATUS_INVALID_PARAMETER;
+
+    if (!device_object || !data_buffer || !data_length || !actual_length)
+		return status;
+
+	// clear data
+    memset(data_buffer, 0, data_length);
+	*actual_length=0;
+
+	// get device property
+    status = IoGetDeviceProperty(
+		device_object, property, data_length, data_buffer, actual_length);
+
+    return status;
+}
