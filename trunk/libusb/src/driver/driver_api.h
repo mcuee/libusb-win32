@@ -100,6 +100,16 @@ enum
 #define LIBUSB_IOCTL_RELEASE_INTERFACE CTL_CODE(FILE_DEVICE_UNKNOWN,\
 0x816, METHOD_BUFFERED, FILE_ANY_ACCESS)
 
+/////////////////////////////////////////////////////////////////////////////
+// supported after 0.1.12.2
+/////////////////////////////////////////////////////////////////////////////
+
+// [trobinso] adds support for querying device properties
+#define LIBUSB_IOCTL_GET_DEVICE_PROPERTY CTL_CODE(FILE_DEVICE_UNKNOWN,\
+0x900, METHOD_BUFFERED, FILE_ANY_ACCESS)
+
+/////////////////////////////////////////////////////////////////////////////
+
 #include <pshpack1.h>
 
 
@@ -160,6 +170,10 @@ typedef struct
             unsigned int micro;
             unsigned int nano;
         } version;
+		struct
+		{
+			unsigned int property;
+		} device_property;
     };
 } libusb_request;
 
