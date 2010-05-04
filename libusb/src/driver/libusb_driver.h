@@ -139,6 +139,7 @@ typedef struct
     } config;
     POWER_STATE power_state;
     DEVICE_POWER_STATE device_power_states[PowerSystemMaximum];
+	int initial_config_value;
 } libusb_device_t;
 
 
