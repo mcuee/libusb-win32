@@ -32,8 +32,8 @@ Compression = lzma
 SolidCompression = yes
 OutputDir = .
 OutputBaseFilename = @PCKGNAME@
-; requires Win98SE, Win2k, or higher
-MinVersion = 4.1.2222, 5 
+; requires Win2k, or higher
+MinVersion = 0, 5.0.2195 
 PrivilegesRequired=admin
 
 [Code]
