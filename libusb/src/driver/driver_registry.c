@@ -161,3 +161,45 @@ NTSTATUS reg_get_device_property(PDEVICE_OBJECT device_object,
 
     return status;
 }
+
+/*
+Gets a property from the device registry key of the device_object.
+
+Returns: NTSTATUS from ZwQueryValueKey
+         NTSTATUS from IoOpenDeviceRegistryKey if the device registry
+		          key could not be opened.
+*/
+NTSTATUS reg_get_custom_property(PDEVICE_OBJECT device_object,
+								 char *data_buffer, 
+								 unsigned int data_length, 
+								 unsigned int name_offset, 
+								 int* actual_length)
+{
+    HANDLE key = NULL;
+    NTSTATUS status;
+    UNICODE_STRING name;
+    KEY_VALUE_FULL_INFORMATION *info;
+    ULONG length;
+
+    status = IoOpenDeviceRegistryKey(device_object, PLUGPLAY_REGKEY_DEVICE, KEY_READ, &key);
+    if (NT_SUCCESS(status))
+    {
+        RtlInitUnicodeString(&name, (WCHAR*)(&data_buffer[name_offset]));
+        length = sizeof(KEY_VALUE_FULL_INFORMATION) + name.MaximumLength + data_length;
+        info = ExAllocatePool(NonPagedPool, length);
+        if (info)
+        {
+            memset(info, 0, length);
+            status = ZwQueryValueKey(key, &name, KeyValueFullInformation, info, length, &length);
+            if (NT_SUCCESS(status))
+            {
+                data_length = (info->DataLength > data_length) ? data_length : info->DataLength;
+                memcpy(data_buffer, (((char *)info) + info->DataOffset),data_length);
+                *actual_length=data_length;
+            }
+            ExFreePool(info);
+        }
+        ZwClose(key);
+    }
+    return status;
+}
