@@ -148,7 +148,7 @@ static NTSTATUS DDKAPI
 on_start_complete(DEVICE_OBJECT *device_object, IRP *irp, void *context)
 {
     libusb_device_t *dev = device_object->DeviceExtension;
-
+	int configuration;
     if (irp->PendingReturned)
     {
         IoMarkIrpPending(irp);
@@ -160,6 +160,28 @@ on_start_complete(DEVICE_OBJECT *device_object, IRP *irp, void *context)
     }
 
     dev->is_started = TRUE;
+
+	// select initial configuration if not a filter
+	if (!dev->is_filter && !dev->config.value)
+	{
+		// optionally, the initial configuration value can be specified
+		// in the inf file. See reg_get_properties()
+		// HKR,,"InitialConfigValue",0x00010001,<your config value>
+		if (dev->initial_config_value < 0)
+			configuration = 1;
+		else if (dev->initial_config_value > 0) 
+			configuration = dev->initial_config_value;
+		else
+			configuration = 0;
+
+		if (configuration)
+		{
+			if(NT_SUCCESS(set_configuration(dev, configuration, 1000)))
+				DEBUG_MESSAGE("on_start_complete(): initial config value %u selected\n", dev->config.value);
+			else
+				DEBUG_ERROR("on_start_complete(): selecting configuration failed\n");
+		}
+	}
 
     remove_lock_release(dev);
 

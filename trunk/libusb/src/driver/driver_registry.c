@@ -24,7 +24,8 @@
 #define PLUGPLAY_REGKEY_DEVICE  1
 #endif
 
-#define LIBUSB_REG_SURPRISE_REMOVAL_OK L"SurpriseRemovalOK"
+#define LIBUSB_REG_SURPRISE_REMOVAL_OK	L"SurpriseRemovalOK"
+#define LIBUSB_REG_INITIAL_CONFIG_VALUE	L"InitialConfigValue"
 
 
 static bool_t reg_get_property(DEVICE_OBJECT *physical_device_object,
@@ -70,9 +71,12 @@ bool_t reg_get_properties(libusb_device_t *dev)
 {
     HANDLE key = NULL;
     NTSTATUS status;
-    UNICODE_STRING name;
+    UNICODE_STRING surprise_removal_ok_name;
+    UNICODE_STRING initial_config_value_name;
     KEY_VALUE_FULL_INFORMATION *info;
+    ULONG pool_length;
     ULONG length;
+	ULONG val;
 
     if (!dev->physical_device_object)
     {
@@ -82,6 +86,7 @@ bool_t reg_get_properties(libusb_device_t *dev)
     /* default settings */
     dev->surprise_removal_ok = FALSE;
     dev->is_filter = TRUE;
+	dev->initial_config_value = -1;
 
     status = IoOpenDeviceRegistryKey(dev->physical_device_object,
                                      PLUGPLAY_REGKEY_DEVICE,
@@ -89,26 +94,45 @@ bool_t reg_get_properties(libusb_device_t *dev)
                                      &key);
     if (NT_SUCCESS(status))
     {
-        RtlInitUnicodeString(&name, LIBUSB_REG_SURPRISE_REMOVAL_OK);
+        RtlInitUnicodeString(&surprise_removal_ok_name, 
+			LIBUSB_REG_SURPRISE_REMOVAL_OK);
 
-        length = sizeof(KEY_VALUE_FULL_INFORMATION) + name.MaximumLength
-                 + sizeof(ULONG);
+        RtlInitUnicodeString(&initial_config_value_name, 
+			LIBUSB_REG_INITIAL_CONFIG_VALUE);
 
-        info = ExAllocatePool(NonPagedPool, length);
+        pool_length = sizeof(KEY_VALUE_FULL_INFORMATION) + 256;
+
+        info = ExAllocatePool(NonPagedPool, pool_length);
 
         if (info)
         {
+			// get surprise_removal_ok
+			// get is_filter
+			length = pool_length;
             memset(info, 0, length);
 
-            status = ZwQueryValueKey(key, &name, KeyValueFullInformation,
-                                     info, length, &length);
+            status = ZwQueryValueKey(key, &surprise_removal_ok_name, 
+				KeyValueFullInformation, info, length, &length);
 
             if (NT_SUCCESS(status) && (info->Type == REG_DWORD))
             {
-                ULONG val = *((ULONG *)(((char *)info) + info->DataOffset));
+                val = *((ULONG *)(((char *)info) + info->DataOffset));
 
                 dev->surprise_removal_ok = val ? TRUE : FALSE;
                 dev->is_filter = FALSE;
+            }
+
+			// get initial_config_value
+			length = pool_length;
+            memset(info, 0, length);
+
+            status = ZwQueryValueKey(key, &initial_config_value_name,
+				KeyValueFullInformation, info, length, &length);
+
+            if (NT_SUCCESS(status) && (info->Type == REG_DWORD))
+            {
+                val = *((ULONG *)(((char *)info) + info->DataOffset));
+                dev->initial_config_value = (int)val;
             }
 
             ExFreePool(info);
