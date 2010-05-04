@@ -108,6 +108,9 @@ enum
 #define LIBUSB_IOCTL_GET_DEVICE_PROPERTY CTL_CODE(FILE_DEVICE_UNKNOWN,\
 0x900, METHOD_BUFFERED, FILE_ANY_ACCESS)
 
+#define LIBUSB_IOCTL_GET_CUSTOM_REG_PROPERTY CTL_CODE(FILE_DEVICE_UNKNOWN,\
+0x901, METHOD_BUFFERED, FILE_ANY_ACCESS)
+
 /////////////////////////////////////////////////////////////////////////////
 
 #include <pshpack1.h>
@@ -169,11 +172,19 @@ typedef struct
             unsigned int minor;
             unsigned int micro;
             unsigned int nano;
+			unsigned int mod_value;
         } version;
 		struct
 		{
 			unsigned int property;
 		} device_property;
+		struct
+		{
+			unsigned int key_type;
+			unsigned int name_offset;
+			unsigned int value_offset;
+			unsigned int value_length;
+		} device_registry_key;
     };
 } libusb_request;
 

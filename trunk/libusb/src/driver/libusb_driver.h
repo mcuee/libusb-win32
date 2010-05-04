@@ -244,4 +244,10 @@ NTSTATUS reg_get_device_property(PDEVICE_OBJECT device_object,
 							   int data_length,
 							   int* actual_length);
 
+NTSTATUS reg_get_custom_property(PDEVICE_OBJECT device_object,
+								 char *data_buffer, 
+								 unsigned int data_length, 
+								 unsigned int name_offset, 
+								 int* actual_length);
+
 #endif

@@ -279,6 +279,7 @@ NTSTATUS dispatch_ioctl(libusb_device_t *dev, IRP *irp)
         request->version.minor = VERSION_MINOR;
         request->version.micro = VERSION_MICRO;
         request->version.nano  = VERSION_NANO;
+		request->version.mod_value = 1;
 
         ret = sizeof(libusb_request);
         break;
@@ -322,19 +323,34 @@ NTSTATUS dispatch_ioctl(libusb_device_t *dev, IRP *irp)
                         request->endpoint.packet_size, transfer_buffer_mdl,
                         transfer_buffer_length);
 
-    case LIBUSB_IOCTL_GET_DEVICE_PROPERTY:
-        if (!request || output_buffer_length < sizeof(libusb_request))
-        {
-            DEBUG_ERROR("dispatch_ioctl(), get_device_property: invalid output buffer");
-            status = STATUS_INVALID_PARAMETER;
-            break;
-        }
-        status = reg_get_device_property(
+	case LIBUSB_IOCTL_GET_DEVICE_PROPERTY:
+		if (!request || output_buffer_length < sizeof(libusb_request))
+		{
+			DEBUG_ERROR("dispatch_ioctl(), get_device_property: invalid output buffer\n");
+			status = STATUS_INVALID_PARAMETER;
+			break;
+		}
+		status = reg_get_device_property(
 			dev->target_device,
 			request->device_property.property,
 			output_buffer, 
 			output_buffer_length, &ret);
-        break;
+		break;
+
+	case LIBUSB_IOCTL_GET_CUSTOM_REG_PROPERTY:
+		if (!input_buffer || (input_buffer_length < sizeof(libusb_request)))
+		{
+			DEBUG_ERROR("dispatch_ioctl(), get_custom_reg_property: invalid buffer\n");
+			status = STATUS_INVALID_PARAMETER;
+			break;
+		}
+		status=reg_get_custom_property(
+			dev->target_device, 
+			input_buffer, 
+			output_buffer_length, 
+			request->device_registry_key.name_offset, 
+			&ret);
+		break;
 
 	default:
 
