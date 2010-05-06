@@ -128,7 +128,10 @@ EXE_FILES = testlibusb.exe testlibusb-win.exe inf-wizard.exe install-filter.exe
 
 
 .PHONY: all
-all: $(DLL_TARGET).dll $(EXE_FILES) $(DRIVER_TARGET) README.txt
+all: manifest.txt $(DLL_TARGET).dll $(EXE_FILES) $(DRIVER_TARGET) README.txt
+
+manifest.txt: manifest.txt.in
+	sed -e 's/@BUILDARCH@/x86/' $< > $@
 
 $(DLL_TARGET).dll: $(DLL_OBJECTS)
 	$(CC) -o $@ $(DLL_OBJECTS) $(DLL_TARGET).def $(DLL_LDFLAGS)
@@ -161,7 +164,6 @@ testlibusb-win.exe: testlibusb_win.o testlibusb_win_rc.o
 
 README.txt: README.in
 	sed -e 's/@VERSION@/$(INST_VERSION)/' $< > $@
-
 
 .PHONY: bcc_implib
 bcc_lib:

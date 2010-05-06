@@ -23,6 +23,7 @@ GOTO BUILD_DONE
 
 :BUILD_SUCCESS
 call make_clean.bat
+if exist libusb.lib del /q libusb.lib
 if exist libusb0.lib move libusb0.lib libusb.lib
 
 :BUILD_DONE
