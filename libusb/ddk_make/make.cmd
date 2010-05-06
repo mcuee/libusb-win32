@@ -139,7 +139,6 @@ GOTO :EOF
 	
 	SET CMDVAR_BUILDARCH=!_BUILDARCH!
 	CALL :TagEnv ..\manifest.txt.in ..\manifest.txt
-	pause
 	CALL make_!_LIBUSB_APP!.bat
 
 	IF !ERRORLEVEL! NEQ 0 SET BUILD_ERRORLEVEL=!ERRORLEVEL!
