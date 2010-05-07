@@ -4,13 +4,14 @@ set SRC_DIR=..\src\driver
 
 call make_clean.bat
 
-copy sources_drv sources
+copy sources_drv sources >NUL
 
-copy %SRC_DIR%\*.c .
-copy %SRC_DIR%\*.h .
-copy %SRC_DIR%\*.rc .
-copy %SRC_DIR%\..\*.rc .
+copy %SRC_DIR%\*.c . >NUL
+copy %SRC_DIR%\*.h . >NUL
+copy %SRC_DIR%\*.rc . >NUL
+copy %SRC_DIR%\..\*.rc . >NUL
 
+ECHO Building (%BUILD_ALT_DIR%) driver..
 CALL build_ddk.bat
 IF %ERRORLEVEL%==0 GOTO BUILD_SUCCESS
 GOTO BUILD_ERROR

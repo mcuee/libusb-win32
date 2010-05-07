@@ -117,10 +117,10 @@ IF !ERRORLEVEL! NEQ 0 (
 	GOTO CMDERROR
 )
 
-IF EXIST *.sys MOVE /Y *.sys "!CMDVAR_OUTDIR!"
-IF EXIST *.dll MOVE /Y *.dll "!CMDVAR_OUTDIR!"
-IF EXIST *.exe MOVE /Y *.exe "!CMDVAR_OUTDIR!"
-IF EXIST *.lib COPY /Y *.lib "!CMDVAR_OUTDIR!"
+IF EXIST *.sys MOVE /Y *.sys "!CMDVAR_OUTDIR!" >NUL
+IF EXIST *.dll MOVE /Y *.dll "!CMDVAR_OUTDIR!" >NUL
+IF EXIST *.exe MOVE /Y *.exe "!CMDVAR_OUTDIR!" >NUL
+IF EXIST *.lib COPY /Y *.lib "!CMDVAR_OUTDIR!" >NUL
 
 CALL :DestroyErrorMarker
 
@@ -138,7 +138,6 @@ GOTO :EOF
 	CALL make_clean.bat
 	
 	SET CMDVAR_BUILDARCH=!_BUILDARCH!
-	CALL :TagEnv ..\manifest.txt.in ..\manifest.txt
 	CALL make_!_LIBUSB_APP!.bat
 
 	IF !ERRORLEVEL! NEQ 0 SET BUILD_ERRORLEVEL=!ERRORLEVEL!

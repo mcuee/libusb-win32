@@ -7,10 +7,10 @@ if exist .\output\amd64 set OUTDIR=.\output\amd64
 if exist .\output\ia64  set OUTDIR=.\output\ia64
 
 if not OUTDIR=="" (
-  if exist %OUTDIR%\*.exe copy /y %OUTDIR%\*.exe . %~1
-  if exist %OUTDIR%\*.dll copy /y %OUTDIR%\*.dll . %~1
-  if exist %OUTDIR%\*.lib copy /y %OUTDIR%\*.lib . %~1
-  if exist %OUTDIR%\*.sys copy /y %OUTDIR%\*.sys . %~1
+  if exist %OUTDIR%\*.exe copy /y %OUTDIR%\*.exe . >NUL
+  if exist %OUTDIR%\*.dll copy /y %OUTDIR%\*.dll . >NUL
+  if exist %OUTDIR%\*.lib copy /y %OUTDIR%\*.lib . >NUL
+  if exist %OUTDIR%\*.sys copy /y %OUTDIR%\*.sys . >NUL
 )
 
 if exist .\output rmdir /s /q .\output
@@ -32,7 +32,7 @@ if exist *.def del *.def
 if exist *.h del *.h 
 if exist *.c del *.c 
 if exist *.rc del *.rc 
-if exist manifest.txt del manifest.txt
+if exist manifest_*.xml del /q manifest_*.xml
 
 DEL /Q "..\*.o" "..\*.dll" "..\*.a" "..\*.exp" "..\*.lib" "..\*.exe" 2>NUL>NUL
 DEL /Q "..\*.tar.gz" "..\*.iss" "..\*.rc" "..\*.h" "..\*.sys" "..\*.log" 2>NUL>NUL
