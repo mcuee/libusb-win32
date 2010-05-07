@@ -53,6 +53,7 @@ VERSION = $(VERSION_MAJOR).$(VERSION_MINOR).$(VERSION_MICRO).$(VERSION_NANO)
 RC_VERSION = $(VERSION_MAJOR),$(VERSION_MINOR),$(VERSION_MICRO),$(VERSION_NANO)
 RC_VERSION_STR = '\"$(VERSION)\"'
 INST_VERSION = $(VERSION)
+MANIFEST_FILE = '\"manifest_x86.xml\"'
 
 INF_DATE = $(shell date +"%m/%d/%Y")
 DATE = $(shell date +"%Y%m%d")
@@ -103,6 +104,7 @@ CPPFLAGS = -DVERSION_MAJOR=$(VERSION_MAJOR) \
 	-DVERSION_NANO=$(VERSION_NANO) \
 	-DINF_DATE='$(INF_DATE)' \
 	-DINF_VERSION='$(VERSION)' \
+	-DMANIFEST_FILE='$(MANIFEST_FILE)' \
   -DDBG
 
 WINDRES_FLAGS = -I./src -DRC_VERSION='$(RC_VERSION)' \
@@ -128,10 +130,7 @@ EXE_FILES = testlibusb.exe testlibusb-win.exe inf-wizard.exe install-filter.exe
 
 
 .PHONY: all
-all: manifest.txt $(DLL_TARGET).dll $(EXE_FILES) $(DRIVER_TARGET) README.txt
-
-manifest.txt: manifest.txt.in
-	sed -e 's/@BUILDARCH@/x86/' $< > $@
+all: $(DLL_TARGET).dll $(EXE_FILES) $(DRIVER_TARGET) README.txt
 
 $(DLL_TARGET).dll: $(DLL_OBJECTS)
 	$(CC) -o $@ $(DLL_OBJECTS) $(DLL_TARGET).def $(DLL_LDFLAGS)
@@ -160,7 +159,7 @@ testlibusb-win.exe: testlibusb_win.o testlibusb_win_rc.o
 	$(CC) -c $< -o $@ $(CFLAGS) $(CPPFLAGS) $(INCLUDES) 
 
 %.o: %.rc
-	$(WINDRES) $(WINDRES_FLAGS) $< -o $@
+	$(WINDRES) $(CPPFLAGS) $(WINDRES_FLAGS) $< -o $@
 
 README.txt: README.in
 	sed -e 's/@VERSION@/$(INST_VERSION)/' $< > $@

@@ -11,7 +11,8 @@ C_DEFINES = /DVERSION_MAJOR=$(VERSION_MAJOR) /DVERSION_MINOR=$(VERSION_MINOR) \
             /DINF_VERSION=$(VERSION_MAJOR).$(VERSION_MINOR).$(VERSION_MICRO).$(VERSION_NANO) \
             /DRC_VERSION=$(VERSION_MAJOR),$(VERSION_MINOR),$(VERSION_MICRO),$(VERSION_NANO) \
             /DRC_VERSION_STR="\"$(VERSION_MAJOR).$(VERSION_MINOR).$(VERSION_MICRO).$(VERSION_NANO)\"" \
-            /Dvsnprintf=_vsnprintf
+            /Dvsnprintf=_vsnprintf \
+            /DMANIFEST_FILE="\"manifest_$(_BUILDARCH).xml\""       
 
 TARGETLIBS =  $(SDK_LIB_PATH)\setupapi.lib \
               $(SDK_LIB_PATH)\kernel32.lib \

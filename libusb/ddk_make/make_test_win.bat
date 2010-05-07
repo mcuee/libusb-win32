@@ -5,13 +5,14 @@ set SRC_DIR=..\src
 
 call make_clean.bat
 
-copy sources_test_win sources
-copy %TESTS_DIR%\testlibusb_win.c .
-copy %TESTS_DIR%\testlibusb_win_rc.rc .
-copy %SRC_DIR%\usb.h .
-copy %SRC_DIR%\*.rc .
-copy ..\manifest.txt
+copy sources_test_win sources >NUL
+copy %TESTS_DIR%\testlibusb_win.c . >NUL
+copy %TESTS_DIR%\testlibusb_win_rc.rc . >NUL
+copy %SRC_DIR%\usb.h . >NUL
+copy %SRC_DIR%\*.rc . >NUL
+copy ..\manifest_%_BUILDARCH%.xml . >NUL
 
+ECHO Building (%BUILD_ALT_DIR%) testlibusb-win app..
 CALL build_ddk.bat
 IF %ERRORLEVEL%==0 GOTO BUILD_SUCCESS
 GOTO BUILD_ERROR

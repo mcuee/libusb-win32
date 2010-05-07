@@ -23,4 +23,4 @@
 
 #include "common.rc"
 
-ID_MANIFEST RT_MANIFEST "manifest.txt"
+ID_MANIFEST RT_MANIFEST MANIFEST_FILE
