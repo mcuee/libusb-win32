@@ -106,10 +106,10 @@ Name: "{group}\License\LGPL License"; Filename: "{app}\COPYING_LGPL.txt"
 Name: "{group}\Uninstall LibUsb-Win32"; Filename: "{uninstallexe}"
 
 [Run]
-Filename: "rundll32"; Parameters: "libusb0.dll,usb_install_service_np"; StatusMsg: Creating kernel service (this may take a few seconds) ...; Tasks: tasklibusb; 
+Filename: "rundll32"; Parameters: "libusb0.dll,usb_install_service_np_rundll"; StatusMsg: Creating kernel service (this may take a few seconds) ...; Tasks: tasklibusb; 
 
 [UninstallRun]
-Filename: "rundll32"; Parameters: "libusb0.dll,usb_uninstall_service_np"; 
+Filename: "rundll32"; Parameters: "libusb0.dll,usb_uninstall_service_np_rundll"; 
 
 [Messages]
 StatusUninstalling=Removing filter and uninstalling %1...
