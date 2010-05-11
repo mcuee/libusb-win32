@@ -172,7 +172,7 @@ bool_t usb_registry_get_property(DWORD which, HDEVINFO dev_info,
 
         if (reg_key == INVALID_HANDLE_VALUE)
         {
-            USBERR0("reading registry key failed");
+            USBERR0("reading registry key failed\n");
             return FALSE;
         }
 
@@ -266,7 +266,7 @@ bool_t usb_registry_set_property(DWORD which, HDEVINFO dev_info,
 
         if (reg_key == INVALID_HANDLE_VALUE)
         {
-            USBERR0("reading registry key failed");
+            USBERR0("reading registry key failed\n");
             return FALSE;
         }
 
@@ -311,6 +311,8 @@ bool_t usb_registry_insert_class_filter(void)
         USBERR0("unable to retrieve class keys\n");
         return FALSE;
     }
+
+	USBDBG0("\n");
 
     key = keys;
 
@@ -363,6 +365,8 @@ bool_t usb_registry_remove_class_filter(void)
     }
 
     key = keys;
+	
+	USBDBG0("\n");
 
     while (key)
     {
@@ -377,7 +381,7 @@ bool_t usb_registry_remove_class_filter(void)
 
                 usb_registry_set_mz_value(key->name, "UpperFilters", buf,
                                           usb_registry_mz_string_size(buf));
-            }
+           }
         }
 
         key = key->next;
@@ -405,9 +409,10 @@ bool_t usb_registry_remove_device_filter(void)
 
     if (dev_info == INVALID_HANDLE_VALUE)
     {
-        USBERR0("getting device info set failed");
+        USBERR0("getting device info set failed\n");
         return FALSE;
     }
+	USBMSG0("removing device upper and lower filter(s)\n");
 
     while (SetupDiEnumDeviceInfo(dev_info, dev_index, &dev_info_data))
     {
@@ -421,7 +426,7 @@ bool_t usb_registry_remove_device_filter(void)
             if (usb_registry_mz_string_find(filters, driver_name))
             {
                 int size;
-				USBMSG("removing upper filter from driver %s\n", (char*)driver_name);
+				USBMSG("removing device upper filter %s\n", (char*)driver_name);
 
                 usb_registry_mz_string_remove(filters, driver_name);
                 size = usb_registry_mz_string_size(filters);
@@ -441,7 +446,7 @@ bool_t usb_registry_remove_device_filter(void)
             if (usb_registry_mz_string_find(filters, driver_name))
             {
                 int size;
-				USBMSG("removing lower filter from driver %s\n", driver_name);
+				USBMSG("removing device lower filter %s\n", driver_name);
                 usb_registry_mz_string_remove(filters, driver_name);
                 size = usb_registry_mz_string_size(filters);
 
@@ -476,14 +481,14 @@ static bool_t usb_registry_set_device_state(DWORD state, HDEVINFO dev_info,
                                       (SP_CLASSINSTALL_HEADER *)&prop_params,
                                       sizeof(SP_PROPCHANGE_PARAMS)))
     {
-        USBERR0("setting class install parameters failed");
+        USBERR0("setting class install parameters failed\n");
         return FALSE;
     }
 
 
     if (!SetupDiCallClassInstaller(DIF_PROPERTYCHANGE, dev_info, dev_info_data))
     {
-        USBERR0("calling class installer failed");
+        USBERR0("calling class installer failed\n");
         return FALSE;
     }
 
@@ -546,10 +551,10 @@ void usb_registry_stop_libusb_devices(void)
 
     if (dev_info == INVALID_HANDLE_VALUE)
     {
-        USBERR0("getting device info set failed");
+        USBERR0("getting device info set failed\n");
         return;
     }
-
+	USBDBG0("\n");
     while (SetupDiEnumDeviceInfo(dev_info, dev_index, &dev_info_data))
     {
         if (usb_registry_is_service_libusb(dev_info, &dev_info_data))
@@ -576,10 +581,10 @@ void usb_registry_start_libusb_devices(void)
 
     if (dev_info == INVALID_HANDLE_VALUE)
     {
-        USBERR0("getting device info set failed");
+        USBERR0("getting device info set failed\n");
         return;
     }
-
+	USBDBG0("\n");
     while (SetupDiEnumDeviceInfo(dev_info, dev_index, &dev_info_data))
     {
         if (usb_registry_is_service_libusb(dev_info, &dev_info_data))
@@ -592,16 +597,27 @@ void usb_registry_start_libusb_devices(void)
     SetupDiDestroyDeviceInfoList(dev_info);
 }
 
+bool_t usb_registry_get_hardware_id(HDEVINFO dev_info, 
+									SP_DEVINFO_DATA *dev_info_data, 
+									char* max_path_buffer)
+{
+    if (!usb_registry_get_property(SPDRP_HARDWAREID, dev_info, dev_info_data, 
+		max_path_buffer, MAX_PATH-1))
+    {
+        USBWRN0("failed\n");
+        return FALSE;
+    }
+	max_path_buffer[MAX_PATH-1]='\0';
+	USBDBG("%s\n",max_path_buffer);
+	return TRUE;
+}
 
 bool_t usb_registry_match(HDEVINFO dev_info,
                           SP_DEVINFO_DATA *dev_info_data)
 {
     char tmp[MAX_PATH];
-
-    if (!usb_registry_get_property(SPDRP_HARDWAREID, dev_info, dev_info_data,
-                                   tmp, sizeof(tmp)))
+	if (!usb_registry_get_hardware_id(dev_info, dev_info_data, tmp))
     {
-        USBERR0("getting hardware id failed");
         return FALSE;
     }
 
@@ -614,6 +630,7 @@ bool_t usb_registry_match(HDEVINFO dev_info,
     {
         return FALSE;
     }
+	USBDBG("hardware id %s\n",tmp);
 
     return TRUE;
 }
@@ -844,20 +861,19 @@ bool_t usb_registry_restart_all_devices(void)
 
     if (dev_info == INVALID_HANDLE_VALUE)
     {
-        USBERR0("getting device info set failed");
+        USBERR0("getting device info set failed\n");
         return FALSE;
     }
 
+	USBDBG0("\n");
+
     while (SetupDiEnumDeviceInfo(dev_info, dev_index, &dev_info_data))
     {
-        if (!usb_registry_get_property(SPDRP_HARDWAREID, dev_info,
-                                       &dev_info_data, id, sizeof(id)))
+        if (!usb_registry_get_hardware_id(dev_info, &dev_info_data, id))
         {
-            USBERR0("getting hardware id failed");
             dev_index++;
             continue;
         }
-
         usb_registry_mz_string_lower(id);
 
         /* restart root hubs */
@@ -920,7 +936,7 @@ usb_class_key_t *usb_registry_get_usb_class_keys(void)
 
     if (dev_info == INVALID_HANDLE_VALUE)
     {
-        USBERR0("getting device info set failed");
+        USBERR0("getting device info set failed\n");
         return NULL;
     }
 
@@ -932,7 +948,7 @@ usb_class_key_t *usb_registry_get_usb_class_keys(void)
                                            &dev_info_data,
                                            class, sizeof(class)))
             {
-                USBERR0("getting hardware id failed");
+                USBWRN0("unable to get class guid\n");
                 dev_index++;
                 continue;
             }

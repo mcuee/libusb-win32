@@ -23,6 +23,7 @@
 #include "libusb_version.h"
 
 void usage(void);
+const char* get_argument(char **argv, int argc, const char* arg);
 
 void usage(void)
 {
@@ -30,7 +31,19 @@ void usage(void)
             "Options:\n"
             "-h  prints this help message\n"
             "-i  installs the filter driver\n"
-            "-u  uninstalls the filter driver\n");
+            "-u  uninstalls the filter driver\n"
+            "-v  verbose mode\n");
+}
+const char* get_argument(char **argv, int argc, const char* arg)
+{
+	int pos=0;
+	while(pos < argc)
+	{
+		if (strstr(argv[pos],arg)==argv[pos])
+			return argv[pos];
+		pos++;
+	}
+	return NULL;
 }
 
 int main(int argc, char **argv)
@@ -38,9 +51,13 @@ int main(int argc, char **argv)
 	usb_log_set_level(LOG_INFO);
 	USBRAWMSG("\nLIBUSB-WIN32 (v%u.%u.%u.%u)\n",VERSION_MAJOR,VERSION_MINOR,VERSION_MICRO,VERSION_NANO);
 
-    if (argc == 2)
+    if (argc >= 2)
     {
-        if (!strcmp(argv[1], "-i"))
+
+		if (get_argument(argv,argc,"-v"))
+			usb_log_set_level(LOG_DEBUG);
+
+        if (get_argument(argv,argc, "-i"))
         {
 			USBRAWMSG0("This could take up to 20 seconds to complete.\n");
 			USBRAWMSG0("During this time USB devices may stop responding.\n");
@@ -49,7 +66,7 @@ int main(int argc, char **argv)
             return 0;
         }
 
-        if (!strcmp(argv[1], "-u"))
+        if (get_argument(argv,argc, "-u"))
         {
 			USBRAWMSG0("This could take up to 20 seconds to complete.\n");
 			USBRAWMSG0("During this time USB devices may stop responding.\n");

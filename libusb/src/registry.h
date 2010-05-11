@@ -77,4 +77,7 @@ bool_t usb_registry_mz_string_insert(char *src, const char *str);
 bool_t usb_registry_mz_string_remove(char *src, const char *str);
 void usb_registry_mz_string_lower(char *src);
 
+bool_t usb_registry_get_hardware_id(HDEVINFO dev_info, 
+									SP_DEVINFO_DATA *dev_info_data, 
+									char* max_path_buffer);
 #endif

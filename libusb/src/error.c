@@ -18,6 +18,7 @@
 #define LOG_APPNAME "unknown"
 #endif
 
+
 void usb_err_v	(const char* function, const char* format, va_list args);
 void usb_wrn_v	(const char* function, const char* format, va_list args);
 void usb_msg_v	(const char* function, const char* format, va_list args);
@@ -30,6 +31,9 @@ void _usb_log_v	(enum USB_LOG_LEVEL level, const char* app_name, const char* fun
 static void output_debug_string(const char *s, ...);
 static void WINAPI usb_log_def_handler(enum USB_LOG_LEVEL level, const char* message);
 
+#define STRIP_PREFIX(stringSrc, stringPrefix) \
+	(strstr(stringSrc,stringPrefix)==stringSrc?stringSrc+strlen(stringPrefix):stringSrc)
+
 static const char *log_level_string[LOG_LEVEL_MAX+1] =
 {
     "off",
@@ -41,11 +45,20 @@ static const char *log_level_string[LOG_LEVEL_MAX+1] =
     "unknown",
 };
 
+static const char *skipped_function_prefix_list[] =
+{
+    "usb_registry_",
+    "usb_",
+	NULL
+};
+
 char usb_error_str[LOGBUF_SIZE] = "";
 int usb_error_errno = 0;
 int __usb_log_level = LOG_OFF;
 usb_error_type_t usb_error_type = USB_ERROR_TYPE_NONE;
 usb_log_handler_t log_handler = NULL;
+
+const char** skipped_function_prefix = skipped_function_prefix_list;
 
 /* prints a message to the Windows debug system */
 /*
@@ -119,7 +132,7 @@ void usb_message(char *format, ...)
 /* returns Windows' last error in a human readable form */
 const char *usb_win_error_to_string(void)
 {
-    static char tmp[512];
+    static char tmp[LOGBUF_SIZE];
 
     FormatMessage(FORMAT_MESSAGE_FROM_SYSTEM, NULL, GetLastError(),
                   LANG_USER_DEFAULT, tmp, sizeof(tmp) - 1, NULL);
@@ -231,6 +244,7 @@ void _usb_log_v(enum USB_LOG_LEVEL level,
     const char* func;
     char* buffer;
     int masked_level = level & LOG_LEVEL_MASK;
+	const char** skip_list;
 
     if (__usb_log_level < masked_level && masked_level != LOG_ERROR) return;
     buffer = local_buffer;
@@ -251,17 +265,20 @@ void _usb_log_v(enum USB_LOG_LEVEL level,
     else
     {
         prefix = log_level_string[masked_level];
+		func = function;
 
-		if (function)
+		if (func)
 		{
-			// strip the usb_ prefix to shorten function names
-			if (strstr(function, "usb_")==function)
-				func = (const char*)function + 4;
-			else
-				func = function;
+			// strip some prefixes to shorten function names
+			skip_list=skipped_function_prefix;
+			while(*skip_list && ((func)) && func[0])
+			{
+				func = STRIP_PREFIX(func,skip_list[0]);
+				skip_list++;
+			}
 		}
-		else
-			func="none";
+
+		if(!func) func="none";
 
         // print app name, level string and short function name
         count = _snprintf(buffer, (LOGBUF_SIZE-1), "%s:%s [%s] ", app_name, prefix, func);
