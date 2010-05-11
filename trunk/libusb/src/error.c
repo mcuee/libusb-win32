@@ -14,12 +14,32 @@
 #include "error.h"
 
 #ifndef LOG_APPNAME
-#warning The LOG_APPNAME preprocessor must be defined to use error.c in an application.
+#warning The LOG_APPNAME preprocessor not defined
 #define LOG_APPNAME "unknown"
 #endif
 
+void usb_err_v	(const char* function, const char* format, va_list args);
+void usb_wrn_v	(const char* function, const char* format, va_list args);
+void usb_msg_v	(const char* function, const char* format, va_list args);
+void usb_dbg_v	(const char* function, const char* format, va_list args);
+
+void usb_log_v	(enum USB_LOG_LEVEL level, const char* function, const char* format, va_list args);
+void _usb_log	(enum USB_LOG_LEVEL level, const char* app_name, const char* function, const char* format, ...);
+void _usb_log_v	(enum USB_LOG_LEVEL level, const char* app_name, const char* function, const char* format, va_list args);
+
 static void output_debug_string(const char *s, ...);
 static void WINAPI usb_log_def_handler(enum USB_LOG_LEVEL level, const char* message);
+
+static const char *log_level_string[LOG_LEVEL_MAX+1] =
+{
+    "off",
+    "error",
+    "warning",
+    "info",
+    "debug",
+
+    "unknown",
+};
 
 char usb_error_str[LOGBUF_SIZE] = "";
 int usb_error_errno = 0;
@@ -28,6 +48,7 @@ usb_error_type_t usb_error_type = USB_ERROR_TYPE_NONE;
 usb_log_handler_t log_handler = NULL;
 
 /* prints a message to the Windows debug system */
+/*
 static void output_debug_string(const char *s, ...)
 {
     char tmp[512];
@@ -37,6 +58,7 @@ static void output_debug_string(const char *s, ...)
     va_end(args);
     OutputDebugStringA(tmp);
 }
+*/
 
 char *usb_strerror(void)
 {
@@ -56,7 +78,7 @@ char *usb_strerror(void)
 
     return "Unknown error";
 }
-
+/*
 void usb_error(char *format, ...)
 {
     va_list args;
@@ -74,7 +96,9 @@ void usb_error(char *format, ...)
         output_debug_string("LIBUSB_DLL: error: %s\n", usb_error_str);
     }
 }
+*/
 
+/*
 void usb_message(char *format, ...)
 {
     char tmp[512];
@@ -91,7 +115,7 @@ void usb_message(char *format, ...)
         output_debug_string("LIBUSB_DLL: info: %s\n", tmp);
     }
 }
-
+*/
 /* returns Windows' last error in a human readable form */
 const char *usb_win_error_to_string(void)
 {
@@ -194,70 +218,92 @@ void _usb_log(enum USB_LOG_LEVEL level, const char* app_name, const char* functi
     va_end(args);
 }
 
-void _usb_log_v(enum USB_LOG_LEVEL level, 
-				const char* app_name, 
-				const char* function, 
-				const char* format, 
-				va_list args)
+void _usb_log_v(enum USB_LOG_LEVEL level,
+                const char* app_name,
+                const char* function,
+                const char* format,
+                va_list args)
 {
 
-    char buffer[LOGBUF_SIZE];
-    int size1, size2;
+    char local_buffer[LOGBUF_SIZE];
+    int totalCount, count;
     const char* prefix;
+    const char* func;
+    char* buffer;
+    int masked_level = level & LOG_LEVEL_MASK;
 
-    if (__usb_log_level < level && level != LOG_ERROR) return;
+    if (__usb_log_level < masked_level && masked_level != LOG_ERROR) return;
+    buffer = local_buffer;
+    totalCount = 0;
+    count = 0;
 
-    switch (level & LOG_LEVEL_MASK)
+    if (masked_level > LOG_LEVEL_MAX) masked_level = LOG_LEVEL_MAX;
+
+    if ((level & LOG_RAW) == LOG_RAW)
     {
-    case LOG_INFO:
-        prefix = "info";
-        break;
-    case LOG_WARNING:
-        prefix = "warning";
-        break;
-    case LOG_ERROR:
-        prefix = "error";
-        break;
-    case LOG_DEBUG:
-        prefix = "debug";
-        break;
-    default:
-        prefix = "unknown";
-        break;
-    }
-
-    size1 = _snprintf(buffer, LOGBUF_SIZE, "%s:%s [%s] ", app_name, prefix, function);
-    size2 = 0;
-    if (size1 < 0)
-    {
-        buffer[LOGBUF_SIZE-1] = 0;
-        size1 = LOGBUF_SIZE - 1;
+        count = _vsnprintf(buffer, LOGBUF_SIZE, format, args);
+        if (count > 0)
+        {
+            buffer += count;
+            totalCount += count;
+        }
     }
     else
     {
-        size2 = _vsnprintf(buffer + size1, LOGBUF_SIZE - size1, format, args);
-        if (size2 < 0)
+        prefix = log_level_string[masked_level];
+
+		if (function)
+		{
+			// strip the usb_ prefix to shorten function names
+			if (strstr(function, "usb_")==function)
+				func = (const char*)function + 4;
+			else
+				func = function;
+		}
+		else
+			func="none";
+
+        // print app name, level string and short function name
+        count = _snprintf(buffer, (LOGBUF_SIZE-1), "%s:%s [%s] ", app_name, prefix, func);
+        if (count > 0)
         {
-            buffer[LOGBUF_SIZE-1] = 0;
-            size2 = LOGBUF_SIZE - 1 - size1;
+            buffer += count;
+            totalCount += count;
+            count = _vsnprintf(buffer, (LOGBUF_SIZE-1) - totalCount, format, args);
+            if (count > 0)
+            {
+                buffer += count;
+                totalCount += count;
+            }
         }
     }
+    if (count < 0)
+        totalCount = LOGBUF_SIZE - 1;
 
-	if (level == LOG_ERROR)
-		memcpy(usb_error_str,buffer,size1+size2);
+    // make sure its null terminated
+    local_buffer[totalCount] = 0;
 
-    if (__usb_log_level >= level)
+    if (masked_level == LOG_ERROR)
     {
+        // if this is an error message then store it
+        strncpy(usb_error_str, local_buffer, totalCount);
+        usb_error_str[totalCount] = '\0';
+        usb_error_type = USB_ERROR_TYPE_STRING;
+    }
+
+    if (__usb_log_level >= masked_level)
+    {
+        // if a custom log handler has been set; use it.
         if (log_handler)
-            log_handler(level, buffer);
+            log_handler(level, local_buffer);
         else
-            usb_log_def_handler(level, buffer);
+            usb_log_def_handler(level, local_buffer);
     }
 }
 
 void usb_log_set_level(enum USB_LOG_LEVEL level)
 {
-    __usb_log_level = level;
+    __usb_log_level = level > LOG_LEVEL_MAX ? LOG_LEVEL_MAX : level;
 }
 
 int usb_log_get_level()
@@ -265,27 +311,32 @@ int usb_log_get_level()
     return __usb_log_level;
 }
 
+/* Sets the custom log handler that is called what a new log entry arrives.
+*  NOTE: Pass NULL to use the default handler.
+*/
 void usb_log_set_handler(usb_log_handler_t handler)
 {
     log_handler = handler;
 }
 
+/* Gets the custom log handler that was set with usb_log_set_handler().
+*  NOTE: this function will not return the default handler.
+*/
 usb_log_handler_t usb_log_get_handler()
 {
     return log_handler;
 }
 
+/* Default log handler routine.
+*/
 static void WINAPI usb_log_def_handler(enum USB_LOG_LEVEL level, const char* message)
 {
-    FILE* stream = stdout;
-
-    if (level == LOG_ERROR)
-        stream = stderr;
+    FILE* stream = stderr;
 
     fprintf(stream, message);
     fflush(stream);
-#if DEBUG
-	OutputDebugStringA(message)
+#ifdef DBG
+    OutputDebugStringA(message)
 #endif
 
 }

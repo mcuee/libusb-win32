@@ -8,6 +8,18 @@
 
 #define LOGBUF_SIZE 1024
 
+#define USBMSG(format,...) usb_msg(__FUNCTION__,format,__VA_ARGS__)
+#define USBERR(format,...) usb_err(__FUNCTION__,format,__VA_ARGS__)
+#define USBWRN(format,...) usb_wrn(__FUNCTION__,format,__VA_ARGS__)
+#define USBDBG(format,...) usb_dbg(__FUNCTION__,format,__VA_ARGS__)
+#define USBRAWMSG(format,...) usb_log(LOG_INFO|LOG_RAW,__FUNCTION__,format,__VA_ARGS__)
+
+#define USBMSG0(format) usb_msg(__FUNCTION__,format,NULL)
+#define USBERR0(format) usb_err(__FUNCTION__,format,NULL)
+#define USBWRN0(format) usb_wrn(__FUNCTION__,format,NULL)
+#define USBDBG0(format) usb_dbg(__FUNCTION__,format,NULL)
+#define USBRAWMSG0(format) usb_log(LOG_INFO|LOG_RAW,__FUNCTION__,format,NULL)
+
 typedef enum
 {
     USB_ERROR_TYPE_NONE = 0,
@@ -23,7 +35,11 @@ enum USB_LOG_LEVEL
 	LOG_WARNING,
 	LOG_INFO,
 	LOG_DEBUG,
-	LOG_LEVEL_MASK=0xff
+
+	LOG_LEVEL_MAX,
+	LOG_LEVEL_MASK=0xff,
+	LOG_RAW=0x100
+
 };
 
 typedef void (WINAPI * usb_log_handler_t)(enum USB_LOG_LEVEL, const char*);
@@ -43,15 +59,7 @@ void usb_err	(const char* function, const char* format, ...);
 void usb_wrn	(const char* function, const char* format, ...);
 void usb_msg	(const char* function, const char* format, ...);
 void usb_dbg	(const char* function, const char* format, ...);
-void usb_err_v	(const char* function, const char* format, va_list args);
-void usb_wrn_v	(const char* function, const char* format, va_list args);
-void usb_msg_v	(const char* function, const char* format, va_list args);
-void usb_dbg_v	(const char* function, const char* format, va_list args);
-
 void usb_log	(enum USB_LOG_LEVEL level, const char* function, const char* format, ...);
-void usb_log_v	(enum USB_LOG_LEVEL level, const char* function, const char* format, va_list args);
-void _usb_log	(enum USB_LOG_LEVEL level, const char* app_name, const char* function, const char* format, ...);
-void _usb_log_v	(enum USB_LOG_LEVEL level, const char* app_name, const char* function, const char* format, va_list args);
 
 #endif /* _ERROR_H_ */
 
