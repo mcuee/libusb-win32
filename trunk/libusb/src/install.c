@@ -139,13 +139,18 @@ int usb_install_service_np(void)
                   "LibUsb-Win32 - Kernel Driver, Version %d.%d.%d.%d",
                   VERSION_MAJOR, VERSION_MINOR, VERSION_MICRO, VERSION_NANO);
 
- 		USBMSG("creating nt kernel service %s\n",display_name);
-
        /* create the kernel service */
         if (!usb_service_create(LIBUSB_DRIVER_NAME_NT, display_name,
                                 LIBUSB_DRIVER_PATH,
                                 SERVICE_KERNEL_DRIVER, SERVICE_DEMAND_START))
+		{
+ 			USBERR("failed creating service %s\n",display_name);
             ret = -1;
+		}
+		else
+		{
+			USBMSG("created service %s\n",display_name);
+		}
     }
 
     /* restart devices that are handled by libusb's device driver */
@@ -157,9 +162,10 @@ int usb_install_service_np(void)
     /* restart the whole USB system so that the new drivers will be loaded */
     usb_registry_restart_all_devices();
 
+	USBMSG0("done.\n");
     return ret;
 }
-#define FNAME(relpath)
+
 int usb_uninstall_service_np(void)
 {
     HANDLE win;
@@ -168,8 +174,6 @@ int usb_uninstall_service_np(void)
     /* older version of libusb used a system service, just remove it */
     if (usb_registry_is_nt())
     {
-		USBMSG("deleting nt kernel service %s\n",LIBUSB_OLD_SERVICE_NAME_NT);
-		//usb_msg(__FUNCTION__,"deleting nt kernel service %s\n",LIBUSB_OLD_SERVICE_NAME_NT);
         usb_service_stop(LIBUSB_OLD_SERVICE_NAME_NT);
         usb_service_delete(LIBUSB_OLD_SERVICE_NAME_NT);
     }
@@ -205,6 +209,8 @@ int usb_uninstall_service_np(void)
 
     /* unload filter drivers */
     usb_registry_restart_all_devices();
+	
+	USBMSG0("done.\n");
 
     return 0;
 }
@@ -410,7 +416,7 @@ bool_t usb_service_load_dll()
 
         if (!advapi32_dll)
         {
-            USBERR0("loading DLL advapi32.dll failed");
+            USBERR0("loading DLL advapi32.dll failed\n");
             return FALSE;
         }
 
@@ -804,7 +810,7 @@ int usb_install_needs_restart_np(void)
 
     if (dev_info == INVALID_HANDLE_VALUE)
     {
-        USBERR0("getting device info set failed");
+        USBERR0("getting device info set failed\n");
         return ret;
     }
 
@@ -818,7 +824,7 @@ int usb_install_needs_restart_np(void)
         {
             if (install_params.Flags & (DI_NEEDRESTART | DI_NEEDREBOOT))
             {
-                USBMSG0("restart needed");
+                USBMSG0("restart needed\n");
                 ret = TRUE;
             }
         }
