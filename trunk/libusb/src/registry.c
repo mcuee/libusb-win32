@@ -94,7 +94,6 @@ static bool_t usb_registry_add_class_key(usb_class_key_t **head,
         const char *key);
 static bool_t usb_registry_free_class_keys(usb_class_key_t **head);
 
-
 bool_t usb_registry_is_nt(void)
 {
     return GetVersion() < 0x80000000 ? TRUE : FALSE;
@@ -430,6 +429,8 @@ bool_t usb_registry_remove_device_filter(void)
             if (usb_registry_mz_string_find(filters, driver_name))
             {
                 int size;
+				usb_msg("remove_device_filter","removing upper filter from driver %s\n", (char*)driver_name);
+
                 usb_registry_mz_string_remove(filters, driver_name);
                 size = usb_registry_mz_string_size(filters);
 
@@ -448,6 +449,7 @@ bool_t usb_registry_remove_device_filter(void)
             if (usb_registry_mz_string_find(filters, driver_name))
             {
                 int size;
+				usb_msg("remove_device_filter","removing lower filter from driver %s\n", driver_name);
                 usb_registry_mz_string_remove(filters, driver_name);
                 size = usb_registry_mz_string_size(filters);
 

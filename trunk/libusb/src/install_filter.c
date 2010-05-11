@@ -15,9 +15,12 @@
  * License along with this library; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
+#define LOG_APPNAME "install-filter"
 
 #include <stdio.h>
 #include "usb.h"
+#include "error.h"
+#include "libusb_version.h"
 
 void usage(void);
 
@@ -44,6 +47,8 @@ void print_user_status(char* install_type)
 
 int main(int argc, char **argv)
 {
+	usb_log_set_level(LOG_INFO);
+
     if (argc == 2)
     {
         if (!strcmp(argv[1], "-i"))

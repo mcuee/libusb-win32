@@ -18,7 +18,7 @@
 
 
 #include "libusb_driver.h"
-
+#include "libusb_version.h"
 
 NTSTATUS dispatch_ioctl(libusb_device_t *dev, IRP *irp)
 {

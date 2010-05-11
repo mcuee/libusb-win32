@@ -36,6 +36,7 @@
 #include "registry.h"
 #include "error.h"
 #include "driver_api.h"
+#include "libusb_version.h"
 
 
 #define LIBUSB_DRIVER_PATH  "system32\\drivers\\libusb0.sys"
@@ -69,9 +70,6 @@ typedef BOOL (WINAPI * delete_service_t)(SC_HANDLE);
 typedef BOOL (WINAPI * start_service_t)(SC_HANDLE, DWORD, LPCTSTR);
 typedef BOOL (WINAPI * query_service_status_t)(SC_HANDLE, LPSERVICE_STATUS);
 typedef BOOL (WINAPI * control_service_t)(SC_HANDLE, DWORD, LPSERVICE_STATUS);
-
-
-
 
 
 static HINSTANCE advapi32_dll = NULL;
@@ -141,7 +139,9 @@ int usb_install_service_np(void)
                   "LibUsb-Win32 - Kernel Driver, Version %d.%d.%d.%d",
                   VERSION_MAJOR, VERSION_MINOR, VERSION_MICRO, VERSION_NANO);
 
-        /* create the kernel service */
+ 		usb_msg("install_service","creating nt kernel service %s\n",display_name);
+
+       /* create the kernel service */
         if (!usb_service_create(LIBUSB_DRIVER_NAME_NT, display_name,
                                 LIBUSB_DRIVER_PATH,
                                 SERVICE_KERNEL_DRIVER, SERVICE_DEMAND_START))
@@ -168,6 +168,7 @@ int usb_uninstall_service_np(void)
     /* older version of libusb used a system service, just remove it */
     if (usb_registry_is_nt())
     {
+ 		usb_msg("uninstall_service","deleting nt kernel service %s\n",LIBUSB_OLD_SERVICE_NAME_NT);
         usb_service_stop(LIBUSB_OLD_SERVICE_NAME_NT);
         usb_service_delete(LIBUSB_OLD_SERVICE_NAME_NT);
     }
@@ -184,11 +185,12 @@ int usb_uninstall_service_np(void)
         }
         while (win);
 
-        if (RegOpenKeyEx(HKEY_LOCAL_MACHINE,
+       if (RegOpenKeyEx(HKEY_LOCAL_MACHINE,
                          "Software\\Microsoft\\Windows\\CurrentVersion"
                          "\\RunServices",
                          0, KEY_ALL_ACCESS, &reg_key) == ERROR_SUCCESS)
         {
+ 			usb_msg("uninstall_service","deleting %s\n","LibUsb-Win32 Daemon");
             RegDeleteValue(reg_key, "LibUsb-Win32 Daemon");
             RegCloseKey(reg_key);
         }

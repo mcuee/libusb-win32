@@ -32,15 +32,12 @@
 #include "usbi.h"
 #include "driver_api.h"
 #include "registry.h"
-
-
+#include "libusb_version.h"
 
 #define LIBUSB_DEFAULT_TIMEOUT 5000
 #define LIBUSB_DEVICE_NAME "\\\\.\\libusb0-"
 #define LIBUSB_BUS_NAME "bus-0"
 #define LIBUSB_MAX_DEVICES 256
-
-extern int __usb_debug;
 
 typedef struct
 {
@@ -949,7 +946,7 @@ void usb_os_init(void)
 
             /* set debug level */
             req.timeout = 0;
-            req.debug.level = __usb_debug;
+            req.debug.level = usb_log_get_level();
 
             if (!_usb_io_sync(dev, LIBUSB_IOCTL_SET_DEBUG_LEVEL,
                               &req, sizeof(libusb_request),
@@ -1056,13 +1053,13 @@ void usb_set_debug(int level)
     int i;
     char dev_name[LIBUSB_PATH_MAX];
 
-    if (__usb_debug || level)
+    if (usb_log_get_level() || level)
     {
         usb_message("usb_set_debug: setting debugging level to %d (%s)\n",
                     level, level ? "on" : "off");
     }
 
-    __usb_debug = level;
+    usb_log_set_level(level);
 
     /* find a valid device */
     for (i = 1; i < LIBUSB_MAX_DEVICES; i++)
@@ -1081,7 +1078,7 @@ void usb_set_debug(int level)
 
         /* set debug level */
         req.timeout = 0;
-        req.debug.level = __usb_debug;
+        req.debug.level = usb_log_get_level();
 
         if (!_usb_io_sync(dev, LIBUSB_IOCTL_SET_DEBUG_LEVEL,
                           &req, sizeof(libusb_request),

@@ -10,6 +10,7 @@ copy %SRC_DIR%\*.c . >NUL
 copy %SRC_DIR%\*.h . >NUL
 copy %SRC_DIR%\*.rc . >NUL
 copy %SRC_DIR%\..\*.rc . >NUL
+copy %SRC_DIR%\..\libusb_version.h . >NUL
 
 ECHO Building (%BUILD_ALT_DIR%) driver..
 CALL build_ddk.bat

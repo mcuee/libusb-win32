@@ -9,6 +9,7 @@ copy sources_test_win sources >NUL
 copy %TESTS_DIR%\testlibusb_win.c . >NUL
 copy %TESTS_DIR%\testlibusb_win_rc.rc . >NUL
 copy %SRC_DIR%\usb.h . >NUL
+copy %SRC_DIR%\libusb_version.h . >NUL
 copy %SRC_DIR%\*.rc . >NUL
 copy ..\manifest_%_BUILDARCH%.xml . >NUL
 
