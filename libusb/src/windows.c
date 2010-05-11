@@ -125,7 +125,7 @@ int usb_os_open(usb_dev_handle *dev)
 
     if (!dev)
     {
-        usb_error("usb_os_open: invalid device handle %p", dev);
+        USBERR("invalid device handle %p", dev);
         return -EINVAL;
     }
 
@@ -136,7 +136,7 @@ int usb_os_open(usb_dev_handle *dev)
 
     if (!dev->device->filename)
     {
-        usb_error("usb_os_open: invalid file name");
+        USBERR0("invalid file name");
         return -ENOENT;
     }
 
@@ -147,7 +147,7 @@ int usb_os_open(usb_dev_handle *dev)
 
     if (!p)
     {
-        usb_error("usb_os_open: invalid file name %s", dev->device->filename);
+        USBERR("invalid file name %s", dev->device->filename);
         return -ENOENT;
     }
 
@@ -158,7 +158,7 @@ int usb_os_open(usb_dev_handle *dev)
 
     if (dev->impl_info == INVALID_HANDLE_VALUE)
     {
-        usb_error("usb_os_open: failed to open %s: win error: %s",
+        USBERR("failed to open %s: win error: %s",
                   dev->device->filename, usb_win_error_to_string());
         return -ENOENT;
     }
@@ -204,7 +204,7 @@ int usb_set_configuration(usb_dev_handle *dev, int configuration)
 
     if (dev->impl_info == INVALID_HANDLE_VALUE)
     {
-        usb_error("usb_set_configuration: error: device not open");
+        USBERR0("error: device not open");
         return -EINVAL;
     }
 
@@ -215,8 +215,7 @@ int usb_set_configuration(usb_dev_handle *dev, int configuration)
 
     if (dev->interface >= 0)
     {
-        usb_error("usb_set_configuration: can't change configuration, "
-                  "an interface is still in use (claimed)");
+        USBERR0("can't change configuration, an interface is still in use (claimed)");
         return -EINVAL;
     }
 
@@ -226,7 +225,7 @@ int usb_set_configuration(usb_dev_handle *dev, int configuration)
     if (!_usb_io_sync(dev->impl_info, LIBUSB_IOCTL_SET_CONFIGURATION,
                       &req, sizeof(libusb_request), NULL, 0, NULL))
     {
-        usb_error("usb_set_configuration: could not set config %d: "
+        USBERR("could not set config %d: "
                   "win error: %s", configuration, usb_win_error_to_string());
         return -usb_win_error_to_errno();
     }
@@ -244,13 +243,13 @@ int usb_claim_interface(usb_dev_handle *dev, int interface)
 
     if (dev->impl_info == INVALID_HANDLE_VALUE)
     {
-        usb_error("usb_claim_interface: device not open");
+        USBERR0("device not open");
         return -EINVAL;
     }
 
     if (!dev->config)
     {
-        usb_error("usb_claim_interface: could not claim interface %d, invalid "
+        USBERR("could not claim interface %d, invalid "
                   "configuration %d", interface, dev->config);
         return -EINVAL;
     }
@@ -265,7 +264,7 @@ int usb_claim_interface(usb_dev_handle *dev, int interface)
     if (!_usb_io_sync(dev->impl_info, LIBUSB_IOCTL_CLAIM_INTERFACE,
                       &req, sizeof(libusb_request), NULL, 0, NULL))
     {
-        usb_error("usb_claim_interface: could not claim interface %d, "
+        USBERR("could not claim interface %d, "
                   "win error: %s", interface, usb_win_error_to_string());
         return -usb_win_error_to_errno();
     }
@@ -283,13 +282,13 @@ int usb_release_interface(usb_dev_handle *dev, int interface)
 
     if (dev->impl_info == INVALID_HANDLE_VALUE)
     {
-        usb_error("usb_release_interface: device not open");
+        USBERR0("device not open");
         return -EINVAL;
     }
 
     if (!dev->config)
     {
-        usb_error("usb_release_interface: could not release interface %d, "
+        USBERR("could not release interface %d, "
                   "invalid configuration %d", interface, dev->config);
         return -EINVAL;
     }
@@ -299,7 +298,7 @@ int usb_release_interface(usb_dev_handle *dev, int interface)
     if (!_usb_io_sync(dev->impl_info, LIBUSB_IOCTL_RELEASE_INTERFACE,
                       &req, sizeof(libusb_request), NULL, 0, NULL))
     {
-        usb_error("usb_release_interface: could not release interface %d, "
+        USBERR("could not release interface %d, "
                   "win error: %s", interface, usb_win_error_to_string());
         return -usb_win_error_to_errno();
     }
@@ -318,20 +317,20 @@ int usb_set_altinterface(usb_dev_handle *dev, int alternate)
 
     if (dev->impl_info == INVALID_HANDLE_VALUE)
     {
-        usb_error("usb_set_altinterface: device not open");
+        USBERR0("device not open");
         return -EINVAL;
     }
 
     if (dev->config <= 0)
     {
-        usb_error("usb_set_altinterface: could not set alt interface %d: "
+        USBERR("could not set alt interface %d: "
                   "invalid configuration %d", alternate, dev->config);
         return -EINVAL;
     }
 
     if (dev->interface < 0)
     {
-        usb_error("usb_set_altinterface: could not set alt interface %d: "
+        USBERR("could not set alt interface %d: "
                   "no interface claimed", alternate);
         return -EINVAL;
     }
@@ -344,7 +343,7 @@ int usb_set_altinterface(usb_dev_handle *dev, int alternate)
                       &req, sizeof(libusb_request),
                       NULL, 0, NULL))
     {
-        usb_error("usb_set_altinterface: could not set alt interface "
+        USBERR("could not set alt interface "
                   "%d/%d: win error: %s",
                   dev->interface, alternate, usb_win_error_to_string());
         return -usb_win_error_to_errno();
@@ -365,7 +364,7 @@ static int _usb_setup_async(usb_dev_handle *dev, void **context,
             || (control_code == LIBUSB_IOCTL_ISOCHRONOUS_WRITE))
             && (ep & USB_ENDPOINT_IN))
     {
-        usb_error("_usb_setup_async: invalid endpoint 0x%02x", ep);
+        USBERR("invalid endpoint 0x%02x", ep);
         return -EINVAL;
     }
 
@@ -373,7 +372,7 @@ static int _usb_setup_async(usb_dev_handle *dev, void **context,
             || (control_code == LIBUSB_IOCTL_ISOCHRONOUS_READ))
             && !(ep & USB_ENDPOINT_IN))
     {
-        usb_error("_usb_setup_async: invalid endpoint 0x%02x", ep);
+        USBERR("invalid endpoint 0x%02x", ep);
         return -EINVAL;
     }
 
@@ -381,7 +380,7 @@ static int _usb_setup_async(usb_dev_handle *dev, void **context,
 
     if (!*c)
     {
-        usb_error("_usb_setup_async: memory allocation error");
+        USBERR0("memory allocation error");
         return -ENOMEM;
     }
 
@@ -398,7 +397,7 @@ static int _usb_setup_async(usb_dev_handle *dev, void **context,
     {
         free(*c);
         *c = NULL;
-        usb_error("_usb_setup_async: creating event failed: win error: %s",
+        USBERR("creating event failed: win error: %s",
                   usb_win_error_to_string());
         return -usb_win_error_to_errno();
     }
@@ -412,25 +411,25 @@ int usb_submit_async(void *context, char *bytes, int size)
 
     if (!c)
     {
-        usb_error("usb_submit_async: invalid context");
+        USBERR0("invalid context");
         return -EINVAL;
     }
 
     if (c->dev->impl_info == INVALID_HANDLE_VALUE)
     {
-        usb_error("usb_submit_async: device not open");
+        USBERR0("device not open");
         return -EINVAL;
     }
 
     if (c->dev->config <= 0)
     {
-        usb_error("usb_submit_async: invalid configuration %d", c->dev->config);
+        USBERR("invalid configuration %d", c->dev->config);
         return -EINVAL;
     }
 
     if (c->dev->interface < 0)
     {
-        usb_error("usb_submit_async: invalid interface %d", c->dev->interface);
+        USBERR("invalid interface %d", c->dev->interface);
         return -EINVAL;
     }
 
@@ -450,7 +449,7 @@ int usb_submit_async(void *context, char *bytes, int size)
     {
         if (GetLastError() != ERROR_IO_PENDING)
         {
-            usb_error("usb_submit_async: submitting request failed, "
+            USBERR("submitting request failed, "
                       "win error: %s", usb_win_error_to_string());
             return -usb_win_error_to_errno();
         }
@@ -466,7 +465,7 @@ static int _usb_reap_async(void *context, int timeout, int cancel)
 
     if (!c)
     {
-        usb_error("usb_reap: invalid context");
+        USBERR0("invalid context");
         return -EINVAL;
     }
 
@@ -478,13 +477,13 @@ static int _usb_reap_async(void *context, int timeout, int cancel)
             _usb_cancel_io(c);
         }
 
-        usb_error("usb_reap: timeout error");
+        USBERR0("timeout error");
         return -ETIMEDOUT;
     }
 
     if (!GetOverlappedResult(c->dev->impl_info, &c->ol, &ret, TRUE))
     {
-        usb_error("usb_reap: reaping request failed, win error: %s",
+        USBERR("reaping request failed, win error: %s",
                   usb_win_error_to_string());
         return -usb_win_error_to_errno();
     }
@@ -513,13 +512,13 @@ int usb_cancel_async(void *context)
 
     if (!c)
     {
-        usb_error("usb_cancel_async: invalid context");
+        USBERR0("invalid context");
         return -EINVAL;
     }
 
     if (c->dev->impl_info == INVALID_HANDLE_VALUE)
     {
-        usb_error("usb_cancel_async: device not open");
+        USBERR0("device not open");
         return -EINVAL;
     }
 
@@ -534,7 +533,7 @@ int usb_free_async(void **context)
 
     if (!*c)
     {
-        usb_error("usb_free_async: invalid context");
+        USBERR0("invalid context");
         return -EINVAL;
     }
 
@@ -667,7 +666,7 @@ int usb_control_msg(usb_dev_handle *dev, int requesttype, int request,
 
     if (dev->impl_info == INVALID_HANDLE_VALUE)
     {
-        usb_error("usb_control_msg: device not open");
+        USBERR0("device not open");
         return -EINVAL;
     }
 
@@ -737,7 +736,7 @@ int usb_control_msg(usb_dev_handle *dev, int requesttype, int request,
             break;
 
         default:
-            usb_error("usb_control_msg: invalid request 0x%x", request);
+            USBERR("invalid request 0x%x", request);
             return -EINVAL;
         }
         break;
@@ -759,7 +758,7 @@ int usb_control_msg(usb_dev_handle *dev, int requesttype, int request,
 
     case USB_TYPE_RESERVED:
     default:
-        usb_error("usb_control_msg: invalid or unsupported request type: %x",
+        USBERR("invalid or unsupported request type: %x",
                   requesttype);
         return -EINVAL;
     }
@@ -769,7 +768,7 @@ int usb_control_msg(usb_dev_handle *dev, int requesttype, int request,
     {
         if (!(out = malloc(sizeof(libusb_request) + size)))
         {
-            usb_error("usb_control_msg: memory allocation failed");
+            USBERR0("memory allocation failed");
             return -ENOMEM;
         }
 
@@ -782,7 +781,7 @@ int usb_control_msg(usb_dev_handle *dev, int requesttype, int request,
 
     if (!_usb_io_sync(dev->impl_info, code, out, out_size, in, in_size, &read))
     {
-        usb_error("usb_control_msg: sending control message failed, "
+        USBERR("sending control message failed, "
                   "win error: %s", usb_win_error_to_string());
         if (!(requesttype & USB_ENDPOINT_IN))
         {
@@ -812,14 +811,14 @@ int usb_os_find_busses(struct usb_bus **busses)
 
     if (!bus)
     {
-        usb_error("usb_os_find_busses: memory allocation failed");
+        USBERR0("memory allocation failed");
         return -ENOMEM;
     }
 
     memset(bus, 0, sizeof(*bus));
     strcpy(bus->dirname, LIBUSB_BUS_NAME);
 
-    usb_message("usb_os_find_busses: found %s", bus->dirname);
+    USBMSG("found %s", bus->dirname);
 
     *busses = bus;
 
@@ -844,7 +843,7 @@ int usb_os_find_devices(struct usb_bus *bus, struct usb_device **devices)
 
         if (!(dev = malloc(sizeof(*dev))))
         {
-            usb_error("usb_os_find_devices: memory allocation failed");
+            USBERR0("memory allocation failed");
             return -ENOMEM;
         }
 
@@ -874,7 +873,7 @@ int usb_os_find_devices(struct usb_bus *bus, struct usb_device **devices)
 
         if (ret < USB_DT_DEVICE_SIZE)
         {
-            usb_error("usb_os_find_devices: couldn't read device descriptor");
+            USBERR0("couldn't read device descriptor");
             free(dev);
             CloseHandle(handle);
             continue;
@@ -887,7 +886,7 @@ int usb_os_find_devices(struct usb_bus *bus, struct usb_device **devices)
 
         LIST_ADD(fdev, dev);
 
-        usb_message("usb_os_find_devices: found %s on %s",
+        USBMSG("found %s on %s",
                     dev->filename, bus->dirname);
     }
 
@@ -905,7 +904,7 @@ void usb_os_init(void)
     int ret;
     char dev_name[LIBUSB_PATH_MAX];
 
-    usb_message("usb_os_init: dll version: %d.%d.%d.%d",
+    USBMSG("dll version: %d.%d.%d.%d",
                 VERSION_MAJOR, VERSION_MINOR,
                 VERSION_MICRO, VERSION_NANO);
 
@@ -929,7 +928,7 @@ void usb_os_init(void)
                           &req, sizeof(libusb_request), &ret)
                 || (ret < sizeof(libusb_request)))
         {
-            usb_error("usb_os_init: getting driver version failed");
+            USBERR0("getting driver version failed");
             CloseHandle(dev);
             continue;
         }
@@ -940,7 +939,7 @@ void usb_os_init(void)
             _usb_version.driver.micro = req.version.micro;
             _usb_version.driver.nano = req.version.nano;
 
-            usb_message("usb_os_init: driver version: %d.%d.%d.%d",
+            USBMSG("driver version: %d.%d.%d.%d",
                         req.version.major, req.version.minor,
                         req.version.micro, req.version.nano);
 
@@ -952,7 +951,7 @@ void usb_os_init(void)
                               &req, sizeof(libusb_request),
                               NULL, 0, NULL))
             {
-                usb_error("usb_os_init: setting debug level failed");
+                USBERR0("setting debug level failed");
             }
 
             CloseHandle(dev);
@@ -968,7 +967,7 @@ int usb_resetep(usb_dev_handle *dev, unsigned int ep)
 
     if (dev->impl_info == INVALID_HANDLE_VALUE)
     {
-        usb_error("usb_resetep: device not open");
+        USBERR0("device not open");
         return -EINVAL;
     }
 
@@ -978,7 +977,7 @@ int usb_resetep(usb_dev_handle *dev, unsigned int ep)
     if (!_usb_io_sync(dev->impl_info, LIBUSB_IOCTL_ABORT_ENDPOINT, &req,
                       sizeof(libusb_request), NULL, 0, NULL))
     {
-        usb_error("usb_resetep: could not abort ep 0x%02x, win error: %s",
+        USBERR("could not abort ep 0x%02x, win error: %s",
                   ep, usb_win_error_to_string());
         return -usb_win_error_to_errno();
     }
@@ -986,7 +985,7 @@ int usb_resetep(usb_dev_handle *dev, unsigned int ep)
     if (!_usb_io_sync(dev->impl_info, LIBUSB_IOCTL_RESET_ENDPOINT, &req,
                       sizeof(libusb_request), NULL, 0, NULL))
     {
-        usb_error("usb_resetep: could not reset ep 0x%02x, win error: %s",
+        USBERR("could not reset ep 0x%02x, win error: %s",
                   ep, usb_win_error_to_string());
         return -usb_win_error_to_errno();
     }
@@ -1000,7 +999,7 @@ int usb_clear_halt(usb_dev_handle *dev, unsigned int ep)
 
     if (dev->impl_info == INVALID_HANDLE_VALUE)
     {
-        usb_error("usb_clear_halt: device not open");
+        USBERR0("device not open");
         return -EINVAL;
     }
 
@@ -1010,7 +1009,7 @@ int usb_clear_halt(usb_dev_handle *dev, unsigned int ep)
     if (!_usb_io_sync(dev->impl_info, LIBUSB_IOCTL_RESET_ENDPOINT, &req,
                       sizeof(libusb_request), NULL, 0, NULL))
     {
-        usb_error("usb_clear_halt: could not clear halt, ep 0x%02x, "
+        USBERR("could not clear halt, ep 0x%02x, "
                   "win error: %s", ep, usb_win_error_to_string());
         return -usb_win_error_to_errno();
     }
@@ -1024,7 +1023,7 @@ int usb_reset(usb_dev_handle *dev)
 
     if (dev->impl_info == INVALID_HANDLE_VALUE)
     {
-        usb_error("usb_reset: device not open");
+        USBERR0("device not open");
         return -EINVAL;
     }
 
@@ -1033,7 +1032,7 @@ int usb_reset(usb_dev_handle *dev)
     if (!_usb_io_sync(dev->impl_info, LIBUSB_IOCTL_RESET_DEVICE,
                       &req, sizeof(libusb_request), NULL, 0, NULL))
     {
-        usb_error("usb_reset: could not reset device, win error: %s",
+        USBERR("could not reset device, win error: %s",
                   usb_win_error_to_string());
         return -usb_win_error_to_errno();
     }
@@ -1055,7 +1054,7 @@ void usb_set_debug(int level)
 
     if (usb_log_get_level() || level)
     {
-        usb_message("usb_set_debug: setting debugging level to %d (%s)\n",
+        USBMSG("setting debugging level to %d (%s)\n",
                     level, level ? "on" : "off");
     }
 
@@ -1084,7 +1083,7 @@ void usb_set_debug(int level)
                           &req, sizeof(libusb_request),
                           NULL, 0, NULL))
         {
-            usb_error("usb_os_init: setting debug level failed");
+            USBERR0("setting debug level failed");
         }
 
         CloseHandle(dev);
@@ -1134,7 +1133,7 @@ static int _usb_abort_ep(usb_dev_handle *dev, unsigned int ep)
 
     if (dev->impl_info == INVALID_HANDLE_VALUE)
     {
-        usb_error("_usb_abort_ep: device not open");
+        USBERR0("device not open");
         return -EINVAL;
     }
 
@@ -1144,7 +1143,7 @@ static int _usb_abort_ep(usb_dev_handle *dev, unsigned int ep)
     if (!_usb_io_sync(dev->impl_info, LIBUSB_IOCTL_ABORT_ENDPOINT, &req,
                       sizeof(libusb_request), NULL, 0, NULL))
     {
-        usb_error("_usb_abort_ep: could not abort ep 0x%02x, win error: %s",
+        USBERR("could not abort ep 0x%02x, win error: %s",
                   ep, usb_win_error_to_string());
         return -usb_win_error_to_errno();
     }

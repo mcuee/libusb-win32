@@ -139,7 +139,7 @@ int usb_install_service_np(void)
                   "LibUsb-Win32 - Kernel Driver, Version %d.%d.%d.%d",
                   VERSION_MAJOR, VERSION_MINOR, VERSION_MICRO, VERSION_NANO);
 
- 		usb_msg("install_service","creating nt kernel service %s\n",display_name);
+ 		USBMSG("creating nt kernel service %s\n",display_name);
 
        /* create the kernel service */
         if (!usb_service_create(LIBUSB_DRIVER_NAME_NT, display_name,
@@ -159,7 +159,7 @@ int usb_install_service_np(void)
 
     return ret;
 }
-
+#define FNAME(relpath)
 int usb_uninstall_service_np(void)
 {
     HANDLE win;
@@ -168,7 +168,8 @@ int usb_uninstall_service_np(void)
     /* older version of libusb used a system service, just remove it */
     if (usb_registry_is_nt())
     {
- 		usb_msg("uninstall_service","deleting nt kernel service %s\n",LIBUSB_OLD_SERVICE_NAME_NT);
+		USBMSG("deleting nt kernel service %s\n",LIBUSB_OLD_SERVICE_NAME_NT);
+		//usb_msg(__FUNCTION__,"deleting nt kernel service %s\n",LIBUSB_OLD_SERVICE_NAME_NT);
         usb_service_stop(LIBUSB_OLD_SERVICE_NAME_NT);
         usb_service_delete(LIBUSB_OLD_SERVICE_NAME_NT);
     }
@@ -190,7 +191,7 @@ int usb_uninstall_service_np(void)
                          "\\RunServices",
                          0, KEY_ALL_ACCESS, &reg_key) == ERROR_SUCCESS)
         {
- 			usb_msg("uninstall_service","deleting %s\n","LibUsb-Win32 Daemon");
+ 			USBMSG("deleting %s\n","LibUsb-Win32 Daemon");
             RegDeleteValue(reg_key, "LibUsb-Win32 Daemon");
             RegCloseKey(reg_key);
         }
@@ -230,7 +231,7 @@ int usb_install_driver_np(const char *inf_file)
 
     if (!newdev_dll)
     {
-        usb_error("usb_install_driver(): loading newdev.dll failed\n");
+        USBERR0("loading newdev.dll failed\n");
         return -1;
     }
 
@@ -240,7 +241,7 @@ int usb_install_driver_np(const char *inf_file)
 
     if (!UpdateDriverForPlugAndPlayDevices)
     {
-        usb_error("usb_install_driver(): loading newdev.dll failed\n");
+        USBERR0("loading newdev.dll failed\n");
         return -1;
     }
 
@@ -248,7 +249,7 @@ int usb_install_driver_np(const char *inf_file)
 
     if (!setupapi_dll)
     {
-        usb_error("usb_install_driver(): loading setupapi.dll failed\n");
+        USBERR0("loading setupapi.dll failed\n");
         return -1;
     }
     SetupCopyOEMInf = (setup_copy_oem_inf_t)
@@ -256,7 +257,7 @@ int usb_install_driver_np(const char *inf_file)
 
     if (!SetupCopyOEMInf)
     {
-        usb_error("usb_install_driver(): loading setupapi.dll failed\n");
+        USBERR0("loading setupapi.dll failed\n");
         return -1;
     }
 
@@ -266,7 +267,7 @@ int usb_install_driver_np(const char *inf_file)
     /* retrieve the full .inf file path */
     if (!GetFullPathName(inf_file, MAX_PATH, inf_path, NULL))
     {
-        usb_error("usb_install_driver(): .inf file %s not found\n",
+        USBERR(".inf file %s not found\n",
                   inf_file);
         return -1;
     }
@@ -276,7 +277,7 @@ int usb_install_driver_np(const char *inf_file)
 
     if (inf_handle == INVALID_HANDLE_VALUE)
     {
-        usb_error("usb_install_driver(): unable to open .inf file %s\n",
+        USBERR("unable to open .inf file %s\n",
                   inf_file);
         return -1;
     }
@@ -284,7 +285,7 @@ int usb_install_driver_np(const char *inf_file)
     /* find the .inf file's device description section marked "Devices" */
     if (!SetupFindFirstLine(inf_handle, "Devices", NULL, &inf_context))
     {
-        usb_error("usb_install_driver(): .inf file %s does not contain "
+        USBERR(".inf file %s does not contain "
                   "any device descriptions\n", inf_file);
         SetupCloseInfFile(inf_handle);
         return -1;
@@ -409,8 +410,7 @@ bool_t usb_service_load_dll()
 
         if (!advapi32_dll)
         {
-            usb_error("usb_service_load_dll(): loading DLL advapi32.dll"
-                      "failed");
+            USBERR0("loading DLL advapi32.dll failed");
             return FALSE;
         }
 
@@ -446,8 +446,7 @@ bool_t usb_service_load_dll()
                 || !start_service || !query_service_status || !control_service)
         {
             FreeLibrary(advapi32_dll);
-            usb_error("usb_service_load_dll(): loading exported "
-                      "functions of advapi32.dll failed");
+            USBERR0("loading exported functions of advapi32.dll failed");
 
             return FALSE;
         }
@@ -484,7 +483,7 @@ bool_t usb_service_create(const char *name, const char *display_name,
 
         if (!scm)
         {
-            usb_error("usb_service_create(): opening service control "
+            USBERR("opening service control "
                       "manager failed: %s", usb_win_error_to_string());
             break;
         }
@@ -505,7 +504,7 @@ bool_t usb_service_create(const char *name, const char *display_name,
                                        NULL,
                                        display_name))
             {
-                usb_error("usb_service_create(): changing config of "
+                USBERR("changing config of "
                           "service '%s' failed: %s",
                           name, usb_win_error_to_string());
                 break;
@@ -528,7 +527,7 @@ bool_t usb_service_create(const char *name, const char *display_name,
 
             if (!service)
             {
-                usb_error("usb_service_create(): creating "
+                USBERR("creating "
                           "service '%s' failed: %s",
                           name, usb_win_error_to_string());
             }
@@ -571,7 +570,7 @@ bool_t usb_service_stop(const char *name)
 
         if (!scm)
         {
-            usb_error("usb_stop_service(): opening service control "
+            USBERR("opening service control "
                       "manager failed: %s", usb_win_error_to_string());
             break;
         }
@@ -586,7 +585,7 @@ bool_t usb_service_stop(const char *name)
 
         if (!query_service_status(service, &status))
         {
-            usb_error("usb_stop_service(): getting status of "
+            USBERR("getting status of "
                       "service '%s' failed: %s",
                       name, usb_win_error_to_string());
             break;
@@ -600,7 +599,7 @@ bool_t usb_service_stop(const char *name)
 
         if (!control_service(service, SERVICE_CONTROL_STOP, &status))
         {
-            usb_error("usb_stop_service(): stopping service '%s' failed: %s",
+            USBERR("stopping service '%s' failed: %s",
                       name, usb_win_error_to_string());
             break;
         }
@@ -611,7 +610,7 @@ bool_t usb_service_stop(const char *name)
 
             if (!query_service_status(service, &status))
             {
-                usb_error("usb_stop_service(): getting status of "
+                USBERR("getting status of "
                           "service '%s' failed: %s",
                           name, usb_win_error_to_string());
                 break;
@@ -621,7 +620,7 @@ bool_t usb_service_stop(const char *name)
 
             if (wait > 20000)
             {
-                usb_error("usb_stop_service(): stopping "
+                USBERR("stopping "
                           "service '%s' failed, timeout", name);
                 ret = FALSE;
                 break;
@@ -665,7 +664,7 @@ bool_t usb_service_delete(const char *name)
 
         if (!scm)
         {
-            usb_error("usb_delete_service(): opening service control "
+            USBERR("opening service control "
                       "manager failed: %s", usb_win_error_to_string());
             break;
         }
@@ -681,7 +680,7 @@ bool_t usb_service_delete(const char *name)
 
         if (!delete_service(service))
         {
-            usb_error("usb_service_delete(): deleting "
+            USBERR("deleting "
                       "service '%s' failed: %s",
                       name, usb_win_error_to_string());
             break;
@@ -805,8 +804,7 @@ int usb_install_needs_restart_np(void)
 
     if (dev_info == INVALID_HANDLE_VALUE)
     {
-        usb_error("usb_install_needs_restart_np(): getting "
-                  "device info set failed");
+        USBERR0("getting device info set failed");
         return ret;
     }
 
@@ -820,7 +818,7 @@ int usb_install_needs_restart_np(void)
         {
             if (install_params.Flags & (DI_NEEDRESTART | DI_NEEDREBOOT))
             {
-                usb_message("usb_install_needs_restart_np(): restart needed");
+                USBMSG0("restart needed");
                 ret = TRUE;
             }
         }

@@ -172,8 +172,7 @@ bool_t usb_registry_get_property(DWORD which, HDEVINFO dev_info,
 
         if (reg_key == INVALID_HANDLE_VALUE)
         {
-            usb_error("usb_registry_get_property(): reading "
-                      "registry key failed");
+            USBERR0("reading registry key failed");
             return FALSE;
         }
 
@@ -234,8 +233,7 @@ bool_t usb_registry_set_property(DWORD which, HDEVINFO dev_info,
             if (!SetupDiSetDeviceRegistryProperty(dev_info, dev_info_data,
                                                   which, (BYTE *)buf, size))
             {
-                usb_error("usb_registry_set_property(): setting "
-                          "property '%s' failed", val_name);
+                USBERR("setting property '%s' failed", val_name);
                 return FALSE;
             }
         }
@@ -244,8 +242,7 @@ bool_t usb_registry_set_property(DWORD which, HDEVINFO dev_info,
             if (!SetupDiSetDeviceRegistryProperty(dev_info, dev_info_data,
                                                   which, NULL, 0))
             {
-                usb_error("usb_registry_set_property(): deleting "
-                          "property '%s' failed", val_name);
+                USBERR("deleting property '%s' failed", val_name);
                 return FALSE;
             }
         }
@@ -269,8 +266,7 @@ bool_t usb_registry_set_property(DWORD which, HDEVINFO dev_info,
 
         if (reg_key == INVALID_HANDLE_VALUE)
         {
-            usb_error("usb_registry_set_property(): reading "
-                      "registry key failed");
+            USBERR0("reading registry key failed");
             return FALSE;
         }
 
@@ -279,8 +275,7 @@ bool_t usb_registry_set_property(DWORD which, HDEVINFO dev_info,
             if (RegSetValueEx(reg_key, val_name, 0, reg_type, (BYTE *)buf,
                               size) != ERROR_SUCCESS)
             {
-                usb_error("usb_registry_set_property(): setting "
-                          "property '%s' failed", val_name);
+                USBERR("setting property '%s' failed", val_name);
                 RegCloseKey(reg_key);
                 return FALSE;
             }
@@ -289,8 +284,7 @@ bool_t usb_registry_set_property(DWORD which, HDEVINFO dev_info,
         {
             if (RegDeleteValue(reg_key, val_name) != ERROR_SUCCESS)
             {
-                usb_error("usb_registry_set_property(): deleting "
-                          "property '%s' failed", val_name);
+                USBERR("deleting property '%s' failed", val_name);
                 RegCloseKey(reg_key);
                 return FALSE;
             }
@@ -314,7 +308,7 @@ bool_t usb_registry_insert_class_filter(void)
 
     if (!keys)
     {
-        usb_error("usb_registry_insert_filter: unable to retrieve class keys\n");
+        USBERR0("unable to retrieve class keys\n");
         return FALSE;
     }
 
@@ -339,8 +333,7 @@ bool_t usb_registry_insert_class_filter(void)
         if (!usb_registry_set_mz_value(key->name, "UpperFilters", buf,
                                        usb_registry_mz_string_size(buf)))
         {
-            usb_error("usb_registry_insert_filter: unable to "
-                      "set registry value\n");
+            USBERR0("unable to set registry value\n");
         }
 
         key = key->next;
@@ -365,7 +358,7 @@ bool_t usb_registry_remove_class_filter(void)
 
     if (!keys)
     {
-        usb_error("usb_registry_remove_filter: unable to retrieve class keys\n");
+        USBERR0("unable to retrieve class keys\n");
         return FALSE;
     }
 
@@ -412,8 +405,7 @@ bool_t usb_registry_remove_device_filter(void)
 
     if (dev_info == INVALID_HANDLE_VALUE)
     {
-        usb_error("usb_registry_remove_device_filter(): getting "
-                  "device info set failed");
+        USBERR0("getting device info set failed");
         return FALSE;
     }
 
@@ -429,7 +421,7 @@ bool_t usb_registry_remove_device_filter(void)
             if (usb_registry_mz_string_find(filters, driver_name))
             {
                 int size;
-				usb_msg("remove_device_filter","removing upper filter from driver %s\n", (char*)driver_name);
+				USBMSG("removing upper filter from driver %s\n", (char*)driver_name);
 
                 usb_registry_mz_string_remove(filters, driver_name);
                 size = usb_registry_mz_string_size(filters);
@@ -449,7 +441,7 @@ bool_t usb_registry_remove_device_filter(void)
             if (usb_registry_mz_string_find(filters, driver_name))
             {
                 int size;
-				usb_msg("remove_device_filter","removing lower filter from driver %s\n", driver_name);
+				USBMSG("removing lower filter from driver %s\n", driver_name);
                 usb_registry_mz_string_remove(filters, driver_name);
                 size = usb_registry_mz_string_size(filters);
 
@@ -484,16 +476,14 @@ static bool_t usb_registry_set_device_state(DWORD state, HDEVINFO dev_info,
                                       (SP_CLASSINSTALL_HEADER *)&prop_params,
                                       sizeof(SP_PROPCHANGE_PARAMS)))
     {
-        usb_error("usb_registry_set_device_state(): setting class "
-                  "install parameters failed");
+        USBERR0("setting class install parameters failed");
         return FALSE;
     }
 
 
     if (!SetupDiCallClassInstaller(DIF_PROPERTYCHANGE, dev_info, dev_info_data))
     {
-        usb_error("usb_registry_set_device_state(): calling class "
-                  "installer failed");
+        USBERR0("calling class installer failed");
         return FALSE;
     }
 
@@ -556,8 +546,7 @@ void usb_registry_stop_libusb_devices(void)
 
     if (dev_info == INVALID_HANDLE_VALUE)
     {
-        usb_error("usb_registry_stop_libusb_devices(): getting "
-                  "device info set failed");
+        USBERR0("getting device info set failed");
         return;
     }
 
@@ -587,8 +576,7 @@ void usb_registry_start_libusb_devices(void)
 
     if (dev_info == INVALID_HANDLE_VALUE)
     {
-        usb_error("usb_registry_stop_libusb_devices(): getting "
-                  "device info set failed");
+        USBERR0("getting device info set failed");
         return;
     }
 
@@ -613,8 +601,7 @@ bool_t usb_registry_match(HDEVINFO dev_info,
     if (!usb_registry_get_property(SPDRP_HARDWAREID, dev_info, dev_info_data,
                                    tmp, sizeof(tmp)))
     {
-        usb_error("usb_registry_match_no_hubs(): getting hardware id "
-                  "failed");
+        USBERR0("getting hardware id failed");
         return FALSE;
     }
 
@@ -857,8 +844,7 @@ bool_t usb_registry_restart_all_devices(void)
 
     if (dev_info == INVALID_HANDLE_VALUE)
     {
-        usb_error("usb_registry_restart_all_devices(): getting "
-                  "device info set failed");
+        USBERR0("getting device info set failed");
         return FALSE;
     }
 
@@ -867,8 +853,7 @@ bool_t usb_registry_restart_all_devices(void)
         if (!usb_registry_get_property(SPDRP_HARDWAREID, dev_info,
                                        &dev_info_data, id, sizeof(id)))
         {
-            usb_error("usb_registry_restart_all_devices(): getting hardware "
-                      "id failed");
+            USBERR0("getting hardware id failed");
             dev_index++;
             continue;
         }
@@ -935,8 +920,7 @@ usb_class_key_t *usb_registry_get_usb_class_keys(void)
 
     if (dev_info == INVALID_HANDLE_VALUE)
     {
-        usb_error("usb_registry_get_class_keys(): getting "
-                  "device info set failed");
+        USBERR0("getting device info set failed");
         return NULL;
     }
 
@@ -948,8 +932,7 @@ usb_class_key_t *usb_registry_get_usb_class_keys(void)
                                            &dev_info_data,
                                            class, sizeof(class)))
             {
-                usb_error("usb_registry_get_class_keys(): getting "
-                          "hardware id failed");
+                USBERR0("getting hardware id failed");
                 dev_index++;
                 continue;
             }
