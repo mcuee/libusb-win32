@@ -36,6 +36,7 @@ IF /I "!_PACKAGE_TYPE_!" EQU "all"   GOTO Build_Binaries
 IF /I "!_PACKAGE_TYPE_!" EQU "bin"   GOTO Build_Binaries
 IF /I "!_PACKAGE_TYPE_!" EQU "dist"  GOTO Package_Distributables
 IF /I "!_PACKAGE_TYPE_!" EQU "snapshot"  GOTO Package_Distributables
+IF /I "!_PACKAGE_TYPE_!" EQU "makeversion"  GOTO TokenizeLibusbVersionH
 
 IF /I "%~1" EQU "packagebin" (
 	CALL :PrepForPackaging %*
@@ -133,6 +134,7 @@ GOTO :EOF
 :: building functions 
 :: 
 :Build
+	CALL :TokenizeLibusbVersionH true
 	SET _title=Building libusb-win32 !_LIBUSB_APP! (!BUILD_ALT_DIR!)
 	title !_title!
 	CALL make_clean.bat
@@ -557,6 +559,15 @@ GOTO :EOF
 	IF "!CMDVAR_WINDDK_W2K_DIR!" EQU "" SET CMDVAR_WINDDK_W2K_DIR=!CMDVAR_WINDDK_DIR!
 	IF "!CMDVAR_OUTDIR!" EQU "" SET CMDVAR_OUTDIR=.\!CMDVAR_ARCH!
 	IF "!CMDVAR_APP!" EQU "" SET CMDVAR_APP=all
+GOTO :EOF
+
+:: params = no_overwrite
+:TokenizeLibusbVersionH
+	CALL :ToAbsolutePaths _H_IN  "!DIR_LIBUSB_DDK!..\src\libusb_version_h.in"
+	CALL :ToAbsolutePaths _H_OUT "!DIR_LIBUSB_DDK!..\src\libusb_version.h"
+	IF /I "%~1" EQU "true" IF EXIST "!_H_OUT!" GOTO :EOF
+	CALL :SafeDelete "!_H_OUT!"
+	CALL :TagEnv "!_H_IN!" "!_H_OUT!"
 GOTO :EOF
 
 :LoadArgumentsCallback

@@ -23,8 +23,9 @@
 #define ID_INFO_TEXT 10012
 #define ID_LIST_HEADER_TEXT 10013
 
-#ifndef __INF_WIZARD_C__
 
+
+#ifndef __INF_WIZARD_C__
 
 #define RC_FILE_TYPE      VFT_APP
 #define RC_FILE_SUB_TYPE  VFT2_UNKNOWN

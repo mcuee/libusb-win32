@@ -39,7 +39,6 @@ typedef int bool_t;
 
 #define REGISTRY_BUF_SIZE 512
 
-
 bool_t usb_registry_is_nt(void);
 
 bool_t usb_registry_restart_device(HDEVINFO dev_info,
@@ -77,6 +76,5 @@ char *usb_registry_mz_string_find_sub(const char *src, const char *str);
 bool_t usb_registry_mz_string_insert(char *src, const char *str);
 bool_t usb_registry_mz_string_remove(char *src, const char *str);
 void usb_registry_mz_string_lower(char *src);
-
 
 #endif
