@@ -8,6 +8,12 @@ SETLOCAL ENABLEEXTENSIONS ENABLEDELAYEDEXPANSION
 :: NOTE: destination directories are automatically created
 :: oooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooo
 
+CALL :ToAbsoluteDirs DIR_LIBUSB_DDK "%~0" DIR_LIBUSB_WORKING "!CD!"
+IF /I "!DIR_LIBUSB_DDK!" NEQ "!DIR_LIBUSB_WORKING!" (
+	PUSHD !CD!
+	CD /D "!DIR_LIBUSB_DDK!"
+)
+
 IF /I "%~1" EQU "" GOTO ShowHelp
 IF /I "%~1" EQU "?" GOTO ShowHelp
 IF /I "%~1" EQU "/?" GOTO ShowHelp
@@ -16,10 +22,12 @@ IF /I "%~1" EQU "help" GOTO ShowHelp
 
 :BEGIN
 
-SET MAKE_CFG=make.cfg
+ECHO Libusb-Win32 ddk directory = !DIR_LIBUSB_DDK!
+
+SET MAKE_CFG=!DIR_LIBUSB_DDK!make.cfg
 IF NOT EXIST "!MAKE_CFG!" (
 	ECHO !MAKE_CFG! configuration file not found.
-	EXIT /B 1
+	GOTO CMDERROR
 )
 CALL :ClearError
 CALL :LoadConfig
@@ -31,19 +39,49 @@ SET _PACKAGE_TYPE_=%~1
 :: oooooooooooooooooooooooooooooooooooo
 :: Package build section [if any]
 :: 
-IF /I "!_PACKAGE_TYPE_!" EQU "clean" GOTO Package_Clean
-IF /I "!_PACKAGE_TYPE_!" EQU "all"   GOTO Build_Binaries
-IF /I "!_PACKAGE_TYPE_!" EQU "bin"   GOTO Build_Binaries
-IF /I "!_PACKAGE_TYPE_!" EQU "dist"  GOTO Package_Distributables
-IF /I "!_PACKAGE_TYPE_!" EQU "snapshot"  GOTO Package_Distributables
-IF /I "!_PACKAGE_TYPE_!" EQU "makeversion"  GOTO TokenizeLibusbVersionH
+IF /I "!_PACKAGE_TYPE_!" EQU "clean" (
+	CALL :Package_Clean
+	GOTO CMDEXIT
+)
+IF /I "!_PACKAGE_TYPE_!" EQU "all" (
+	CALL :Build_Binaries
+	IF "!BUILD_ERRORLEVEL!" NEQ 0 GOTO CMDERROR
+	GOTO CMDEXIT
+)
+IF /I "!_PACKAGE_TYPE_!" EQU "bin" (
+	CALL :Build_Binaries
+	IF "!BUILD_ERRORLEVEL!" NEQ 0 GOTO CMDERROR
+	GOTO CMDEXIT
+)
+
+IF /I "!_PACKAGE_TYPE_!" EQU "dist" (
+	CALL :Package_Distributables
+	IF "!BUILD_ERRORLEVEL!" NEQ 0 GOTO CMDERROR
+	GOTO CMDEXIT
+)
+
+IF /I "!_PACKAGE_TYPE_!" EQU "snapshot" (
+	CALL :Package_Distributables
+	IF "!BUILD_ERRORLEVEL!" NEQ 0 GOTO CMDERROR
+	GOTO CMDEXIT
+)
+
+IF /I "!_PACKAGE_TYPE_!" EQU "makeversion" (
+	CALL :TokenizeLibusbVersionH
+	IF "!BUILD_ERRORLEVEL!" NEQ 0 GOTO CMDERROR
+	GOTO CMDEXIT
+)
+
+
 
 IF /I "%~1" EQU "packagebin" (
 	CALL :PrepForPackaging %*
 	CALL :CheckOrBuildBinaries
 	IF !BUILD_ERRORLEVEL! NEQ 0 GOTO CMDERROR
 
-	GOTO Package_Bin
+	CALL :Package_Bin
+	IF "!BUILD_ERRORLEVEL!" NEQ 0 GOTO CMDERROR
+	GOTO CMDEXIT
 )
 
 IF /I "%~1" EQU "packagesrc" (
@@ -51,14 +89,19 @@ IF /I "%~1" EQU "packagesrc" (
 	CALL :CheckOrBuildBinaries
 	IF !BUILD_ERRORLEVEL! NEQ 0 GOTO CMDERROR
 
-	GOTO Package_Src
+	CALL :Package_Src
+	IF "!BUILD_ERRORLEVEL!" NEQ 0 GOTO CMDERROR
+	GOTO CMDEXIT
 )
 
 IF /I "%~1" EQU "packagesetup" (
 	CALL :PrepForPackaging %*
 	CALL :CheckOrBuildBinaries
 	IF !BUILD_ERRORLEVEL! NEQ 0 GOTO CMDERROR
-	GOTO Package_Setup
+	
+	CALL :Package_Setup
+	IF "!BUILD_ERRORLEVEL!" NEQ 0 GOTO CMDERROR
+	GOTO CMDEXIT
 )
 :: 
 :: End of Package build section
@@ -125,7 +168,8 @@ IF EXIST *.lib COPY /Y *.lib "!CMDVAR_OUTDIR!" >NUL
 
 CALL :DestroyErrorMarker
 
-GOTO :EOF
+GOTO CMDEXIT
+
 :: 
 :: End of WinDDK build section
 :: oooooooooooooooooooooooooooooooooooo
@@ -148,7 +192,11 @@ GOTO :EOF
 		IF !BUILD_ERRORLEVEL! EQU 0 SET BUILD_ERRORLEVEL=1
 		GOTO :EOF
 	)
-	CALL make_clean.bat %1
+	IF /I "!CMDVAR_DIR_INTERMEDIATE!" NEQ "" (
+		CALL :SafeCopyDir "!DIR_LIBUSB_DDK!obj!BUILD_ALT_DIR!\*" "!CMDVAR_DIR_INTERMEDIATE!"
+	)
+
+	IF /I "!CMDVAR_NOCLEAN" NEQ "true" CALL make_clean.bat %1
 	CALL :ClearError
 	IF EXIST libusb0.lib move libusb0.lib libusb.lib %~1
 GOTO :EOF
@@ -340,7 +388,10 @@ GOTO :EOF
 GOTO :EOF
 
 :SafeCopyDir
-	IF NOT EXIST "%~1" GOTO :EOF
+	IF NOT EXIST "%~1" (
+		ECHO [SafeCopyDir] %~1 does not exists.
+		GOTO :EOF
+	)
 	CALL :SafeCreateDir "%~dp2"
 	ECHO [SafeCopyDir] %~1 %~p2
 	XCOPY /I /S /Y "%~1" "%~p2" 2>NUL>NUL
@@ -605,6 +656,15 @@ GOTO :EOF
 	SET _ARG_SKIP_COUNT=
 GOTO :EOF
 
+:ToAbsoluteDirs
+	IF NOT "%~1" EQU "" (
+		SET %~1=%~dp2
+		SHIFT /1
+		SHIFT /1
+		GOTO ToAbsoluteDirs
+	)
+GOTO :EOF
+
 :ToAbsolutePaths
 	IF NOT "%~1" EQU "" (
 		SET %~1=%~f2
@@ -683,8 +743,11 @@ GOTO :EOF
 :CMDERROR
 	SET BUILD_ERRORLEVEL=1
 	SET ERRORLEVEL=1
-	EXIT /B !BUILD_ERRORLEVEL!
-GOTO :EOF
+GOTO CMDEXIT
+
+:CMDEXIT
+IF /I "!DIR_LIBUSB_DDK!" NEQ "!DIR_LIBUSB_WORKING!" POPD
+EXIT /B !BUILD_ERRORLEVEL!
 
 :ShowHelp
 
@@ -731,6 +794,5 @@ ECHO Example: make.cmd clean
 ECHO Example: make.cmd all
 ECHO Example: make.cmd dist
 ECHO.
+GOTO GOTO CMDERROR
 
-	EXIT /B 1
-GOTO :EOF
