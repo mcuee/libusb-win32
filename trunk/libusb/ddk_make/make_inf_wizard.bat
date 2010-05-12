@@ -12,17 +12,15 @@ copy %SRC_DIR%\*.rc . >NUL
 copy %SRC_DIR%\driver\driver_api.h . >NUL
 copy ..\manifest_%_BUILDARCH%.xml . >NUL
 
-ECHO Building (%BUILD_ALT_DIR%) inf_wizard app..
-CALL build_ddk.bat
-IF %ERRORLEVEL%==0 GOTO BUILD_SUCCESS
+ECHO Building (%BUILD_ALT_DIR%) %0..
+CALL build_ddk.bat %1 %2 %3 %4 %5 %6 %7 %8 %9
+IF %BUILD_ERRORLEVEL%==0 GOTO BUILD_SUCCESS
 GOTO BUILD_ERROR
 
 :BUILD_ERROR
-ECHO [make_inf_wizard] WinDDK build failed (%BUILD_ALT_DIR%)
-pause
-GOTO BUILD_DONE
+ECHO [%0] WinDDK build failed (%BUILD_ALT_DIR%)
+EXIT /B 1
 
 :BUILD_SUCCESS
-call make_clean.bat
 
 :BUILD_DONE
