@@ -48,7 +48,11 @@ const char* get_argument(char **argv, int argc, const char* arg)
 
 int main(int argc, char **argv)
 {
+#ifdef _DEBUG
+	usb_log_set_level(LOG_DEBUG);
+#else
 	usb_log_set_level(LOG_INFO);
+#endif
 	USBRAWMSG("\nLIBUSB-WIN32 (v%u.%u.%u.%u)\n",VERSION_MAJOR,VERSION_MINOR,VERSION_MICRO,VERSION_NANO);
 
     if (argc >= 2)

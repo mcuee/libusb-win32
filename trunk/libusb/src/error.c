@@ -60,18 +60,11 @@ usb_log_handler_t log_handler = NULL;
 
 const char** skipped_function_prefix = skipped_function_prefix_list;
 
-/* prints a message to the Windows debug system */
-/*
-static void output_debug_string(const char *s, ...)
-{
-    char tmp[512];
-    va_list args;
-    va_start(args, s);
-    _vsnprintf(tmp, sizeof(tmp) - 1, s, args);
-    va_end(args);
-    OutputDebugStringA(tmp);
-}
-*/
+#ifdef _DEBUG
+int __usb_log_level = LOG_DEBUG;
+#else
+int __usb_log_level = LOG_OFF;
+#endif
 
 char *usb_strerror(void)
 {
@@ -91,44 +84,7 @@ char *usb_strerror(void)
 
     return "Unknown error";
 }
-/*
-void usb_error(char *format, ...)
-{
-    va_list args;
 
-    usb_error_type = USB_ERROR_TYPE_STRING;
-
-    va_start(args, format);
-    _vsnprintf(usb_error_str, sizeof(usb_error_str) - 1, format, args);
-    va_end(args);
-
-    if (__usb_log_level >= LOG_ERROR)
-    {
-        fprintf(stderr, "LIBUSB_DLL: error: %s\n", usb_error_str);
-        fflush(stderr);
-        output_debug_string("LIBUSB_DLL: error: %s\n", usb_error_str);
-    }
-}
-*/
-
-/*
-void usb_message(char *format, ...)
-{
-    char tmp[512];
-    va_list args;
-
-    if (__usb_log_level >= LOG_WARNING)
-    {
-        va_start(args, format);
-        _vsnprintf(tmp, sizeof(tmp) - 1, format, args);
-        va_end(args);
-
-        fprintf(stderr, "LIBUSB_DLL: info: %s\n", tmp);
-        fflush(stderr);
-        output_debug_string("LIBUSB_DLL: info: %s\n", tmp);
-    }
-}
-*/
 /* returns Windows' last error in a human readable form */
 const char *usb_win_error_to_string(void)
 {
@@ -352,8 +308,8 @@ static void WINAPI usb_log_def_handler(enum USB_LOG_LEVEL level, const char* mes
 
     fprintf(stream, message);
     fflush(stream);
-#ifdef DBG
-    OutputDebugStringA(message)
+#ifdef _DEBUG
+    OutputDebugStringA(message);
 #endif
 
 }
