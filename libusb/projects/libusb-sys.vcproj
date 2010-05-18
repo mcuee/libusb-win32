@@ -26,11 +26,11 @@
 			<Tool
 				Name="VCNMakeTool"
 				BuildCommandLine="CD &quot;$(ProjectDir)..\ddk_make&quot;&#x0D;&#x0A;CMD /C make.cmd &quot;arch=x86&quot; &quot;app=driver&quot; &quot;noclean=true&quot; &quot;outdir=$(OutDir)&quot; &quot;DIR_INTERMEDIATE=$(IntDir)&quot;"
-				ReBuildCommandLine="CD &quot;$(ProjectDir)..\ddk_make&quot;&#x0D;&#x0A;CMD /C make.cmd &quot;arch=x86&quot; &quot;app=driver&quot; &quot;noclean=true&quot; &quot;outdir=$(OutDir)&quot; &quot;DIR_INTERMEDIATE=$(IntDir)&quot;"
+				ReBuildCommandLine="CD &quot;$(ProjectDir)..\ddk_make&quot;&#x0D;&#x0A;ECHO $(CMDVAR_WINDDK_DIR)&#x0D;&#x0A;CMD /C make.cmd &quot;arch=x86&quot; &quot;app=driver&quot; &quot;noclean=true&quot; &quot;outdir=$(OutDir)&quot; &quot;DIR_INTERMEDIATE=$(IntDir)&quot;"
 				CleanCommandLine="IF EXIST &quot;$(OutDir)&quot; RMDIR /S /Q &quot;$(OutDir)&quot;&#x0D;&#x0A;CD &quot;$(ProjectDir)..\ddk_make&quot;&#x0D;&#x0A;make.cmd clean"
 				Output=""
 				PreprocessorDefinitions="_X86_=1;i386=1;STD_CALL;CONDITION_HANDLING=1;NT_UP=1;NT_INST=0;WIN32=100;_NT1X_=100;WINNT=1;_WIN32_WINNT=0x0501;WINVER=0x0501;_WIN32_IE=0x0603;WIN32_LEAN_AND_MEAN=1;DEVL=1;__BUILDMACHINE__=WinDDK;FPO=0;NDEBUG;_DLL=1;MANIFEST_FILE=&quot;\&quot;manifest_x86.xml\&quot;&quot;;LOG_APPNAME=&quot;\&quot;libusb0\&quot;&quot;;NTDDI_VERSION=0x05010200"
-				IncludeSearchPath="..\src\driver;..\src;Z:\WinDDK\7600.16385.0\inc\api;Z:\WinDDK\7600.16385.0\inc\ddk;Z:\WinDDK\7600.16385.0\inc\crt"
+				IncludeSearchPath="..\src\driver;..\src;&quot;$(WINDDK_DIR)inc\api&quot;;&quot;$(WINDDK_DIR)inc\ddk&quot;;&quot;$(WINDDK_DIR)inc\crt&quot;"
 				ForcedIncludes=""
 				AssemblySearchPath=""
 				ForcedUsingAssemblies=""
@@ -49,11 +49,11 @@
 			<Tool
 				Name="VCNMakeTool"
 				BuildCommandLine="CD &quot;$(ProjectDir)..\ddk_make&quot;&#x0D;&#x0A;CMD /C make.cmd &quot;arch=x86&quot; &quot;app=driver&quot; &quot;noclean=true&quot; &quot;outdir=$(OutDir)&quot; &quot;DIR_INTERMEDIATE=$(IntDir)&quot;"
-				ReBuildCommandLine="CD &quot;$(ProjectDir)..\ddk_make&quot;&#x0D;&#x0A;CMD /C make.cmd &quot;arch=x86&quot; &quot;app=driver&quot; &quot;noclean=true&quot; &quot;outdir=$(OutDir)&quot; &quot;DIR_INTERMEDIATE=$(IntDir)&quot;"
+				ReBuildCommandLine="CD &quot;$(ProjectDir)..\ddk_make&quot;&#x0D;&#x0A;ECHO $(CMDVAR_WINDDK_DIR)&#x0D;&#x0A;CMD /C make.cmd &quot;arch=x86&quot; &quot;app=driver&quot; &quot;noclean=true&quot; &quot;outdir=$(OutDir)&quot; &quot;DIR_INTERMEDIATE=$(IntDir)&quot;"
 				CleanCommandLine="IF EXIST &quot;$(OutDir)&quot; RMDIR /S /Q &quot;$(OutDir)&quot;&#x0D;&#x0A;CD &quot;$(ProjectDir)..\ddk_make&quot;&#x0D;&#x0A;make.cmd clean"
 				Output=""
 				PreprocessorDefinitions="_X86_=1;i386=1;STD_CALL;CONDITION_HANDLING=1;NT_UP=1;NT_INST=0;WIN32=100;_NT1X_=100;WINNT=1;_WIN32_WINNT=0x0501;WINVER=0x0501;_WIN32_IE=0x0603;WIN32_LEAN_AND_MEAN=1;DEVL=1;__BUILDMACHINE__=WinDDK;FPO=0;NDEBUG;_DLL=1;MANIFEST_FILE=&quot;\&quot;manifest_x86.xml\&quot;&quot;;LOG_APPNAME=&quot;\&quot;libusb0\&quot;&quot;;NTDDI_VERSION=0x05010200"
-				IncludeSearchPath="..\src\driver;..\src;Z:\WinDDK\7600.16385.0\inc\api;Z:\WinDDK\7600.16385.0\inc\ddk;Z:\WinDDK\7600.16385.0\inc\crt"
+				IncludeSearchPath="..\src\driver;..\src;&quot;$(WINDDK_DIR)inc\api&quot;;&quot;$(WINDDK_DIR)inc\ddk&quot;;&quot;$(WINDDK_DIR)inc\crt&quot;"
 				ForcedIncludes=""
 				AssemblySearchPath=""
 				ForcedUsingAssemblies=""
@@ -72,186 +72,94 @@
 			<File
 				RelativePath="..\src\driver\abort_endpoint.c"
 				>
-				<FileConfiguration
-					Name="Debug|Win32"
-					>
-				</FileConfiguration>
 			</File>
 			<File
 				RelativePath="..\src\driver\claim_interface.c"
 				>
-				<FileConfiguration
-					Name="Debug|Win32"
-					>
-				</FileConfiguration>
 			</File>
 			<File
 				RelativePath="..\src\driver\clear_feature.c"
 				>
-				<FileConfiguration
-					Name="Debug|Win32"
-					>
-				</FileConfiguration>
 			</File>
 			<File
 				RelativePath="..\src\driver\dispatch.c"
 				>
-				<FileConfiguration
-					Name="Debug|Win32"
-					>
-				</FileConfiguration>
 			</File>
 			<File
 				RelativePath="..\src\driver\driver_debug.c"
 				>
-				<FileConfiguration
-					Name="Debug|Win32"
-					>
-				</FileConfiguration>
 			</File>
 			<File
 				RelativePath="..\src\driver\driver_registry.c"
 				>
-				<FileConfiguration
-					Name="Debug|Win32"
-					>
-				</FileConfiguration>
 			</File>
 			<File
 				RelativePath="..\src\driver\get_configuration.c"
 				>
-				<FileConfiguration
-					Name="Debug|Win32"
-					>
-				</FileConfiguration>
 			</File>
 			<File
 				RelativePath="..\src\driver\get_descriptor.c"
 				>
-				<FileConfiguration
-					Name="Debug|Win32"
-					>
-				</FileConfiguration>
 			</File>
 			<File
 				RelativePath="..\src\driver\get_interface.c"
 				>
-				<FileConfiguration
-					Name="Debug|Win32"
-					>
-				</FileConfiguration>
 			</File>
 			<File
 				RelativePath="..\src\driver\get_status.c"
 				>
-				<FileConfiguration
-					Name="Debug|Win32"
-					>
-				</FileConfiguration>
 			</File>
 			<File
 				RelativePath="..\src\driver\ioctl.c"
 				>
-				<FileConfiguration
-					Name="Debug|Win32"
-					>
-				</FileConfiguration>
 			</File>
 			<File
 				RelativePath="..\src\driver\libusb_driver.c"
 				>
-				<FileConfiguration
-					Name="Debug|Win32"
-					>
-				</FileConfiguration>
 			</File>
 			<File
 				RelativePath="..\src\driver\pnp.c"
 				>
-				<FileConfiguration
-					Name="Debug|Win32"
-					>
-				</FileConfiguration>
 			</File>
 			<File
 				RelativePath="..\src\driver\power.c"
 				>
-				<FileConfiguration
-					Name="Debug|Win32"
-					>
-				</FileConfiguration>
 			</File>
 			<File
 				RelativePath="..\src\driver\release_interface.c"
 				>
-				<FileConfiguration
-					Name="Debug|Win32"
-					>
-				</FileConfiguration>
 			</File>
 			<File
 				RelativePath="..\src\driver\reset_device.c"
 				>
-				<FileConfiguration
-					Name="Debug|Win32"
-					>
-				</FileConfiguration>
 			</File>
 			<File
 				RelativePath="..\src\driver\reset_endpoint.c"
 				>
-				<FileConfiguration
-					Name="Debug|Win32"
-					>
-				</FileConfiguration>
 			</File>
 			<File
 				RelativePath="..\src\driver\set_configuration.c"
 				>
-				<FileConfiguration
-					Name="Debug|Win32"
-					>
-				</FileConfiguration>
 			</File>
 			<File
 				RelativePath="..\src\driver\set_descriptor.c"
 				>
-				<FileConfiguration
-					Name="Debug|Win32"
-					>
-				</FileConfiguration>
 			</File>
 			<File
 				RelativePath="..\src\driver\set_feature.c"
 				>
-				<FileConfiguration
-					Name="Debug|Win32"
-					>
-				</FileConfiguration>
 			</File>
 			<File
 				RelativePath="..\src\driver\set_interface.c"
 				>
-				<FileConfiguration
-					Name="Debug|Win32"
-					>
-				</FileConfiguration>
 			</File>
 			<File
 				RelativePath="..\src\driver\transfer.c"
 				>
-				<FileConfiguration
-					Name="Debug|Win32"
-					>
-				</FileConfiguration>
 			</File>
 			<File
 				RelativePath="..\src\driver\vendor_request.c"
 				>
-				<FileConfiguration
-					Name="Debug|Win32"
-					>
-				</FileConfiguration>
 			</File>
 		</Filter>
 		<Filter
@@ -262,26 +170,14 @@
 			<File
 				RelativePath="..\src\driver\driver_api.h"
 				>
-				<FileConfiguration
-					Name="Debug|Win32"
-					>
-				</FileConfiguration>
 			</File>
 			<File
 				RelativePath="..\src\driver\driver_debug.h"
 				>
-				<FileConfiguration
-					Name="Debug|Win32"
-					>
-				</FileConfiguration>
 			</File>
 			<File
 				RelativePath="..\src\driver\libusb_driver.h"
 				>
-				<FileConfiguration
-					Name="Debug|Win32"
-					>
-				</FileConfiguration>
 			</File>
 		</Filter>
 		<Filter
@@ -292,12 +188,12 @@
 			<File
 				RelativePath="..\libusb0_drv.def"
 				>
-				<FileConfiguration
-					Name="Debug|Win32"
-					>
-				</FileConfiguration>
 			</File>
 		</Filter>
+		<File
+			RelativePath="..\ddk_make\make.cfg"
+			>
+		</File>
 	</Files>
 	<Globals>
 	</Globals>
