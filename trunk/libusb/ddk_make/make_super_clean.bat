@@ -16,4 +16,4 @@ if exist .\AMD64 rmdir /s /q .\AMD64
 if exist .\i64 rmdir /s /q .\i64
 if exist .\w2k rmdir /s /q .\w2k
 if exist libusb.lib del /q libusb.lib
-if exist ..\manifest.txt del /q ..\manifest.txt
+if exist *.cer del /q *.cer

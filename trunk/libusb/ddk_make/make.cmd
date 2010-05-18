@@ -21,6 +21,7 @@ IF /I "%~1" EQU "--help" GOTO ShowHelp
 IF /I "%~1" EQU "help" GOTO ShowHelp
 
 :BEGIN
+CALL :ClearError
 
 ECHO Libusb-Win32 ddk directory = !DIR_LIBUSB_DDK!
 
@@ -29,7 +30,6 @@ IF NOT EXIST "!MAKE_CFG!" (
 	ECHO !MAKE_CFG! configuration file not found.
 	GOTO CMDERROR
 )
-CALL :ClearError
 CALL :LoadConfig
 
 IF !BUILD_ERRORLEVEL! NEQ 0 GOTO CMDERROR
@@ -40,39 +40,37 @@ SET _PACKAGE_TYPE_=%~1
 :: Package build section [if any]
 :: 
 IF /I "!_PACKAGE_TYPE_!" EQU "clean" (
-	CALL :Package_Clean
+	CALL :Package_Clean %*
 	GOTO CMDEXIT
 )
 IF /I "!_PACKAGE_TYPE_!" EQU "all" (
-	CALL :Build_Binaries
+	CALL :Build_Binaries %*
 	IF "!BUILD_ERRORLEVEL!" NEQ 0 GOTO CMDERROR
 	GOTO CMDEXIT
 )
 IF /I "!_PACKAGE_TYPE_!" EQU "bin" (
-	CALL :Build_Binaries
+	CALL :Build_Binaries %*
 	IF "!BUILD_ERRORLEVEL!" NEQ 0 GOTO CMDERROR
 	GOTO CMDEXIT
 )
 
 IF /I "!_PACKAGE_TYPE_!" EQU "dist" (
-	CALL :Package_Distributables
+	CALL :Package_Distributables %*
 	IF "!BUILD_ERRORLEVEL!" NEQ 0 GOTO CMDERROR
 	GOTO CMDEXIT
 )
 
 IF /I "!_PACKAGE_TYPE_!" EQU "snapshot" (
-	CALL :Package_Distributables
+	CALL :Package_Distributables %*
 	IF "!BUILD_ERRORLEVEL!" NEQ 0 GOTO CMDERROR
 	GOTO CMDEXIT
 )
 
-IF /I "!_PACKAGE_TYPE_!" EQU "makeversion" (
-	CALL :TokenizeLibusbVersionH
+IF /I "!_PACKAGE_TYPE_!" EQU "makever" (
+	CALL :TokenizeLibusbVersionH %*
 	IF "!BUILD_ERRORLEVEL!" NEQ 0 GOTO CMDERROR
 	GOTO CMDEXIT
 )
-
-
 
 IF /I "%~1" EQU "packagebin" (
 	CALL :PrepForPackaging %*
@@ -103,6 +101,18 @@ IF /I "%~1" EQU "packagesetup" (
 	IF "!BUILD_ERRORLEVEL!" NEQ 0 GOTO CMDERROR
 	GOTO CMDEXIT
 )
+
+IF /I "%~1" EQU "signfile" (
+	CALL :SignFile %2
+	IF !BUILD_ERRORLEVEL! NEQ 0 GOTO CMDERROR
+	GOTO CMDEXIT
+)
+
+IF /I "%~1" EQU "launchdevenv" (
+	START "%VS90COMNTOOLS%..\IDE\devenv.exe" %2
+	GOTO CMDEXIT
+)
+
 :: 
 :: End of Package build section
 :: oooooooooooooooooooooooooooooooooooo
@@ -197,6 +207,12 @@ GOTO CMDEXIT
 	)
 
 	IF /I "!CMDVAR_NOCLEAN" NEQ "true" CALL make_clean.bat %1
+	
+	IF /I "!CMDVAR_TESTSIGNING!" EQU "on" (
+		IF EXIST libusb0.sys CALL :SignFile libusb0.sys
+		IF EXIST libusb0.dll CALL :SignFile libusb0.dll
+	)
+
 	CALL :ClearError
 	IF EXIST libusb0.lib move libusb0.lib libusb.lib %~1
 GOTO :EOF
@@ -642,18 +658,17 @@ GOTO :EOF
 	IF "%~1" EQU "" GOTO :EOF
 	IF !_ARG_SKIP_COUNT! GTR 0 (
 		SET _SKIP_ARG_LINE=!_SKIP_ARG_LINE! "%~1"
-		SET /A _ARG_SKIP_COUNT=_ARG_SKIP_COUNT-1>NUL
+		SET /A _ARG_SKIP_COUNT=_ARG_SKIP_COUNT-1
 		GOTO ParamValsToEnv_Next
 	)
+	SET _ARG_LINE=!_ARG_LINE! %1
 	SET _PARAM_VALUE_=%%~1
 	FOR /F "usebackq tokens=1,2 delims==" %%H IN ('%%~1') DO (
 		IF "%%~H" NEQ "" (
-			SET _ARG_LINE=!_ARG_LINE! "%~1=%~2"
 			CALL !_CALLBACK_FN! %%H %%I
 		)
 	)
 	GOTO ParamValsToEnv_Next
-	SET _ARG_SKIP_COUNT=
 GOTO :EOF
 
 :ToAbsoluteDirs
@@ -662,6 +677,84 @@ GOTO :EOF
 		SHIFT /1
 		SHIFT /1
 		GOTO ToAbsoluteDirs
+	)
+GOTO :EOF
+
+:GetDDKToolPath
+	CALL :FindInPath %1 "%~2"
+	IF "!%1!" EQU "" CALL :ToAbsolutePaths %1 "!CMDVAR_WINDDK_DIR!bin\x86\%~2"
+	IF NOT EXIST "!%1!" (
+		ECHO %~2 was not found in the path or !CMDVAR_WINDDK_DIR!bin\x86
+		SET BUILD_ERRORLEVEL=1
+		GOTO :EOF
+	)
+GOTO :EOF
+
+
+:SignFile
+	CALL :GetDDKToolPath MAKE-CERT makecert.exe
+	IF "!BUILD_ERRORLEVEL!" NEQ "0" GOTO :EOF
+	
+	CALL :GetDDKToolPath CERT-MGR certmgr.exe
+	IF "!BUILD_ERRORLEVEL!" NEQ "0" GOTO :EOF
+	
+	CALL :GetDDKToolPath SIGN-TOOL signtool.exe
+	IF "!BUILD_ERRORLEVEL!" NEQ "0" GOTO :EOF
+	
+	ECHO [SignFile] NOTE - remember to type 'bcdedit -set testsigning on' to use
+	ECHO                   test certificates on x64 machines.
+	ECHO.
+	CALL :SafeCopy "!PACKAGE_ROOT_DIR!cert\!CMDVAR_CERT_FILE!" "!CD!"
+	IF NOT EXIST "!CMDVAR_CERT_FILE!" (
+	
+		ECHO [SignFile] clearing LibusbCertStore
+		"!CERT-MGR!" -del -all -s LibusbCertStore
+		
+		ECHO [SignFile] making !CMDVAR_CERT_FILE! test certificate
+		"!MAKE-CERT!" -r -pe -ss LibusbCertStore -n "CN=Libusb-Win32 Testing" !CMDVAR_CERT_FILE!
+		IF "!ERRORLEVEL!" NEQ "0" (
+			SET BUILD_ERRORLEVEL=1
+			ECHO [SignFile] failed creating certificate !CMDVAR_CERT_FILE!
+			GOTO :EOF
+		)
+		
+		CALL :SafeCopy !CMDVAR_CERT_FILE! "!PACKAGE_ROOT_DIR!cert\"
+		
+		ECHO [SignFile] adding !CMDVAR_CERT_FILE! to root
+		"!CERT-MGR!" -add !CMDVAR_CERT_FILE! -s -r localMachine root
+		IF "!ERRORLEVEL!" NEQ "0" (
+			SET BUILD_ERRORLEVEL=1
+			ECHO [SignFile] failed adding certificate to root
+			GOTO :EOF
+		)	
+		
+		ECHO [SignFile] adding !CMDVAR_CERT_FILE! to trustedpublisher
+		"!CERT-MGR!" -add !CMDVAR_CERT_FILE! -s -r localMachine trustedpublisher
+		IF "!ERRORLEVEL!" NEQ "0" (
+			SET BUILD_ERRORLEVEL=1
+			ECHO [SignFile] failed adding certificate to trustedpublisher
+			GOTO :EOF
+		)		
+		
+	)
+	
+	"!SIGN-TOOL!" sign /s LibusbCertStore %1
+	IF "!ERRORLEVEL!" NEQ "0" (
+		SET BUILD_ERRORLEVEL=1
+		GOTO :EOF
+	)
+	DEL /Q !CMDVAR_CERT_FILE!
+GOTO :EOF
+
+:: searches the directories listed in the PATH
+:: environment variable for %2 and expands to the
+:: drive letter and path of the first one found.
+:: 
+:FindInPath
+	SET %1=%~dp$PATH:2
+	IF "!%~1!" NEQ "" (
+		CALL :ToAbsolutePaths %1 "!%~1!%2"
+		ECHO [FindInPath] found path for %1
 	)
 GOTO :EOF
 
@@ -761,32 +854,40 @@ ECHO.
 ECHO BUILD USAGE: CMD /C make.cmd "Option=Value"
 ECHO Options: 
 ECHO [req] ARCH      w2k/x86/x64/i64
-ECHO [opt] APP       all/dll/driver/install_filter/inf_wizard/test/testwin
-ECHO                 [Default = all]
-ECHO [opt] OUTDIR    Directory that will contain the compiled binaries
-ECHO                 [Default = .\ARCH]
-ECHO [opt] WINDDK    WinDDK directory for WXP-WIN7 builds
-ECHO                 [Default = see make.cfg]
-ECHO [opt] WIN2KDDK  WinDDK directory for Windows 2000 builds
-ECHO                 [Default = see make.cfg]
-ECHO [opt] DEBUGMODE Setting this option to true will make chk builds instead of fre.
-                     This also enables kernel debug messages.
-ECHO                 [Default = false]
-
+ECHO APP		  all/dll/driver/install_filter/inf_wizard/test/testwin
+ECHO              [Default = all]
+ECHO OUTDIR		  Directory that will contain the compiled binaries
+ECHO              [Default = .\ARCH]
+ECHO WINDDK		  WinDDK directory for WXP-WIN7 builds
+ECHO              [Default = see make.cfg]
+ECHO WIN2KDDK     WinDDK directory for Windows 2000 builds
+ECHO              [Default = see make.cfg]
+ECHO DEBUGMODE    Setting this option to 'true' makes chk builds instead of fre.
+ECHO              This also enables kernel debug messages and sets all default
+ECHO              log modes to the max verbosity.
+ECHO              [Default = false]
+ECHO TESTSIGNING  Setting this option to 'on' signs te dll and driver with a
+ECHO              test certifcate.
+ECHO              [Default = off]
 ECHO.
 ECHO [Note: See make.cfg for more options that can be used when building]
 ECHO.
 ECHO Examples:
 ECHO CMD /C make.cmd "arch=x86" "app=all" "outdir=.\x86"
 ECHO CMD /C make.cmd "arch=x64" "outdir=.\x64" "winddk=Z:\WinDDK\7600.16385.0\"
+ECHO CMD /C make.cmd "arch=x64" "testsigning=on"
 ECHO CMD /C make.cmd "arch=x86"
 ECHO.
 ECHO PACKAGE USAGE: make.cmd PackageCommand "Option=Value"
 ECHO Package Commands:
-ECHO ALL      Build binaries for all architectures.
-ECHO DIST     Creates libusb-win32 dist packages.
-ECHO SNAPSHOT Creates libusb-win32 snapshot packages.
-ECHO CLEAN    Cleans the working directory and root package directory.
+ECHO ALL       Build binaries for all architectures.
+ECHO DIST      Creates libusb-win32 dist packages.
+ECHO SNAPSHOT  Creates libusb-win32 snapshot packages.
+ECHO.
+ECHO Additional Commands:
+ECHO CLEAN     Cleans all temporary files and root package directory.
+ECHO SIGNFILE  Signs a dll or sys file with a test certificate.
+ECHO MAKEVER   Re/creates libusb_version.h from the template.
 ECHO.
 ECHO [Note: See make.cfg for options that can be used when packaging]
 ECHO.
