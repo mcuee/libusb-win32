@@ -96,10 +96,13 @@ Source: @PACKAGE_BIN_DIR@x86\testlibusb-win.exe; DestDir: {app}\bin\x86; Flags: 
 ; Text, Licenses
 Source: *.txt; DestDir: {app}; Flags: ignoreversion;
 
+; Test Certificate
+Source: *.cer; DestDir: {app}; Flags: ignoreversion; Check: Is64;
+
 [Icons]
-Name: {group}\Libusb-Win32 Test Certificate: {app}\LibusbWin32TestCert.cer; Flags: createonlyiffileexists
-Name: {group}\Enable filter (admin only); Filename: {app}\bin\install-filter.exe; Parameters: -i; Flags: createonlyiffileexists
-Name: {group}\Disable filter (admin only); Filename: {app}\bin\install-filter.exe; Parameters: -u; Flags: createonlyiffileexists
+Name: "{group}\Libusb-Win32 Test Certificate"; Filename: {app}\LibusbWin32TestCert.cer; Flags: createonlyiffileexists
+Name: "{group}\Enable filter (admin only)"; Filename: {app}\bin\install-filter.exe; Parameters: -i; Flags: createonlyiffileexists
+Name: "{group}\Disable filter (admin only)"; Filename: {app}\bin\install-filter.exe; Parameters: -u; Flags: createonlyiffileexists
 Name: "{group}\Test (Win) Program"; Filename: "{app}\bin\testlibusb-win.exe"; 
 Name: "{group}\INF Wizard"; Filename: "{app}\bin\inf-wizard.exe"; 
 Name: "{group}\License\GPL License"; Filename: "{app}\COPYING_GPL.txt"
