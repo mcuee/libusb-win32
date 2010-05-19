@@ -97,7 +97,7 @@ Source: @PACKAGE_BIN_DIR@x86\testlibusb-win.exe; DestDir: {app}\bin\x86; Flags: 
 Source: *.txt; DestDir: {app}; Flags: ignoreversion;
 
 ; Test Certificate
-Source: *.cer; DestDir: {app}; Flags: ignoreversion; Check: Is64;
+Source: *.cer; DestDir: {app}; Flags: ignoreversion skipifsourcedoesntexist; Check: Is64;
 
 [Icons]
 Name: "{group}\Libusb-Win32 Test Certificate"; Filename: {app}\LibusbWin32TestCert.cer; Flags: createonlyiffileexists
