@@ -44,8 +44,6 @@ enum USB_LOG_LEVEL
 
 typedef void (WINAPI * usb_log_handler_t)(enum USB_LOG_LEVEL, const char*);
 
-void usb_error(char *format, ...);
-void usb_message(char *format, ...);
 const char *usb_win_error_to_string(void);
 int usb_win_error_to_errno(void);
 
