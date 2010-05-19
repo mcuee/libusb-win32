@@ -168,8 +168,6 @@ NTSTATUS reg_get_device_property(PDEVICE_OBJECT device_object,
 							   int data_length,
 							   int* actual_length)
 {
-    ULONG ret;
-    ULONG i;
 	NTSTATUS status = STATUS_INVALID_PARAMETER;
 
     if (!device_object || !data_buffer || !data_length || !actual_length)
@@ -181,7 +179,7 @@ NTSTATUS reg_get_device_property(PDEVICE_OBJECT device_object,
 
 	// get device property
     status = IoGetDeviceProperty(
-		device_object, property, data_length, data_buffer, actual_length);
+		device_object, property, data_length, data_buffer, (PULONG)actual_length);
 
     return status;
 }
