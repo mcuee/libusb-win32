@@ -88,6 +88,9 @@ DRIVER_LDFLAGS = -s -shared -Wl,--entry,_DriverEntry@8 \
 	-nostartfiles -nostdlib -L. -lusbd -lntoskrnl -lhal
 
 
+.PHONY: all
+all: dll filter infwizard test testwin driver
+
 .PHONY: dll
 dll: DLL_CFLAGS = $(CFLAGS) -DLOG_APPNAME='"libusb-dll"'
 dll: $(DLL_TARGET).dll
@@ -169,9 +172,6 @@ libusbd.a:
 %.o: %.rc
 	$(WINDRES) $(CPPFLAGS) $(WINDRES_FLAGS) $< -o $@
 	
-.PHONY: all
-all: dll filter infwizard test testwin driver
-
 .PHONY: cleantemp
 cleantemp:	
 	$(RM) *.o *.a *.exp *.tar.gz *~ *.iss *.rc *.h
