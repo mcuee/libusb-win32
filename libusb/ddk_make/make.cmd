@@ -369,6 +369,11 @@ GOTO :EOF
 	CALL :SafeReCreateDir "!_WORKING_DIR!"
 
 	CALL :PackageText "!_WORKING_DIR!"
+	
+	IF /I "!CMDVAR_TESTSIGNING!" EQU "on" (
+		CALL :SafeCopy "!PACKAGE_ROOT_DIR!cert\!CERT_FILE!" "!_WORKING_DIR!"
+	)
+	
 	CALL :TagEnv "filter-bin-setup.iss.in" "!_WORKING_DIR!filter-bin-setup.iss"
 	
 	PUSHD "!CD!"
