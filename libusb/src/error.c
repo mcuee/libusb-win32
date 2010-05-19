@@ -54,17 +54,17 @@ static const char *skipped_function_prefix_list[] =
 
 char usb_error_str[LOGBUF_SIZE] = "";
 int usb_error_errno = 0;
-int __usb_log_level = LOG_OFF;
-usb_error_type_t usb_error_type = USB_ERROR_TYPE_NONE;
-usb_log_handler_t log_handler = NULL;
-
-const char** skipped_function_prefix = skipped_function_prefix_list;
 
 #ifdef _DEBUG
 int __usb_log_level = LOG_DEBUG;
 #else
 int __usb_log_level = LOG_OFF;
 #endif
+
+usb_error_type_t usb_error_type = USB_ERROR_TYPE_NONE;
+usb_log_handler_t log_handler = NULL;
+
+const char** skipped_function_prefix = skipped_function_prefix_list;
 
 char *usb_strerror(void)
 {
