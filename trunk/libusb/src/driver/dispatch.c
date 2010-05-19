@@ -30,6 +30,12 @@ NTSTATUS DDKAPI dispatch(DEVICE_OBJECT *device_object, IRP *irp)
         return dispatch_pnp(dev, irp);
 
     case IRP_MJ_POWER:
+		// ID: 2960644 (farthen)
+		// You can't set the power state if the device is not handled at all
+		if(!dev->next_stack_device)
+		{
+			return complete_irp(irp, STATUS_INVALID_DEVICE_STATE, 0);
+		}
         return dispatch_power(dev, irp);
     }
 
