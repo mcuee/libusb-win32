@@ -4,6 +4,8 @@
 /* the device's vendor and product id */
 #define MY_VID 1234
 #define MY_PID 5678
+#define MY_CONFIG 1
+#define MY_INTF 0
 
 /* the device's endpoints */
 #define EP_IN 0x81
@@ -36,6 +38,7 @@ int main(void)
 {
     usb_dev_handle *dev = NULL; /* the device handle */
     char tmp[BUF_SIZE];
+	int ret;
 
     usb_init(); /* initialize the library */
     usb_find_busses(); /* find all busses */
@@ -47,35 +50,56 @@ int main(void)
         printf("error: device not found!\n");
         return 0;
     }
+	else
+	{
+		printf("success: device %04X:%04X opened\n",MY_VID,MY_PID);
+	}
 
-    if (usb_set_configuration(dev, 1) < 0)
+    if (usb_set_configuration(dev, MY_CONFIG) < 0)
     {
-        printf("error: setting config 1 failed\n");
+        printf("error: setting config #%d failed\n",MY_CONFIG);
         usb_close(dev);
         return 0;
     }
+	else
+	{
+		printf("success: set configuration #%d\n", MY_CONFIG);
+	}
 
     if (usb_claim_interface(dev, 0) < 0)
     {
-        printf("error: claiming interface 0 failed\n");
+        printf("error: claiming interface #%d failed\n", MY_INTF);
         usb_close(dev);
         return 0;
     }
+	else
+	{
+		printf("success: claim_interface #%d\n", MY_INTF);
+	}
 
-    if (usb_bulk_write(dev, EP_OUT, tmp, sizeof(tmp), 5000)
-            != sizeof(tmp))
+	ret = usb_bulk_write(dev, EP_OUT, tmp, sizeof(tmp), 5000);
+    if (ret <= 0)
     {
         printf("error: bulk write failed\n");
     }
-
-    if (usb_bulk_read(dev, EP_IN, tmp, sizeof(tmp), 5000)
-            != sizeof(tmp))
+	else
+	{
+        printf("success: bulk write %d bytes\n",ret);
+	}
+	
+	ret = usb_bulk_read(dev, EP_IN, tmp, sizeof(tmp), 5000);
+    if (ret <= 0)
     {
         printf("error: bulk read failed\n");
     }
+	else
+	{
+        printf("success: bulk read %d bytes\n",ret);
+	}
 
     usb_release_interface(dev, 0);
     usb_close(dev);
+    printf("Done.\n");
 
     return 0;
 }
