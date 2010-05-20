@@ -67,7 +67,7 @@ static int _usb_transfer_sync(usb_dev_handle *dev, int control_code,
                               int ep, int pktsize, char *bytes, int size,
                               int timeout);
 
-/* static int usb_get_configuration(usb_dev_handle *dev); */
+static int usb_get_configuration(usb_dev_handle *dev);
 static int _usb_cancel_io(usb_context_t *context);
 static int _usb_abort_ep(usb_dev_handle *dev, unsigned int ep);
 
@@ -100,85 +100,85 @@ BOOL WINAPI DllMain(HANDLE module, DWORD reason, LPVOID reserved)
     return TRUE;
 }
 
-/* static int usb_get_configuration(usb_dev_handle *dev) */
-/* { */
-/*   int ret; */
-/*   char config; */
+ static int usb_get_configuration(usb_dev_handle *dev)
+ {
+   int ret;
+   char config;
 
-/*   ret = usb_control_msg(dev, USB_RECIP_DEVICE | USB_ENDPOINT_IN,  */
-/*                         USB_REQ_GET_CONFIGURATION, 0, 0, &config, 1,  */
-/*                         LIBUSB_DEFAULT_TIMEOUT); */
+   ret = usb_control_msg(dev, USB_RECIP_DEVICE | USB_ENDPOINT_IN,
+                         USB_REQ_GET_CONFIGURATION, 0, 0, &config, 1,
+                         LIBUSB_DEFAULT_TIMEOUT); 
 
-/*   if(ret >= 0) */
-/*     { */
-/*       return config; */
-/*     } */
+   if(ret >= 0)
+     {
+       return config;
+     }
 
-/*   return ret; */
-/* } */
+   return ret;
+ }
 
-int usb_os_open(usb_dev_handle *dev)
-{
-    char dev_name[LIBUSB_PATH_MAX];
-    char *p;
-    /*   int config; */
+ int usb_os_open(usb_dev_handle *dev)
+ {
+	 char dev_name[LIBUSB_PATH_MAX];
+	 char *p;
+	 int config;
 
-    if (!dev)
-    {
-        USBERR("invalid device handle %p", dev);
-        return -EINVAL;
-    }
+	 if (!dev)
+	 {
+		 USBERR("invalid device handle %p", dev);
+		 return -EINVAL;
+	 }
 
-    dev->impl_info = INVALID_HANDLE_VALUE;
-    dev->config = 0;
-    dev->interface = -1;
-    dev->altsetting = -1;
+	 dev->impl_info = INVALID_HANDLE_VALUE;
+	 dev->config = 0;
+	 dev->interface = -1;
+	 dev->altsetting = -1;
 
-    if (!dev->device->filename)
-    {
-        USBERR0("invalid file name\n");
-        return -ENOENT;
-    }
+	 if (!dev->device->filename)
+	 {
+		 USBERR0("invalid file name\n");
+		 return -ENOENT;
+	 }
 
-    /* build the Windows file name from the unique device name */
-    strcpy(dev_name, dev->device->filename);
+	 /* build the Windows file name from the unique device name */
+	 strcpy(dev_name, dev->device->filename);
 
-    p = strstr(dev_name, "--");
+	 p = strstr(dev_name, "--");
 
-    if (!p)
-    {
-        USBERR("invalid file name %s\n", dev->device->filename);
-        return -ENOENT;
-    }
+	 if (!p)
+	 {
+		 USBERR("invalid file name %s\n", dev->device->filename);
+		 return -ENOENT;
+	 }
 
-    *p = 0;
+	 *p = 0;
 
-    dev->impl_info = CreateFile(dev_name, 0, 0, NULL, OPEN_EXISTING,
-                                FILE_FLAG_OVERLAPPED, NULL);
+	 dev->impl_info = CreateFile(dev_name, 0, 0, NULL, OPEN_EXISTING,
+		 FILE_FLAG_OVERLAPPED, NULL);
 
-    if (dev->impl_info == INVALID_HANDLE_VALUE)
-    {
-        USBERR("failed to open %s: win error: %s",
-                  dev->device->filename, usb_win_error_to_string());
-        return -ENOENT;
-    }
+	 if (dev->impl_info == INVALID_HANDLE_VALUE)
+	 {
+		 USBERR("failed to open %s: win error: %s",
+			 dev->device->filename, usb_win_error_to_string());
+		 return -ENOENT;
+	 }
 
-    /* now, retrieve the device's current configuration, except from hubs */
-    /*   if(dev->device->config && dev->device->config->interface */
-    /*      && dev->device->config->interface[0].altsetting */
-    /*      && dev->device->config->interface[0].altsetting[0].bInterfaceClass  */
-    /*      != USB_CLASS_HUB) */
-    /*     { */
-    /*       config = usb_get_configuration(dev); */
+	 // now, retrieve the device's current configuration, except from hubs
+	 if(dev->device->config && dev->device->config->interface
+		 && dev->device->config->interface[0].altsetting
+		 && dev->device->config->interface[0].altsetting[0].bInterfaceClass
+		 != USB_CLASS_HUB)
+	 {
+		 config = usb_get_configuration(dev);
 
-    /*       if(config > 0) */
-    /*         { */
-    /*           dev->config = config; */
-    /*         } */
-    /*     } */
+		 if(config > 0)
+		 {
+			 dev->config = config;
+		 }
+	 }
 
-    return 0;
-}
+	 return 0;
+ }
 
 int usb_os_close(usb_dev_handle *dev)
 {
