@@ -225,10 +225,10 @@ GOTO :EOF
 	CALL :SafeCleanDir "!PACKAGE_BIN_DIR!"
 	IF !ERRORLEVEL! NEQ 0 GOTO :EOF
 	
-	CALL :Build_PackageBinaries w2k msvc
+	CALL :Build_PackageBinaries w2k msvc w2k
 	IF !BUILD_ERRORLEVEL! NEQ 0 GOTO CMDERROR
 
-	CALL :Build_PackageBinaries x86 msvc
+	CALL :Build_PackageBinaries x86 msvc x86
 	IF !BUILD_ERRORLEVEL! NEQ 0 GOTO CMDERROR
 	
 	PUSHD !CD!
@@ -248,10 +248,10 @@ GOTO :EOF
 	
 	POPD	
 	
-	CALL :Build_PackageBinaries x64 msvc_x64
+	CALL :Build_PackageBinaries x64 msvc_x64 amd64
 	IF !BUILD_ERRORLEVEL! NEQ 0 GOTO CMDERROR
 
-	CALL :Build_PackageBinaries i64 msvc_i64
+	CALL :Build_PackageBinaries i64 msvc_i64 ia64
 	IF !BUILD_ERRORLEVEL! NEQ 0 GOTO CMDERROR
 
 	CALL :SafeCopy "..\src\libusb_dyn.c" "!PACKAGE_LIB_DIR!dynamic\"
@@ -265,7 +265,7 @@ GOTO :EOF
 :: Packaging functions 
 :: 
 :Build_PackageBinaries
-	SET _OUTDIR_=!PACKAGE_BIN_DIR!%1\
+	SET _OUTDIR_=!PACKAGE_BIN_DIR!%3\
 	CALL :SafeCreateDir "!_OUTDIR_!"
 	CALL :CmdExe make.cmd !_ARG_LINE! "arch=%1" "app=all" "outdir=!_OUTDIR_!"
 	IF !BUILD_ERRORLEVEL! NEQ 0 GOTO :EOF
@@ -541,9 +541,9 @@ GOTO :EOF
 	IF NOT EXIST "!PACKAGE_BIN_DIR!x86\*.dll" GOTO BinariesNotBuilt
 	IF NOT EXIST "!PACKAGE_BIN_DIR!x86\*.sys" GOTO BinariesNotBuilt
 	IF NOT EXIST "!PACKAGE_BIN_DIR!x86\*.exe" GOTO BinariesNotBuilt
-	IF NOT EXIST "!PACKAGE_BIN_DIR!x64\*.dll" GOTO BinariesNotBuilt
-	IF NOT EXIST "!PACKAGE_BIN_DIR!x64\*.sys" GOTO BinariesNotBuilt
-	IF NOT EXIST "!PACKAGE_BIN_DIR!x64\*.exe" GOTO BinariesNotBuilt
+	IF NOT EXIST "!PACKAGE_BIN_DIR!amd64\*.dll" GOTO BinariesNotBuilt
+	IF NOT EXIST "!PACKAGE_BIN_DIR!amd64\*.sys" GOTO BinariesNotBuilt
+	IF NOT EXIST "!PACKAGE_BIN_DIR!amd64\*.exe" GOTO BinariesNotBuilt
 	GOTO :EOF
 	
 	:BinariesNotBuilt
