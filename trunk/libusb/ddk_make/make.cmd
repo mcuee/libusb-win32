@@ -900,5 +900,5 @@ ECHO Example: make.cmd clean
 ECHO Example: make.cmd all
 ECHO Example: make.cmd dist
 ECHO.
-GOTO GOTO CMDERROR
+GOTO CMDERROR
 
