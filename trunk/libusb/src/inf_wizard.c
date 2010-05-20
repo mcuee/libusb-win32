@@ -22,6 +22,7 @@
 #endif
 
 #define INITGUID
+#include "libusb_version.h"
 
 #include <windows.h>
 #include <commdlg.h>
