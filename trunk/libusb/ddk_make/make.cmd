@@ -109,7 +109,7 @@ IF /I "%~1" EQU "signfile" (
 )
 
 IF /I "%~1" EQU "launchdevenv" (
-	START "%VS90COMNTOOLS%..\IDE\devenv.exe" %2
+	"%VS90COMNTOOLS%..\IDE\devenv.exe" %2
 	GOTO CMDEXIT
 )
 
