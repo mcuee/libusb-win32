@@ -147,7 +147,7 @@ testlibusb-win.exe: testlibusb_win.4.o testlibusb_win_rc.4.o
 infwizard: INFWIZARD_CFLAGS = $(CFLAGS) -DLOG_APPNAME='"infwizard"'
 infwizard: inf-wizard.exe
 
-inf-wizard.exe: inf_wizard.5.o registry.5.o error.5.o inf_wizard_rc.5.o 
+inf-wizard.exe: inf_wizard.5.o registry.5.o error.5.o tokenizer.5.o inf_wizard_rc.5.o 
 	$(CC) $(WIN_CFLAGS) -o $@ -I./src  $^ $(WIN_LDFLAGS)
 
 %.5.o: %.c libusb_driver.h driver_api.h error.h

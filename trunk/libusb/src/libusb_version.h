@@ -1,7 +1,7 @@
 /* libusb_version.h ++ auto-generated
 */
-#ifndef __LIBUSB_VERSION_H
-#define __LIBUSB_VERSION_H
+#ifndef _LIBUSB_VERSION_H
+#define _LIBUSB_VERSION_H
 
 #define VERSION_MAJOR 1
 #define VERSION_MINOR 1
