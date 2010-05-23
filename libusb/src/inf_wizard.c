@@ -23,21 +23,55 @@
 
 #define INITGUID
 #include "libusb_version.h"
+#include "tokenizer.h"
 
 #include <windows.h>
 #include <commdlg.h>
 #include <dbt.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <initguid.h>
 #include <commctrl.h>
 #include <setupapi.h>
-
+#include <time.h>
 #include "registry.h"
 
 #define __INF_WIZARD_C__
 #include "inf_wizard_rc.rc"
 
+enum LIBUSB_INF_TAGS
+{
+	INF_FILENAME,
+	CAT_FILENAME,
+	BASE_FILENAME,
+	HARDWAREID,
+	DRIVER_DATE,
+	DRIVER_VERSION,
+	DEVICE_MANUFACTURER,
+	DEVICE_INTERFACE_GUID,
+	DEVICE_DESCRIPTION,
+};
+/* AUTOGEN MSVC REGEXPS (use against LIBUSB_INF_TAGS)
+Find:
+{[A-Za-z0-9_]+},
+Repl:
+{"\1",""},
+*/
+token_entity_t libusb_inf_entities[]=
+{
+	{"INF_FILENAME",""},
+	{"CAT_FILENAME",""},
+	{"BASE_FILENAME",""},
+	{"HARDWAREID",""},
+	{"DRIVER_DATE",""},
+	{"DRIVER_VERSION",""},
+	{"DEVICE_MANUFACTURER",""},
+	{"DEVICE_INTERFACE_GUID",""},
+	{"DEVICE_DESCRIPTION",""},
+
+	NULL // DO NOT REMOVE!
+};
 
 #define _STRINGIFY(x) #x
 #define STRINGIFY(x) _STRINGIFY(x)
@@ -653,8 +687,45 @@ static int save_file(HWND dialog, device_context_t *device)
     char error[MAX_PATH];
     FILE *file;
 
+	long inf_file_size;
+	char *dst=NULL;
+	char* c;
+
     memset(&open_file, 0, sizeof(open_file));
-    strcpy(inf_path, "your_file.inf");
+    memset(inf_path, 0, sizeof(inf_path));
+	if (strlen(device->description))
+	{
+		if (stricmp(device->description,"Insert device description")!=0)
+		{
+			strcpy(inf_path, device->description);
+			c=inf_path;
+			while(c[0])
+			{
+				if (c[0]>='A' && c[0]<='Z') { c++; continue;}
+				if (c[0]>='a' && c[0]<='z') { c++; continue;}
+				if (c[0]>='0' && c[0]<='9') { c++; continue;}
+
+				switch(c[0])
+				{
+				case '_':
+				case ' ':
+				case '.':
+					c[0]='_';
+					break;
+				default: // remove
+					if (!c[1])
+						c[0]='\0';
+					else
+						memmove(c,c+1,strlen(c+1)+1);
+					break;
+				}
+
+				c++;
+			}
+		}
+	}
+	if (!strlen(inf_path))
+		strcpy(inf_path, "your_file.inf");
 
     open_file.lStructSize = sizeof(OPENFILENAME);
     open_file.hwndOwner = dialog;
@@ -668,6 +739,8 @@ static int save_file(HWND dialog, device_context_t *device)
     open_file.Flags = OFN_PATHMUSTEXIST;
     open_file.lpstrDefExt = "inf";
 
+	dst=NULL;
+
     if (GetSaveFileName(&open_file))
     {
         strcpy(cat_path, inf_path);
@@ -680,10 +753,31 @@ static int save_file(HWND dialog, device_context_t *device)
         strcpy(strstr(cat_path_x64, ".inf"), "_x64.cat");
         strcpy(strstr(cat_name_x64, ".inf"), "_x64.cat");
 
-        file = fopen(inf_path, "w");
+        file = fopen(inf_path, "wb");
 
         if (file)
         {
+
+			safe_strcpy(libusb_inf_entities[INF_FILENAME].replace,inf_name);
+			safe_strcpy(libusb_inf_entities[CAT_FILENAME].replace,cat_name);
+			safe_strcpy(libusb_inf_entities[BASE_FILENAME].replace,"LIBUSB_WIN32");
+			sprintf(libusb_inf_entities[HARDWAREID].replace,"USB\\VID_%04x&PID_%04x",device->vid, device->pid);
+			safe_strcpy(libusb_inf_entities[DRIVER_DATE].replace,STRINGIFY(INF_DATE));
+			safe_strcpy(libusb_inf_entities[DRIVER_VERSION].replace,STRINGIFY(INF_VERSION));
+			safe_strcpy(libusb_inf_entities[DEVICE_MANUFACTURER].replace,device->manufacturer);
+			safe_strcpy(libusb_inf_entities[DEVICE_INTERFACE_GUID].replace,"00000000-0000-0000-0000-000000000000");
+			safe_strcpy(libusb_inf_entities[DEVICE_DESCRIPTION].replace,device->description);
+
+			if ((inf_file_size = tokenize_resource(MAKEINTRESOURCEA(ID_LIBUSB_INF),MAKEINTRESOURCEA(ID_INF_TEXT),
+				&dst,libusb_inf_entities,"#","#",0)) > 0)
+			{
+				fwrite(dst,sizeof(char),inf_file_size,file);
+				fflush(file);
+				free(dst);
+			}
+
+			fclose(file);
+/*
             fprintf(file, "%s", inf_header);
             fprintf(file, "CatalogFile = %s\n", cat_name);
             fprintf(file, "CatalogFile.NT = %s\n", cat_name);
@@ -705,8 +799,8 @@ static int save_file(HWND dialog, device_context_t *device)
 
             fprintf(file, strings_header);
             fprintf(file, "manufacturer = \"%s\"\n", device->manufacturer);
-
             fclose(file);
+*/
         }
         else
         {
@@ -729,7 +823,7 @@ static int save_file(HWND dialog, device_context_t *device)
             MessageBox(dialog, error, "Error",
                        MB_OK | MB_APPLMODAL | MB_ICONWARNING);
         }
-
+		/*
         file = fopen(cat_path_x64, "w");
 
         if (file)
@@ -743,7 +837,7 @@ static int save_file(HWND dialog, device_context_t *device)
             MessageBox(dialog, error, "Error",
                        MB_OK | MB_APPLMODAL | MB_ICONWARNING);
         }
-
+		*/
         return TRUE;
     }
     return FALSE;

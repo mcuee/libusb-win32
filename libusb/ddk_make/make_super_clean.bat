@@ -17,3 +17,5 @@ if exist .\i64 rmdir /s /q .\i64
 if exist .\w2k rmdir /s /q .\w2k
 if exist libusb.lib del /q libusb.lib
 if exist *.cer del /q *.cer
+if exist libusb-win32.inf.in del /q libusb-win32.inf.in
+

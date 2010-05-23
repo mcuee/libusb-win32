@@ -6,7 +6,8 @@ UMENTRY = winmain
 USE_MSVCRT = 1
 386_STDCALL = 0
 USER_C_FLAGS = /Gd /O2
-C_DEFINES = $(COMMON_C_DEFINES) /DMANIFEST_FILE="\"manifest_$(_BUILDARCH).xml\""       
+C_DEFINES = $(COMMON_C_DEFINES) /DMANIFEST_FILE="\"manifest_$(_BUILDARCH).xml\"" \
+	/Dstricmp=_stricmp      
 
 TARGETLIBS =  $(SDK_LIB_PATH)\setupapi.lib \
               $(SDK_LIB_PATH)\kernel32.lib \
@@ -15,4 +16,4 @@ TARGETLIBS =  $(SDK_LIB_PATH)\setupapi.lib \
               $(SDK_LIB_PATH)\comctl32.lib \
               $(SDK_LIB_PATH)\comdlg32.lib
 
-SOURCES = inf_wizard.c registry.c error.c inf_wizard_rc.rc
+SOURCES = inf_wizard.c registry.c error.c tokenizer.c inf_wizard_rc.rc
