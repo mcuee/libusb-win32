@@ -43,10 +43,10 @@
 // Returns: less than 0 on error, 0 if src is empty,
 //          number of chars written to dst on success.
 // NOTE: On success dst must be freed by the calling function.
-static long tokenize_string(const char* src, // text to bo tokenized
+long tokenize_string(const char* src, // text to bo tokenized
 				   long src_count, // length of src
 				   char** dst, // destination buffer (must be freed)
-				   token_entity_t token_entities[], // match/replace token list
+				   const token_entity_t* token_entities, // match/replace token list
 				   const char* tok_prefix, // the token prefix exmpl:"$("
 				   const char* tok_suffix, // the token suffix exmpl:")"
 				   int recursive) // allows tokenzing tokens in tokens
@@ -172,7 +172,7 @@ static long tokenize_string(const char* src, // text to bo tokenized
 long tokenize_resource(LPCSTR resource_name, 
 					 LPCSTR resource_type,
 					 char** dst,
-					 token_entity_t token_entities[],
+					 const token_entity_t* token_entities,
 					 const char* tok_prefix,
 					 const char* tok_suffix,
 					 int recursive)
