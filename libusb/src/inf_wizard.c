@@ -70,7 +70,7 @@ token_entity_t libusb_inf_entities[]=
 	{"DEVICE_INTERFACE_GUID",""},
 	{"DEVICE_DESCRIPTION",""},
 
-	NULL // DO NOT REMOVE!
+	{NULL} // DO NOT REMOVE!
 };
 
 #define _STRINGIFY(x) #x

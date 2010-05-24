@@ -15,13 +15,13 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
-#include <windows.h>
-#include <stdlib.h>
 
 #ifndef _TOKENIZER_H
 #define _TOKENIZER_H
 
+#include <windows.h>
 
+// TODO: create real safe defines in a global header file  
 #if __STDC_WANT_SECURE_LIB__
 #define safe_strncpy(dest,src,count) strncpy_s(dest,count+1,src,count)
 #define safe_strcpy(dest,src) strcpy_s(dest,src?strlen(src)+1:0,src)
@@ -36,10 +36,10 @@ typedef struct _token_entity_t
 	char replace[1024];
 }token_entity_t;
 
-static long tokenize_string(const char* src,
+long tokenize_string(const char* src,
 						 long src_count, 
 						 char** dst,
-						 token_entity_t token_entities[],
+						 const token_entity_t* token_entities,
 						 const char* tok_prefix,
 						 const char* tok_suffix,
 						 int recursive);
@@ -47,7 +47,7 @@ static long tokenize_string(const char* src,
 long tokenize_resource(LPCSTR resource_name, 
 					 LPCSTR resource_type,
 					 char** dst,
-					 token_entity_t token_entities[],
+					 const token_entity_t* token_entities,
 					 const char* tok_prefix,
 					 const char* tok_suffix,
 					 int recursive);
