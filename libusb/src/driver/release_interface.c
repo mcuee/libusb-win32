@@ -24,38 +24,36 @@
 NTSTATUS release_interface(libusb_device_t *dev, FILE_OBJECT *file_object,
                            int interface)
 {
-    DEBUG_MESSAGE("release_interface(): interface %d", interface);
+    USBMSG("interface %d\n", interface);
 
     if (!dev->config.value)
     {
-        DEBUG_ERROR("release_interface(): device is not configured");
+        USBERR0("device is not configured\n");
         return STATUS_INVALID_DEVICE_STATE;
     }
 
     if (interface >= LIBUSB_MAX_NUMBER_OF_INTERFACES)
     {
-        DEBUG_ERROR("release_interface(): interface number %d too high",
+        USBERR("interface number %d too high\n",
                     interface);
         return STATUS_INVALID_PARAMETER;
     }
 
     if (!dev->config.interfaces[interface].valid)
     {
-        DEBUG_ERROR("release_interface(): invalid interface %02d", interface);
+        USBERR("invalid interface %02d\n", interface);
         return STATUS_INVALID_PARAMETER;
     }
 
     if (!dev->config.interfaces[interface].file_object)
     {
-        DEBUG_ERROR("claim_interface(): could not release interface %d, "
-                    "interface is not claimed", interface);
+        USBERR("could not release interface %d, interface is not claimed\n", interface);
         return STATUS_INVALID_DEVICE_STATE;
     }
 
     if (dev->config.interfaces[interface].file_object != file_object)
     {
-        DEBUG_ERROR("claim_interface(): could not release interface %d, "
-                    "interface is not bound to this file object", interface);
+        USBERR("could not release interface %d, interface is not bound to this file object\n", interface);
         return STATUS_DEVICE_BUSY;
     }
 
@@ -68,8 +66,7 @@ NTSTATUS release_all_interfaces(libusb_device_t *dev, FILE_OBJECT *file_object)
 {
     int i;
 
-    DEBUG_MESSAGE("release_all_interfaces(): releasing all interfaces"
-                  " bound to file object 0x%x", file_object);
+    USBMSG("releasing all interfaces bound to file object 0x%x\n", file_object);
 
     for (i = 0; i < LIBUSB_MAX_NUMBER_OF_INTERFACES; i++)
     {

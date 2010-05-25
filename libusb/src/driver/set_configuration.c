@@ -31,9 +31,7 @@ NTSTATUS set_configuration(libusb_device_t *dev, int configuration,
     USBD_INTERFACE_LIST_ENTRY *interfaces = NULL;
     int i, j, interface_number, desc_size;
 
-    DEBUG_PRINT_NL();
-    DEBUG_MESSAGE("set_configuration(): configuration %d", configuration);
-    DEBUG_MESSAGE("set_configuration(): timeout %d", timeout);
+	USBMSG("configuration: %d timeout: %d\n", configuration,timeout);
 
     if (dev->config.value == configuration)
     {
@@ -51,8 +49,7 @@ NTSTATUS set_configuration(libusb_device_t *dev, int configuration,
 
         if (!NT_SUCCESS(status) || !USBD_SUCCESS(urb.UrbHeader.Status))
         {
-            DEBUG_ERROR("set_configuration(): setting configuration %d failed: "
-                        "status: 0x%x, urb-status: 0x%x",
+            USBERR("setting configuration %d failed: status: 0x%x, urb-status: 0x%x\n",
                         configuration, status, urb.UrbHeader.Status);
             return status;
         }
@@ -69,8 +66,7 @@ NTSTATUS set_configuration(libusb_device_t *dev, int configuration,
                                &desc_size);
     if (!configuration_descriptor)
     {
-        DEBUG_ERROR("set_configuration(): getting configuration descriptor "
-                    "failed");
+        USBERR0("getting configuration descriptor failed");
         return STATUS_INVALID_PARAMETER;
     }
 
@@ -80,7 +76,7 @@ NTSTATUS set_configuration(libusb_device_t *dev, int configuration,
 
     if (!interfaces)
     {
-        DEBUG_ERROR("set_configuration(): memory allocation failed");
+        USBERR0("memory allocation failed\n");
         ExFreePool(configuration_descriptor);
         return STATUS_NO_MEMORY;
     }
@@ -105,15 +101,14 @@ NTSTATUS set_configuration(libusb_device_t *dev, int configuration,
 
         if (!interface_descriptor)
         {
-            DEBUG_ERROR("set_configuration(): unable to find interface "
-                        "descriptor at index %d", i);
+            USBERR("unable to find interface descriptor at index %d\n", i);
             ExFreePool(interfaces);
             ExFreePool(configuration_descriptor);
             return STATUS_INVALID_PARAMETER;
         }
         else
         {
-            DEBUG_MESSAGE("set_configuration(): found interface %d",
+            USBMSG("found interface %d\n",
                           interface_descriptor->bInterfaceNumber);
             interfaces[i].InterfaceDescriptor = interface_descriptor;
         }
@@ -124,7 +119,7 @@ NTSTATUS set_configuration(libusb_device_t *dev, int configuration,
 
     if (!urb_ptr)
     {
-        DEBUG_ERROR("set_configuration(): memory allocation failed");
+        USBERR0("memory allocation failed\n");
         ExFreePool(interfaces);
         ExFreePool(configuration_descriptor);
         return STATUS_NO_MEMORY;
@@ -143,8 +138,7 @@ NTSTATUS set_configuration(libusb_device_t *dev, int configuration,
 
     if (!NT_SUCCESS(status) || !USBD_SUCCESS(urb_ptr->UrbHeader.Status))
     {
-        DEBUG_ERROR("set_configuration(): setting configuration %d failed: "
-                    "status: 0x%x, urb-status: 0x%x",
+        USBERR("setting configuration %d failed: status: 0x%x, urb-status: 0x%x\n",
                     configuration, status, urb_ptr->UrbHeader.Status);
         ExFreePool(interfaces);
         ExFreePool(configuration_descriptor);

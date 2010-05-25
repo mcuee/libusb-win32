@@ -31,14 +31,12 @@ NTSTATUS set_interface(libusb_device_t *dev, int interface, int altsetting,
     USB_INTERFACE_DESCRIPTOR *interface_descriptor = NULL;
     USBD_INTERFACE_INFORMATION *interface_information = NULL;
 
-    DEBUG_PRINT_NL();
-    DEBUG_MESSAGE("set_interface(): interface %d", interface);
-    DEBUG_MESSAGE("set_interface(): altsetting %d", altsetting);
-    DEBUG_MESSAGE("set_interface(): timeout %d", timeout);
+    USBMSG("interface %d altsetting %d timeout %d\n", 
+		interface,altsetting,timeout);
 
     if (!dev->config.value)
     {
-        DEBUG_ERROR("release_interface(): device is not configured");
+        USBERR0("device is not configured\n");
         return STATUS_INVALID_DEVICE_STATE;
     }
 
@@ -46,7 +44,7 @@ NTSTATUS set_interface(libusb_device_t *dev, int interface, int altsetting,
                                &config_size);
     if (!configuration_descriptor)
     {
-        DEBUG_ERROR("set_interface(): memory_allocation error");
+        USBERR0("memory_allocation error\n");
         return STATUS_NO_MEMORY;
     }
 
@@ -56,7 +54,7 @@ NTSTATUS set_interface(libusb_device_t *dev, int interface, int altsetting,
 
     if (!interface_descriptor)
     {
-        DEBUG_ERROR("set_interface(): interface %d or altsetting %d invalid",
+        USBERR("interface %d or altsetting %d invalid\n",
                     interface, altsetting);
         ExFreePool(configuration_descriptor);
         return STATUS_UNSUCCESSFUL;
@@ -71,7 +69,7 @@ NTSTATUS set_interface(libusb_device_t *dev, int interface, int altsetting,
 
     if (!urb)
     {
-        DEBUG_ERROR("set_interface(): memory_allocation error");
+        USBERR0("memory_allocation error\n");
         ExFreePool(configuration_descriptor);
         return STATUS_NO_MEMORY;
     }
@@ -106,8 +104,7 @@ NTSTATUS set_interface(libusb_device_t *dev, int interface, int altsetting,
 
     if (!NT_SUCCESS(status) || !USBD_SUCCESS(urb->UrbHeader.Status))
     {
-        DEBUG_ERROR("set_interface(): setting interface failed: status: 0x%x, "
-                    "urb-status: 0x%x", status, urb->UrbHeader.Status);
+        USBERR("setting interface failed: status: 0x%x, urb-status: 0x%x\n", status, urb->UrbHeader.Status);
         ExFreePool(configuration_descriptor);
         ExFreePool(urb);
         return STATUS_UNSUCCESSFUL;

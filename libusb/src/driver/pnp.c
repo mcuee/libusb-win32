@@ -51,13 +51,11 @@ NTSTATUS dispatch_pnp(libusb_device_t *dev, IRP *irp)
 
     isFilter = !accept_irp(dev,irp);
 
-    DEBUG_PRINT_NL();
-
     switch (stack_location->MinorFunction)
     {
     case IRP_MN_REMOVE_DEVICE:
 
-        DEBUG_MESSAGE("dispatch_pnp(): IRP_MN_REMOVE_DEVICE");
+        USBMSG0("IRP_MN_REMOVE_DEVICE ");
 
         dev->is_started = FALSE;
 
@@ -66,12 +64,12 @@ NTSTATUS dispatch_pnp(libusb_device_t *dev, IRP *irp)
 
         status = pass_irp_down(dev, irp, NULL, NULL);
 
-        DEBUG_MESSAGE("dispatch_pnp(): deleting device #%d", dev->id);
+        USBRAWMSG("deleting device %d\n", dev->id);
 
-        _snwprintf(tmp_name, sizeof(tmp_name)/sizeof(WCHAR), L"%s%04d",
+       _snwprintf(tmp_name, sizeof(tmp_name)/sizeof(WCHAR), L"%s%04d",
                    LIBUSB_SYMBOLIC_LINK_NAME, dev->id);
 
-        /* delete the symbolic link */
+     /* delete the symbolic link */
         RtlInitUnicodeString(&symbolic_link_name, tmp_name);
         IoDeleteSymbolicLink(&symbolic_link_name);
 
@@ -83,19 +81,13 @@ NTSTATUS dispatch_pnp(libusb_device_t *dev, IRP *irp)
 
     case IRP_MN_SURPRISE_REMOVAL:
 
-        DEBUG_MESSAGE("dispatch_pnp(): IRP_MN_SURPRISE_REMOVAL");
+        USBMSG0("IRP_MN_SURPRISE_REMOVAL\n");
         dev->is_started = FALSE;
         break;
 
     case IRP_MN_START_DEVICE:
 
-        DEBUG_MESSAGE("dispatch_pnp(): IRP_MN_START_DEVICE");
-
-        /*       if(!NT_SUCCESS(set_configuration(dev, 1, 1000))) */
-        /*         { */
-        /*           DEBUG_ERROR("dispatch_pnp(): IRP_MN_START_DEVICE: selecting " */
-        /*                       "configuration failed"); */
-        /*         } */
+        USBMSG0("IRP_MN_START_DEVICE\n");
 
         /* report device state to Power Manager */
         /* power_state.DeviceState has been set to D0 by add_device() */
@@ -107,12 +99,12 @@ NTSTATUS dispatch_pnp(libusb_device_t *dev, IRP *irp)
     case IRP_MN_STOP_DEVICE:
 
         dev->is_started = FALSE;
-        DEBUG_MESSAGE("dispatch_pnp(): IRP_MN_STOP_DEVICE");
+        USBMSG0("IRP_MN_STOP_DEVICE\n");
         break;
 
     case IRP_MN_DEVICE_USAGE_NOTIFICATION:
 
-        DEBUG_MESSAGE("dispatch_pnp(): IRP_MN_DEVICE_USAGE_NOTIFICATION");
+        USBMSG0("IRP_MN_DEVICE_USAGE_NOTIFICATION\n");
 
         if (!dev->self->AttachedDevice
                 || (dev->self->AttachedDevice->Flags & DO_POWER_PAGABLE))
@@ -125,7 +117,7 @@ NTSTATUS dispatch_pnp(libusb_device_t *dev, IRP *irp)
 
     case IRP_MN_QUERY_CAPABILITIES:
 
-        DEBUG_MESSAGE("dispatch_pnp(): IRP_MN_QUERY_CAPABILITIES");
+        USBMSG0("IRP_MN_QUERY_CAPABILITIES\n");
 
         if (!dev->is_filter)
         {
@@ -177,9 +169,9 @@ on_start_complete(DEVICE_OBJECT *device_object, IRP *irp, void *context)
 		if (configuration)
 		{
 			if(NT_SUCCESS(set_configuration(dev, configuration, 1000)))
-				DEBUG_MESSAGE("on_start_complete(): initial config value %u selected\n", dev->config.value);
+				USBMSG("initial config value %u selected\n", dev->config.value);
 			else
-				DEBUG_ERROR("on_start_complete(): selecting configuration failed\n");
+				USBERR0("selecting configuration failed\n");
 		}
 	}
 

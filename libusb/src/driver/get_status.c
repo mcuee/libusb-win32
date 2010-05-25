@@ -27,12 +27,10 @@ NTSTATUS get_status(libusb_device_t *dev, int recipient,
     NTSTATUS _status = STATUS_SUCCESS;
     URB urb;
 
-    DEBUG_PRINT_NL();
-    DEBUG_MESSAGE("get_status(): recipient %02d", recipient);
-    DEBUG_MESSAGE("get_status(): index %04d", index);
-    DEBUG_MESSAGE("get_status(): timeout %d", timeout);
+	USBMSG("recipient: %02d index: %04d timeout: %d\n", 
+		recipient, index, timeout);
 
-    memset(&urb, 0, sizeof(URB));
+	memset(&urb, 0, sizeof(URB));
 
     switch (recipient)
     {
@@ -49,7 +47,7 @@ NTSTATUS get_status(libusb_device_t *dev, int recipient,
         urb.UrbHeader.Function = URB_FUNCTION_GET_STATUS_FROM_OTHER;
         break;
     default:
-        DEBUG_ERROR("get_status(): invalid recipient");
+        USBERR0("invalid recipient\n");
         return STATUS_INVALID_PARAMETER;
     }
 
@@ -62,8 +60,7 @@ NTSTATUS get_status(libusb_device_t *dev, int recipient,
 
     if (!NT_SUCCESS(_status) || !USBD_SUCCESS(urb.UrbHeader.Status))
     {
-        DEBUG_ERROR("get_status(): getting status failed: "
-                    "status: 0x%x, urb-status: 0x%x",
+        USBERR("getting status failed: status: 0x%x, urb-status: 0x%x\n",
                     _status, urb.UrbHeader.Status);
         *ret = 0;
     }

@@ -55,14 +55,12 @@ NTSTATUS dispatch_ioctl(libusb_device_t *dev, IRP *irp)
             || output_buffer_length > LIBUSB_MAX_READ_WRITE
             || transfer_buffer_length > LIBUSB_MAX_READ_WRITE)
     {
-        DEBUG_ERROR("dispatch_ioctl(): invalid input or output buffer\n");
+        USBERR0("invalid input or output buffer\n");
 
         status = complete_irp(irp, STATUS_INVALID_PARAMETER, 0);
         remove_lock_release(dev);
         return status;
     }
-
-    DEBUG_PRINT_NL();
 
     switch (control_code)
     {
@@ -76,8 +74,7 @@ NTSTATUS dispatch_ioctl(libusb_device_t *dev, IRP *irp)
 
         if (!output_buffer || output_buffer_length < 1)
         {
-            DEBUG_ERROR("dispatch_ioctl(), get_configuration: invalid output "
-                        "buffer");
+            USBERR0("get_configuration: invalid output buffer\n");
             status = STATUS_INVALID_PARAMETER;
             break;
         }
@@ -95,8 +92,7 @@ NTSTATUS dispatch_ioctl(libusb_device_t *dev, IRP *irp)
 
         if (!output_buffer || output_buffer_length < 1)
         {
-            DEBUG_ERROR("dispatch_ioctl(), get_interface: invalid output "
-                        "buffer");
+            USBERR0("get_interface: invalid output buffer\n");
             status =  STATUS_INVALID_PARAMETER;
             break;
         }
@@ -125,7 +121,7 @@ NTSTATUS dispatch_ioctl(libusb_device_t *dev, IRP *irp)
 
         if (!output_buffer || output_buffer_length < 2)
         {
-            DEBUG_ERROR("dispatch_ioctl(), get_status: invalid output buffer");
+            USBERR0("get_status: invalid output buffer\n");
             status = STATUS_INVALID_PARAMETER;
             break;
         }
@@ -140,8 +136,7 @@ NTSTATUS dispatch_ioctl(libusb_device_t *dev, IRP *irp)
 
         if (input_buffer_length <= sizeof(libusb_request))
         {
-            DEBUG_ERROR("dispatch_ioctl(), set_descriptor: invalid input "
-                        "buffer");
+            USBERR0("set_descriptor: invalid input buffer\n");
             status = STATUS_INVALID_PARAMETER;
             break;
         }
@@ -161,8 +156,7 @@ NTSTATUS dispatch_ioctl(libusb_device_t *dev, IRP *irp)
 
         if (!output_buffer || !output_buffer_length)
         {
-            DEBUG_ERROR("dispatch_ioctl(), get_descriptor: invalid output "
-                        "buffer");
+            USBERR0("get_descriptor: invalid output buffer\n");
             status = STATUS_INVALID_PARAMETER;
             break;
         }
@@ -181,8 +175,7 @@ NTSTATUS dispatch_ioctl(libusb_device_t *dev, IRP *irp)
 
         if (!transfer_buffer_mdl)
         {
-            DEBUG_ERROR("dispatch_ioctl(), bulk_int_read: invalid transfer "
-                        "buffer");
+            USBERR0("bulk_int_read: invalid transfer buffer\n");
             status = STATUS_INVALID_PARAMETER;
             break;
         }
@@ -211,7 +204,7 @@ NTSTATUS dispatch_ioctl(libusb_device_t *dev, IRP *irp)
 
         if (output_buffer_length && !output_buffer)
         {
-            DEBUG_ERROR("dispatch_ioctl(), vendor_read: invalid output buffer");
+            USBERR0("vendor_read: invalid output buffer\n");
             status = STATUS_INVALID_PARAMETER;
             break;
         }
@@ -262,15 +255,14 @@ NTSTATUS dispatch_ioctl(libusb_device_t *dev, IRP *irp)
         break;
 
     case LIBUSB_IOCTL_SET_DEBUG_LEVEL:
-
-        DEBUG_SET_LEVEL(request->debug.level);
+		usb_log_set_level(request->debug.level);
         break;
 
     case LIBUSB_IOCTL_GET_VERSION:
 
         if (!request || output_buffer_length < sizeof(libusb_request))
         {
-            DEBUG_ERROR("dispatch_ioctl(), get_version: invalid output buffer");
+            USBERR0("get_version: invalid output buffer\n");
             status = STATUS_INVALID_PARAMETER;
             break;
         }
@@ -297,8 +289,7 @@ NTSTATUS dispatch_ioctl(libusb_device_t *dev, IRP *irp)
     case LIBUSB_IOCTL_ISOCHRONOUS_READ:
         if (!transfer_buffer_mdl)
         {
-            DEBUG_ERROR("dispatch_ioctl(), isochronous_read: invalid transfer "
-                        "buffer");
+            USBERR0("isochronous_read: invalid transfer buffer\n");
             status = STATUS_INVALID_PARAMETER;
             break;
         }
@@ -312,8 +303,7 @@ NTSTATUS dispatch_ioctl(libusb_device_t *dev, IRP *irp)
 
         if (!transfer_buffer_mdl)
         {
-            DEBUG_ERROR("dispatch_ioctl(), isochronous_write: invalid transfer "
-                        "buffer");
+            USBERR0("isochronous_write: invalid transfer buffer\n");
             status = STATUS_INVALID_PARAMETER;
             break;
         }
@@ -326,7 +316,7 @@ NTSTATUS dispatch_ioctl(libusb_device_t *dev, IRP *irp)
 	case LIBUSB_IOCTL_GET_DEVICE_PROPERTY:
 		if (!request || output_buffer_length < sizeof(libusb_request))
 		{
-			DEBUG_ERROR("dispatch_ioctl(), get_device_property: invalid output buffer\n");
+			USBERR0("get_device_property: invalid output buffer\n");
 			status = STATUS_INVALID_PARAMETER;
 			break;
 		}
@@ -340,7 +330,7 @@ NTSTATUS dispatch_ioctl(libusb_device_t *dev, IRP *irp)
 	case LIBUSB_IOCTL_GET_CUSTOM_REG_PROPERTY:
 		if (!input_buffer || (input_buffer_length < sizeof(libusb_request)))
 		{
-			DEBUG_ERROR("dispatch_ioctl(), get_custom_reg_property: invalid buffer\n");
+			USBERR0("get_custom_reg_property: invalid buffer\n");
 			status = STATUS_INVALID_PARAMETER;
 			break;
 		}

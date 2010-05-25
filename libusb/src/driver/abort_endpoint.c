@@ -26,21 +26,19 @@ NTSTATUS abort_endpoint(libusb_device_t *dev, int endpoint, int timeout)
     NTSTATUS status = STATUS_SUCCESS;
     URB urb;
 
-    DEBUG_PRINT_NL();
-    DEBUG_MESSAGE("abort_endpoint(): endpoint 0x%02x\n", endpoint);
-    DEBUG_MESSAGE("abort_endpoint(): timeout %d\n", timeout);
+	USBMSG("endpoint: 0x%02x timeout: %d\n", endpoint, timeout);
 
     memset(&urb, 0, sizeof(struct _URB_PIPE_REQUEST));
 
     if (!dev->config.value)
     {
-        DEBUG_ERROR("abort_endpoint(): invalid configuration 0");
+        USBERR0("invalid configuration 0\n");
         return STATUS_INVALID_DEVICE_STATE;
     }
 
     if (!get_pipe_handle(dev, endpoint, &urb.UrbPipeRequest.PipeHandle))
     {
-        DEBUG_ERROR("abort_endpoint(): getting endpoint pipe failed");
+        USBERR0("getting endpoint pipe failed\n");
         return STATUS_INVALID_PARAMETER;
     }
 
@@ -51,8 +49,7 @@ NTSTATUS abort_endpoint(libusb_device_t *dev, int endpoint, int timeout)
 
     if (!NT_SUCCESS(status) || !USBD_SUCCESS(urb.UrbHeader.Status))
     {
-        DEBUG_ERROR("abort_endpoint(): request failed: status: 0x%x, "
-                    "urb-status: 0x%x", status, urb.UrbHeader.Status);
+        USBERR("request failed: status: 0x%x, urb-status: 0x%x\n", status, urb.UrbHeader.Status);
     }
 
     return status;

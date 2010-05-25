@@ -27,8 +27,7 @@ NTSTATUS get_configuration(libusb_device_t *dev,
     NTSTATUS status = STATUS_SUCCESS;
     URB urb;
 
-    DEBUG_PRINT_NL();
-    DEBUG_MESSAGE("get_configuration(): timeout %d", timeout);
+	USBMSG("timeout: %d\n", timeout);
 
     memset(&urb, 0, sizeof(URB));
 
@@ -42,14 +41,13 @@ NTSTATUS get_configuration(libusb_device_t *dev,
 
     if (!NT_SUCCESS(status) || !USBD_SUCCESS(urb.UrbHeader.Status))
     {
-        DEBUG_ERROR("get_configuration(): getting configuration failed: "
-                    "status: 0x%x, urb-status: 0x%x",
+        USBERR("getting configuration failed: status: 0x%x, urb-status: 0x%x\n",
                     status, urb.UrbHeader.Status);
         *ret = 0;
     }
     else
     {
-        DEBUG_MESSAGE("get_configuration(): current configuration is: %d",
+        USBMSG("current configuration is: %d\n",
                       *configuration);
         *ret = urb.UrbControlGetConfigurationRequest.TransferBufferLength;
     }

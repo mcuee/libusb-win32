@@ -43,30 +43,27 @@ NTSTATUS transfer(libusb_device_t *dev, IRP *irp,
     context_t *context;
     NTSTATUS status = STATUS_SUCCESS;
 
-    DEBUG_PRINT_NL();
-
     if (urb_function == URB_FUNCTION_ISOCH_TRANSFER)
-        DEBUG_MESSAGE("transfer(): isochronous transfer");
+        USBMSG0("isochronous transfer ");
     else
-        DEBUG_MESSAGE("transfer(): bulk or interrupt transfer");
+        USBMSG0("bulk or interrupt transfer ");
 
     if (direction == USBD_TRANSFER_DIRECTION_IN)
-        DEBUG_MESSAGE("transfer(): direction in");
+        USBRAWMSG0("direction in ");
     else
-        DEBUG_MESSAGE("transfer(): direction out");
+        USBRAWMSG0("direction out ");
 
-    DEBUG_MESSAGE("transfer(): endpoint 0x%02x", endpoint);
+    USBRAWMSG("endpoint 0x%02x ", endpoint);
 
     if (urb_function == URB_FUNCTION_ISOCH_TRANSFER)
-        DEBUG_MESSAGE("transfer(): packet_size 0x%x", packet_size);
+        USBRAWMSG("packet_size 0x%x ", packet_size);
 
-    DEBUG_MESSAGE("transfer(): size %d", size);
-    DEBUG_MESSAGE("transfer(): sequence %d", sequence);
-    DEBUG_PRINT_NL();
+    USBRAWMSG("size %d ", size);
+    USBMSG("sequence %d\n", sequence);
 
     if (!dev->config.value)
     {
-        DEBUG_ERROR("transfer(): invalid configuration 0");
+        USBERR0("invalid configuration 0\n");
         remove_lock_release(dev);
         return complete_irp(irp, STATUS_INVALID_DEVICE_STATE, 0);
     }
@@ -130,20 +127,19 @@ NTSTATUS DDKAPI transfer_complete(DEVICE_OBJECT *device_object, IRP *irp,
             = c->urb->UrbBulkOrInterruptTransfer.TransferBufferLength;
         }
 
-        DEBUG_MESSAGE("transfer_complete(): sequence %d: %d bytes transmitted",
+        USBMSG("sequence %d: %d bytes transmitted\n",
                       c->sequence, transmitted);
     }
     else
     {
         if (irp->IoStatus.Status == STATUS_CANCELLED)
         {
-            DEBUG_ERROR("transfer_complete(): sequence %d: timeout error",
+            USBERR("sequence %d: timeout error\n",
                         c->sequence);
         }
         else
         {
-            DEBUG_ERROR("transfer_complete(): sequence %d: transfer failed: "
-                        "status: 0x%x, urb-status: 0x%x",
+            USBERR("sequence %d: transfer failed: status: 0x%x, urb-status: 0x%x\n",
                         c->sequence, irp->IoStatus.Status,
                         c->urb->UrbHeader.Status);
         }
@@ -172,7 +168,7 @@ static NTSTATUS create_urb(libusb_device_t *dev, URB **urb, int direction,
 
     if (!get_pipe_handle(dev, endpoint, &pipe_handle))
     {
-        DEBUG_ERROR("create_urb(): getting endpoint pipe failed");
+        USBERR0("getting endpoint pipe failed\n");
         return STATUS_INVALID_PARAMETER;
     }
 
@@ -181,7 +177,7 @@ static NTSTATUS create_urb(libusb_device_t *dev, URB **urb, int direction,
     {
         if (packet_size <= 0)
         {
-            DEBUG_ERROR("create_urb(): invalid packet size = %d", packet_size);
+            USBERR("invalid packet size = %d\n", packet_size);
             return STATUS_INVALID_PARAMETER;
         }
 
@@ -189,14 +185,14 @@ static NTSTATUS create_urb(libusb_device_t *dev, URB **urb, int direction,
 
         if (num_packets <= 0)
         {
-            DEBUG_ERROR("create_urb(): invalid number of packets = %d",
+            USBERR("invalid number of packets = %d\n",
                         num_packets);
             return STATUS_INVALID_PARAMETER;
         }
 
         if (num_packets > 255)
         {
-            DEBUG_ERROR("create_urb(): transfer size too large");
+            USBERR0("transfer size too large\n");
             return STATUS_INVALID_PARAMETER;
         }
 
@@ -212,7 +208,7 @@ static NTSTATUS create_urb(libusb_device_t *dev, URB **urb, int direction,
 
     if (!*urb)
     {
-        DEBUG_ERROR("create_urb(): memory allocation error");
+        USBERR0("memory allocation error\n");
         return STATUS_NO_MEMORY;
     }
 

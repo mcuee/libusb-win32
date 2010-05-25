@@ -28,13 +28,11 @@ NTSTATUS get_interface(libusb_device_t *dev,
     NTSTATUS status = STATUS_SUCCESS;
     URB urb;
 
-    DEBUG_PRINT_NL();
-    DEBUG_MESSAGE("get_interface(): interface %d", interface);
-    DEBUG_MESSAGE("get_interface(): timeout %d", timeout);
+	USBMSG("interface: %d timeout: %d\n", interface, timeout);
 
     if (!dev->config.value)
     {
-        DEBUG_ERROR("get_interface(): invalid configuration 0");
+        USBERR0("invalid configuration 0\n");
         return STATUS_INVALID_DEVICE_STATE;
     }
 
@@ -50,15 +48,14 @@ NTSTATUS get_interface(libusb_device_t *dev,
 
     if (!NT_SUCCESS(status) || !USBD_SUCCESS(urb.UrbHeader.Status))
     {
-        DEBUG_ERROR("get_interface(): getting interface "
-                    "failed: status: 0x%x, urb-status: 0x%x",
+        USBERR("getting interface failed: status: 0x%x, urb-status: 0x%x\n",
                     status, urb.UrbHeader.Status);
         *ret = 0;
     }
     else
     {
         *ret = urb.UrbControlGetInterfaceRequest.TransferBufferLength;
-        DEBUG_MESSAGE("get_interface(): current altsetting is %d", *altsetting);
+        USBMSG("current altsetting is %d\n", *altsetting);
     }
 
     return status;
