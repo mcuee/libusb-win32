@@ -31,82 +31,80 @@ NTSTATUS vendor_class_request(libusb_device_t *dev,
 
     *ret = 0;
 
-    DEBUG_PRINT_NL();
-
     memset(&urb, 0, sizeof(struct _URB_CONTROL_VENDOR_OR_CLASS_REQUEST));
 
     switch (type)
     {
     case USB_TYPE_CLASS:
-        DEBUG_MESSAGE("vendor_class_request(): type: class");
+        USBMSG0("type: class\n");
         switch (recipient)
         {
         case USB_RECIP_DEVICE:
-            DEBUG_MESSAGE("vendor_class_request(): recipient: device");
+            USBMSG0("recipient: device\n");
             urb.UrbHeader.Function = URB_FUNCTION_CLASS_DEVICE;
             break;
         case USB_RECIP_INTERFACE:
-            DEBUG_MESSAGE("vendor_class_request(): recipient: interface");
+            USBMSG0("recipient: interface\n");
             urb.UrbHeader.Function = URB_FUNCTION_CLASS_INTERFACE;
             break;
         case USB_RECIP_ENDPOINT:
-            DEBUG_MESSAGE("vendor_class_request(): recipient: endpoint");
+            USBMSG0("recipient: endpoint\n");
             urb.UrbHeader.Function = URB_FUNCTION_CLASS_ENDPOINT;
             break;
         case USB_RECIP_OTHER:
-            DEBUG_MESSAGE("vendor_class_request(): recipient: other");
+            USBMSG0("recipient: other\n");
             urb.UrbHeader.Function = URB_FUNCTION_CLASS_OTHER;
             break;
         default:
-            DEBUG_ERROR("vendor_class_request(): invalid recipient");
+            USBERR0("invalid recipient\n");
             return STATUS_INVALID_PARAMETER;
         }
         break;
     case USB_TYPE_VENDOR:
-        DEBUG_MESSAGE("vendor_class_request(): type: vendor");
+        USBMSG0("type: vendor\n");
         switch (recipient)
         {
         case USB_RECIP_DEVICE:
-            DEBUG_MESSAGE("vendor_class_request(): recipient: device");
+            USBMSG0("recipient: device\n");
             urb.UrbHeader.Function = URB_FUNCTION_VENDOR_DEVICE;
             break;
         case USB_RECIP_INTERFACE:
-            DEBUG_MESSAGE("vendor_class_request(): recipient: interface");
+            USBMSG0("recipient: interface\n");
             urb.UrbHeader.Function = URB_FUNCTION_VENDOR_INTERFACE;
             break;
         case USB_RECIP_ENDPOINT:
-            DEBUG_MESSAGE("vendor_class_request(): recipient: endpoint");
+            USBMSG0("recipient: endpoint\n");
             urb.UrbHeader.Function = URB_FUNCTION_VENDOR_ENDPOINT;
             break;
         case USB_RECIP_OTHER:
-            DEBUG_MESSAGE("vendor_class_request(): recipient: other");
+            USBMSG0("recipient: other\n");
             urb.UrbHeader.Function = URB_FUNCTION_VENDOR_OTHER;
             break;
         default:
-            DEBUG_ERROR("vendor_class_request(): invalid recipient");
+            USBERR0("invalid recipient\n");
             return STATUS_INVALID_PARAMETER;
         }
         break;
     default:
-        DEBUG_ERROR("vendor_class_request(): invalid type");
+        USBERR0("invalid type\n");
         return STATUS_INVALID_PARAMETER;
     }
 
-    DEBUG_MESSAGE("vendor_class_request(): request: 0x%02x", request);
-    DEBUG_MESSAGE("vendor_class_request(): value: 0x%04x", value);
-    DEBUG_MESSAGE("vendor_class_request(): index: 0x%04x", index);
-    DEBUG_MESSAGE("vendor_class_request(): size: %d", size);
+    USBMSG("request: 0x%02x\n", request);
+    USBMSG("value: 0x%04x\n", value);
+    USBMSG("index: 0x%04x\n", index);
+    USBMSG("size: %d\n", size);
 
     if (direction == USBD_TRANSFER_DIRECTION_IN)
     {
-        DEBUG_MESSAGE("vendor_class_request(): direction: in");
+        USBMSG0("direction: in\n");
     }
     else
     {
-        DEBUG_MESSAGE("vendor_class_request(): direction: out");
+        USBMSG0("direction: out\n");
     }
 
-    DEBUG_MESSAGE("vendor_class_request(): timeout: %d", timeout);
+    USBMSG("timeout: %d\n", timeout);
 
     urb.UrbHeader.Length = sizeof(struct _URB_CONTROL_VENDOR_OR_CLASS_REQUEST);
     urb.UrbControlVendorClassRequest.TransferFlags
@@ -122,14 +120,13 @@ NTSTATUS vendor_class_request(libusb_device_t *dev,
 
     if (!NT_SUCCESS(status) || !USBD_SUCCESS(urb.UrbHeader.Status))
     {
-        DEBUG_ERROR("vendor_class_request(): request failed: status: 0x%x, "
-                    "urb-status: 0x%x", status, urb.UrbHeader.Status);
+        USBERR("request failed: status: 0x%x, urb-status: 0x%x\n", status, urb.UrbHeader.Status);
     }
     else
     {
         if (direction == USBD_TRANSFER_DIRECTION_IN)
             *ret = urb.UrbControlVendorClassRequest.TransferBufferLength;
-        DEBUG_MESSAGE("vendor_class_request(): %d bytes transmitted",
+        USBMSG("%d bytes transmitted\n",
                       urb.UrbControlVendorClassRequest.TransferBufferLength);
     }
 

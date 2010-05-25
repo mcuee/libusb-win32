@@ -25,12 +25,8 @@ NTSTATUS clear_feature(libusb_device_t *dev,
     NTSTATUS status = STATUS_SUCCESS;
     URB urb;
 
-    DEBUG_PRINT_NL();
-    DEBUG_MESSAGE("clear_feature(): recipient %02d", recipient);
-    DEBUG_MESSAGE("clear_feature(): index %04d", index);
-    DEBUG_MESSAGE("clear_feature(): feature %04d", feature);
-    DEBUG_MESSAGE("clear_feature(): timeout %d", timeout);
-
+	USBMSG("recipient: %02d index: %04d feature: %04d timeout: %d\n", 
+		recipient,index,feature,timeout);
 
     memset(&urb, 0, sizeof(struct _URB_CONTROL_FEATURE_REQUEST));
 
@@ -49,7 +45,7 @@ NTSTATUS clear_feature(libusb_device_t *dev,
         urb.UrbHeader.Function = URB_FUNCTION_CLEAR_FEATURE_TO_OTHER;
         break;
     default:
-        DEBUG_ERROR("clear_feature(): invalid recipient");
+        USBERR0("invalid recipient\n");
         return STATUS_INVALID_PARAMETER;
     }
 
@@ -61,8 +57,7 @@ NTSTATUS clear_feature(libusb_device_t *dev,
 
     if (!NT_SUCCESS(status) || !USBD_SUCCESS(urb.UrbHeader.Status))
     {
-        DEBUG_ERROR("set_feature(): clearing feature failed: status: 0x%x, "
-                    "urb-status: 0x%x", status, urb.UrbHeader.Status);
+        USBERR("clearing feature failed: status: 0x%x, urb-status: 0x%x\n", status, urb.UrbHeader.Status);
     }
 
     return status;

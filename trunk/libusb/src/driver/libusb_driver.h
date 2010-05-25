@@ -37,6 +37,7 @@
 #undef interface
 
 #include "driver_debug.h"
+#include "error.h"
 #include "driver_api.h"
 
 /* some missing defines */

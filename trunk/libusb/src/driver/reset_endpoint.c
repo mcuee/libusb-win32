@@ -26,13 +26,11 @@ NTSTATUS reset_endpoint(libusb_device_t *dev, int endpoint, int timeout)
     NTSTATUS status = STATUS_SUCCESS;
     URB urb;
 
-    DEBUG_PRINT_NL();
-    DEBUG_MESSAGE("reset_endpoint(): endpoint 0x%02x", endpoint);
-    DEBUG_MESSAGE("reset_endpoint(): timeout %d", timeout);
+	USBMSG("endpoint: 0x%02x timeout: %d\n", endpoint, timeout);
 
-    if (!dev->config.value)
+	if (!dev->config.value)
     {
-        DEBUG_ERROR("reset_endpoint(): invalid configuration 0");
+        USBERR0("invalid configuration 0\n");
         return STATUS_INVALID_DEVICE_STATE;
     }
 
@@ -43,7 +41,7 @@ NTSTATUS reset_endpoint(libusb_device_t *dev, int endpoint, int timeout)
 
     if (!get_pipe_handle(dev, endpoint, &urb.UrbPipeRequest.PipeHandle))
     {
-        DEBUG_ERROR("reset_endpoint(): getting endpoint pipe failed");
+        USBERR0("getting endpoint pipe failed\n");
         return STATUS_INVALID_PARAMETER;
     }
 
@@ -51,8 +49,7 @@ NTSTATUS reset_endpoint(libusb_device_t *dev, int endpoint, int timeout)
 
     if (!NT_SUCCESS(status) || !USBD_SUCCESS(urb.UrbHeader.Status))
     {
-        DEBUG_ERROR("reset_endpoint(): request failed: status: 0x%x, "
-                    "urb-status: 0x%x", status, urb.UrbHeader.Status);
+        USBERR("request failed: status: 0x%x, urb-status: 0x%x\n", status, urb.UrbHeader.Status);
     }
 
     return status;

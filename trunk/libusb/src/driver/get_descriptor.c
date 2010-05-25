@@ -28,14 +28,8 @@ NTSTATUS get_descriptor(libusb_device_t *dev,
     NTSTATUS status = STATUS_SUCCESS;
     URB urb;
 
-    DEBUG_PRINT_NL();
-    DEBUG_MESSAGE("get_descriptor(): buffer size %d", size);
-    DEBUG_MESSAGE("get_descriptor(): type %04d", type);
-    DEBUG_MESSAGE("get_descriptor(): recipient %04d", recipient);
-    DEBUG_MESSAGE("get_descriptor(): index %04d", index);
-    DEBUG_MESSAGE("get_descriptor(): language id %04d", language_id);
-    DEBUG_MESSAGE("get_descriptor(): timeout %d", timeout);
-
+	USBMSG("buffer size: %d type: %04d recipient: %04d index: %04d language id: %04d timeout: %d\n", 
+		size,type,recipient,index,language_id,timeout);
 
     memset(&urb, 0, sizeof(struct _URB_CONTROL_DESCRIPTOR_REQUEST));
 
@@ -51,7 +45,7 @@ NTSTATUS get_descriptor(libusb_device_t *dev,
         urb.UrbHeader.Function = URB_FUNCTION_GET_DESCRIPTOR_FROM_ENDPOINT;
         break;
     default:
-        DEBUG_ERROR("get_descriptor(): invalid recipient");
+        USBERR0("invalid recipient\n");
         return STATUS_INVALID_PARAMETER;
     }
 
@@ -69,8 +63,7 @@ NTSTATUS get_descriptor(libusb_device_t *dev,
 
     if (!NT_SUCCESS(status) || !USBD_SUCCESS(urb.UrbHeader.Status))
     {
-        DEBUG_ERROR("get_descriptor(): getting descriptor "
-                    "failed: status: 0x%x, urb-status: 0x%x",
+        USBERR("getting descriptor failed: status: 0x%x, urb-status: 0x%x\n",
                     status, urb.UrbHeader.Status);
         *received = 0;
     }
@@ -99,14 +92,14 @@ get_config_descriptor(libusb_device_t *dev, int value, int *size)
 
     if (!NT_SUCCESS(status) || *size != sizeof(USB_DEVICE_DESCRIPTOR))
     {
-        DEBUG_ERROR("get_config_descriptor(): getting device descriptor failed");
+        USBERR0("getting device descriptor failed\n");
         return NULL;
     }
 
     if (!(desc = ExAllocatePool(NonPagedPool,
                                 sizeof(USB_CONFIGURATION_DESCRIPTOR))))
     {
-        DEBUG_ERROR("get_config_descriptor(): memory allocation error");
+        USBERR0("memory allocation error\n");
         return NULL;
     }
 
@@ -119,8 +112,7 @@ get_config_descriptor(libusb_device_t *dev, int value, int *size)
                                        USB_RECIP_DEVICE,
                                        i, 0, size, LIBUSB_DEFAULT_TIMEOUT)))
         {
-            DEBUG_ERROR("get_config_descriptor(): getting configuration "
-                        "descriptor failed");
+            USBERR0("getting configuration descriptor failed\n");
             break;
         }
 
@@ -131,7 +123,7 @@ get_config_descriptor(libusb_device_t *dev, int value, int *size)
 
             if (!(desc = ExAllocatePool(NonPagedPool, desc_size)))
             {
-                DEBUG_ERROR("get_config_descriptor(): memory allocation error");
+                USBERR0("memory allocation error\n");
                 break;
             }
 
@@ -140,8 +132,7 @@ get_config_descriptor(libusb_device_t *dev, int value, int *size)
                                            USB_RECIP_DEVICE,
                                            i, 0, size, LIBUSB_DEFAULT_TIMEOUT)))
             {
-                DEBUG_ERROR("get_config_descriptor(): getting configuration "
-                            "descriptor failed");
+                USBERR0("getting configuration descriptor failed\n");
                 break;
             }
 

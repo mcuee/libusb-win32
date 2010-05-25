@@ -27,13 +27,10 @@ NTSTATUS set_feature(libusb_device_t *dev, int recipient, int index,
     NTSTATUS status = STATUS_SUCCESS;
     URB urb;
 
-    DEBUG_PRINT_NL();
-    DEBUG_MESSAGE("set_feature(): recipient %02d", recipient);
-    DEBUG_MESSAGE("set_feature(): index %04d", index);
-    DEBUG_MESSAGE("set_feature(): feature %04d", feature);
-    DEBUG_MESSAGE("set_feature(): timeout %d", timeout);
+	USBMSG("recipient: %02d index: %04d feature %04d timeout: %d\n", 
+		recipient,index,feature,timeout);
 
-    memset(&urb, 0, sizeof(struct _URB_CONTROL_FEATURE_REQUEST));
+	memset(&urb, 0, sizeof(struct _URB_CONTROL_FEATURE_REQUEST));
 
     switch (recipient)
     {
@@ -51,7 +48,7 @@ NTSTATUS set_feature(libusb_device_t *dev, int recipient, int index,
         urb.UrbControlFeatureRequest.Index = 0;
         break;
     default:
-        DEBUG_ERROR("set_feature(): invalid recipient");
+        USBERR0("invalid recipient\n");
         return STATUS_INVALID_PARAMETER;
     }
 
@@ -63,8 +60,7 @@ NTSTATUS set_feature(libusb_device_t *dev, int recipient, int index,
 
     if (!NT_SUCCESS(status) || !USBD_SUCCESS(urb.UrbHeader.Status))
     {
-        DEBUG_ERROR("set_feature(): setting feature failed: status: 0x%x, "
-                    "urb-status: 0x%x", status, urb.UrbHeader.Status);
+        USBERR("setting feature failed: status: 0x%x, urb-status: 0x%x\n", status, urb.UrbHeader.Status);
     }
 
     return status;

@@ -65,12 +65,12 @@ NTSTATUS dispatch_power(libusb_device_t *dev, IRP *irp)
 
         if (stack_location->Parameters.Power.Type == SystemPowerState)
         {
-            DEBUG_MESSAGE("dispatch_power(): IRP_MN_SET_POWER: S%d",
+            USBMSG("IRP_MN_SET_POWER: S%d\n",
                           power_state.SystemState - PowerSystemWorking);
         }
         else
         {
-            DEBUG_MESSAGE("dispatch_power(): IRP_MN_SET_POWER: D%d",
+            USBMSG("IRP_MN_SET_POWER: D%d\n",
                           power_state.DeviceState - PowerDeviceD0);
 
             if (power_state.DeviceState > dev->power_state.DeviceState && !isFilter)
@@ -139,7 +139,7 @@ on_power_state_complete(DEVICE_OBJECT *device_object,
     {
         if (stack_location->Parameters.Power.Type == SystemPowerState)
         {
-            DEBUG_MESSAGE("on_power_state_complete(): S%d",
+            USBMSG("S%d\n",
                           power_state.SystemState - PowerSystemWorking);
 
             /* save current system state */
@@ -158,7 +158,7 @@ on_power_state_complete(DEVICE_OBJECT *device_object,
         }
         else /* DevicePowerState */
         {
-            DEBUG_MESSAGE("on_power_state_complete(): D%d",
+            USBMSG("D%d\n",
                           power_state.DeviceState - PowerDeviceD0);
 
             if (power_state.DeviceState <= dev->power_state.DeviceState)
@@ -174,7 +174,7 @@ on_power_state_complete(DEVICE_OBJECT *device_object,
     }
     else
     {
-        DEBUG_MESSAGE("on_power_state_complete(): failed");
+        USBMSG0("failed\n");
     }
 
     remove_lock_release(dev);
@@ -195,7 +195,7 @@ on_filter_power_state_complete(DEVICE_OBJECT *device_object,
     {
         if (stack_location->Parameters.Power.Type == SystemPowerState)
         {
-            DEBUG_MESSAGE("on_power_state_complete(): S%d",
+            USBMSG("S%d\n",
                           power_state.SystemState - PowerSystemWorking);
 
             /* save current system state */
@@ -204,7 +204,7 @@ on_filter_power_state_complete(DEVICE_OBJECT *device_object,
         }
         else /* DevicePowerState */
         {
-            DEBUG_MESSAGE("on_power_state_complete(): D%d",
+            USBMSG("D%d\n",
                           power_state.DeviceState - PowerDeviceD0);
 
             /* save current device state */
@@ -213,7 +213,7 @@ on_filter_power_state_complete(DEVICE_OBJECT *device_object,
     }
     else
     {
-        DEBUG_MESSAGE("on_power_state_complete(): failed");
+        USBMSG0("failed\n");
     }
 
     remove_lock_release(dev);

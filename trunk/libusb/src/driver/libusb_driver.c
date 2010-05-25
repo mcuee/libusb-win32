@@ -21,8 +21,6 @@
 
 #include "libusb_driver.h"
 
-extern int debug_level;
-
 static void DDKAPI unload(DRIVER_OBJECT *driver_object);
 
 static NTSTATUS DDKAPI on_usbd_complete(DEVICE_OBJECT *device_object,
@@ -34,12 +32,16 @@ NTSTATUS DDKAPI DriverEntry(DRIVER_OBJECT *driver_object,
 {
     int i;
 
-    DEBUG_MESSAGE("DriverEntry(): loading driver");
-
     /* initialize global variables */
-    debug_level = LIBUSB_DEBUG_MSG;
+#if defined(_DEBUG) || defined(DEBUG) || defined(DBG) 
+	usb_log_set_level(LOG_DEBUG);
+#else
+	usb_log_set_level(LOG_INFO);
+#endif
 
-    /* initialize the driver object's dispatch table */
+    USBMSG0("loading driver\n");
+
+	/* initialize the driver object's dispatch table */
     for (i = 0; i <= IRP_MJ_MAXIMUM_FUNCTION; i++)
     {
         driver_object->MajorFunction[i] = dispatch;
@@ -69,7 +71,7 @@ NTSTATUS DDKAPI add_device(DRIVER_OBJECT *driver_object,
     /* get the hardware ID from the registry */
     if (!reg_get_hardware_id(physical_device_object, id, sizeof(id)))
     {
-        DEBUG_ERROR("add_device(): unable to read registry");
+        USBERR0("unable to read registry\n");
         return STATUS_SUCCESS;
     }
 
@@ -112,7 +114,7 @@ NTSTATUS DDKAPI add_device(DRIVER_OBJECT *driver_object,
 
         if (NT_SUCCESS(status))
         {
-            DEBUG_MESSAGE("add_device(): device #%d created\n", i);
+            USBMSG("device #%d created\n", i);
             break;
         }
 
@@ -123,7 +125,7 @@ NTSTATUS DDKAPI add_device(DRIVER_OBJECT *driver_object,
 
     if (!device_object)
     {
-        DEBUG_ERROR("add_device(): creating device failed\n");
+        USBERR0("creating device failed\n");
         return status;
     }
 
@@ -131,7 +133,7 @@ NTSTATUS DDKAPI add_device(DRIVER_OBJECT *driver_object,
 
     if (!NT_SUCCESS(status))
     {
-        DEBUG_ERROR("add_device(): creating symbolic link failed\n");
+        USBERR0("creating symbolic link failed\n");
         IoDeleteDevice(device_object);
         return status;
     }
@@ -153,7 +155,7 @@ NTSTATUS DDKAPI add_device(DRIVER_OBJECT *driver_object,
 	/* get device properties from the registry */
 	if (!reg_get_properties(dev))
 	{
-        DEBUG_ERROR("add_device(): getting device properties failed\n");
+        USBERR0("getting device properties failed\n");
 	    IoDeleteSymbolicLink(&symbolic_link_name);
         IoDeleteDevice(device_object);
         return STATUS_SUCCESS;
@@ -167,7 +169,7 @@ NTSTATUS DDKAPI add_device(DRIVER_OBJECT *driver_object,
 	//      Note: This should always return STATUS_SUCCESS at this point.
 	if (!NT_SUCCESS(remove_lock_acquire(dev)))
 	{
-        DEBUG_ERROR("add_device(): remove_lock_acquire failed\n");
+        USBERR0("remove_lock_acquire failed\n");
 	    IoDeleteSymbolicLink(&symbolic_link_name);
         IoDeleteDevice(device_object);
         return STATUS_SUCCESS;
@@ -178,7 +180,7 @@ NTSTATUS DDKAPI add_device(DRIVER_OBJECT *driver_object,
 
     if (!dev->next_stack_device)
     {
-        DEBUG_ERROR("add_device(): attaching to device stack failed\n");
+        USBERR0("attaching to device stack failed\n");
         IoDeleteSymbolicLink(&symbolic_link_name);
         IoDeleteDevice(device_object);
 		remove_lock_release(dev); // always release acquired locks
@@ -187,7 +189,7 @@ NTSTATUS DDKAPI add_device(DRIVER_OBJECT *driver_object,
 
 	if (dev->is_filter)
     {
-        DEBUG_MESSAGE("add_device(): running in filter mode\n");
+        USBMSG0("running in filter mode\n");
 
         /* send all USB requests to the PDO in filter driver mode */
         dev->target_device = dev->physical_device_object;
@@ -204,7 +206,7 @@ NTSTATUS DDKAPI add_device(DRIVER_OBJECT *driver_object,
     }
     else
     {
-        DEBUG_MESSAGE("add_device(): running in normal mode\n");
+        USBMSG0("running in normal mode\n");
 
 		 /* send all USB requests to the lower object in device driver mode */
         dev->target_device = dev->next_stack_device;
@@ -214,14 +216,14 @@ NTSTATUS DDKAPI add_device(DRIVER_OBJECT *driver_object,
     device_object->Flags &= ~DO_DEVICE_INITIALIZING;
 	remove_lock_release(dev); // always release acquired locks
 
-    DEBUG_MESSAGE("add_device(): complete status=%08X\n",status);
+    USBMSG("complete status=%08X\n",status);
 	return status;
 }
 
 
 VOID DDKAPI unload(DRIVER_OBJECT *driver_object)
 {
-    DEBUG_MESSAGE("unload(): unloading driver");
+    USBMSG0("unloading driver\n");
 }
 
 NTSTATUS complete_irp(IRP *irp, NTSTATUS status, ULONG info)
@@ -274,7 +276,7 @@ NTSTATUS call_usbd(libusb_device_t *dev, void *urb, ULONG control_code,
         if (KeWaitForSingleObject(&event, Executive, KernelMode,
                                   FALSE, &_timeout) == STATUS_TIMEOUT)
         {
-            DEBUG_ERROR("call_usbd(): request timed out");
+            USBERR0("request timed out\n");
             IoCancelIrp(irp);
         }
     }
@@ -382,7 +384,7 @@ bool_t update_pipe_info(libusb_device_t *dev,
         return FALSE;
     }
 
-    DEBUG_MESSAGE("update_pipe_info(): interface %d", number);
+    USBMSG("interface %d\n", number);
 
     dev->config.interfaces[number].valid = TRUE;
 
@@ -397,7 +399,7 @@ bool_t update_pipe_info(libusb_device_t *dev,
         for (i = 0; i < (int)interface_info->NumberOfPipes
                 && i < LIBUSB_MAX_NUMBER_OF_ENDPOINTS; i++)
         {
-            DEBUG_MESSAGE("update_pipe_info(): endpoint address 0x%02x",
+            USBMSG("endpoint address 0x%02x\n",
                           interface_info->Pipes[i].EndpointAddress);
 
             dev->config.interfaces[number].endpoints[i].handle
