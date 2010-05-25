@@ -35,63 +35,64 @@
 #ifndef TARGETTYPE
 #define TARGETTYPE PROGRAMconsole
 #endif
-#define IsDebugMode()		(defined(_DEBUG) || defined(DEBUG) || defined(DBG))
+#define IS_DEBUG_MODE		(defined(_DEBUG) || defined(DEBUG) || defined(DBG))
 
-#define IsDriver()			(TARGETTYPE==DRIVER)
-#define IsConsoleApp()		(TARGETTYPE==PROGRAMconsole)
-#define IsWindowsApp()		(TARGETTYPE==PROGRAMwindows)
-#define IsApplication()		(IsConsoleApp() || IsWindowsApp())
-#define IsDll()				(TARGETTYPE==DYNLINK)
+#define IS_DRIVER			(TARGETTYPE==DRIVER)
+#define IS_CONSOLE_APP		(TARGETTYPE==PROGRAMconsole)
+#define IS_WINDOW_APP		(TARGETTYPE==PROGRAMwindows)
+#define IS_APP				(IS_CONSOLE_APP || IS_WINDOW_APP)
+#define IS_DLL				(TARGETTYPE==DYNLINK)
 
 #define LOG_OUTPUT_TYPE_REMOVE		0x00
 #define LOG_OUTPUT_TYPE_STDERR		0x01
 #define LOG_OUTPUT_TYPE_DEBUGWINDOW	0x02
 #define LOG_OUTPUT_TYPE_MSGBOX		0x04
-#define LOG_OUTPUT_TYPE_FILE		0x20
-#define LOG_OUTPUT_TYPE_DBGPRINT	0x10
+#define LOG_OUTPUT_TYPE_DBGPRINT	0x08
+#define LOG_OUTPUT_TYPE_FILE		0x10
 
 // Default logging output
-#ifndef LOG_OUTPUT_TYPE
+#ifdef LOG_OUTPUT_TYPE
+	// all log messages (except errors) stripped for release builds
+	#if (LOG_OUTPUT_TYPE & LOG_OUTPUT_TYPE_REMOVE)
+		#define USBMSG(format,...)
+		#define USBWRN(format,...)
+		#define USBDBG(format,...)
+		#define USBRAWMSG(format,...)
 
-	#if IsDriver()
+		#define USBMSG0(format)
+		#define USBWRN0(format)
+		#define USBDBG0(format)
+		#define USBRAWMSG0(format)
+		#undef LOG_OUTPUT_TYPE
+	#endif
+#endif
+
+#ifndef LOG_OUTPUT_TYPE
+	#if IS_DRIVER
 		#define LOG_OUTPUT_TYPE LOG_OUTPUT_TYPE_DBGPRINT
 	#endif
 
-	#if IsDll()
+	#if IS_DLL
 		#define LOG_OUTPUT_TYPE LOG_OUTPUT_TYPE_DEBUGWINDOW
 	#endif
 
 	#ifndef LOG_OUTPUT_TYPE
 		#define LOG_OUTPUT_TYPE LOG_OUTPUT_TYPE_STDERR
 	#endif
-
 #endif
 
-// Log messages can be completely stripped be defining LOG_OUTPUT_TYPE=LOG_OUTPUT_TYPE_REMOVE
-#if (LOG_OUTPUT_TYPE==LOG_OUTPUT_TYPE_REMOVE && !IsDebugMode())
-#define USBMSG(format,...)
-#define USBERR(format,...)
-#define USBWRN(format,...)
-#define USBDBG(format,...)
-#define USBRAWMSG(format,...)
-
-#define USBMSG0(format)
-#define USBERR0(format)
-#define USBWRN0(format)
-#define USBDBG0(format)
-#define USBRAWMSG0(format)
-#endif
+// always keep error messages
+#define USBERR(format,...) usb_err(__FUNCTION__,format,__VA_ARGS__)
+#define USBERR0(format) usb_err(__FUNCTION__,format,NULL)
 
 // These are the actually logging macros that are used by the application
 #ifndef USBMSG
 #define USBMSG(format,...) usb_msg(__FUNCTION__,format,__VA_ARGS__)
-#define USBERR(format,...) usb_err(__FUNCTION__,format,__VA_ARGS__)
 #define USBWRN(format,...) usb_wrn(__FUNCTION__,format,__VA_ARGS__)
 #define USBDBG(format,...) usb_dbg(__FUNCTION__,format,__VA_ARGS__)
 #define USBRAWMSG(format,...) usb_log(LOG_INFO|LOG_RAW,__FUNCTION__,format,__VA_ARGS__)
 
 #define USBMSG0(format) usb_msg(__FUNCTION__,format,NULL)
-#define USBERR0(format) usb_err(__FUNCTION__,format,NULL)
 #define USBWRN0(format) usb_wrn(__FUNCTION__,format,NULL)
 #define USBDBG0(format) usb_dbg(__FUNCTION__,format,NULL)
 #define USBRAWMSG0(format) usb_log(LOG_INFO|LOG_RAW,__FUNCTION__,format,NULL)
@@ -121,7 +122,7 @@ enum USB_LOG_LEVEL
 
 typedef void (*usb_log_handler_t)(enum USB_LOG_LEVEL, const char*);
 
-#if (!IsDriver())
+#if (!IS_DRIVER)
 const char *usb_win_error_to_string(void);
 int usb_win_error_to_errno(void);
 #endif
