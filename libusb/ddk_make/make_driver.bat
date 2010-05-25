@@ -11,6 +11,7 @@ copy %SRC_DIR%\*.h . >NUL
 copy %SRC_DIR%\*.rc . >NUL
 copy %SRC_DIR%\..\*.rc . >NUL
 copy %SRC_DIR%\..\libusb_version.h . >NUL
+copy %SRC_DIR%\..\error.? . >NUL
 
 ECHO Building (%BUILD_ALT_DIR%) %0..
 CALL build_ddk.bat %1 %2 %3 %4 %5 %6 %7 %8 %9

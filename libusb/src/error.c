@@ -1,23 +1,50 @@
-/*
- * USB Error messages
- *
- * Copyright (c) 2000-2001 Johannes Erdfelt <johannes@erdfelt.com>
- *
- * This library is covered by the LGPL, read LICENSE for details.
- */
+/* Error & Logging functions
 
+ Copyright © 2010 Travis Robinson. <libusbdotnet@gmail.com>
+ website: http://sourceforge.net/projects/libusb-win32
+ 
+ This program is free software; you can redistribute it and/or modify it
+ under the terms of the GNU Lesser General Public License as published by 
+ the Free Software Foundation; either version 2 of the License, or 
+ (at your option) any later version.
+ 
+ This program is distributed in the hope that it will be useful, but 
+ WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+ or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public
+ License for more details.
+ 
+ You should have received a copy of the GNU Lesser General Public License
+ along with this program; if not, please visit www.gnu.org.
+*/
+ 
 #include <errno.h>
 #include <string.h>
 #include <stdio.h>
-
-#include "usb.h"
 #include "error.h"
+
+#if (IsDriver())
+	#ifdef __GNUC__
+		#define OBJ_KERNEL_HANDLE       0x00000200L
+		#include <ddk/usb100.h>
+		#include <ddk/usbdi.h>
+		#include <ddk/winddk.h>
+		#include "usbdlib_gcc.h"
+	#else
+		#include <ntddk.h>
+	#endif
+#else
+	#include <windows.h>
+#endif
+
+#define USB_ERROR_BEGIN			500000
 
 #ifndef LOG_APPNAME
 #warning The LOG_APPNAME preprocessor not defined
 #define LOG_APPNAME "unknown"
 #endif
 
+#define GetLogLevel(UsbLogLevel) ((UsbLogLevel & LOG_LEVEL_MASK)>LOG_LEVEL_MAX?LOG_LEVEL_MAX:UsbLogLevel & LOG_LEVEL_MASK)
+#define GetLogOuput(LogOutputType) (LogOutputType>0?(LOG_OUTPUT_TYPE & LogOutputType):1)
 
 void usb_err_v	(const char* function, const char* format, va_list args);
 void usb_wrn_v	(const char* function, const char* format, va_list args);
@@ -28,8 +55,15 @@ void usb_log_v	(enum USB_LOG_LEVEL level, const char* function, const char* form
 void _usb_log	(enum USB_LOG_LEVEL level, const char* app_name, const char* function, const char* format, ...);
 void _usb_log_v	(enum USB_LOG_LEVEL level, const char* app_name, const char* function, const char* format, va_list args);
 
-static void output_debug_string(const char *s, ...);
-static void WINAPI usb_log_def_handler(enum USB_LOG_LEVEL level, const char* message);
+void WriteDriverLogEntry(char* message, const int message_length);
+
+static void usb_log_def_handler(enum USB_LOG_LEVEL level, 
+								const char* app_name, 
+								const char* prefix, 
+								const char* func, 
+								const int app_prefix_func_end,
+								char* message,
+								const int message_length);
 
 #define STRIP_PREFIX(stringSrc, stringPrefix) \
 	(strstr(stringSrc,stringPrefix)==stringSrc?stringSrc+strlen(stringPrefix):stringSrc)
@@ -55,16 +89,17 @@ static const char *skipped_function_prefix_list[] =
 char usb_error_str[LOGBUF_SIZE] = "";
 int usb_error_errno = 0;
 
-#ifdef _DEBUG
+#if (IsDebugMode())
 int __usb_log_level = LOG_DEBUG;
 #else
 int __usb_log_level = LOG_OFF;
 #endif
 
 usb_error_type_t usb_error_type = USB_ERROR_TYPE_NONE;
-usb_log_handler_t log_handler = NULL;
 
 const char** skipped_function_prefix = skipped_function_prefix_list;
+
+#if (!IsDriver())
 
 char *usb_strerror(void)
 {
@@ -114,6 +149,8 @@ int usb_win_error_to_errno(void)
         return EIO;
     }
 }
+
+#endif
 
 void usb_err(const char* function, const char* format, ...)
 {
@@ -199,8 +236,11 @@ void _usb_log_v(enum USB_LOG_LEVEL level,
     const char* prefix;
     const char* func;
     char* buffer;
-    int masked_level = level & LOG_LEVEL_MASK;
+    int masked_level;
 	const char** skip_list;
+	int app_prefix_func_end;
+
+	masked_level = GetLogLevel(level);
 
     if (__usb_log_level < masked_level && masked_level != LOG_ERROR) return;
     buffer = local_buffer;
@@ -211,7 +251,7 @@ void _usb_log_v(enum USB_LOG_LEVEL level,
 
     if ((level & LOG_RAW) == LOG_RAW)
     {
-        count = _vsnprintf(buffer, LOGBUF_SIZE, format, args);
+        count = _vsnprintf(buffer, LOGBUF_SIZE-1, format, args);
         if (count > 0)
         {
             buffer += count;
@@ -240,6 +280,7 @@ void _usb_log_v(enum USB_LOG_LEVEL level,
         count = _snprintf(buffer, (LOGBUF_SIZE-1), "%s:%s [%s] ", app_name, prefix, func);
         if (count > 0)
         {
+			app_prefix_func_end = count;
             buffer += count;
             totalCount += count;
             count = _vsnprintf(buffer, (LOGBUF_SIZE-1) - totalCount, format, args);
@@ -256,6 +297,7 @@ void _usb_log_v(enum USB_LOG_LEVEL level,
     // make sure its null terminated
     local_buffer[totalCount] = 0;
 
+#if (!IsDriver())
     if (masked_level == LOG_ERROR)
     {
         // if this is an error message then store it
@@ -263,14 +305,11 @@ void _usb_log_v(enum USB_LOG_LEVEL level,
         usb_error_str[totalCount] = '\0';
         usb_error_type = USB_ERROR_TYPE_STRING;
     }
+#endif
 
     if (__usb_log_level >= masked_level)
     {
-        // if a custom log handler has been set; use it.
-        if (log_handler)
-            log_handler(level, local_buffer);
-        else
-            usb_log_def_handler(level, local_buffer);
+		usb_log_def_handler(level, app_name, prefix, func, app_prefix_func_end, local_buffer, totalCount);
     }
 }
 
@@ -284,32 +323,107 @@ int usb_log_get_level()
     return __usb_log_level;
 }
 
-/* Sets the custom log handler that is called what a new log entry arrives.
-*  NOTE: Pass NULL to use the default handler.
+/* Default log handler
 */
-void usb_log_set_handler(usb_log_handler_t handler)
+static void usb_log_def_handler(enum USB_LOG_LEVEL level, 
+								const char* app_name, 
+								const char* prefix, 
+								const char* func, 
+								const int app_prefix_func_end,
+								char* message,
+								const int message_length)
 {
-    log_handler = handler;
-}
-
-/* Gets the custom log handler that was set with usb_log_set_handler().
-*  NOTE: this function will not return the default handler.
-*/
-usb_log_handler_t usb_log_get_handler()
-{
-    return log_handler;
-}
-
-/* Default log handler routine.
-*/
-static void WINAPI usb_log_def_handler(enum USB_LOG_LEVEL level, const char* message)
-{
-    FILE* stream = stderr;
-
-    fprintf(stream, message);
-    fflush(stream);
-#ifdef _DEBUG
-    OutputDebugStringA(message);
+#if GetLogOuput(LOG_OUTPUT_TYPE_DBGPRINT)
+	DbgPrint("%s",message);
 #endif
 
+#if GetLogOuput(LOG_OUTPUT_TYPE_STDERR)
+	fprintf(stderr, message);
+#endif
+
+#if GetLogOuput(LOG_OUTPUT_TYPE_DEBUGWINDOW)
+	OutputDebugStringA(message);
+#endif
+
+// TODO: Kernel driver must use ZwCreateFile
+#if GetLogOuput(LOG_OUTPUT_TYPE_FILE)
+	#if IsDriver()
+		WriteDriverLogEntry(message,message_length);
+	#else
+		FILE* file = fopen(LOG_APPNAME ".log","a");
+		if (file)
+		{
+			fwrite(message,1,strlen(message),file);
+			fflush(file);
+			fclose(file);
+		}
+	#endif
+#endif
+
+#if GetLogOuput(LOG_OUTPUT_TYPE_MSGBOX)
+	if (GetLogLevel(level)==LOG_ERROR)
+	{
+		message[app_prefix_func_end-1]='\0';
+		MessageBoxA(NULL,message+strlen(message),message,MB_OK|MB_ICONERROR);
+	}
+#endif
 }
+
+#if IsDriver()
+void WriteDriverLogEntry(char* message, const int message_length)
+{
+	HANDLE                      logFileHandle=NULL;       // DataFile handle.
+	OBJECT_ATTRIBUTES           objectAttributes;			// Used for opening file.
+	UNICODE_STRING              uniFileName;
+	ANSI_STRING					ansiFilename;
+	IO_STATUS_BLOCK             ioStatusBlock;
+	NTSTATUS                    ntStatus = STATUS_SUCCESS;
+
+	RtlInitAnsiString(&ansiFilename,"\\DosDevices\\C:\\Log\\" LOG_APPNAME "-sys.log");
+	ntStatus = RtlAnsiStringToUnicodeString(&uniFileName,&ansiFilename,TRUE);
+	if (!NT_SUCCESS(ntStatus))
+		return;
+
+	// Create data file.
+	InitializeObjectAttributes(&objectAttributes,
+		&uniFileName,
+		OBJ_CASE_INSENSITIVE|OBJ_KERNEL_HANDLE,
+		NULL,
+		NULL);
+
+	ntStatus = ZwCreateFile(&logFileHandle,
+							SYNCHRONIZE | FILE_APPEND_DATA,
+							&objectAttributes,
+							&ioStatusBlock,
+							NULL,
+							FILE_ATTRIBUTE_NORMAL,
+							0,
+							FILE_OPEN_IF,
+							FILE_NON_DIRECTORY_FILE | FILE_SYNCHRONOUS_IO_NONALERT,
+							NULL,
+							0);
+
+	if (NT_SUCCESS(ntStatus))
+	{
+
+		ntStatus = ZwWriteFile( logFileHandle,
+								NULL,
+								NULL,
+								NULL,
+								&ioStatusBlock,
+								message,
+								message_length,
+								NULL,
+								NULL);
+
+		if (NT_SUCCESS(ntStatus))
+		{
+		}
+
+		ZwClose(logFileHandle);
+		logFileHandle = NULL;
+	}
+
+	RtlFreeUnicodeString(&uniFileName);
+}
+#endif
