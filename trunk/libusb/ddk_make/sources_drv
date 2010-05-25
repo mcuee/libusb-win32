@@ -2,7 +2,7 @@ TARGETNAME = libusb0
 TARGETPATH = output
 TARGETTYPE = DRIVER
 USER_C_FLAGS = /O2
-C_DEFINES = $(COMMON_C_DEFINES)
+C_DEFINES = $(COMMON_C_DEFINES) /DTARGETTYPE=$(TARGETTYPE)
 
 TARGETLIBS = $(DDK_LIB_PATH)\usbd.lib
 
@@ -28,6 +28,6 @@ set_feature.c \
 set_interface.c \
 transfer.c \
 vendor_request.c \
-driver_debug.c \
+error.c \
 libusb_driver_rc.rc
 

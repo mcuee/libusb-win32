@@ -194,7 +194,8 @@ GOTO CMDEXIT
 	CALL make_clean.bat
 	
 	SET CMDVAR_BUILDARCH=!_BUILDARCH!
-	CALL make_!_LIBUSB_APP!.bat
+	IF DEFINED CMDVAR_LOG_OUTPUT SET _ADD_C_DEFINES=/DLOG_OUTPUT_TYPE=LOG_OUTPUT_TYPE_!CMDVAR_LOG_OUTPUT!
+	CALL make_!_LIBUSB_APP!.bat "!_ADD_C_DEFINES!"
 
 	IF !ERRORLEVEL! NEQ 0 SET BUILD_ERRORLEVEL=!ERRORLEVEL!
 	IF !BUILD_ERRORLEVEL! NEQ 0 (
@@ -874,12 +875,23 @@ ECHO              [Default = false]
 ECHO TESTSIGNING  Setting this option to 'on' signs te dll and driver with a
 ECHO              test certifcate.
 ECHO              [Default = off]
+ECHO LOG_OUTPUT   Changes the log output type.  By default, applications send
+ECHO              log messages to stderr, dlls send log messages to 
+ECHO              OutputDebugString and kernel drivers send messages to 
+ECHO              DbgPrint.
+ECHO              Log Output Types (case sensitive):
+ECHO					REMOVE	     Strip all log messages.
+ECHO					STDERR		 output to stderr
+ECHO					DEBUGWINDOW	 OutputDebugString
+ECHO					MSGBOX	     MessageBox
+ECHO					FILE	     redirect log messages to a file.
+ECHO					DBGPRINT	 DbgPrint
 ECHO.
 ECHO [Note: See make.cfg for more options that can be used when building]
 ECHO.
 ECHO Examples:
 ECHO CMD /C make.cmd "arch=x86" "app=all" "outdir=.\x86"
-ECHO CMD /C make.cmd "arch=x64" "outdir=.\x64" "winddk=Z:\WinDDK\7600.16385.0\"
+ECHO CMD /C make.cmd "arch=x64" "outdir=.\x64" "winddk=%SystemDrive%\WinDDK\7600.16385.0\"
 ECHO CMD /C make.cmd "arch=x64" "testsigning=on"
 ECHO CMD /C make.cmd "arch=x86"
 ECHO.

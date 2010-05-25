@@ -61,7 +61,7 @@ DRIVER_OBJECTS = abort_endpoint.o claim_interface.o clear_feature.o \
 	ioctl.o libusb_driver.o pnp.o release_interface.o reset_device.o \
 	reset_endpoint.o set_configuration.o set_descriptor.o \
 	set_feature.o set_interface.o transfer.o vendor_request.o \
-	power.o driver_registry.o driver_debug.o libusb_driver_rc.o 
+	power.o driver_registry.o error.o libusb_driver_rc.o 
 
 
 SRC_DIR = ./src
@@ -92,7 +92,7 @@ DRIVER_LDFLAGS = -s -shared -Wl,--entry,_DriverEntry@8 \
 all: dll filter infwizard test testwin driver
 
 .PHONY: dll
-dll: DLL_CFLAGS = $(CFLAGS) -DLOG_APPNAME='"libusb-dll"'
+dll: DLL_CFLAGS = $(CFLAGS) -DLOG_APPNAME='"libusb-dll"' -DTARGETTYPE=DYNLINK
 dll: $(DLL_TARGET).dll
 
 $(DLL_TARGET).dll: usb.2.o error.2.o descriptors.2.o windows.2.o install.2.o registry.2.o resource.2.o 
@@ -105,7 +105,7 @@ $(DLL_TARGET).dll: usb.2.o error.2.o descriptors.2.o windows.2.o install.2.o reg
 	$(WINDRES) $(CPPFLAGS) $(WINDRES_FLAGS) $< -o $@
 
 .PHONY: filter
-filter: FILTER_CFLAGS = $(CFLAGS) -DLOG_APPNAME='"install-filter"'
+filter: FILTER_CFLAGS = $(CFLAGS) -DLOG_APPNAME='"install-filter"' -DTARGETTYPE=PROGRAMconsole
 filter: FILTER_LDFLAGS = -s -mno-cygwin -L. -lgdi32 -luser32 -lcfgmgr32 -lsetupapi -lcomctl32
 filter: install-filter.exe
 
@@ -120,7 +120,7 @@ install-filter.exe: install_filter.1.o error.1.o install.1.o registry.1.o instal
 
 .PHONY: test
 test: dll
-test: TEST_CFLAGS = $(CFLAGS) -DLOG_APPNAME='"testlibusb"'
+test: TEST_CFLAGS = $(CFLAGS) -DLOG_APPNAME='"testlibusb"' -DTARGETTYPE=PROGRAMconsole
 test: testlibusb.exe
 
 testlibusb.exe: testlibusb.3.o
@@ -131,7 +131,7 @@ testlibusb.exe: testlibusb.3.o
 
 .PHONY: testwin
 testwin: dll
-testwin: TESTWIN_CFLAGS = $(CFLAGS) -DLOG_APPNAME='"testlibusb-win"'
+testwin: TESTWIN_CFLAGS = $(CFLAGS) -DLOG_APPNAME='"testlibusb-win"' -DTARGETTYPE=PROGRAMwindows
 testwin: testlibusb-win.exe
 
 testlibusb-win.exe: testlibusb_win.4.o testlibusb_win_rc.4.o
@@ -144,7 +144,7 @@ testlibusb-win.exe: testlibusb_win.4.o testlibusb_win_rc.4.o
 	$(WINDRES) $(CPPFLAGS) $(WINDRES_FLAGS) $< -o $@
 
 .PHONY: infwizard
-infwizard: INFWIZARD_CFLAGS = $(CFLAGS) -DLOG_APPNAME='"infwizard"'
+infwizard: INFWIZARD_CFLAGS = $(CFLAGS) -DLOG_APPNAME='"infwizard"' -DTARGETTYPE=PROGRAMwindows
 infwizard: inf-wizard.exe
 
 inf-wizard.exe: inf_wizard.5.o registry.5.o error.5.o tokenizer.5.o inf_wizard_rc.5.o 
@@ -157,7 +157,7 @@ inf-wizard.exe: inf_wizard.5.o registry.5.o error.5.o tokenizer.5.o inf_wizard_r
 	$(WINDRES) $(CPPFLAGS) $(WINDRES_FLAGS) $< -o $@
 
 .PHONY: driver
-driver: INFWIZARD_CFLAGS = $(CFLAGS) -DLOG_APPNAME='"libusb"'
+driver: DRIVER_CFLAGS = $(CFLAGS) -DLOG_APPNAME='"libusb"' -DTARGETTYPE=DRIVER
 driver: $(DRIVER_TARGET)
 
 $(DRIVER_TARGET): libusbd.a $(DRIVER_OBJECTS)
@@ -167,7 +167,7 @@ libusbd.a:
 	$(DLLTOOL) --dllname usbd.sys --add-underscore --def ./src/driver/usbd.def --output-lib libusbd.a
 
 %.o: %.c libusb_driver.h driver_api.h error.h
-	$(CC) -c $< -o $@ $(CFLAGS) $(CPPFLAGS) $(INCLUDES) 
+	$(CC) -c $< -o $@ $(DRIVER_CFLAGS) $(CPPFLAGS) $(INCLUDES) 
 
 %.o: %.rc
 	$(WINDRES) $(CPPFLAGS) $(WINDRES_FLAGS) $< -o $@

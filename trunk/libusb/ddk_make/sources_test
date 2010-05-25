@@ -5,7 +5,7 @@ UMTYPE = console
 USE_MSVCRT = 1
 386_STDCALL = 0
 USER_C_FLAGS = /Gd /O2
-C_DEFINES = $(COMMON_C_DEFINES) /Dsnprintf=_snprintf
+C_DEFINES = $(COMMON_C_DEFINES) /Dsnprintf=_snprintf /DTARGETTYPE=$(TARGETTYPE)$(UMTYPE)
 
 TARGETLIBS = $(SDK_LIB_PATH)\setupapi.lib \
              $(SDK_LIB_PATH)\kernel32.lib \
