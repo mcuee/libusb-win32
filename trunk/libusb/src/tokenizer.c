@@ -16,6 +16,7 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 #include "tokenizer.h"
+#include <stdlib.h>
 
 // If the dst buffer is to small it grows to what is needed+GROW_SIZE
 #define GetDestSize(RequiredSize) RequiredSize+8192
@@ -96,7 +97,7 @@ long tokenize_string(const char* src, // text to bo tokenized
 		// found a token prefix
 		match_replace_pos=0;
 		match_found=0;
-		match_length = match_start-src;
+		match_length = (long)(match_start-src);
 
 		StrCpyWithGrow(pDst,*dst, dst_pos,dst_alloc_size,src,match_length);
 
