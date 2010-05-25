@@ -2,6 +2,11 @@ TARGETNAME = libusb0
 TARGETPATH = output
 TARGETTYPE = DRIVER
 USER_C_FLAGS = /O2
+
+!IF "$(CMDVAR_DEBUGMODE)" == "true"
+USER_C_FLAGS = /Od
+!ENDIF
+
 C_DEFINES = $(COMMON_C_DEFINES) /DTARGETTYPE=$(TARGETTYPE)
 
 TARGETLIBS = $(DDK_LIB_PATH)\usbd.lib
@@ -30,4 +35,6 @@ transfer.c \
 vendor_request.c \
 error.c \
 libusb_driver_rc.rc
+
+
 

@@ -17,12 +17,12 @@
  along with this program; if not, please visit www.gnu.org.
 */
  
+#include "error.h"
 #include <errno.h>
 #include <string.h>
 #include <stdio.h>
-#include "error.h"
 
-#if (IsDriver())
+#if IS_DRIVER
 	#ifdef __GNUC__
 		#define OBJ_KERNEL_HANDLE       0x00000200L
 		#include <ddk/usb100.h>
@@ -89,7 +89,7 @@ static const char *skipped_function_prefix_list[] =
 char usb_error_str[LOGBUF_SIZE] = "";
 int usb_error_errno = 0;
 
-#if (IsDebugMode())
+#if (IS_DEBUG_MODE)
 int __usb_log_level = LOG_DEBUG;
 #else
 int __usb_log_level = LOG_OFF;
@@ -99,7 +99,7 @@ usb_error_type_t usb_error_type = USB_ERROR_TYPE_NONE;
 
 const char** skipped_function_prefix = skipped_function_prefix_list;
 
-#if (!IsDriver())
+#if !IS_DRIVER
 
 char *usb_strerror(void)
 {
@@ -297,7 +297,7 @@ void _usb_log_v(enum USB_LOG_LEVEL level,
     // make sure its null terminated
     local_buffer[totalCount] = 0;
 
-#if (!IsDriver())
+#if (!IS_DRIVER)
     if (masked_level == LOG_ERROR)
     {
         // if this is an error message then store it
@@ -333,6 +333,7 @@ static void usb_log_def_handler(enum USB_LOG_LEVEL level,
 								char* message,
 								const int message_length)
 {
+	FILE* file;
 #if GetLogOuput(LOG_OUTPUT_TYPE_DBGPRINT)
 	DbgPrint("%s",message);
 #endif
@@ -347,10 +348,10 @@ static void usb_log_def_handler(enum USB_LOG_LEVEL level,
 
 // TODO: Kernel driver must use ZwCreateFile
 #if GetLogOuput(LOG_OUTPUT_TYPE_FILE)
-	#if IsDriver()
+	#if IS_DRIVER
 		WriteDriverLogEntry(message,message_length);
 	#else
-		FILE* file = fopen(LOG_APPNAME ".log","a");
+		file = fopen("C:\\Log\\" LOG_APPNAME ".log","a");
 		if (file)
 		{
 			fwrite(message,1,strlen(message),file);
@@ -369,7 +370,7 @@ static void usb_log_def_handler(enum USB_LOG_LEVEL level,
 #endif
 }
 
-#if IsDriver()
+#if IS_DRIVER
 void WriteDriverLogEntry(char* message, const int message_length)
 {
 	HANDLE                      logFileHandle=NULL;       // DataFile handle.
