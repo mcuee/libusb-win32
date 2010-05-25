@@ -103,127 +103,6 @@ const char list_header_text[] =
     "If your device isn't listed then either connect it or just click \"Next\"\n"
     "and enter your device description manually\n";
 
-const char inf_header[] =
-    "[Version]\n"
-    "Signature = \"$Chicago$\"\n"
-    "provider  = %manufacturer%\n"
-    "DriverVer = " STRINGIFY(INF_DATE) "," STRINGIFY(INF_VERSION) "\n";
-
-const char inf_body[] =
-    "Class = LibUsbDevices\n"
-    "ClassGUID = {EB781AAF-9C70-4523-A5DF-642A87ECA567}\n"
-    "\n"
-    "[ClassInstall]\n"
-    "AddReg=libusb_class_install_add_reg\n"
-    "\n"
-    "[ClassInstall32]\n"
-    "AddReg=libusb_class_install_add_reg\n"
-    "\n"
-    "[libusb_class_install_add_reg]\n"
-    "HKR,,,,\"LibUSB-Win32 Devices\"\n"
-    "HKR,,Icon,,\"-20\"\n"
-    "\n"
-    "[Manufacturer]\n"
-    "%manufacturer%=Devices,NT,NTAMD64\n"
-    "\n"
-    ";--------------------------------------------------------------------------\n"
-    "; Files\n"
-    ";--------------------------------------------------------------------------\n"
-    "\n"
-    "[SourceDisksNames]\n"
-    "1 = \"Libusb-Win32 Driver Installation Disk\",,\n"
-    "\n"
-    "[SourceDisksFiles]\n"
-    "libusb0.sys = 1,,\n"
-    "libusb0.dll = 1,,\n"
-    "libusb0_x64.sys = 1,,\n"
-    "libusb0_x64.dll = 1,,\n"
-    "\n"
-    "[DestinationDirs]\n"
-    "libusb_files_sys = 10,system32\\drivers\n"
-    "libusb_files_sys_x64 = 10,system32\\drivers\n"
-    "libusb_files_dll = 10,system32\n"
-    "libusb_files_dll_wow64 = 10,syswow64\n"
-    "libusb_files_dll_x64 = 10,system32\n"
-    "\n"
-    "[libusb_files_sys]\n"
-    "libusb0.sys\n"
-    "\n"
-    "[libusb_files_sys_x64]\n"
-    "libusb0.sys,libusb0_x64.sys\n"
-    "\n"
-    "[libusb_files_dll]\n"
-    "libusb0.dll\n"
-    "\n"
-    "[libusb_files_dll_wow64]\n"
-    "libusb0.dll\n"
-    "\n"
-    "[libusb_files_dll_x64]\n"
-    "libusb0.dll,libusb0_x64.dll\n"
-    "\n"
-    ";--------------------------------------------------------------------------\n"
-    "; Device driver\n"
-    ";--------------------------------------------------------------------------\n"
-    "\n"
-    "[LIBUSB_DEV]\n"
-    "CopyFiles = libusb_files_sys, libusb_files_dll\n"
-    "AddReg    = libusb_add_reg\n"
-    "\n"
-    "[LIBUSB_DEV.NT]\n"
-    "CopyFiles = libusb_files_sys, libusb_files_dll\n"
-    "\n"
-    "[LIBUSB_DEV.NTAMD64]\n"
-    "CopyFiles = libusb_files_sys_x64, libusb_files_dll_wow64, libusb_files_dll_x64\n"
-    "\n"
-    "[LIBUSB_DEV.HW]\n"
-    "DelReg = libusb_del_reg_hw\n"
-    "AddReg = libusb_add_reg_hw\n"
-    "\n"
-    "[LIBUSB_DEV.NT.HW]\n"
-    "DelReg = libusb_del_reg_hw\n"
-    "AddReg = libusb_add_reg_hw\n"
-    "\n"
-    "[LIBUSB_DEV.NTAMD64.HW]\n"
-    "DelReg = libusb_del_reg_hw\n"
-    "AddReg = libusb_add_reg_hw\n"
-    "\n"
-    "[LIBUSB_DEV.NT.Services]\n"
-    "AddService = libusb0, 0x00000002, libusb_add_service\n"
-    "\n"
-    "[LIBUSB_DEV.NTAMD64.Services]\n"
-    "AddService = libusb0, 0x00000002, libusb_add_service\n"
-    "\n"
-    "[libusb_add_reg]\n"
-    "HKR,,DevLoader,,*ntkern\n"
-    "HKR,,NTMPDriver,,libusb0.sys\n"
-    "\n"
-    "; Older versions of this .inf file installed filter drivers. They are not\n"
-    "; needed any more and must be removed\n"
-    "[libusb_del_reg_hw]\n"
-    "HKR,,LowerFilters\n"
-    "HKR,,UpperFilters\n"
-    "\n"
-    "; Device properties\n"
-    "[libusb_add_reg_hw]\n"
-    "HKR,,SurpriseRemovalOK, 0x00010001, 1\n"
-    "\n"
-    ";--------------------------------------------------------------------------\n"
-    "; Services\n"
-    ";--------------------------------------------------------------------------\n"
-    "\n"
-    "[libusb_add_service]\n"
-    "DisplayName    = \"LibUsb-Win32 - Kernel Driver "
-    STRINGIFY(INF_DATE) ", " STRINGIFY(INF_VERSION) "\"\n"
-    "ServiceType    = 1\n"
-    "StartType      = 3\n"
-    "ErrorControl   = 0\n"
-    "ServiceBinary  = %12%\\libusb0.sys\n"
-    "\n"
-    ";--------------------------------------------------------------------------\n"
-    "; Devices\n"
-    ";--------------------------------------------------------------------------\n"
-    "\n";
-
 const char strings_header[] =
     "\n"
     ";--------------------------------------------------------------------------\n"
@@ -681,9 +560,6 @@ static int save_file(HWND dialog, device_context_t *device)
     char cat_name[MAX_PATH];
     char cat_path[MAX_PATH];
 
-    char cat_name_x64[MAX_PATH];
-    char cat_path_x64[MAX_PATH];
-
     char error[MAX_PATH];
     FILE *file;
 
@@ -745,13 +621,9 @@ static int save_file(HWND dialog, device_context_t *device)
     {
         strcpy(cat_path, inf_path);
         strcpy(cat_name, inf_name);
-        strcpy(cat_path_x64, inf_path);
-        strcpy(cat_name_x64, inf_name);
 
-        strcpy(strstr(cat_path, ".inf"), ".cat");
+		strcpy(strstr(cat_path, ".inf"), ".cat");
         strcpy(strstr(cat_name, ".inf"), ".cat");
-        strcpy(strstr(cat_path_x64, ".inf"), "_x64.cat");
-        strcpy(strstr(cat_name_x64, ".inf"), "_x64.cat");
 
         file = fopen(inf_path, "wb");
 
@@ -775,32 +647,14 @@ static int save_file(HWND dialog, device_context_t *device)
 				fflush(file);
 				free(dst);
 			}
+			else
+			{
+				sprintf(error, "Error: unable to tokenize file: %s", inf_name);
+				MessageBox(dialog, error, "Error",
+						   MB_OK | MB_APPLMODAL | MB_ICONWARNING);
+			}
 
 			fclose(file);
-/*
-            fprintf(file, "%s", inf_header);
-            fprintf(file, "CatalogFile = %s\n", cat_name);
-            fprintf(file, "CatalogFile.NT = %s\n", cat_name);
-            fprintf(file, "CatalogFile.NTAMD64 = %s\n\n", cat_name_x64);
-            fprintf(file, "%s", inf_body);
-
-            fprintf(file, "[Devices]\n");
-            fprintf(file, "\"%s\"=LIBUSB_DEV, USB\\VID_%04x&PID_%04x\n\n",
-                    device->description,
-                    device->vid, device->pid);
-            fprintf(file, "[Devices.NT]\n");
-            fprintf(file, "\"%s\"=LIBUSB_DEV, USB\\VID_%04x&PID_%04x\n\n",
-                    device->description,
-                    device->vid, device->pid);
-            fprintf(file, "[Devices.NTAMD64]\n");
-            fprintf(file, "\"%s\"=LIBUSB_DEV, USB\\VID_%04x&PID_%04x\n\n",
-                    device->description,
-                    device->vid, device->pid);
-
-            fprintf(file, strings_header);
-            fprintf(file, "manufacturer = \"%s\"\n", device->manufacturer);
-            fclose(file);
-*/
         }
         else
         {
@@ -823,22 +677,8 @@ static int save_file(HWND dialog, device_context_t *device)
             MessageBox(dialog, error, "Error",
                        MB_OK | MB_APPLMODAL | MB_ICONWARNING);
         }
-		/*
-        file = fopen(cat_path_x64, "w");
 
-        if (file)
-        {
-            fprintf(file, "%s", cat_file_content);
-            fclose(file);
-        }
-        else
-        {
-            sprintf(error, "Error: unable to open file: %s", cat_name_x64);
-            MessageBox(dialog, error, "Error",
-                       MB_OK | MB_APPLMODAL | MB_ICONWARNING);
-        }
-		*/
-        return TRUE;
+		return TRUE;
     }
     return FALSE;
 }
