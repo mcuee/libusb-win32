@@ -351,7 +351,7 @@ static void usb_log_def_handler(enum USB_LOG_LEVEL level,
 	#if IS_DRIVER
 		WriteDriverLogEntry(message,message_length);
 	#else
-		file = fopen("C:\\Log\\" LOG_APPNAME ".log","a");
+		file = fopen(LOG_FILE_PATH,"a");
 		if (file)
 		{
 			fwrite(message,1,strlen(message),file);
@@ -380,7 +380,7 @@ void WriteDriverLogEntry(char* message, const int message_length)
 	IO_STATUS_BLOCK             ioStatusBlock;
 	NTSTATUS                    ntStatus = STATUS_SUCCESS;
 
-	RtlInitAnsiString(&ansiFilename,"\\DosDevices\\C:\\Log\\" LOG_APPNAME "-sys.log");
+	RtlInitAnsiString(&ansiFilename,LOG_FILE_PATH);
 	ntStatus = RtlAnsiStringToUnicodeString(&uniFileName,&ansiFilename,TRUE);
 	if (!NT_SUCCESS(ntStatus))
 		return;

@@ -27,6 +27,9 @@
 
 #define LOGBUF_SIZE 512
 
+#define _STRINGIFY(x) #x
+#define STRINGIFY(x) _STRINGIFY(x)
+
 #define PROGRAMconsole 0
 #define PROGRAMwindows 1
 #define DYNLINK 2
@@ -49,6 +52,18 @@
 #define LOG_OUTPUT_TYPE_MSGBOX		0x04
 #define LOG_OUTPUT_TYPE_DBGPRINT	0x08
 #define LOG_OUTPUT_TYPE_FILE		0x10
+
+#ifndef LOG_DIRECTORY
+#define LOG_DIRECTORY "C:\\Log\\"
+#endif
+
+#if IS_DRIVER
+	#define LOG_FILE_PATH "\\DosDevices\\" LOG_DIRECTORY "" LOG_APPNAME	"-sys.log"
+#elif IS_DLL
+	#define LOG_FILE_PATH LOG_DIRECTORY "" LOG_APPNAME "-dll.log"
+#else
+	#define LOG_FILE_PATH LOG_DIRECTORY "" LOG_APPNAME ".log"
+#endif
 
 // Default logging output
 #ifdef LOG_OUTPUT_TYPE
