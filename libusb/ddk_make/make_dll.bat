@@ -13,7 +13,7 @@ copy %SRC_DIR%\*.rc . >NUL
 copy %SRC_DIR%\driver\driver_api.h . >NUL
 
 ECHO Building (%BUILD_ALT_DIR%) %0..
-CALL build_ddk.bat %1 %2 %3 %4 %5 %6 %7 %8 %9
+CALL build_ddk.bat %*
 IF %BUILD_ERRORLEVEL%==0 GOTO BUILD_SUCCESS
 GOTO BUILD_ERROR
 

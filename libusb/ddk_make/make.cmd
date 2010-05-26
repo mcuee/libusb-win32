@@ -113,6 +113,14 @@ IF /I "%~1" EQU "launchdevenv" (
 	GOTO CMDEXIT
 )
 
+IF /I "%~1" EQU "install" (
+	CALL :SafeCopy "!PACKAGE_ROOT_DIR!bin\!!PROCESSOR_ARCHITECTURE!\libusb0.sys" "!SystemRoot!\system32\drivers\"
+	CALL :SafeCopy "!PACKAGE_ROOT_DIR!bin\!!PROCESSOR_ARCHITECTURE!\libusb0.dll" "!SystemRoot!\system32\"
+	IF EXIST  "!SystemRoot!\syswow64\" CALL :SafeCopy "!PACKAGE_ROOT_DIR!bin\!x86\libusb0.dll" "!SystemRoot!\syswow64\"
+	GOTO CMDEXIT
+)
+
+
 :: 
 :: End of Package build section
 :: oooooooooooooooooooooooooooooooooooo
@@ -194,13 +202,13 @@ GOTO CMDEXIT
 	CALL make_clean.bat
 	
 	SET CMDVAR_BUILDARCH=!_BUILDARCH!
+	SET _ADD_C_DEFINES=
 	IF DEFINED CMDVAR_LOG_OUTPUT (
 		SET _LOG_OUTPUT_=LOG_OUTPUT_TYPE_!CMDVAR_LOG_OUTPUT:+=+LOG_OUTPUT_TYPE_!
-		
-		SET _ADD_C_DEFINES=/DLOG_OUTPUT_TYPE=!_LOG_OUTPUT_!
-		ECHO _LOG_OUTPUT_ = !_LOG_OUTPUT_!
+		SET _ADD_C_DEFINES=!_ADD_C_DEFINES! /DLOG_OUTPUT_TYPE=!_LOG_OUTPUT_!
 	)
-	CALL make_!_LIBUSB_APP!.bat "!_ADD_C_DEFINES!"
+	
+	CALL make_!_LIBUSB_APP!.bat !_ADD_C_DEFINES!
 
 	IF !ERRORLEVEL! NEQ 0 SET BUILD_ERRORLEVEL=!ERRORLEVEL!
 	IF !BUILD_ERRORLEVEL! NEQ 0 (
