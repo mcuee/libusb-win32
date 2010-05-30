@@ -39,12 +39,11 @@
 #define USB_ERROR_BEGIN			500000
 
 #ifndef LOG_APPNAME
-#warning The LOG_APPNAME preprocessor not defined
-#define LOG_APPNAME "unknown"
+#define LOG_APPNAME "LOG_APPNAME define missing"
 #endif
 
 #define GetLogLevel(UsbLogLevel) ((UsbLogLevel & LOG_LEVEL_MASK)>LOG_LEVEL_MAX?LOG_LEVEL_MAX:UsbLogLevel & LOG_LEVEL_MASK)
-#define GetLogOuput(LogOutputType) (LogOutputType>0?(LOG_OUTPUT_TYPE & LogOutputType):1)
+#define GetLogOuput(LogOutputType) (LogOutputType>0?(_LOG_OUTPUT_TYPE & LogOutputType):1)
 
 void usb_err_v	(const char* function, const char* format, va_list args);
 void usb_wrn_v	(const char* function, const char* format, va_list args);
@@ -333,7 +332,10 @@ static void usb_log_def_handler(enum USB_LOG_LEVEL level,
 								char* message,
 								const int message_length)
 {
+#if GetLogOuput(LOG_OUTPUT_TYPE_FILE) && !IS_DRIVER
 	FILE* file;
+#endif
+
 #if GetLogOuput(LOG_OUTPUT_TYPE_DBGPRINT)
 	DbgPrint("%s",message);
 #endif

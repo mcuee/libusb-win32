@@ -1,16 +1,16 @@
 @ECHO OFF
 :: Use this batch file instead of the winddk "build" command.
 :: 
-:: - Calls the winddk build command. Sets ERRORLEVEL=1 if 
+:: - Calls the winddk build command. Sets BUILD_ERRORLEVEL=1 if 
 ::   a build error is detected.
+:: - Sets LOG_APPNAME define (unless already set)  
 :: - Sets libusb-win32 version defines (unless already set)  
 :: 
 
 IF "%LOG_APPNAME%"=="" SET LOG_APPNAME=$(TARGETNAME)
-IF "%LOG_DIRECTORY%"=="" SET LOG_DIRECTORY=C:/Log/
 SET COMMON_C_DEFINES= /DMANIFEST_FILE="\"manifest_$(_BUILDARCH).xml\""
 SET COMMON_C_DEFINES=%COMMON_C_DEFINES% /DLOG_APPNAME="\"$(LOG_APPNAME)\"" %*
-REM IF DEFINED LOG_DIRECTORY SET COMMON_C_DEFINES=%COMMON_C_DEFINES% /DLOG_DIRECTORY="\"$(LOG_DIRECTORY)\""
+IF DEFINED LOG_DIRECTORY SET COMMON_C_DEFINES=%COMMON_C_DEFINES% /DLOG_DIRECTORY="\"$(LOG_DIRECTORY)\""
 IF EXIST "build%BUILD_ALT_DIR%.err" DEL /Q "build%BUILD_ALT_DIR%.err" >NUL
 IF EXIST "build%BUILD_ALT_DIR%.wrn" DEL /Q "build%BUILD_ALT_DIR%.wrn" >NUL
 SET BUILD_ERRORLEVEL=0
