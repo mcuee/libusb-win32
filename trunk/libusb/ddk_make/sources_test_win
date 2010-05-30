@@ -7,7 +7,7 @@ USE_MSVCRT = 1
 386_STDCALL = 0
 USER_C_FLAGS = /Gd /O2
 C_DEFINES = $(COMMON_C_DEFINES) /DMANIFEST_FILE="\"manifest_$(_BUILDARCH).xml\"" \
-			/Dvsnprintf=_vsnprintf /DTARGETTYPE=$(TARGETTYPE)$(UMTYPE)
+			/Dvsnprintf=_vsnprintf /DTARGETTYPE=PROGRAMwindows /DLOG_APPNAME="\"$(TARGETNAME)\""
 
 TARGETLIBS = $(SDK_LIB_PATH)\setupapi.lib \
              $(SDK_LIB_PATH)\kernel32.lib \

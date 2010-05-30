@@ -27,17 +27,17 @@
 
 #define LOGBUF_SIZE 512
 
-#define _STRINGIFY(x) #x
-#define STRINGIFY(x) _STRINGIFY(x)
-
+// TARGETTYPEs
 #define PROGRAMconsole 0
 #define PROGRAMwindows 1
 #define DYNLINK 2
 #define DRIVER 3
 
+// default TARGETTYPE
 #ifndef TARGETTYPE
 #define TARGETTYPE PROGRAMconsole
 #endif
+
 #define IS_DEBUG_MODE		(defined(_DEBUG) || defined(DEBUG) || defined(DBG))
 
 #define IS_DRIVER			(TARGETTYPE==DRIVER)
@@ -46,28 +46,54 @@
 #define IS_APP				(IS_CONSOLE_APP || IS_WINDOW_APP)
 #define IS_DLL				(TARGETTYPE==DYNLINK)
 
-#define LOG_OUTPUT_TYPE_REMOVE		0x00
-#define LOG_OUTPUT_TYPE_STDERR		0x01
-#define LOG_OUTPUT_TYPE_DEBUGWINDOW	0x02
-#define LOG_OUTPUT_TYPE_MSGBOX		0x04
-#define LOG_OUTPUT_TYPE_DBGPRINT	0x08
-#define LOG_OUTPUT_TYPE_FILE		0x10
+// NOTE: LOG_OUTPUT_TYPEs can be combined
+// writes log messages to standard error output
+#define LOG_OUTPUT_TYPE_STDERR		0x001
 
+// writes log messages to Win32 OutputDebugString
+#define LOG_OUTPUT_TYPE_DEBUGWINDOW	0x0002
+
+// displays error log messages to a messagebox (not recommended)
+#define LOG_OUTPUT_TYPE_MSGBOX		0x0004
+
+// writes log messages to Kernel-mode DbgPrint
+#define LOG_OUTPUT_TYPE_DBGPRINT	0x0008
+
+// writes log messages directly to a file
+#define LOG_OUTPUT_TYPE_FILE		0x0010
+
+// strips all log messages except errors
+#define LOG_OUTPUT_TYPE_REMOVE		0x0020
+
+#define LOG_OUTPUT_TYPE_DEFAULT		0x0100
+
+// File logging is never enabled by default.
+// The LOG_OUTPUT_TYPE define must be manually
+// set to enable file logging.
 #ifndef LOG_DIRECTORY
-#define LOG_DIRECTORY "C:\\Log\\"
+	#define LOG_DIRECTORY "C:/Log/"
 #endif
 
 #if IS_DRIVER
-	#define LOG_FILE_PATH "\\DosDevices\\" LOG_DIRECTORY "" LOG_APPNAME	"-sys.log"
-#elif IS_DLL
-	#define LOG_FILE_PATH LOG_DIRECTORY "" LOG_APPNAME "-dll.log"
+	#define LOG_FILE_PATH "\\DosDevices\\" LOG_DIRECTORY "" LOG_APPNAME	".log"
 #else
 	#define LOG_FILE_PATH LOG_DIRECTORY "" LOG_APPNAME ".log"
 #endif
 
+#if IS_DRIVER
+	// default logging for a driver
+	#define DEF_LOG_OUTPUT_TYPE LOG_OUTPUT_TYPE_DBGPRINT
+#elif IS_DLL
+	// default logging for a dll
+	#define DEF_LOG_OUTPUT_TYPE LOG_OUTPUT_TYPE_DEBUGWINDOW
+#else
+	// default logging for applications and everything else
+	#define DEF_LOG_OUTPUT_TYPE LOG_OUTPUT_TYPE_STDERR
+#endif
+
 // Default logging output
 #ifdef LOG_OUTPUT_TYPE
-	// all log messages (except errors) stripped for release builds
+	// all log messages (except errors) are stripped
 	#if (LOG_OUTPUT_TYPE & LOG_OUTPUT_TYPE_REMOVE)
 		#define USBMSG(format,...)
 		#define USBWRN(format,...)
@@ -78,39 +104,47 @@
 		#define USBWRN0(format)
 		#define USBDBG0(format)
 		#define USBRAWMSG0(format)
-		#undef LOG_OUTPUT_TYPE
-	#endif
-#endif
-
-#ifndef LOG_OUTPUT_TYPE
-	#if IS_DRIVER
-		#define LOG_OUTPUT_TYPE LOG_OUTPUT_TYPE_DBGPRINT
 	#endif
 
-	#if IS_DLL
-		#define LOG_OUTPUT_TYPE LOG_OUTPUT_TYPE_DEBUGWINDOW
+	#if (LOG_OUTPUT_TYPE & LOG_OUTPUT_TYPE_DEFAULT)
+		#define _LOG_OUTPUT_TYPE ((LOG_OUTPUT_TYPE & 0xff)|DEF_LOG_OUTPUT_TYPE)
+	#else
+		#define _LOG_OUTPUT_TYPE (LOG_OUTPUT_TYPE)
 	#endif
 
-	#ifndef LOG_OUTPUT_TYPE
-		#define LOG_OUTPUT_TYPE LOG_OUTPUT_TYPE_STDERR
-	#endif
+#else
+	// if the LOG_OUTPUT_TYPE has not been manually set use
+	// the as defaults.
+	#define _LOG_OUTPUT_TYPE DEF_LOG_OUTPUT_TYPE
 #endif
 
 // always keep error messages
 #define USBERR(format,...) usb_err(__FUNCTION__,format,__VA_ARGS__)
 #define USBERR0(format) usb_err(__FUNCTION__,format,NULL)
 
-// These are the actually logging macros that are used by the application
-#ifndef USBMSG
-#define USBMSG(format,...) usb_msg(__FUNCTION__,format,__VA_ARGS__)
-#define USBWRN(format,...) usb_wrn(__FUNCTION__,format,__VA_ARGS__)
-#define USBDBG(format,...) usb_dbg(__FUNCTION__,format,__VA_ARGS__)
-#define USBRAWMSG(format,...) usb_log(LOG_INFO|LOG_RAW,__FUNCTION__,format,__VA_ARGS__)
+// only keep debug log messages in debug builds
+#if !IS_DEBUG_MODE && !defined(USBDBG)
+	#define USBDBG(format,...)
+	#define USBDBG0(format)
+#endif
 
-#define USBMSG0(format) usb_msg(__FUNCTION__,format,NULL)
-#define USBWRN0(format) usb_wrn(__FUNCTION__,format,NULL)
-#define USBDBG0(format) usb_dbg(__FUNCTION__,format,NULL)
-#define USBRAWMSG0(format) usb_log(LOG_INFO|LOG_RAW,__FUNCTION__,format,NULL)
+// if USBMSG has not been defined as empty (see above)
+// then keep all the info and warning log messages
+#ifndef USBMSG
+	#define USBMSG(format,...) usb_msg(__FUNCTION__,format,__VA_ARGS__)
+	#define USBWRN(format,...) usb_wrn(__FUNCTION__,format,__VA_ARGS__)
+	#define USBRAWMSG(format,...) usb_log(LOG_INFO|LOG_RAW,__FUNCTION__,format,__VA_ARGS__)
+
+	#define USBMSG0(format) usb_msg(__FUNCTION__,format,NULL)
+	#define USBWRN0(format) usb_wrn(__FUNCTION__,format,NULL)
+	#define USBRAWMSG0(format) usb_log(LOG_INFO|LOG_RAW,__FUNCTION__,format,NULL)
+#endif
+
+// if USBDBG has not been defined as empty (see above)
+// then keep all the debug log messages
+#ifndef USBDBG
+	#define USBDBG(format,...) usb_dbg(__FUNCTION__,format,__VA_ARGS__)
+	#define USBDBG0(format) usb_dbg(__FUNCTION__,format,NULL)
 #endif
 
 typedef enum
@@ -135,16 +169,16 @@ enum USB_LOG_LEVEL
 
 };
 
-typedef void (*usb_log_handler_t)(enum USB_LOG_LEVEL, const char*);
-
 #if (!IS_DRIVER)
-const char *usb_win_error_to_string(void);
-int usb_win_error_to_errno(void);
+	const char *usb_win_error_to_string(void);
+	int usb_win_error_to_errno(void);
 #endif
 
 void usb_log_set_level(enum USB_LOG_LEVEL level);
 int usb_log_get_level();
 
+// these are the core logging functions used by the logging macros
+// (not used directly)
 void usb_err	(const char* function, const char* format, ...);
 void usb_wrn	(const char* function, const char* format, ...);
 void usb_msg	(const char* function, const char* format, ...);

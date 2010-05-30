@@ -891,12 +891,13 @@ ECHO              [Default = off]
 ECHO LOG_OUTPUT   Changes the log output type.  By default, applications send
 ECHO              log messages to stderr, dlls send log messages to 
 ECHO              OutputDebugString and kernel drivers send messages to 
-ECHO              DbgPrint.
-ECHO              Log Output Types (case sensitive):
-ECHO					REMOVE	     Strip all log messages.
-ECHO					STDERR		 output to stderr
+ECHO              DbgPrint. Use DebugView to view DBGPRINT, DEBUGWINDOW logs.
+ECHO              http://download.sysinternals.com/Files/DebugView.zip
+ECHO              Log Output Types (case sensitive, combinable with +):
+ECHO					DEFAULT      Use the build defaults. [see above]
+ECHO					REMOVE       Strip all log messages [except errors].
+ECHO					STDERR       output to stderr
 ECHO					DEBUGWINDOW	 OutputDebugString
-ECHO					MSGBOX	     MessageBox
 ECHO					FILE	     redirect log messages to a file.
 ECHO					DBGPRINT	 DbgPrint
 ECHO.

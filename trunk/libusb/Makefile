@@ -92,7 +92,7 @@ DRIVER_LDFLAGS = -s -shared -Wl,--entry,_DriverEntry@8 \
 all: dll filter infwizard test testwin driver
 
 .PHONY: dll
-dll: DLL_CFLAGS = $(CFLAGS) -DLOG_APPNAME='"libusb-dll"' -DTARGETTYPE=DYNLINK
+dll: DLL_CFLAGS = $(CFLAGS) -DLOG_APPNAME='"$(DLL_TARGET)-dll"' -DTARGETTYPE=DYNLINK
 dll: $(DLL_TARGET).dll
 
 $(DLL_TARGET).dll: usb.2.o error.2.o descriptors.2.o windows.2.o install.2.o registry.2.o resource.2.o 
@@ -157,7 +157,7 @@ inf-wizard.exe: inf_wizard.5.o registry.5.o error.5.o tokenizer.5.o inf_wizard_r
 	$(WINDRES) $(CPPFLAGS) $(WINDRES_FLAGS) $< -o $@
 
 .PHONY: driver
-driver: DRIVER_CFLAGS = $(CFLAGS) -DLOG_APPNAME='"libusb"' -DTARGETTYPE=DRIVER
+driver: DRIVER_CFLAGS = $(CFLAGS) -DLOG_APPNAME='"$(DLL_TARGET)-sys"' -DTARGETTYPE=DRIVER
 driver: $(DRIVER_TARGET)
 
 $(DRIVER_TARGET): libusbd.a $(DRIVER_OBJECTS)
