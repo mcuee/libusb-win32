@@ -28,6 +28,7 @@ VersionInfoVersion = @VERSION@
 DefaultDirName = {pf}\LibUSB-Win32
 DefaultGroupName = LibUSB-Win32
 LicenseFile = installer_license.txt
+InfoBeforeFile = libusb-win32-changelog-@VERSION@.txt
 Compression = lzma
 SolidCompression = yes
 OutputDir = .

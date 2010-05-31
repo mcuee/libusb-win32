@@ -292,6 +292,11 @@ GOTO :EOF
 :PackageText
 	CALL :TagEnv "..\README.in" "%~1\README.txt"
 	COPY /Y "..\*.txt" "%~1"
+	IF EXIST "!PACKAGE_ROOT_DIR!libusb-win32-changelog-!CMDVAR_VERSION!.txt" (
+		COPY /Y "!PACKAGE_ROOT_DIR!libusb-win32-changelog-!CMDVAR_VERSION!.txt"  "%~1\"
+	) ELSE (
+		ECHO No change log.>"%~1\libusb-win32-changelog-!CMDVAR_VERSION!.txt"
+	)
 GOTO :EOF
 
 :PrepForPackaging
