@@ -70,14 +70,18 @@
 // File logging is never enabled by default.
 // The LOG_OUTPUT_TYPE define must be manually
 // set to enable file logging.
-#ifndef LOG_DIRECTORY
-	#define LOG_DIRECTORY "C:/Log/"
-#endif
-
 #if IS_DRIVER
-	#define LOG_FILE_PATH "\\DosDevices\\" LOG_DIRECTORY "" LOG_APPNAME	".log"
+	#ifndef LOG_DIRECTORY
+		#define LOG_FILE_PATH "\\DosDevices\\C:\\Log\\" LOG_APPNAME	".log"
+	#else
+		#define LOG_FILE_PATH "\\DosDevices\\" LOG_DIRECTORY LOG_APPNAME ".log"
+	#endif
 #else
-	#define LOG_FILE_PATH LOG_DIRECTORY "" LOG_APPNAME ".log"
+	#ifndef LOG_DIRECTORY
+		#define LOG_FILE_PATH LOG_APPNAME ".log"
+	#else
+		#define LOG_FILE_PATH LOG_DIRECTORY LOG_APPNAME ".log"
+	#endif
 #endif
 
 #if IS_DRIVER
