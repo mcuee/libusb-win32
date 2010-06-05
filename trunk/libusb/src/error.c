@@ -54,8 +54,6 @@ void usb_log_v	(enum USB_LOG_LEVEL level, const char* function, const char* form
 void _usb_log	(enum USB_LOG_LEVEL level, const char* app_name, const char* function, const char* format, ...);
 void _usb_log_v	(enum USB_LOG_LEVEL level, const char* app_name, const char* function, const char* format, va_list args);
 
-void WriteDriverLogEntry(char* message, const int message_length);
-
 static void usb_log_def_handler(enum USB_LOG_LEVEL level, 
 								const char* app_name, 
 								const char* prefix, 
@@ -88,8 +86,8 @@ static const char *skipped_function_prefix_list[] =
 char usb_error_str[LOGBUF_SIZE] = "";
 int usb_error_errno = 0;
 
-#if (IS_DEBUG_MODE)
-int __usb_log_level = LOG_DEBUG;
+#if (defined(_DEBUG) || defined(DEBUG) || defined(DBG))
+int __usb_log_level = LOG_LEVEL_MAX;
 #else
 int __usb_log_level = LOG_OFF;
 #endif
@@ -351,7 +349,7 @@ static void usb_log_def_handler(enum USB_LOG_LEVEL level,
 // TODO: Kernel driver must use ZwCreateFile
 #if GetLogOuput(LOG_OUTPUT_TYPE_FILE)
 	#if IS_DRIVER
-		WriteDriverLogEntry(message,message_length);
+		DbgPrint("%s",message);
 	#else
 		file = fopen(LOG_FILE_PATH,"a");
 		if (file)
@@ -372,61 +370,3 @@ static void usb_log_def_handler(enum USB_LOG_LEVEL level,
 #endif
 }
 
-#if IS_DRIVER
-void WriteDriverLogEntry(char* message, const int message_length)
-{
-	HANDLE                      logFileHandle=NULL;       // DataFile handle.
-	OBJECT_ATTRIBUTES           objectAttributes;			// Used for opening file.
-	UNICODE_STRING              uniFileName;
-	ANSI_STRING					ansiFilename;
-	IO_STATUS_BLOCK             ioStatusBlock;
-	NTSTATUS                    ntStatus = STATUS_SUCCESS;
-
-	RtlInitAnsiString(&ansiFilename,LOG_FILE_PATH);
-	ntStatus = RtlAnsiStringToUnicodeString(&uniFileName,&ansiFilename,TRUE);
-	if (!NT_SUCCESS(ntStatus))
-		return;
-
-	// Create data file.
-	InitializeObjectAttributes(&objectAttributes,
-		&uniFileName,
-		OBJ_CASE_INSENSITIVE|OBJ_KERNEL_HANDLE,
-		NULL,
-		NULL);
-
-	ntStatus = ZwCreateFile(&logFileHandle,
-							SYNCHRONIZE | FILE_APPEND_DATA,
-							&objectAttributes,
-							&ioStatusBlock,
-							NULL,
-							FILE_ATTRIBUTE_NORMAL,
-							0,
-							FILE_OPEN_IF,
-							FILE_NON_DIRECTORY_FILE | FILE_SYNCHRONOUS_IO_NONALERT,
-							NULL,
-							0);
-
-	if (NT_SUCCESS(ntStatus))
-	{
-
-		ntStatus = ZwWriteFile( logFileHandle,
-								NULL,
-								NULL,
-								NULL,
-								&ioStatusBlock,
-								message,
-								message_length,
-								NULL,
-								NULL);
-
-		if (NT_SUCCESS(ntStatus))
-		{
-		}
-
-		ZwClose(logFileHandle);
-		logFileHandle = NULL;
-	}
-
-	RtlFreeUnicodeString(&uniFileName);
-}
-#endif

@@ -38,8 +38,6 @@
 #define TARGETTYPE PROGRAMconsole
 #endif
 
-#define IS_DEBUG_MODE		(defined(_DEBUG) || defined(DEBUG) || defined(DBG))
-
 #define IS_DRIVER			(TARGETTYPE==DRIVER)
 #define IS_CONSOLE_APP		(TARGETTYPE==PROGRAMconsole)
 #define IS_WINDOW_APP		(TARGETTYPE==PROGRAMwindows)
@@ -127,7 +125,7 @@
 #define USBERR0(format) usb_err(__FUNCTION__,format,NULL)
 
 // only keep debug log messages in debug builds
-#if !IS_DEBUG_MODE && !defined(USBDBG)
+#if !(defined(_DEBUG) || defined(DEBUG) || defined(DBG)) && !defined(USBDBG)
 	#define USBDBG(format,...)
 	#define USBDBG0(format)
 #endif
