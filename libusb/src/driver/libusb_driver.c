@@ -32,13 +32,6 @@ NTSTATUS DDKAPI DriverEntry(DRIVER_OBJECT *driver_object,
 {
     int i;
 
-    /* initialize global variables */
-#if defined(_DEBUG) || defined(DEBUG) || defined(DBG) 
-	usb_log_set_level(LOG_DEBUG);
-#else
-	usb_log_set_level(LOG_INFO);
-#endif
-
     USBMSG0("loading driver\n");
 
 	/* initialize the driver object's dispatch table */
@@ -160,6 +153,35 @@ NTSTATUS DDKAPI add_device(DRIVER_OBJECT *driver_object,
         IoDeleteDevice(device_object);
         return STATUS_SUCCESS;
 	}
+
+#ifdef CREATE_DEVICE_INTERFACE
+	if (!dev->is_filter)
+	{
+		if (dev->interface_guid_count)
+		{
+			status = IoRegisterDeviceInterface(physical_device_object, 
+				&dev->interface_guids[0],
+				NULL,
+				&dev->symbolic_name);
+
+			if (status == STATUS_OBJECT_NAME_EXISTS)
+			{
+				USBMSG0("re-used device interface.\n");
+				RtlFreeUnicodeString(&dev->symbolic_name);
+			}
+			else if (NT_SUCCESS(status))
+			{
+				USBMSG0("registered device interface.\n");
+				RtlFreeUnicodeString(&dev->symbolic_name);
+			}
+			else
+			{
+				USBMSG("IoRegisterDeviceInterface failed. status = %08Xh\n", status);
+			}
+		}
+		status = STATUS_SUCCESS;
+	}
+#endif
 
 	clear_pipe_info(dev);
 
@@ -361,6 +383,33 @@ bool_t get_pipe_handle(libusb_device_t *dev, int endpoint_address,
     return FALSE;
 }
 
+bool_t get_pipe_info(libusb_device_t *dev, int endpoint_address,
+                       libusb_endpoint_t** pipe_info)
+{
+    int i, j;
+
+    *pipe_info = NULL;
+
+    for (i = 0; i < LIBUSB_MAX_NUMBER_OF_INTERFACES; i++)
+    {
+        if (dev->config.interfaces[i].valid)
+        {
+            for (j = 0; j < LIBUSB_MAX_NUMBER_OF_ENDPOINTS; j++)
+            {
+                if (dev->config.interfaces[i].endpoints[j].address
+                        == endpoint_address)
+                {
+                    *pipe_info = &dev->config.interfaces[i].endpoints[j];
+
+                    return !*pipe_info ? FALSE : TRUE;
+                }
+            }
+        }
+    }
+
+    return FALSE;
+}
+
 void clear_pipe_info(libusb_device_t *dev)
 {
     memset(dev->config.interfaces, 0 , sizeof(dev->config.interfaces));
@@ -371,6 +420,7 @@ bool_t update_pipe_info(libusb_device_t *dev,
 {
     int i;
     int number;
+	int maxTransferSize;
 
     if (!interface_info)
     {
@@ -399,14 +449,22 @@ bool_t update_pipe_info(libusb_device_t *dev,
         for (i = 0; i < (int)interface_info->NumberOfPipes
                 && i < LIBUSB_MAX_NUMBER_OF_ENDPOINTS; i++)
         {
-            USBMSG("endpoint address 0x%02x\n",
-                          interface_info->Pipes[i].EndpointAddress);
+            USBMSG("endpoint address 0x%02x\n", interface_info->Pipes[i].EndpointAddress);
 
-            dev->config.interfaces[number].endpoints[i].handle
-            = interface_info->Pipes[i].PipeHandle;
-            dev->config.interfaces[number].endpoints[i].address =
-                interface_info->Pipes[i].EndpointAddress;
-        }
+            dev->config.interfaces[number].endpoints[i].handle  = interface_info->Pipes[i].PipeHandle;
+            dev->config.interfaces[number].endpoints[i].address = interface_info->Pipes[i].EndpointAddress;
+            dev->config.interfaces[number].endpoints[i].maximum_packet_size = interface_info->Pipes[i].MaximumPacketSize;
+            dev->config.interfaces[number].endpoints[i].interval = interface_info->Pipes[i].Interval;
+            dev->config.interfaces[number].endpoints[i].pipe_type = interface_info->Pipes[i].PipeType;
+ 			dev->config.interfaces[number].endpoints[i].pipe_flags = interface_info->Pipes[i].PipeFlags;
+          
+			// max the maximum transfer size default an interval of max packet size.
+			//
+			maxTransferSize = interface_info->Pipes[i].MaximumTransferSize;
+			maxTransferSize = maxTransferSize - (maxTransferSize % dev->config.interfaces[number].endpoints[i].maximum_packet_size);
+			dev->config.interfaces[number].endpoints[i].maximum_transfer_size = maxTransferSize;
+
+      }
     }
 
     return TRUE;
@@ -487,4 +545,63 @@ find_interface_desc(USB_CONFIGURATION_DESCRIPTOR *config_desc,
 
     return NULL;
 }
+ULONG get_current_frame(IN PDEVICE_EXTENSION deviceExtension, IN PIRP Irp)
+/*++
 
+Routine Description:
+
+    This routine send an irp/urb pair with
+    function code URB_FUNCTION_GET_CURRENT_FRAME_NUMBER
+    to fetch the current frame
+
+Arguments:
+
+    DeviceObject - pointer to device object
+    PIRP - I/O request packet
+
+Return Value:
+
+    Current frame
+
+--*/
+{
+    KEVENT                               event;
+    PIO_STACK_LOCATION                   nextStack;
+    struct _URB_GET_CURRENT_FRAME_NUMBER urb;
+
+    //
+    // initialize the urb
+    //
+
+    urb.Hdr.Function = URB_FUNCTION_GET_CURRENT_FRAME_NUMBER;
+    urb.Hdr.Length = sizeof(urb);
+    urb.FrameNumber = (ULONG) -1;
+
+    nextStack = IoGetNextIrpStackLocation(Irp);
+    nextStack->Parameters.Others.Argument1 = (PVOID) &urb;
+    nextStack->Parameters.DeviceIoControl.IoControlCode =
+                                IOCTL_INTERNAL_USB_SUBMIT_URB;
+    nextStack->MajorFunction = IRP_MJ_INTERNAL_DEVICE_CONTROL;
+
+    KeInitializeEvent(&event,
+                      NotificationEvent,
+                      FALSE);
+
+    IoSetCompletionRoutine(Irp,
+                           on_usbd_complete,
+                           &event,
+                           TRUE,
+                           TRUE,
+                           TRUE);
+
+
+    IoCallDriver(deviceExtension->target_device, Irp);
+
+    KeWaitForSingleObject((PVOID) &event,
+                          Executive,
+                          KernelMode,
+                          FALSE,
+                          NULL);
+
+    return urb.FrameNumber;
+}
