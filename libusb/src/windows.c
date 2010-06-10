@@ -163,6 +163,7 @@ BOOL WINAPI DllMain(HANDLE module, DWORD reason, LPVOID reserved)
 		 return -ENOENT;
 	 }
 
+	 /*
 	 // now, retrieve the device's current configuration, except from hubs
 	 if(dev->device->config && dev->device->config->interface
 		 && dev->device->config->interface[0].altsetting
@@ -176,6 +177,7 @@ BOOL WINAPI DllMain(HANDLE module, DWORD reason, LPVOID reserved)
 			 dev->config = config;
 		 }
 	 }
+	*/
 
 	 return 0;
  }
@@ -559,8 +561,11 @@ static int _usb_transfer_sync(usb_dev_handle *dev, int control_code,
 
     do
     {
+#ifdef LIBUSB_WIN32_DLL_LARGE_TRANSFER_SUPPORT
         requested = size > LIBUSB_MAX_READ_WRITE ? LIBUSB_MAX_READ_WRITE : size;
-
+#else
+        requested = size;
+#endif
         ret = usb_submit_async(context, bytes, requested);
 
         if (ret < 0)
