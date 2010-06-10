@@ -26,6 +26,7 @@
 
 #define LIBUSB_REG_SURPRISE_REMOVAL_OK	L"SurpriseRemovalOK"
 #define LIBUSB_REG_INITIAL_CONFIG_VALUE	L"InitialConfigValue"
+#define LIBUSB_INTERFACE_GUIDS	L"LibUsbInterfaceGUIDs"
 
 
 static bool_t reg_get_property(DEVICE_OBJECT *physical_device_object,
@@ -73,10 +74,16 @@ bool_t reg_get_properties(libusb_device_t *dev)
     NTSTATUS status;
     UNICODE_STRING surprise_removal_ok_name;
     UNICODE_STRING initial_config_value_name;
+	UNICODE_STRING libusb_interface_guids;
+	ANSI_STRING libusb_interface_guidsA;
+
     KEY_VALUE_FULL_INFORMATION *info;
     ULONG pool_length;
     ULONG length;
 	ULONG val;
+
+	const unsigned char* chInfoData;
+	unsigned char* chInfo;
 
     if (!dev->physical_device_object)
     {
@@ -100,43 +107,106 @@ bool_t reg_get_properties(libusb_device_t *dev)
         RtlInitUnicodeString(&initial_config_value_name, 
 			LIBUSB_REG_INITIAL_CONFIG_VALUE);
 
-        pool_length = sizeof(KEY_VALUE_FULL_INFORMATION) + 256;
+         RtlInitUnicodeString(&libusb_interface_guids, 
+			LIBUSB_INTERFACE_GUIDS);
+
+		 pool_length = sizeof(KEY_VALUE_FULL_INFORMATION) + 512;
 
         info = ExAllocatePool(NonPagedPool, pool_length);
+		if (!info)
+		{
+			USBERR("ExAllocatePool failed allocating %d bytes\n", pool_length);
+			return FALSE;
+		}
 
-        if (info)
+
+		// get surprise_removal_ok
+		// get is_filter
+		length = pool_length;
+        memset(info, 0, length);
+
+        status = ZwQueryValueKey(key, &surprise_removal_ok_name, 
+			KeyValueFullInformation, info, length, &length);
+
+        if (NT_SUCCESS(status) && (info->Type == REG_DWORD))
         {
-			// get surprise_removal_ok
-			// get is_filter
-			length = pool_length;
-            memset(info, 0, length);
+            val = *((ULONG *)(((char *)info) + info->DataOffset));
 
-            status = ZwQueryValueKey(key, &surprise_removal_ok_name, 
-				KeyValueFullInformation, info, length, &length);
-
-            if (NT_SUCCESS(status) && (info->Type == REG_DWORD))
-            {
-                val = *((ULONG *)(((char *)info) + info->DataOffset));
-
-                dev->surprise_removal_ok = val ? TRUE : FALSE;
-                dev->is_filter = FALSE;
-            }
-
-			// get initial_config_value
-			length = pool_length;
-            memset(info, 0, length);
-
-            status = ZwQueryValueKey(key, &initial_config_value_name,
-				KeyValueFullInformation, info, length, &length);
-
-            if (NT_SUCCESS(status) && (info->Type == REG_DWORD))
-            {
-                val = *((ULONG *)(((char *)info) + info->DataOffset));
-                dev->initial_config_value = (int)val;
-            }
-
-            ExFreePool(info);
+            dev->surprise_removal_ok = val ? TRUE : FALSE;
+            dev->is_filter = FALSE;
         }
+
+		// get initial_config_value
+		length = pool_length;
+        memset(info, 0, length);
+
+        status = ZwQueryValueKey(key, &initial_config_value_name,
+			KeyValueFullInformation, info, length, &length);
+
+        if (NT_SUCCESS(status) && (info->Type == REG_DWORD))
+        {
+            val = *((ULONG *)(((char *)info) + info->DataOffset));
+            dev->initial_config_value = (int)val;
+        }
+#ifdef CREATE_DEVICE_INTERFACE
+
+		// get libusb interface guid(s)
+		length = pool_length;
+        RtlZeroMemory(info, length);
+		length-=2;
+
+        status = ZwQueryValueKey(key, &libusb_interface_guids,
+			KeyValueFullInformation, info, length, &length);
+
+        if (NT_SUCCESS(status) && (info->Type == REG_MULTI_SZ))
+        {
+			USBDBG0("Found libusb interface guid(s)\n");
+
+			chInfo = (unsigned char *)info;
+			chInfo += info->DataOffset;
+			chInfoData = chInfo;
+			do
+			{
+				RtlInitUnicodeString(&libusb_interface_guids,
+					(PWSTR)(chInfo));
+
+				status = RtlGUIDFromString(&libusb_interface_guids,
+					&dev->interface_guids[dev->interface_guid_count]);
+
+				if (!NT_SUCCESS(status))
+				{
+					USBWRN("failed converting LibUsbInterfaceGUIDs status = %08Xh", status);
+					break;
+				}
+
+				USBDBG("found device interface GUID {%08X-%04X-%04X-%02X%02X-%02X%02X%02X%02X%02X%02X} length = %d",
+					dev->interface_guids[dev->interface_guid_count].Data1,
+					dev->interface_guids[dev->interface_guid_count].Data2,
+					dev->interface_guids[dev->interface_guid_count].Data3,
+					dev->interface_guids[dev->interface_guid_count].Data4[0],
+					dev->interface_guids[dev->interface_guid_count].Data4[1],
+					dev->interface_guids[dev->interface_guid_count].Data4[2],
+					dev->interface_guids[dev->interface_guid_count].Data4[3],
+					dev->interface_guids[dev->interface_guid_count].Data4[4],
+					dev->interface_guids[dev->interface_guid_count].Data4[5],
+					dev->interface_guids[dev->interface_guid_count].Data4[6],
+					dev->interface_guids[dev->interface_guid_count].Data4[7],
+					libusb_interface_guids.Length);
+
+				dev->interface_guid_count++;
+
+				chInfo+=libusb_interface_guids.Length+2;
+				if  (((chInfo - chInfoData) + 76) > (int)length)
+					break;
+
+				if (*chInfo == '\0')
+					break;
+
+			}while (dev->interface_guid_count < (sizeof(dev->interface_guids) / sizeof(dev->interface_guids[0])));
+        }
+#endif
+
+        ExFreePool(info);
 
         ZwClose(key);
     }

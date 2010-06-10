@@ -69,8 +69,8 @@ static const char *log_level_string[LOG_LEVEL_MAX+1] =
 {
     "off",
     "error",
-    "warning",
-    "info",
+    " warn",
+    " info",
     "debug",
 
     "unknown",
