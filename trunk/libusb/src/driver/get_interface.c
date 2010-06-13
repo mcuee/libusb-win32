@@ -29,6 +29,8 @@ NTSTATUS get_interface(libusb_device_t *dev,
     URB urb;
 
 	USBMSG("interface: %d timeout: %d\n", interface, timeout);
+	
+	CHECK_AND_AUTOCONFIGURE(dev);
 
     if (!dev->config.value)
     {

@@ -55,16 +55,16 @@ NTSTATUS dispatch_pnp(libusb_device_t *dev, IRP *irp)
     {
     case IRP_MN_REMOVE_DEVICE:
 
-        USBMSG0("IRP_MN_REMOVE_DEVICE ");
-
         dev->is_started = FALSE;
 
-        /* wait until all outstanding requests are finished */
+ 		USBMSG("IRP_MN_REMOVE_DEVICE: %s\n", dev->device_id);
+
+		/* wait until all outstanding requests are finished */
         remove_lock_release_and_wait(dev);
 
         status = pass_irp_down(dev, irp, NULL, NULL);
 
-        USBRAWMSG("deleting device %d\n", dev->id);
+		USBMSG("deleting device #%d\n", dev->id);
 
        _snwprintf(tmp_name, sizeof(tmp_name)/sizeof(WCHAR), L"%s%04d",
                    LIBUSB_SYMBOLIC_LINK_NAME, dev->id);
@@ -87,7 +87,8 @@ NTSTATUS dispatch_pnp(libusb_device_t *dev, IRP *irp)
 
     case IRP_MN_START_DEVICE:
 
-        USBMSG0("IRP_MN_START_DEVICE\n");
+		USBMSG("IRP_MN_START_DEVICE: %s\n",
+			isFilter ? "filter" : "normal");
 
         /* report device state to Power Manager */
         /* power_state.DeviceState has been set to D0 by add_device() */
@@ -140,8 +141,8 @@ static NTSTATUS DDKAPI
 on_start_complete(DEVICE_OBJECT *device_object, IRP *irp, void *context)
 {
     libusb_device_t *dev = device_object->DeviceExtension;
-	int configuration;
-    if (irp->PendingReturned)
+
+	if (irp->PendingReturned)
     {
         IoMarkIrpPending(irp);
     }
@@ -151,30 +152,47 @@ on_start_complete(DEVICE_OBJECT *device_object, IRP *irp, void *context)
         device_object->Characteristics |= FILE_REMOVABLE_MEDIA;
     }
 
-    dev->is_started = TRUE;
-
 	// select initial configuration if not a filter
-	if (!dev->is_filter && !dev->config.value)
+	if (!dev->is_filter)
 	{
 		// optionally, the initial configuration value can be specified
 		// in the inf file. See reg_get_properties()
 		// HKR,,"InitialConfigValue",0x00010001,<your config value>
-		if (dev->initial_config_value < 0)
-			configuration = 1;
-		else if (dev->initial_config_value > 0) 
-			configuration = dev->initial_config_value;
-		else
-			configuration = 0;
 
-		if (configuration)
+		// If initial_config_value is negative, the configuration will
+		// only be set if the device is not already configured.
+		if (dev->initial_config_value)
 		{
-			if(NT_SUCCESS(set_configuration(dev, configuration, 1000)))
-				USBMSG("initial config value %u selected\n", dev->config.value);
+			if (dev->initial_config_value == SET_CONFIG_ACTIVE_CONFIG)
+			{
+				USBDBG("applying active configuration for %s\n",
+					dev->device_id);
+			}
 			else
-				USBERR0("selecting configuration failed\n");
+			{
+				USBDBG("applying InitialConfigValue %d for %s\n",
+					dev->initial_config_value, dev->device_id);
+			}
+
+			if(!NT_SUCCESS(set_configuration(dev, dev->initial_config_value, LIBUSB_DEFAULT_TIMEOUT)))
+			{
+				// we should always be able to apply the active configuration,
+				// even in the case of composite devices.
+				if (dev->initial_config_value == SET_CONFIG_ACTIVE_CONFIG)
+				{
+					USBERR("failed applying active configuration for %s\n",
+						dev->device_id);
+				}
+				else
+				{
+					USBERR("failed applying InitialConfigValue %d for %s\n",
+						dev->initial_config_value, dev->device_id);
+				}
+			}
 		}
 	}
 
+	dev->is_started = TRUE;
     remove_lock_release(dev);
 
     return STATUS_SUCCESS;

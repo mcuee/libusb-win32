@@ -30,6 +30,8 @@ NTSTATUS abort_endpoint(libusb_device_t *dev, int endpoint, int timeout)
 
     memset(&urb, 0, sizeof(struct _URB_PIPE_REQUEST));
 
+	CHECK_AND_AUTOCONFIGURE(dev);
+
     if (!dev->config.value)
     {
         USBERR0("invalid configuration 0\n");

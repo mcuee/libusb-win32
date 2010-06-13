@@ -93,7 +93,7 @@ bool_t reg_get_properties(libusb_device_t *dev)
     /* default settings */
     dev->surprise_removal_ok = FALSE;
     dev->is_filter = TRUE;
-	dev->initial_config_value = -1;
+	dev->initial_config_value = SET_CONFIG_ACTIVE_CONFIG;
 
     status = IoOpenDeviceRegistryKey(dev->physical_device_object,
                                      PLUGPLAY_REGKEY_DEVICE,
@@ -175,11 +175,11 @@ bool_t reg_get_properties(libusb_device_t *dev)
 
 				if (!NT_SUCCESS(status))
 				{
-					USBWRN("failed converting LibUsbInterfaceGUIDs status = %08Xh", status);
+					USBWRN("failed converting LibUsbInterfaceGUIDs status=%08Xh", status);
 					break;
 				}
 
-				USBDBG("found device interface GUID {%08X-%04X-%04X-%02X%02X-%02X%02X%02X%02X%02X%02X} length = %d",
+				USBDBG("found device interface GUID {%08X-%04X-%04X-%02X%02X-%02X%02X%02X%02X%02X%02X} length=%d",
 					dev->interface_guids[dev->interface_guid_count].Data1,
 					dev->interface_guids[dev->interface_guid_count].Data2,
 					dev->interface_guids[dev->interface_guid_count].Data3,

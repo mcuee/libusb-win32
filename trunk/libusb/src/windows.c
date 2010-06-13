@@ -163,7 +163,6 @@ BOOL WINAPI DllMain(HANDLE module, DWORD reason, LPVOID reserved)
 		 return -ENOENT;
 	 }
 
-	 /*
 	 // now, retrieve the device's current configuration, except from hubs
 	 if(dev->device->config && dev->device->config->interface
 		 && dev->device->config->interface[0].altsetting
@@ -177,7 +176,6 @@ BOOL WINAPI DllMain(HANDLE module, DWORD reason, LPVOID reserved)
 			 dev->config = config;
 		 }
 	 }
-	*/
 
 	 return 0;
  }
