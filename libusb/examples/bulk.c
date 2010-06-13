@@ -1,9 +1,13 @@
 #include <usb.h>
 #include <stdio.h>
 
+#define TEST_BULK_READ
+// #define TEST_BULK_WRITE
+
 /* the device's vendor and product id */
 #define MY_VID 1234
 #define MY_PID 5678
+
 #define MY_CONFIG 1
 #define MY_INTF 0
 
@@ -77,6 +81,7 @@ int main(void)
 		printf("success: claim_interface #%d\n", MY_INTF);
 	}
 
+#ifdef TEST_BULK_WRITE
 	ret = usb_bulk_write(dev, EP_OUT, tmp, sizeof(tmp), 5000);
     if (ret <= 0)
     {
@@ -86,7 +91,9 @@ int main(void)
 	{
         printf("success: bulk write %d bytes\n",ret);
 	}
-	
+#endif
+
+#ifdef TEST_BULK_READ
 	ret = usb_bulk_read(dev, EP_IN, tmp, sizeof(tmp), 5000);
     if (ret <= 0)
     {
@@ -96,6 +103,7 @@ int main(void)
 	{
         printf("success: bulk read %d bytes\n",ret);
 	}
+#endif
 
     usb_release_interface(dev, 0);
     usb_close(dev);
