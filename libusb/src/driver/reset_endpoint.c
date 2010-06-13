@@ -27,6 +27,8 @@ NTSTATUS reset_endpoint(libusb_device_t *dev, int endpoint, int timeout)
     URB urb;
 
 	USBMSG("endpoint: 0x%02x timeout: %d\n", endpoint, timeout);
+	
+	CHECK_AND_AUTOCONFIGURE(dev);
 
 	if (!dev->config.value)
     {

@@ -34,18 +34,19 @@
 		goto IOCTL_Done;													\
 	}
 
-// used but all READ (OUT_DIRECT) transfer functions to get a valid
-// libusb_endpoint_t * for the request.
+// used but all READ (OUT_DIRECT) transfer functions verify the transfer
+// buffer size is an interfal of the maximum packet size.
 //
 #define TRANSFER_IOCTL_CHECK_READ_BUFFER()									\
 	/* read buffer lengthd must be equal to or an interval of the max */	\
 	/* packet size */														\
 	if (transfer_buffer_length % pipe_info->maximum_packet_size)			\
 	{																		\
-		USBERR("%s: buffer length must be an interval of the endpoint max"	\
-			"packet size.\n", dispCtlCode);									\
-		status = STATUS_INVALID_PARAMETER;									\
-		goto IOCTL_Done;													\
+		USBWRN("%s: buffer length %d is not an interval wMaxPacketSize "	\
+			   "for endpoint %02Xh.\n",										\
+		dispCtlCode, transfer_buffer_length, request->endpoint.endpoint);	\
+		/* status = STATUS_INVALID_PARAMETER; */							\
+		/* goto IOCTL_Done; */												\
 	}
 
 // validates the urb function and direction against libusb_endpoint_t
@@ -62,8 +63,8 @@
 // calls the transfer function and returns NTSTATUS
 #define TRANSFER_IOCTL_EXECUTE()										\
 	if (transfer_buffer_length > (ULONG)(maxTransferSize))				\
-		/* large transfers needs split before into sub irp/urbs	*/		\
-		return transfers_starting(dev, irp,								\
+		/* split large transfers */										\
+		return large_transfer(dev, irp,									\
 						usbdDirection,									\
 						urbFunction,									\
 						pipe_info,										\
@@ -85,6 +86,18 @@
 						request->endpoint.iso_start_frame_latency,		\
 						transfer_buffer_mdl,							\
 						transfer_buffer_length);
+
+	
+#define TRANSFER_IOCTL_CHECK_AND_AUTOCONFIGURE()							\
+{																			\
+	CHECK_AND_AUTOCONFIGURE(dev);											\
+	if (!dev->config.value)													\
+	{																		\
+		USBERR("device %s not configured\n", dev->device_id);				\
+		status = STATUS_INVALID_PARAMETER;									\
+		goto IOCTL_Done;													\
+	}																		\
+}
 
 NTSTATUS dispatch_ioctl(libusb_device_t *dev, IRP *irp)
 {
@@ -136,6 +149,9 @@ NTSTATUS dispatch_ioctl(libusb_device_t *dev, IRP *irp)
             goto IOCTL_Done;
         }
 
+		// if the device is not configured
+		TRANSFER_IOCTL_CHECK_AND_AUTOCONFIGURE();
+
 		// check if the pipe exists and get the pipe information
 		TRANSFER_IOCTL_GET_PIPEINFO();
 
@@ -176,6 +192,9 @@ NTSTATUS dispatch_ioctl(libusb_device_t *dev, IRP *irp)
             goto IOCTL_Done;
         }
 
+		// if the device is not configured
+		TRANSFER_IOCTL_CHECK_AND_AUTOCONFIGURE();
+
 		// check if the pipe exists and get the pipe information
 		TRANSFER_IOCTL_GET_PIPEINFO();
 
@@ -211,6 +230,10 @@ NTSTATUS dispatch_ioctl(libusb_device_t *dev, IRP *irp)
             status = STATUS_INVALID_PARAMETER;
             goto IOCTL_Done;
         }
+
+		// check if the device is configured
+		TRANSFER_IOCTL_CHECK_AND_AUTOCONFIGURE();
+
 		// check if the pipe exists and get the pipe information
 		TRANSFER_IOCTL_GET_PIPEINFO();
 
@@ -249,7 +272,10 @@ NTSTATUS dispatch_ioctl(libusb_device_t *dev, IRP *irp)
             status = STATUS_INVALID_PARAMETER;
             goto IOCTL_Done;
         }
-		
+
+		// check if the device is configured
+		TRANSFER_IOCTL_CHECK_AND_AUTOCONFIGURE();
+
 		// check if the pipe exists and get the pipe information
 		TRANSFER_IOCTL_GET_PIPEINFO();
 
@@ -295,8 +321,9 @@ NTSTATUS dispatch_ioctl(libusb_device_t *dev, IRP *irp)
 	{
     case LIBUSB_IOCTL_SET_CONFIGURATION:
 
-        status = set_configuration(dev, request->configuration.configuration,
-                                   request->timeout);
+        status = set_configuration(dev,
+			request->configuration.configuration, 
+			request->timeout);
         break;
 
     case LIBUSB_IOCTL_GET_CONFIGURATION:
@@ -308,8 +335,19 @@ NTSTATUS dispatch_ioctl(libusb_device_t *dev, IRP *irp)
             break;
         }
 
-        status = get_configuration(dev, output_buffer, &ret, request->timeout);
-        break;
+		// We use the cached value here, even if it's 0.
+		// it's possible for this value is be out of sync, however
+		// this is what the driver is using so it becomes
+		// a question of which value is correct or correctly incorrect.
+		//if (dev->config.value)
+		//{
+			output_buffer[0] = (char)dev->config.value;
+			status = STATUS_SUCCESS;
+			ret = 1;
+			break;
+		//}
+        //status = get_configuration(dev, output_buffer, &ret, request->timeout);
+		//break;
 
     case LIBUSB_IOCTL_SET_INTERFACE:
 

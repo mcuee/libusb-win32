@@ -20,8 +20,8 @@
 #include "libusb_driver.h"
 
 
-
-NTSTATUS set_configuration(libusb_device_t *dev, int configuration,
+NTSTATUS set_configuration(libusb_device_t *dev,
+						   int configuration,
                            int timeout)
 {
     NTSTATUS status = STATUS_SUCCESS;
@@ -29,18 +29,25 @@ NTSTATUS set_configuration(libusb_device_t *dev, int configuration,
     USB_CONFIGURATION_DESCRIPTOR *configuration_descriptor = NULL;
     USB_INTERFACE_DESCRIPTOR *interface_descriptor = NULL;
     USBD_INTERFACE_LIST_ENTRY *interfaces = NULL;
-    int i, j, interface_number, desc_size;
+    int i, j, interface_number, desc_size, config_index, ret;
+	unsigned char active_config;
+	bool_t set_config_active_config = FALSE;
 
-	USBMSG("configuration: %d timeout: %d\n", configuration,timeout);
+	// check if this config value is already set
+	if ((configuration > 0) && dev->config.value == configuration)
+    {
+        return STATUS_SUCCESS;
+    }
 
-    if (dev->config.value == configuration)
+	// check if this config index is already set
+	if ((configuration < 0) && dev->config.value && dev->config.index == (abs(configuration)-1))
     {
         return STATUS_SUCCESS;
     }
 
     memset(&urb, 0, sizeof(URB));
 
-    if (!configuration)
+    if (configuration == 0)
     {
         urb.UrbHeader.Function = URB_FUNCTION_SELECT_CONFIGURATION;
         urb.UrbHeader.Length = sizeof(struct _URB_SELECT_CONFIGURATION);
@@ -62,14 +69,51 @@ NTSTATUS set_configuration(libusb_device_t *dev, int configuration,
         return status;
     }
 
+	status = get_configuration(dev, &active_config, &ret, timeout);
+	if (!NT_SUCCESS(status))
+	{
+			USBERR("failed setting active configuration for %s timeout=%d\n",
+				dev->device_id, timeout);
+			return status;
+	}
+
+	if (configuration == SET_CONFIG_ACTIVE_CONFIG)
+	{
+		set_config_active_config = TRUE;
+
+		// if the device is already configured use this configuration
+		// if not use the first configuration index
+		if (active_config)
+			configuration=active_config;
+		else
+			configuration=-1;
+	}
+
+	USBMSG("setting configuration %s %d timeout=%d",
+		(configuration < 0) ? "index" : "value",
+		(configuration < 0) ? abs(configuration) - 1 : configuration,
+		timeout);
+
+
+	// If configuration is negative, it is retrieved by index. 
+	//
     configuration_descriptor = get_config_descriptor(dev, configuration,
-                               &desc_size);
+                               &desc_size, &config_index);
     if (!configuration_descriptor)
     {
         USBERR0("getting configuration descriptor failed");
         return STATUS_INVALID_PARAMETER;
     }
 
+	// if we passed an index in we can check here to see
+	// if the device is already configured with this value
+	if (dev->config.value == configuration_descriptor->bConfigurationValue)
+    {
+		status = STATUS_SUCCESS;
+		goto SetConfigurationDone;
+    }
+
+	// MEMORY ALLOCATION BEGINS
     interfaces =
         ExAllocatePool(NonPagedPool,(configuration_descriptor->bNumInterfaces + 1)
                        * sizeof(USBD_INTERFACE_LIST_ENTRY));
@@ -77,8 +121,8 @@ NTSTATUS set_configuration(libusb_device_t *dev, int configuration,
     if (!interfaces)
     {
         USBERR0("memory allocation failed\n");
-        ExFreePool(configuration_descriptor);
-        return STATUS_NO_MEMORY;
+		status = STATUS_NO_MEMORY;
+		goto SetConfigurationDone;
     }
 
     memset(interfaces, 0, (configuration_descriptor->bNumInterfaces + 1)
@@ -102,9 +146,8 @@ NTSTATUS set_configuration(libusb_device_t *dev, int configuration,
         if (!interface_descriptor)
         {
             USBERR("unable to find interface descriptor at index %d\n", i);
-            ExFreePool(interfaces);
-            ExFreePool(configuration_descriptor);
-            return STATUS_INVALID_PARAMETER;
+			status = STATUS_INVALID_PARAMETER;
+			goto SetConfigurationDone;
         }
         else
         {
@@ -114,40 +157,35 @@ NTSTATUS set_configuration(libusb_device_t *dev, int configuration,
         }
     }
 
-    urb_ptr = USBD_CreateConfigurationRequestEx(configuration_descriptor,
-              interfaces);
+	urb_ptr = USBD_CreateConfigurationRequestEx(configuration_descriptor, interfaces);
+	if (!urb_ptr)
+	{
+		USBERR0("memory allocation failed\n");
+		status = STATUS_NO_MEMORY;
+		goto SetConfigurationDone;
+	}
 
-    if (!urb_ptr)
-    {
-        USBERR0("memory allocation failed\n");
-        ExFreePool(interfaces);
-        ExFreePool(configuration_descriptor);
-        return STATUS_NO_MEMORY;
-    }
+	for (i = 0; i < configuration_descriptor->bNumInterfaces; i++)
+	{
+		for (j = 0; j < (int)interfaces[i].Interface->NumberOfPipes; j++)
+		{
+			interfaces[i].Interface->Pipes[j].MaximumTransferSize = LIBUSB_MAX_READ_WRITE;
+		}
+	}
 
-    for (i = 0; i < configuration_descriptor->bNumInterfaces; i++)
-    {
-        for (j = 0; j < (int)interfaces[i].Interface->NumberOfPipes; j++)
-        {
-            interfaces[i].Interface->Pipes[j].MaximumTransferSize
-            = LIBUSB_MAX_READ_WRITE;
-        }
-    }
+	status = call_usbd(dev, urb_ptr, IOCTL_INTERNAL_USB_SUBMIT_URB, timeout);
 
-    status = call_usbd(dev, urb_ptr, IOCTL_INTERNAL_USB_SUBMIT_URB, timeout);
+	if (!NT_SUCCESS(status) || !USBD_SUCCESS(urb_ptr->UrbHeader.Status))
+	{
+		USBERR("setting configuration %d failed: status: 0x%x, urb-status: 0x%x\n",
+					configuration, status, urb_ptr->UrbHeader.Status);
+		
+		goto SetConfigurationDone;
+	}
 
-    if (!NT_SUCCESS(status) || !USBD_SUCCESS(urb_ptr->UrbHeader.Status))
-    {
-        USBERR("setting configuration %d failed: status: 0x%x, urb-status: 0x%x\n",
-                    configuration, status, urb_ptr->UrbHeader.Status);
-        ExFreePool(interfaces);
-        ExFreePool(configuration_descriptor);
-        ExFreePool(urb_ptr);
-        return status;
-    }
-
-    dev->config.handle = urb_ptr->UrbSelectConfiguration.ConfigurationHandle;
-    dev->config.value = configuration;
+	dev->config.handle = urb_ptr->UrbSelectConfiguration.ConfigurationHandle;
+	dev->config.value = configuration_descriptor->bConfigurationValue;
+	dev->config.index = config_index;
 
     clear_pipe_info(dev);
 
@@ -156,9 +194,15 @@ NTSTATUS set_configuration(libusb_device_t *dev, int configuration,
         update_pipe_info(dev, interfaces[i].Interface);
     }
 
-    ExFreePool(interfaces);
-    ExFreePool(urb_ptr);
-    ExFreePool(configuration_descriptor);
+SetConfigurationDone:
+    if (interfaces)
+		ExFreePool(interfaces);
+
+    if (urb_ptr)
+		ExFreePool(urb_ptr);
+
+	if (configuration_descriptor)
+		ExFreePool(configuration_descriptor);
 
     return status;
 }

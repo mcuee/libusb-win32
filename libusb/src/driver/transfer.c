@@ -106,9 +106,9 @@ static NTSTATUS create_urb(libusb_device_t *dev,
 						   MDL *buffer,
 						   int size);
 
-VOID transfers_cancel(IN PDEVICE_OBJECT DeviceObject, IN PIRP irp);
+VOID large_transfer_cancel(IN PDEVICE_OBJECT DeviceObject, IN PIRP irp);
 
-NTSTATUS transfers_complete(IN PDEVICE_OBJECT DeviceObjectIsNULL,
+NTSTATUS large_transfer_complete(IN PDEVICE_OBJECT DeviceObjectIsNULL,
 							IN PIRP irp,
 							IN PVOID Context);
 
@@ -144,16 +144,16 @@ NTSTATUS transfer(libusb_device_t* dev,
 	int sequenceID  = sequence++;
 	const char* dispTransfer = GetPipeDisplayName(endpoint);
 
-	USBMSG("[%s #%d] endpoint = %02Xh packet-size = %d total-length %d\n",
-		dispTransfer, sequenceID, endpoint->address, packetSize, totalLength);
-
-	if (!dev->config.value)
+	if (urbFunction == URB_FUNCTION_ISOCH_TRANSFER)
 	{
-		USBERR("[%s #%d] invalid configuration 0\n", dispTransfer, sequenceID);
-		remove_lock_release(dev);
-		return complete_irp(irp, STATUS_INVALID_DEVICE_STATE, 0);
+		USBMSG("[%s #%d] EP%02Xh packet-size=%d length %d\n",
+			dispTransfer, sequenceID, endpoint->address, packetSize, totalLength);
 	}
-
+	else
+	{
+		USBMSG("[%s #%d] EP%02Xh length %d\n",
+			dispTransfer, sequenceID, endpoint->address, totalLength);
+	}
 	context = ExAllocatePool(NonPagedPool, sizeof(context_t));
 
 	if (!context)
@@ -264,7 +264,7 @@ static NTSTATUS create_urb(libusb_device_t *dev, URB **urb, int direction,
 	{
 		if (packetSize <= 0)
 		{
-			USBERR("invalid packet size = %d\n", packetSize);
+			USBERR("invalid packet size=%d\n", packetSize);
 			return STATUS_INVALID_PARAMETER;
 		}
 
@@ -272,7 +272,7 @@ static NTSTATUS create_urb(libusb_device_t *dev, URB **urb, int direction,
 
 		if (num_packets <= 0)
 		{
-			USBERR("invalid number of packets = %d\n",
+			USBERR("invalid number of packets=%d\n",
 				num_packets);
 			return STATUS_INVALID_PARAMETER;
 		}
@@ -375,7 +375,7 @@ Return Value:
 
 NT status value
 */
-NTSTATUS transfers_starting(IN libusb_device_t* dev,
+NTSTATUS large_transfer(IN libusb_device_t* dev,
 							IN PIRP irp,
 							IN int direction,
 							IN int urbFunction,
@@ -405,9 +405,6 @@ NTSTATUS transfers_starting(IN libusb_device_t* dev,
 	LONG					sequenceID;
 	const char*				dispTransfer;
 	int						startOffset;
-
-	if (urbFunction == URB_FUNCTION_ISOCH_TRANSFER)
-		reset_endpoint(dev, endpoint->address, LIBUSB_DEFAULT_TIMEOUT);
 
 	//
 	// initialize vars
@@ -442,17 +439,20 @@ NTSTATUS transfers_starting(IN libusb_device_t* dev,
 	// TODO: detect and optimize for high speed devices.
 	//
 	if (urbFunction == URB_FUNCTION_ISOCH_TRANSFER)
+	{
 		stageSize = get_iso_stagesize(totalLength, packetSize, maxTransferSize);
+		numIrps = (totalLength + stageSize - 1) / stageSize;
+		USBMSG("[%s #%d] EP%02Xh total-size=%d stage-size=%d IRPs=%d packet-size=%d\n",
+			dispTransfer, sequenceID, endpoint->address, totalLength, stageSize, numIrps, packetSize);
+	}
 	else
 	{
 		if (totalLength > (maxTransferSize))
 			stageSize = maxTransferSize;
+		numIrps = (totalLength + stageSize - 1) / stageSize;
+		USBMSG("[%s #%d] EP%02Xh total-size=%d stage-size=%d IRPs=%d\n",
+			dispTransfer, sequenceID, endpoint->address, totalLength, stageSize, numIrps);
 	}
-
-	numIrps = (totalLength + stageSize - 1) / stageSize;
-
-	USBMSG("[%s #%d] endpoint = %02Xh total-size = %d stage-size = %d irp-count = %d packet-size = %d\n",
-		dispTransfer, sequenceID, endpoint->address, totalLength, stageSize, numIrps, packetSize);
 
 	// Initialize the main request irp read/write context, which is
 	// overlaid on top of irp->Tail.Overlay.DriverContext.
@@ -579,7 +579,7 @@ NTSTATUS transfers_starting(IN libusb_device_t* dev,
 		}
 		else
 		{
-			USBDBG("[%s #%d] packets = %d irp-urb = #%d\n", 
+			USBDBG("[%s #%d] packets=%d irp-urb = #%d\n", 
 				dispTransfer, sequenceID, nPackets, i);
 		}
 
@@ -621,7 +621,7 @@ NTSTATUS transfers_starting(IN libusb_device_t* dev,
 		//
 		if (urbFunction == URB_FUNCTION_ISOCH_TRANSFER)
 		{
-			USBDBG("[%s #%d] stage-size = %d nPackets = %d\n",
+			USBDBG("[%s #%d] stage-size=%d nPackets=%d\n",
 				dispTransfer, sequenceID, stageSize, nPackets);
 
 			subUrb->UrbIsochronousTransfer.PipeHandle = pipeHandle;
@@ -693,13 +693,14 @@ NTSTATUS transfers_starting(IN libusb_device_t* dev,
 						/*
 						ASSERT(offset == (subUrb->UrbIsochronousTransfer.IsoPacket[j].Length +
 						subUrb->UrbIsochronousTransfer.IsoPacket[j].Offset));
-						*/					}
+						*/
+					}
 				}
 			}
 		}
 		else
 		{
-			USBDBG("[%s #%d] stage-size = %d\n",dispTransfer, sequenceID, stageSize);
+			USBDBG("[%s #%d] stage-size=%d\n",dispTransfer, sequenceID, stageSize);
 
 			subUrb->UrbBulkOrInterruptTransfer.PipeHandle = pipeHandle;
 
@@ -720,7 +721,7 @@ NTSTATUS transfers_starting(IN libusb_device_t* dev,
 			IOCTL_INTERNAL_USB_SUBMIT_URB;
 
 		IoSetCompletionRoutine(subIrp,
-			(PIO_COMPLETION_ROUTINE)transfers_complete,
+			(PIO_COMPLETION_ROUTINE)large_transfer_complete,
 			(PVOID)subRequestContext,
 			TRUE,
 			TRUE,
@@ -769,7 +770,7 @@ NTSTATUS transfers_starting(IN libusb_device_t* dev,
 		// committed to calling each of the sub requests down the
 		// driver stack.
 		//
-		IoSetCancelRoutine(irp, transfers_cancel);
+		IoSetCancelRoutine(irp, large_transfer_cancel);
 
 		for (i = 0; i < numIrps; i++)
 		{
@@ -852,7 +853,7 @@ transfer_Free:
 
 	IoCompleteRequest(irp, IO_NO_INCREMENT);
 
-	USBERR("[%s #%d] ntStatus = %Xh\n",
+	USBERR("[%s #%d] ntStatus=%Xh\n",
 		dispTransfer, sequenceID, ntStatus);
 
 	remove_lock_release(dev);
@@ -872,7 +873,7 @@ Request irp, and completes the Main Request irp if this Sub Request
 irp is the final outstanding one.
 
 The Sub Request irp and Sub Request Context may either be freed
-here, or by transfers_cancel(), according to which routine is
+here, or by large_transfer_cancel(), according to which routine is
 the last one to reference the Sub Request irp.
 
 Arguments:
@@ -888,10 +889,10 @@ Return Value:
 
 STATUS_MORE_PROCESSING_REQUIRED - Tells IoMgr not to free the Sub
 Request irp as it is either explicitly freed here, or by
-transfers_cancel()
+large_transfer_cancel()
 
 */
-NTSTATUS transfers_complete(IN PDEVICE_OBJECT DeviceObjectIsNULL,
+NTSTATUS large_transfer_complete(IN PDEVICE_OBJECT DeviceObjectIsNULL,
 							IN PIRP irp,
 							IN PVOID Context)
 {
@@ -938,7 +939,7 @@ NTSTATUS transfers_complete(IN PDEVICE_OBJECT DeviceObjectIsNULL,
 		if (subUrb->UrbHeader.Function == URB_FUNCTION_ISOCH_TRANSFER)
 		{
 			information = subUrb->UrbIsochronousTransfer.TransferBufferLength;
-			USBDBG("[%s #%d] transferred = %d\n", 
+			USBDBG("[%s #%d] transferred=%d\n", 
 				dispTransfer, 
 				sequenceID, 
 				information);
@@ -947,7 +948,7 @@ NTSTATUS transfers_complete(IN PDEVICE_OBJECT DeviceObjectIsNULL,
 			{
 				if (subUrb->UrbIsochronousTransfer.IsoPacket[i].Status != 0)
 				{
-					USBDBG("[%s #%d] IsoPacket[%d].Length = %d IsoPacket[%d].Status = %08Xh\n",
+					USBDBG("[%s #%d] IsoPacket[%d].Length=%d IsoPacket[%d].Status=%08Xh\n",
 						dispTransfer, 
 						sequenceID, 
 						i,
@@ -962,7 +963,7 @@ NTSTATUS transfers_complete(IN PDEVICE_OBJECT DeviceObjectIsNULL,
 			subRequestByteCount = MmGetMdlByteCount(subUrb->UrbBulkOrInterruptTransfer.TransferBufferMDL);
 			subRequestByteOffset = MmGetMdlByteOffset(subUrb->UrbBulkOrInterruptTransfer.TransferBufferMDL);
 			information = subUrb->UrbBulkOrInterruptTransfer.TransferBufferLength;
-			USBDBG("[%s #%d] offset = %d requested = %d transferred = %d\n", 
+			USBDBG("[%s #%d] offset=%d requested=%d transferred=%d\n", 
 				dispTransfer, 
 				sequenceID, 
 				subRequestByteOffset,
@@ -983,7 +984,7 @@ NTSTATUS transfers_complete(IN PDEVICE_OBJECT DeviceObjectIsNULL,
 		}
 		else
 		{
-			USBERR("[%s #%d] failed. status = %Xh urb-status = %Xh\n",
+			USBERR("[%s #%d] failed. status=%Xh urb-status=%Xh\n",
 				dispTransfer,
 				sequenceID, 
 				ntStatus, 
@@ -1030,7 +1031,7 @@ NTSTATUS transfers_complete(IN PDEVICE_OBJECT DeviceObjectIsNULL,
 				USBERR("[%s #%d] failed translating a virtual address range\n",
 					dispTransfer,sequenceID);
 			}
-			USBDBG("[%s #%d] adjusting outBuffer old-offset %d to new-offset %d (length = %d)\n",
+			USBDBG("[%s #%d] adjusting outBuffer old-offset %d to new-offset %d (length=%d)\n",
 				dispTransfer,
 				sequenceID, 
 				subRequestContext->startOffset,
@@ -1123,7 +1124,7 @@ NTSTATUS transfers_complete(IN PDEVICE_OBJECT DeviceObjectIsNULL,
 		// The final sub request for the main request has completed so
 		// now complete the main request.
 		//
-		USBMSG("[%s #%d] done. total transferred = %d\n",
+		USBMSG("[%s #%d] done. total transferred=%d\n",
 			dispTransfer, 
 			sequenceID, 
 			mainIrp->IoStatus.Information);
@@ -1158,7 +1159,7 @@ Return Value:
 None
 
 --*/
-VOID transfers_cancel(IN PDEVICE_OBJECT DeviceObject, IN PIRP irp)
+VOID large_transfer_cancel(IN PDEVICE_OBJECT DeviceObject, IN PIRP irp)
 {
 	PMAIN_REQUEST_CONTEXT   mainRequestContext;
 	LIST_ENTRY              cancelList;
@@ -1262,7 +1263,7 @@ static int get_iso_stagesize(int totalLength, int packetSize, int maxTransferSiz
 		if (stageSize > maxTransferSize)
 			stageSize = maxTransferSize;
 
-		// stageSize = stageSize - (stageSize % packetSize);
+//		stageSize = stageSize - (stageSize % packetSize);
 
 	}
 	else
