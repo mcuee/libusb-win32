@@ -1,8 +1,10 @@
 #include <usb.h>
 #include <stdio.h>
 
+//#define TEST_SET_CONFIGURATION
+#define TEST_CLAIM_INTERFACE
 #define TEST_BULK_READ
-// #define TEST_BULK_WRITE
+#define TEST_BULK_WRITE
 
 /* the device's vendor and product id */
 #define MY_VID 1234
@@ -51,7 +53,7 @@ int main(void)
 
     if (!(dev = open_dev()))
     {
-        printf("error: device not found!\n");
+        printf("error opening device: \n%s\n",usb_strerror());
         return 0;
     }
 	else
@@ -59,9 +61,10 @@ int main(void)
 		printf("success: device %04X:%04X opened\n",MY_VID,MY_PID);
 	}
 
+#ifdef TEST_SET_CONFIGURATION
     if (usb_set_configuration(dev, MY_CONFIG) < 0)
     {
-        printf("error: setting config #%d failed\n",MY_CONFIG);
+		printf("error setting config #%d: %s\n",MY_CONFIG,usb_strerror());
         usb_close(dev);
         return 0;
     }
@@ -69,10 +72,12 @@ int main(void)
 	{
 		printf("success: set configuration #%d\n", MY_CONFIG);
 	}
+#endif
 
+#ifdef TEST_CLAIM_INTERFACE
     if (usb_claim_interface(dev, 0) < 0)
     {
-        printf("error: claiming interface #%d failed\n", MY_INTF);
+		printf("error claiming interface #%d:\n%s\n", MY_INTF, usb_strerror());
         usb_close(dev);
         return 0;
     }
@@ -80,12 +85,13 @@ int main(void)
 	{
 		printf("success: claim_interface #%d\n", MY_INTF);
 	}
+#endif
 
 #ifdef TEST_BULK_WRITE
 	ret = usb_bulk_write(dev, EP_OUT, tmp, sizeof(tmp), 5000);
     if (ret <= 0)
     {
-        printf("error: bulk write failed\n");
+		printf("error writing:\n%s\n",usb_strerror());
     }
 	else
 	{
@@ -97,7 +103,7 @@ int main(void)
 	ret = usb_bulk_read(dev, EP_IN, tmp, sizeof(tmp), 5000);
     if (ret <= 0)
     {
-        printf("error: bulk read failed\n");
+		printf("error reading:\n%s\n",usb_strerror());
     }
 	else
 	{

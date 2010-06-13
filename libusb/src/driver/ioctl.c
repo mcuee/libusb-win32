@@ -328,12 +328,15 @@ NTSTATUS dispatch_ioctl(libusb_device_t *dev, IRP *irp)
 
     case LIBUSB_IOCTL_GET_CONFIGURATION:
 
+		TRANSFER_IOCTL_CHECK_AND_AUTOCONFIGURE();
+
         if (!output_buffer || output_buffer_length < 1)
         {
             USBERR0("get_configuration: invalid output buffer\n");
             status = STATUS_INVALID_PARAMETER;
             break;
         }
+
 
 		// We use the cached value here, even if it's 0.
 		// it's possible for this value is be out of sync, however
