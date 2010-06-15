@@ -53,9 +53,6 @@
 
 #endif
 
-#define SET_CONFIG_ACTIVE_CONFIG -258
-
-#define CHECK_AND_AUTOCONFIGURE(dev) if (!dev->config.value) set_configuration(dev, SET_CONFIG_ACTIVE_CONFIG, LIBUSB_DEFAULT_TIMEOUT)
 
 #define USB_RECIP_DEVICE    0x00
 #define USB_RECIP_INTERFACE 0x01
@@ -92,18 +89,6 @@
 
 typedef int bool_t;
 
-#define IS_PIPE_TYPE(pipeInfo, pipeType) ((pipeInfo->pipe_type & 3)==pipeType)
-
-#define IS_CTRL_PIPE(pipeInfo) IS_PIPE_TYPE(pipeInfo,UsbdPipeTypeControl)
-#define IS_ISOC_PIPE(pipeInfo) IS_PIPE_TYPE(pipeInfo,UsbdPipeTypeIsochronous)
-#define IS_BULK_PIPE(pipeInfo) IS_PIPE_TYPE(pipeInfo,UsbdPipeTypeBulk)
-#define IS_INTR_PIPE(pipeInfo) IS_PIPE_TYPE(pipeInfo,UsbdPipeTypeInterrupt)
-
-#define GetMaxTransferSize(pipeInfo, reqMaxTransferSize) ((reqMaxTransferSize) ? reqMaxTransferSize : pipeInfo->maximum_transfer_size)
-
-#define UrbFunctionFromEndpoint(PipeInfo) ((IS_ISOC_PIPE(PipeInfo)) ? URB_FUNCTION_ISOCH_TRANSFER : URB_FUNCTION_BULK_OR_INTERRUPT_TRANSFER)
-#define UsbdDirectionFromEndpoint(PipeInfo) ((PipeInfo->address & 0x80) ? USBD_TRANSFER_DIRECTION_IN : USBD_TRANSFER_DIRECTION_OUT)
-
 #include <pshpack1.h>
 
 typedef struct
@@ -126,17 +111,6 @@ typedef struct
 {
     int address;
     USBD_PIPE_HANDLE handle;
-	int maximum_packet_size;  // Maximum packet size for this pipe
-    int interval;            // Polling interval in ms if interrupt pipe
-    USBD_PIPE_TYPE pipe_type;   // PipeType identifies type of transfer valid for this pipe
-    
-	//
-    // INPUT
-    // These fields are filled in by the client driver
-    //
-    int maximum_transfer_size; // Maximum size for a single request
-                               // in bytes.
-    int pipe_flags;
 } libusb_endpoint_t;
 
 typedef struct
@@ -144,7 +118,6 @@ typedef struct
     bool_t valid;
     FILE_OBJECT *file_object; /* file object this interface is bound to */
     libusb_endpoint_t endpoints[LIBUSB_MAX_NUMBER_OF_ENDPOINTS];
-
 } libusb_interface_t;
 
 
@@ -163,21 +136,13 @@ typedef struct
     {
         USBD_CONFIGURATION_HANDLE handle;
         int value;
-		int index;
         libusb_interface_t interfaces[LIBUSB_MAX_NUMBER_OF_INTERFACES];
     } config;
     POWER_STATE power_state;
     DEVICE_POWER_STATE device_power_states[PowerSystemMaximum];
 	int initial_config_value;
-	char device_id[256];
-	bool_t is_composite;
-#ifdef CREATE_DEVICE_INTERFACE
-	GUID interface_guids[5];
-	int interface_guid_count;
-	UNICODE_STRING symbolic_name;
-#endif
+} libusb_device_t;
 
-} libusb_device_t, DEVICE_EXTENSION, *PDEVICE_EXTENSION;
 
 
 NTSTATUS DDKAPI add_device(DRIVER_OBJECT *driver_object,
@@ -200,10 +165,6 @@ bool_t accept_irp(libusb_device_t *dev, IRP *irp);
 
 bool_t get_pipe_handle(libusb_device_t *dev, int endpoint_address,
                        USBD_PIPE_HANDLE *pipe_handle);
-
-bool_t get_pipe_info(libusb_device_t *dev, int endpoint_address,
-                       libusb_endpoint_t** pipe_info);
-
 void clear_pipe_info(libusb_device_t *dev);
 bool_t update_pipe_info(libusb_device_t *dev,
                         USBD_INTERFACE_INFORMATION *interface_info);
@@ -215,13 +176,9 @@ void remove_lock_release_and_wait(libusb_device_t *dev);
 
 NTSTATUS set_configuration(libusb_device_t *dev,
                            int configuration, int timeout);
-NTSTATUS auto_configure(libusb_device_t *dev);
-
 NTSTATUS get_configuration(libusb_device_t *dev,
                            unsigned char *configuration, int *ret,
                            int timeout);
-
-
 NTSTATUS set_interface(libusb_device_t *dev,
                        int interface, int altsetting, int timeout);
 NTSTATUS get_interface(libusb_device_t *dev,
@@ -240,12 +197,12 @@ NTSTATUS set_descriptor(libusb_device_t *dev,
 NTSTATUS get_descriptor(libusb_device_t *dev, void *buffer, int size,
                         int type, int recipient, int index, int language_id,
                         int *received, int timeout);
+USB_CONFIGURATION_DESCRIPTOR *
+get_config_descriptor(libusb_device_t *dev, int value, int *size);
 
-PUSB_CONFIGURATION_DESCRIPTOR get_config_descriptor(
-	libusb_device_t *dev,
-	int value,
-	int *size,
-	int* index);
+NTSTATUS transfer(libusb_device_t *dev, IRP *irp,
+                  int direction, int urb_function, int endpoint,
+                  int packet_size, MDL *buffer, int size);
 
 NTSTATUS vendor_class_request(libusb_device_t *dev,
                               int type, int recipient,
@@ -294,32 +251,5 @@ NTSTATUS reg_get_custom_property(PDEVICE_OBJECT device_object,
 								 unsigned int data_length, 
 								 unsigned int name_offset, 
 								 int* actual_length);
-
-
-NTSTATUS transfer(libusb_device_t* dev,
-				  IN PIRP irp,
-				  IN int direction,
-				  IN int urbFunction,
-				  IN libusb_endpoint_t* endpoint,
-				  IN int packetSize,
-				  IN int maxTransferSize,
-				  IN int transferFlags,
-				  IN int isoLatency,
-				  IN PMDL mdlAddress,
-				  IN int totalLength);
-
-NTSTATUS large_transfer(IN libusb_device_t* dev,
-						IN PIRP irp,
-						IN int direction,
-						IN int urbFunction,
-						IN libusb_endpoint_t* endpoint,
-						IN int packetSize,
-						IN int maxTransferSize,
-						IN int transferFlags,
-						IN int isoLatency,
-						IN PMDL mdlAddress,
-						IN int totalLength);
-
-ULONG get_current_frame(IN PDEVICE_EXTENSION dev, IN PIRP Irp);
 
 #endif
