@@ -1,0 +1,13 @@
+
+#ifdef __GNUC__
+#define _WIN32_IE 0x0400
+#endif
+
+#include <windows.h>
+
+#define RC_FILE_TYPE      VFT_APP
+#define RC_FILE_SUB_TYPE  VFT2_UNKNOWN
+#define RC_PRODUCT_STR    "LibUsb-Win32 - Install-Filter"
+#define RC_FILE_NAME_STR  "install-filter.exe"
+
+#include "common.rc"
