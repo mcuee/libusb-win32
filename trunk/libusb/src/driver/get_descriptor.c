@@ -29,7 +29,7 @@ NTSTATUS get_descriptor(libusb_device_t *dev,
     URB urb;
 
 	USBMSG("buffer size: %d type: %04d recipient: %04d index: %04d language id: %04d timeout: %d\n", 
-		size, type, recipient, index, language_id, timeout);
+		size,type,recipient,index,language_id,timeout);
 
     memset(&urb, 0, sizeof(struct _URB_CONTROL_DESCRIPTOR_REQUEST));
 
@@ -75,19 +75,14 @@ NTSTATUS get_descriptor(libusb_device_t *dev,
     return status;
 }
 
-PUSB_CONFIGURATION_DESCRIPTOR get_config_descriptor(
-	libusb_device_t *dev,
-	int value,
-	int *size,
-	int* index)
+USB_CONFIGURATION_DESCRIPTOR *
+get_config_descriptor(libusb_device_t *dev, int value, int *size)
 {
     NTSTATUS status;
     USB_CONFIGURATION_DESCRIPTOR *desc = NULL;
     USB_DEVICE_DESCRIPTOR device_descriptor;
     int i;
     volatile int desc_size;
-	
-	*index = 0;
 
     status = get_descriptor(dev, &device_descriptor,
                             sizeof(USB_DEVICE_DESCRIPTOR),
@@ -121,10 +116,7 @@ PUSB_CONFIGURATION_DESCRIPTOR get_config_descriptor(
             break;
         }
 
-		// if value is negative, get the descriptor by index
-		// if positive, get it by value.
-        if ((value > 0 && desc->bConfigurationValue == value) ||
-			(value < 0 && -(i+1) == (value)))
+        if (desc->bConfigurationValue == value)
         {
             desc_size = desc->wTotalLength;
             ExFreePool(desc);
@@ -143,10 +135,6 @@ PUSB_CONFIGURATION_DESCRIPTOR get_config_descriptor(
                 USBERR0("getting configuration descriptor failed\n");
                 break;
             }
-			else
-			{
-				*index = i+1;
-			}
 
             return desc;
         }

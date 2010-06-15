@@ -27,8 +27,6 @@ NTSTATUS claim_interface(libusb_device_t *dev, FILE_OBJECT *file_object,
 {
     USBMSG("interface %d\n", interface);
 
-	CHECK_AND_AUTOCONFIGURE(dev);
-
     if (!dev->config.value)
     {
         USBERR0("device is not configured\n");
