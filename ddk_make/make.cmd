@@ -55,6 +55,7 @@ IF /I "!_PACKAGE_TYPE_!" EQU "bin" (
 )
 
 IF /I "!_PACKAGE_TYPE_!" EQU "dist" (
+	CALL :TokenizeLibusbVersionH %*
 	CALL :Package_Distributables %*
 	IF "!BUILD_ERRORLEVEL!" NEQ 0 GOTO CMDERROR
 	GOTO CMDEXIT
