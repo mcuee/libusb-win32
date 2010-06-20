@@ -70,7 +70,7 @@ NTSTATUS dispatch_power(libusb_device_t *dev, IRP *irp)
             USBMSG("IRP_MN_SET_POWER: D%d\n",
                           power_state.DeviceState - PowerDeviceD0);
 
-            if (power_state.DeviceState > dev->power_state.DeviceState && !isFilter)
+            if (power_state.DeviceState > dev->power_state.DeviceState && !dev->is_filter)
             {
                 /* device is powered down, report device state to the */
                 /* Power Manager before sending the IRP down */
