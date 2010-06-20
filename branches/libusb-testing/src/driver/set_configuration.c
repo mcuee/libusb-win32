@@ -173,13 +173,16 @@ NTSTATUS set_configuration(libusb_device_t *dev,
 		}
 	}
 
+	USBDBG("#%d %s passing configuration request to target-device.",
+		dev->id, dev->device_id);
+
 	status = call_usbd(dev, urb_ptr, IOCTL_INTERNAL_USB_SUBMIT_URB, timeout);
 
 	if (!NT_SUCCESS(status) || !USBD_SUCCESS(urb_ptr->UrbHeader.Status))
 	{
 		USBERR("setting configuration %d failed: status: 0x%x, urb-status: 0x%x\n",
 					configuration, status, urb_ptr->UrbHeader.Status);
-		
+		if (NT_SUCCESS(status)) status = urb_ptr->UrbHeader.Status;
 		goto SetConfigurationDone;
 	}
 
