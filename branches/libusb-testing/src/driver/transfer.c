@@ -120,10 +120,10 @@ static NTSTATUS allocate_suburb(USHORT urbFunction,
 							   ULONG* nPackets,
 							   PURB* subUrbRef);
 
-void set_urb_transferFlags(libusb_device_t* dev,
+void set_urb_transfer_flags(libusb_device_t* dev,
 						   PIRP irp,
 						   PURB subUrb,
-						   int transferFlags,
+						   int transfer_flags,
 						   int isoLatency);
 
 NTSTATUS transfer(libusb_device_t* dev,
@@ -143,11 +143,15 @@ NTSTATUS transfer(libusb_device_t* dev,
 	NTSTATUS status = STATUS_SUCCESS;
 	int sequenceID  = sequence++;
 	const char* dispTransfer = GetPipeDisplayName(endpoint);
+	
+	// TODO: reset pipe flag 
+	// status = reset_endpoint(dev,endpoint->address, LIBUSB_DEFAULT_TIMEOUT);
+	//
 
 	if (urbFunction == URB_FUNCTION_ISOCH_TRANSFER)
 	{
-		USBMSG("[%s #%d] EP%02Xh packet-size=%d length %d\n",
-			dispTransfer, sequenceID, endpoint->address, packetSize, totalLength);
+		USBMSG("[%s #%d] EP%02Xh packet-size=%d length=%d reset-status=%08Xh\n",
+			dispTransfer, sequenceID, endpoint->address, packetSize, totalLength, status);
 	}
 	else
 	{
@@ -184,10 +188,10 @@ NTSTATUS transfer(libusb_device_t* dev,
 	IoSetCompletionRoutine(irp, transfer_complete, context, TRUE, TRUE, TRUE);
 
 	// Set the transfer flags just before we call the irp down.
-	// If this is an iso transfer, set_urb_transferFlags() might need
+	// If this is an iso transfer, set_urb_transfer_flags() might need
 	// to get the start frame and set latency.
 	//
-	set_urb_transferFlags(dev, irp, context->urb, transferFlags, isoLatency);
+	set_urb_transfer_flags(dev, irp, context->urb, transferFlags, isoLatency);
 
 	return IoCallDriver(dev->target_device, irp);
 }
@@ -406,6 +410,15 @@ NTSTATUS large_transfer(IN libusb_device_t* dev,
 	const char*				dispTransfer;
 	int						startOffset;
 
+	// TODO: reset pipe flag 
+	// if (urbFunction != URB_FUNCTION_ISOCH_TRANSFER && pipe_flags & RESET)
+	// status = reset_endpoint(dev,endpoint->address, LIBUSB_DEFAULT_TIMEOUT);
+	//
+
+	// reset the pipe (if irps are pending this will fail)
+	//
+	if (urbFunction == URB_FUNCTION_ISOCH_TRANSFER)
+		reset_endpoint(dev,endpoint->address,LIBUSB_DEFAULT_TIMEOUT);
 	//
 	// initialize vars
 	//
@@ -627,7 +640,7 @@ NTSTATUS large_transfer(IN libusb_device_t* dev,
 			subUrb->UrbIsochronousTransfer.PipeHandle = pipeHandle;
 
 			// The direction is set here, other flags are set in the
-			// set_urb_transferFlags() function.
+			// set_urb_transfer_flags() function.
 			//
 			subUrb->UrbIsochronousTransfer.TransferFlags = direction;
 
@@ -779,10 +792,10 @@ NTSTATUS large_transfer(IN libusb_device_t* dev,
 			USBDBG("[%s #%d] IoCallDriver subIrp %d\n", dispTransfer, sequenceID, i);
 
 			// Set the transfer flags just before we call the irp down.
-			// If this is an iso transfer, set_urb_transferFlags() might need
+			// If this is an iso transfer, set_urb_transfer_flags() might need
 			// to get the start frame and set latency.
 			//
-			set_urb_transferFlags(dev,irp, subRequestContext->SubUrb, transferFlags, isoLatency);
+			set_urb_transfer_flags(dev,irp, subRequestContext->SubUrb, transferFlags, isoLatency);
 			
 			IoCallDriver(dev->target_device, subRequestContext->SubIrp);
 		}
@@ -1316,7 +1329,7 @@ static const char* GetPipeDisplayName(libusb_endpoint_t* endpoint)
 		return write_pipe_display_names[(endpoint->pipe_type & 3)];
 }
 
-void set_urb_transferFlags(libusb_device_t* dev, PIRP irp, PURB subUrb,int transferFlags, int isoLatency)
+void set_urb_transfer_flags(libusb_device_t* dev, PIRP irp, PURB subUrb,int transfer_flags, int isoLatency)
 {
 	if (subUrb->UrbHeader.Function == URB_FUNCTION_ISOCH_TRANSFER)
 	{
@@ -1324,15 +1337,15 @@ void set_urb_transferFlags(libusb_device_t* dev, PIRP irp, PURB subUrb,int trans
 		subUrb->UrbIsochronousTransfer.TransferFlags &= 1;
 
 		// If true, allow short tranfers.
-		if (!(transferFlags & TRANSFER_FLAGS_SHORT_NOT_OK))
+		if (!(transfer_flags & TRANSFER_FLAGS_SHORT_NOT_OK))
 			subUrb->UrbIsochronousTransfer.TransferFlags |= USBD_SHORT_TRANSFER_OK;
 
-		if (!(transferFlags & TRANSFER_FLAGS_ISO_SET_START_FRAME))
+		if (!(transfer_flags & TRANSFER_FLAGS_ISO_SET_START_FRAME))
 			subUrb->UrbIsochronousTransfer.TransferFlags |= USBD_START_ISO_TRANSFER_ASAP;
 		else
 		{
 			subUrb->UrbIsochronousTransfer.StartFrame = get_current_frame(dev, irp);
-			if (transferFlags & TRANSFER_FLAGS_ISO_ADD_LATENCY)
+			if (transfer_flags & TRANSFER_FLAGS_ISO_ADD_LATENCY)
 				subUrb->UrbIsochronousTransfer.StartFrame += isoLatency;
 		}
 	}
@@ -1343,7 +1356,7 @@ void set_urb_transferFlags(libusb_device_t* dev, PIRP irp, PURB subUrb,int trans
 
 		// only keep the direction bit
 		subUrb->UrbControlTransfer.TransferFlags &= 1;
-		if (!(transferFlags & TRANSFER_FLAGS_SHORT_NOT_OK))
+		if (!(transfer_flags & TRANSFER_FLAGS_SHORT_NOT_OK))
 			subUrb->UrbControlTransfer.TransferFlags |= USBD_SHORT_TRANSFER_OK;
 
 	}
@@ -1355,7 +1368,7 @@ void set_urb_transferFlags(libusb_device_t* dev, PIRP irp, PURB subUrb,int trans
 		subUrb->UrbBulkOrInterruptTransfer.TransferFlags &= 1;
 
 		// If true, allow short tranfers.
-		if (!(transferFlags & TRANSFER_FLAGS_SHORT_NOT_OK))
+		if (!(transfer_flags & TRANSFER_FLAGS_SHORT_NOT_OK))
 			subUrb->UrbBulkOrInterruptTransfer.TransferFlags |= USBD_SHORT_TRANSFER_OK;
 	}
 }
