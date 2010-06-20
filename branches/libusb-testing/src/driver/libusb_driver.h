@@ -55,7 +55,8 @@
 
 #define SET_CONFIG_ACTIVE_CONFIG -258
 
-#define CHECK_AND_AUTOCONFIGURE(dev) if (!dev->config.value) set_configuration(dev, SET_CONFIG_ACTIVE_CONFIG, LIBUSB_DEFAULT_TIMEOUT)
+//#define CHECK_AND_AUTOCONFIGURE(dev) if (!dev->config.value) set_configuration(dev, SET_CONFIG_ACTIVE_CONFIG, LIBUSB_DEFAULT_TIMEOUT)
+#define CHECK_AND_AUTOCONFIGURE(dev)
 
 #define USB_RECIP_DEVICE    0x00
 #define USB_RECIP_INTERFACE 0x01
@@ -170,13 +171,6 @@ typedef struct
     DEVICE_POWER_STATE device_power_states[PowerSystemMaximum];
 	int initial_config_value;
 	char device_id[256];
-	bool_t is_composite;
-#ifdef CREATE_DEVICE_INTERFACE
-	GUID interface_guids[5];
-	int interface_guid_count;
-	UNICODE_STRING symbolic_name;
-#endif
-
 } libusb_device_t, DEVICE_EXTENSION, *PDEVICE_EXTENSION;
 
 
@@ -267,6 +261,9 @@ NTSTATUS release_all_interfaces(libusb_device_t *dev,
 
 bool_t reg_get_hardware_id(DEVICE_OBJECT *physical_device_object,
                            char *data, int size);
+bool_t reg_get_compatible_id(DEVICE_OBJECT *physical_device_object,
+                           char *data, int size);
+
 bool_t reg_get_properties(libusb_device_t *dev);
 
 
