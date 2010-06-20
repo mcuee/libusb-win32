@@ -88,17 +88,17 @@
 						transfer_buffer_length);
 
 	
-#define TRANSFER_IOCTL_CHECK_AND_AUTOCONFIGURE()							\
-{																			\
-	CHECK_AND_AUTOCONFIGURE(dev);											\
-	if (!dev->config.value)													\
-	{																		\
-		USBERR("device %s not configured\n", dev->device_id);				\
-		status = STATUS_INVALID_PARAMETER;									\
-		goto IOCTL_Done;													\
-	}																		\
-}
-
+//#define TRANSFER_IOCTL_CHECK_AND_AUTOCONFIGURE()							\
+//{																			\
+//	CHECK_AND_AUTOCONFIGURE(dev);											\
+//	if (!dev->config.value)													\
+//	{																		\
+//		USBERR("device %s not configured\n", dev->device_id);				\
+//		status = STATUS_INVALID_PARAMETER;									\
+//		goto IOCTL_Done;													\
+//	}																		\
+//}
+#define TRANSFER_IOCTL_CHECK_AND_AUTOCONFIGURE()
 NTSTATUS dispatch_ioctl(libusb_device_t *dev, IRP *irp)
 {
 	int maxTransferSize;
@@ -344,13 +344,13 @@ NTSTATUS dispatch_ioctl(libusb_device_t *dev, IRP *irp)
 		// a question of which value is correct or correctly incorrect.
 		//if (dev->config.value)
 		//{
-			output_buffer[0] = (char)dev->config.value;
-			status = STATUS_SUCCESS;
-			ret = 1;
-			break;
+			//output_buffer[0] = (char)dev->config.value;
+			//status = STATUS_SUCCESS;
+			//ret = 1;
+			//break;
 		//}
-        //status = get_configuration(dev, output_buffer, &ret, request->timeout);
-		//break;
+        status = get_configuration(dev, output_buffer, &ret, request->timeout);
+		break;
 
     case LIBUSB_IOCTL_SET_INTERFACE:
 

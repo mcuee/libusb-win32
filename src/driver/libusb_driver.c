@@ -20,6 +20,7 @@
 #define __LIBUSB_DRIVER_C__
 
 #include "libusb_driver.h"
+#include "libusb_version.h"
 static void DDKAPI unload(DRIVER_OBJECT *driver_object);
 
 static NTSTATUS DDKAPI on_usbd_complete(DEVICE_OBJECT *device_object,
@@ -31,7 +32,8 @@ NTSTATUS DDKAPI DriverEntry(DRIVER_OBJECT *driver_object,
 {
     int i;
 
- 	USBMSG("[LOADING-DRIVER] device-extension-size=%d\n",sizeof(libusb_device_t));
+ 	USBMSG("[loading-driver] v%d.%d.%d.%d\n",
+		VERSION_MAJOR, VERSION_MINOR, VERSION_MICRO, VERSION_NANO);
 
 	/* initialize the driver object's dispatch table */
     for (i = 0; i <= IRP_MJ_MAXIMUM_FUNCTION; i++)
@@ -58,32 +60,48 @@ NTSTATUS DDKAPI add_device(DRIVER_OBJECT *driver_object,
     WCHAR tmp_name_0[128];
     WCHAR tmp_name_1[128];
     char id[256];
-    int i;
-	bool_t isFilter = FALSE;
+    char compat_id[256];
+	int i;
+	DEVICE_OBJECT* attached_device;
+
+	ANSI_STRING driver_name;
+
+	attached_device = physical_device_object->AttachedDevice;
 
     /* get the hardware ID from the registry */
-    if (!reg_get_hardware_id(physical_device_object, id, sizeof(id)))
+	RtlZeroMemory(id,sizeof(id));
+    if (!reg_get_hardware_id(physical_device_object, id, sizeof(id) - 1))
     {
         USBERR0("unable to read registry\n");
         return STATUS_SUCCESS;
     }
 
     /* only attach the (filter) driver to USB devices, skip hubs */
-    if (!strstr(id, "usb\\") || strstr(id, "hub"))
+    if (!strstr(id, "usb\\") || 
+		strstr(id, "hub") || 
+		!strstr(id, "vid_") ||
+		!strstr(id, "pid_"))
     {
 		USBDBG("skipping non-usb device or hub %s\n",id);
         return STATUS_SUCCESS;
     }
+    
+	RtlZeroMemory(compat_id,sizeof(compat_id));
+	if (!reg_get_compatible_id(physical_device_object, compat_id, sizeof(compat_id) - 1))
+    {
+        USBERR0("unable to read registry\n");
+        return STATUS_SUCCESS;
+    }
+	// dont attach to 
+    if (strstr(compat_id, "class_09"))
+    {
+		USBDBG("skipping usb device hub (%s) %s\n",compat_id, id);
+        return STATUS_SUCCESS;
+    }
 
-    /* retrieve the type of the lower device object */
-    device_object = IoGetAttachedDeviceReference(physical_device_object);
-	USBDBG("IoGetAttachedDeviceReference=%x physical_device-object=%x\n",device_object, physical_device_object);
-
+	device_object = IoGetAttachedDeviceReference(physical_device_object);
     if (device_object)
     {
-		if (device_object != physical_device_object)
-			isFilter = TRUE;
-
         device_type = device_object->DeviceType;
         ObDereferenceObject(device_object);
     }
@@ -149,8 +167,6 @@ NTSTATUS DDKAPI add_device(DRIVER_OBJECT *driver_object,
 	// store the device id in the device extentions
 	RtlCopyMemory(dev->device_id, id, sizeof(dev->device_id));
 
-	dev->is_composite = (strstr(dev->device_id,"&mi_")) ? TRUE : FALSE;
-
 	/* set initial power states */
 	dev->power_state.DeviceState = PowerDeviceD0;
 	dev->power_state.SystemState = PowerSystemWorking;
@@ -164,40 +180,10 @@ NTSTATUS DDKAPI add_device(DRIVER_OBJECT *driver_object,
         return STATUS_SUCCESS;
 	}
 
-	// TODO:
-	// without this, devices that have been added the SupriseRemovalOK
-	// registry setting will run in normal mode.
-//	if (!dev->is_filter && isFilter)
-//		dev->is_filter = isFilter;
-
-#ifdef CREATE_DEVICE_INTERFACE
-	if (!dev->is_filter)
-	{
-		if (dev->interface_guid_count)
-		{
-			status = IoRegisterDeviceInterface(physical_device_object, 
-				&dev->interface_guids[0],
-				NULL,
-				&dev->symbolic_name);
-
-			if (status == STATUS_OBJECT_NAME_EXISTS)
-			{
-				USBMSG0("re-used device interface.\n");
-				RtlFreeUnicodeString(&dev->symbolic_name);
-			}
-			else if (NT_SUCCESS(status))
-			{
-				USBMSG0("registered device interface.\n");
-				RtlFreeUnicodeString(&dev->symbolic_name);
-			}
-			else
-			{
-				USBMSG("IoRegisterDeviceInterface failed. status=%08Xh\n", status);
-			}
-		}
-		status = STATUS_SUCCESS;
-	}
-#endif
+	if (dev->is_filter && !attached_device)
+		USBWRN("[FILTER-MODE-MISMATCH] device is reporting itself as filter when there are no attached device(s).\n%s\n", id);
+	else if (!dev->is_filter && attached_device)
+		USBWRN("[FILTER-MODE-MISMATCH] device is reporting itself as normal when there are already attached device(s).\n%s\n", id);
 
 	clear_pipe_info(dev);
 
@@ -218,18 +204,16 @@ NTSTATUS DDKAPI add_device(DRIVER_OBJECT *driver_object,
 
     if (!dev->next_stack_device)
     {
-        USBERR0("attaching to device stack failed\n");
+        USBERR("attaching %s to device stack failed\n", id);
         IoDeleteSymbolicLink(&symbolic_link_name);
         IoDeleteDevice(device_object);
 		remove_lock_release(dev); // always release acquired locks
         return STATUS_NO_SUCH_DEVICE;
     }
 
-	USBDBG("stack-size=%d physical-device-object-current-irp=%08Xh\n",device_object->StackSize,physical_device_object->CurrentIrp);
-
 	if (dev->is_filter)
     {
-        USBMSG("[filter mode] %s\n",dev->device_id);
+		USBDBG("[filter-mode] id=#%d %s\n",dev->id, dev->device_id);
 
         /* send all USB requests to the PDO in filter driver mode */
         dev->target_device = dev->physical_device_object;
@@ -246,7 +230,7 @@ NTSTATUS DDKAPI add_device(DRIVER_OBJECT *driver_object,
     }
     else
     {
-         USBMSG("[normal mode] %s\n",dev->device_id);
+		USBDBG("[normal-mode] id=#%d %s\n",dev->id, dev->device_id);
 
 		 /* send all USB requests to the lower object in device driver mode */
         dev->target_device = dev->next_stack_device;
@@ -263,7 +247,8 @@ NTSTATUS DDKAPI add_device(DRIVER_OBJECT *driver_object,
 
 VOID DDKAPI unload(DRIVER_OBJECT *driver_object)
 {
- 	USBMSG0("[UNLOADING-DRIVER]\n");
+ 	USBMSG("[unloading-driver] v%d.%d.%d.%d\n",
+		VERSION_MAJOR, VERSION_MINOR, VERSION_MICRO, VERSION_NANO);
 }
 
 NTSTATUS complete_irp(IRP *irp, NTSTATUS status, ULONG info)
@@ -274,6 +259,7 @@ NTSTATUS complete_irp(IRP *irp, NTSTATUS status, ULONG info)
 
     return status;
 }
+
 
 NTSTATUS call_usbd(libusb_device_t *dev, void *urb, ULONG control_code,
                    int timeout)
@@ -309,23 +295,29 @@ NTSTATUS call_usbd(libusb_device_t *dev, void *urb, ULONG control_code,
 
     status = IoCallDriver(dev->target_device, irp);
 
-    if (status == STATUS_PENDING)
-    {
-        _timeout.QuadPart = -(timeout * 10000);
+	if (NT_SUCCESS(status))
+	{
+		if (status == STATUS_PENDING)
+		{
+			_timeout.QuadPart = -(timeout * 10000);
 
-        if (KeWaitForSingleObject(&event, Executive, KernelMode,
-                                  FALSE, &_timeout) == STATUS_TIMEOUT)
-        {
-            USBERR0("request timed out\n");
-            IoCancelIrp(irp);
-        }
-    }
+			if (KeWaitForSingleObject(&event, Executive, KernelMode,
+									  FALSE, &_timeout) == STATUS_TIMEOUT)
+			{
+				USBERR0("request timed out\n");
+				IoCancelIrp(irp);
+			}
+		}
+		/* wait until completion routine is called */
+		KeWaitForSingleObject(&event, Executive, KernelMode, FALSE, NULL);
 
-    /* wait until completion routine is called */
-    KeWaitForSingleObject(&event, Executive, KernelMode, FALSE, NULL);
-
-    status = irp->IoStatus.Status;
-
+		status = irp->IoStatus.Status;
+	}
+	else
+	{
+		USBERR("status = %08Xh\n",status);
+		irp->IoStatus.Status = status;
+	}
     /* complete the request */
     IoCompleteRequest(irp, IO_NO_INCREMENT);
 
@@ -439,6 +431,7 @@ bool_t update_pipe_info(libusb_device_t *dev,
     int i;
     int number;
 	int maxTransferSize;
+	int maxPacketSize;
 
     if (!interface_info)
     {
@@ -467,31 +460,42 @@ bool_t update_pipe_info(libusb_device_t *dev,
         for (i = 0; i < (int)interface_info->NumberOfPipes
                 && i < LIBUSB_MAX_NUMBER_OF_ENDPOINTS; i++)
         {
-            USBMSG("endpoint address 0x%02x\n", interface_info->Pipes[i].EndpointAddress);
+			maxPacketSize = interface_info->Pipes[i].MaximumPacketSize;
+			maxTransferSize = interface_info->Pipes[i].MaximumTransferSize;
 
-            dev->config.interfaces[number].endpoints[i].handle  = interface_info->Pipes[i].PipeHandle;
+			USBMSG("EP%02Xh maximum-packet-size=%d maximum-transfer-size=%d\n",
+				interface_info->Pipes[i].EndpointAddress,
+				maxPacketSize,
+				maxTransferSize);
+
+			dev->config.interfaces[number].endpoints[i].handle  = interface_info->Pipes[i].PipeHandle;
             dev->config.interfaces[number].endpoints[i].address = interface_info->Pipes[i].EndpointAddress;
-            dev->config.interfaces[number].endpoints[i].maximum_packet_size = interface_info->Pipes[i].MaximumPacketSize;
+            dev->config.interfaces[number].endpoints[i].maximum_packet_size = maxPacketSize;
             dev->config.interfaces[number].endpoints[i].interval = interface_info->Pipes[i].Interval;
             dev->config.interfaces[number].endpoints[i].pipe_type = interface_info->Pipes[i].PipeType;
  			dev->config.interfaces[number].endpoints[i].pipe_flags = interface_info->Pipes[i].PipeFlags;
           
 			// max the maximum transfer size default an interval of max packet size.
 			//
-			maxTransferSize = interface_info->Pipes[i].MaximumTransferSize;
-			maxTransferSize = maxTransferSize - (maxTransferSize % dev->config.interfaces[number].endpoints[i].maximum_packet_size);
-			dev->config.interfaces[number].endpoints[i].maximum_transfer_size = maxTransferSize;
-
-			if (maxTransferSize != LIBUSB_MAX_READ_WRITE)
+			maxTransferSize = maxTransferSize - (maxTransferSize % maxPacketSize);
+			if (maxTransferSize < maxPacketSize) 
 			{
-				USBDBG("endpoint=%02Xh maximum-transfer-size=%d\n",
-					dev->config.interfaces[number].endpoints[i].address,
-					dev->config.interfaces[number].endpoints[i].maximum_transfer_size);
+				maxTransferSize = LIBUSB_MAX_READ_WRITE;
+			}
+			else if (maxTransferSize > LIBUSB_MAX_READ_WRITE)
+			{
+				maxTransferSize = LIBUSB_MAX_READ_WRITE - (LIBUSB_MAX_READ_WRITE % maxPacketSize);
 			}
 
-      }
-    }
-
+			if (maxTransferSize != interface_info->Pipes[i].MaximumTransferSize)
+			{
+				USBWRN("overriding EP%02Xh maximum-transfer-size=%d\n",
+					dev->config.interfaces[number].endpoints[i].address,
+					maxTransferSize);
+			}
+			dev->config.interfaces[number].endpoints[i].maximum_transfer_size = maxTransferSize;
+		}
+	}
     return TRUE;
 }
 
