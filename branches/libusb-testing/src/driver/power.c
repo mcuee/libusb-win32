@@ -45,9 +45,8 @@ NTSTATUS dispatch_power(libusb_device_t *dev, IRP *irp)
     IO_STACK_LOCATION *stack_location = IoGetCurrentIrpStackLocation(irp);
     POWER_STATE power_state;
     NTSTATUS status;
-    bool_t isFilter;
 
-    status = remove_lock_acquire(dev);;
+    status = remove_lock_acquire(dev);
 
     if (!NT_SUCCESS(status))
     {
@@ -56,8 +55,6 @@ NTSTATUS dispatch_power(libusb_device_t *dev, IRP *irp)
         IoCompleteRequest(irp, IO_NO_INCREMENT);
         return status;
     }
-
-    isFilter = !accept_irp(dev,irp);
 
     if (stack_location->MinorFunction == IRP_MN_SET_POWER)
     {
@@ -87,7 +84,7 @@ NTSTATUS dispatch_power(libusb_device_t *dev, IRP *irp)
         PoStartNextPowerIrp(irp);
 
         IoCopyCurrentIrpStackLocationToNext(irp);
-        if (!isFilter)
+        if (!dev->is_filter)
         {
             IoSetCompletionRoutine(irp,
                                    on_power_state_complete,
@@ -105,11 +102,19 @@ NTSTATUS dispatch_power(libusb_device_t *dev, IRP *irp)
                                    TRUE, /* on error   */
                                    TRUE);/* on cancel  */
         }
+
         return PoCallDriver(dev->next_stack_device, irp);
     }
     else
     {
-        /* pass all other power IRPs down without setting a completion routine */
+#ifdef DEBUG_SNOOP
+		USBDBG("MINOR-FUNCTION=%02Xh accept_irp=%c is-filter=%c %s",
+			stack_location->MinorFunction,
+			accept_irp(dev,irp) ? 'Y' : 'N',
+			dev->is_filter ? 'Y' : 'N',
+			dev->device_id);
+#endif
+		/* pass all other power IRPs down without setting a completion routine */
         PoStartNextPowerIrp(irp);
         IoSkipCurrentIrpStackLocation(irp);
         status = PoCallDriver(dev->next_stack_device, irp);
@@ -140,7 +145,7 @@ on_power_state_complete(DEVICE_OBJECT *device_object,
         if (stack_location->Parameters.Power.Type == SystemPowerState)
         {
             USBMSG("S%d\n",
-                          power_state.SystemState - PowerSystemWorking);
+				power_state.SystemState - PowerSystemWorking);
 
             /* save current system state */
             dev->power_state.SystemState = power_state.SystemState;
@@ -159,7 +164,7 @@ on_power_state_complete(DEVICE_OBJECT *device_object,
         else /* DevicePowerState */
         {
             USBMSG("D%d\n",
-                          power_state.DeviceState - PowerDeviceD0);
+				power_state.DeviceState - PowerDeviceD0);
 
             if (power_state.DeviceState <= dev->power_state.DeviceState)
             {
@@ -196,16 +201,17 @@ on_filter_power_state_complete(DEVICE_OBJECT *device_object,
         if (stack_location->Parameters.Power.Type == SystemPowerState)
         {
             USBMSG("S%d\n",
-                          power_state.SystemState - PowerSystemWorking);
+				power_state.SystemState - PowerSystemWorking);
 
             /* save current system state */
             dev->power_state.SystemState = power_state.SystemState;
+
 
         }
         else /* DevicePowerState */
         {
             USBMSG("D%d\n",
-                          power_state.DeviceState - PowerDeviceD0);
+				power_state.DeviceState - PowerDeviceD0);
 
             /* save current device state */
             dev->power_state.DeviceState = power_state.DeviceState;
