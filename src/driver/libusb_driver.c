@@ -21,8 +21,58 @@
 
 #include "libusb_driver.h"
 #include "libusb_version.h"
-static void DDKAPI unload(DRIVER_OBJECT *driver_object);
 
+
+static void debug_show_devices(PDEVICE_OBJECT deviceObject, int index, bool_t showNextDevice)
+{
+	ANSI_STRING driverName;
+
+	if (index > 16) return;
+
+	if (deviceObject)
+	{
+		if (deviceObject->DriverObject)
+		{
+			if (NT_SUCCESS(RtlUnicodeStringToAnsiString(&driverName, &deviceObject->DriverObject->DriverName, TRUE)))
+			{
+				USBDBG("[%s #%d] %s\n", 
+					(showNextDevice ? "NextDevice" : "AttachedDevice"),
+					index, driverName.Buffer);
+				RtlFreeAnsiString(&driverName);
+			}
+		}
+		if (deviceObject->AttachedDevice && !showNextDevice)
+			debug_show_devices(deviceObject->AttachedDevice, index+1, showNextDevice);
+		if (deviceObject->NextDevice && showNextDevice)
+			debug_show_devices(deviceObject->NextDevice, index+1, showNextDevice);
+	}
+}
+
+static bool_t debug_is_attached_to(PDEVICE_OBJECT deviceObject, const char* driverString)
+{
+	ANSI_STRING driverName;
+	bool_t ret = FALSE;
+
+	if (deviceObject)
+	{
+		if (deviceObject->DriverObject)
+		{
+			if (NT_SUCCESS(RtlUnicodeStringToAnsiString(&driverName, &deviceObject->DriverObject->DriverName, TRUE)))
+			{
+				_strlwr(driverName.Buffer);
+
+				if (strstr(driverName.Buffer,driverString))
+					ret = TRUE;
+
+				RtlFreeAnsiString(&driverName);
+			}
+		}
+	}
+
+	return ret;
+}
+
+static void DDKAPI unload(DRIVER_OBJECT *driver_object);
 static NTSTATUS DDKAPI on_usbd_complete(DEVICE_OBJECT *device_object,
                                         IRP *irp,
                                         void *context);
@@ -92,12 +142,29 @@ NTSTATUS DDKAPI add_device(DRIVER_OBJECT *driver_object,
         USBERR0("unable to read registry\n");
         return STATUS_SUCCESS;
     }
-	// dont attach to 
+	// Don't attach to usb device hubs
     if (strstr(compat_id, "class_09"))
     {
 		USBDBG("skipping usb device hub (%s) %s\n",compat_id, id);
         return STATUS_SUCCESS;
     }
+
+	debug_show_devices(physical_device_object,0,FALSE);
+
+#ifdef SKIP_DEVICES_WINUSB
+	if (debug_is_attached_to(attached_device,"\\driver\\winusb"))
+	{
+		USBDBG("skipping WinUSB device %s\n", id);
+		return STATUS_SUCCESS;
+	}
+#endif
+#ifdef SKIP_DEVICES_PICOPP
+	if (debug_is_attached_to(attached_device,"\\driver\\picopp"))
+	{
+		USBDBG("skipping picopp device %s\n", id);
+		return STATUS_SUCCESS;
+	}
+#endif
 
 	device_object = IoGetAttachedDeviceReference(physical_device_object);
     if (device_object)

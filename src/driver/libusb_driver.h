@@ -20,6 +20,10 @@
 #ifndef __LIBUSB_DRIVER_H__
 #define __LIBUSB_DRIVER_H__
 
+//#define SKIP_CONFIGURE_NORMAL_DEVICES
+//#define SKIP_DEVICES_WINUSB
+//#define SKIP_DEVICES_PICOPP
+
 #ifdef __GNUC__
 #include <ddk/usb100.h>
 #include <ddk/usbdi.h>
