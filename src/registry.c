@@ -826,7 +826,7 @@ bool_t usb_registry_mz_string_remove(char *src, const char *str)
         while (*p)
         {
             p += strlen(p) + 1;
-            size += strlen(p) + 1;
+            size += (long)(strlen(p) + 1);
         }
 
         memmove(src, src + strlen(src) + 1, size);
