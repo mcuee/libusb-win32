@@ -149,7 +149,7 @@ int main(int argc, char *argv[])
         verbose = 1;
 
     usb_init();
-    usb_set_debug(0);
+    usb_set_debug(255);
 
     usb_find_busses();
     usb_find_devices();
