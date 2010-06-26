@@ -6,12 +6,12 @@
 #define VERSION_MAJOR 1
 #define VERSION_MINOR 1
 #define VERSION_MICRO 14
-#define VERSION_NANO  7
+#define VERSION_NANO  9
 
-#define RC_VERSION 1,1,14,7
-#define RC_VERSION_STR "1.1.14.7"
-#define VERSION 1.1.14.7
-#define INF_VERSION 1.1.14.7
-#define INF_DATE 06/17/2010
+#define RC_VERSION 1,1,14,9
+#define RC_VERSION_STR "1.1.14.9"
+#define VERSION 1.1.14.9
+#define INF_VERSION 1.1.14.9
+#define INF_DATE 06/25/2010
 
 #endif
