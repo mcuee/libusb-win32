@@ -414,11 +414,11 @@ NTSTATUS large_transfer(IN libusb_device_t* dev,
 	// if (urbFunction != URB_FUNCTION_ISOCH_TRANSFER && pipe_flags & RESET)
 	// status = reset_endpoint(dev,endpoint->address, LIBUSB_DEFAULT_TIMEOUT);
 	//
-
-	// reset the pipe (if irps are pending this will fail)
+	//reset the pipe (if irps are pending this will fail)
 	//
-	if (urbFunction == URB_FUNCTION_ISOCH_TRANSFER)
-		reset_endpoint(dev,endpoint->address,LIBUSB_DEFAULT_TIMEOUT);
+	//if (urbFunction == URB_FUNCTION_ISOCH_TRANSFER)
+	//	reset_endpoint(dev,endpoint->address,LIBUSB_DEFAULT_TIMEOUT);
+
 	//
 	// initialize vars
 	//
