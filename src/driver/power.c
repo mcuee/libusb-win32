@@ -70,7 +70,9 @@ NTSTATUS dispatch_power(libusb_device_t *dev, IRP *irp)
             USBMSG("IRP_MN_SET_POWER: D%d\n",
                           power_state.DeviceState - PowerDeviceD0);
 
-            if (power_state.DeviceState > dev->power_state.DeviceState && !dev->is_filter)
+			// TODO WDF FIX:
+            //if (power_state.DeviceState > dev->power_state.DeviceState && !dev->is_filter)
+            if (power_state.DeviceState > dev->power_state.DeviceState)
             {
                 /* device is powered down, report device state to the */
                 /* Power Manager before sending the IRP down */
@@ -212,6 +214,17 @@ on_filter_power_state_complete(DEVICE_OBJECT *device_object,
         {
             USBMSG("D%d\n",
 				power_state.DeviceState - PowerDeviceD0);
+
+
+			///////////////////////////////////////////////////////////////
+			// TODO WDF FIX:
+            if (power_state.DeviceState <= dev->power_state.DeviceState)
+            {
+                /* device is powered up, */
+                /* report device state to Power Manager */
+                PoSetPowerState(dev->self, DevicePowerState, power_state);
+            }
+			///////////////////////////////////////////////////////////////
 
             /* save current device state */
             dev->power_state.DeviceState = power_state.DeviceState;

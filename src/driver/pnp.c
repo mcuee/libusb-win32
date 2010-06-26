@@ -93,8 +93,11 @@ NTSTATUS dispatch_pnp(libusb_device_t *dev, IRP *irp)
 			dev->is_filter ? 'Y' : 'N',
 			dev->device_id);
 
-		if (!dev->is_filter)
-            PoSetPowerState(dev->self, DevicePowerState, dev->power_state);
+		// TODO WDF FIX:
+		// All Drivers in the stack must call PoSetPowerState.
+		// Should this be done here or in on_start_complete?
+		//if (!dev->is_filter)
+        PoSetPowerState(dev->self, DevicePowerState, dev->power_state);
 
         return pass_irp_down(dev, irp, on_start_complete, NULL);
 
@@ -165,7 +168,7 @@ on_start_complete(DEVICE_OBJECT *device_object, IRP *irp, void *context)
     {
         device_object->Characteristics |= FILE_REMOVABLE_MEDIA;
     }
-
+#ifndef SKIP_CONFIGURE_NORMAL_DEVICES
 	// select initial configuration if not a filter
 	if (!dev->is_filter && !dev->is_started)
 	{
@@ -205,7 +208,7 @@ on_start_complete(DEVICE_OBJECT *device_object, IRP *irp, void *context)
 			}
 		}
 	}
-
+#endif
 	dev->is_started = TRUE;
     remove_lock_release(dev);
 
