@@ -22,6 +22,21 @@
 
 #include <stdarg.h>
 
+
+enum USB_LOG_LEVEL
+{
+	LOG_OFF,
+	LOG_ERROR,
+	LOG_WARNING,
+	LOG_INFO,
+	LOG_DEBUG,
+
+	LOG_LEVEL_MAX,
+	LOG_LEVEL_MASK=0xff,
+	LOG_RAW=0x100
+
+};
+
 /* Connection timed out */
 #define ETIMEDOUT 116
 
@@ -122,7 +137,7 @@
 
 // always keep error messages
 #define USBERR(format,...) usb_err(__FUNCTION__,format,__VA_ARGS__)
-#define USBERR0(format) usb_err(__FUNCTION__,format,NULL)
+#define USBERR0(format) usb_err(__FUNCTION__,"%s",format)
 
 // only keep debug log messages in debug builds
 #if !(defined(_DEBUG) || defined(DEBUG) || defined(DBG)) && !defined(USBDBG)
@@ -137,16 +152,16 @@
 	#define USBWRN(format,...) usb_wrn(__FUNCTION__,format,__VA_ARGS__)
 	#define USBRAWMSG(format,...) usb_log(LOG_INFO|LOG_RAW,__FUNCTION__,format,__VA_ARGS__)
 
-	#define USBMSG0(format) usb_msg(__FUNCTION__,format,NULL)
-	#define USBWRN0(format) usb_wrn(__FUNCTION__,format,NULL)
-	#define USBRAWMSG0(format) usb_log(LOG_INFO|LOG_RAW,__FUNCTION__,format,NULL)
+	#define USBMSG0(format) usb_msg(__FUNCTION__,"%s",format)
+	#define USBWRN0(format) usb_wrn(__FUNCTION__,"%s",format)
+	#define USBRAWMSG0(format) usb_log(LOG_INFO|LOG_RAW,__FUNCTION__,"%s",format)
 #endif
 
 // if USBDBG has not been defined as empty (see above)
 // then keep all the debug log messages
 #ifndef USBDBG
 	#define USBDBG(format,...) usb_dbg(__FUNCTION__,format,__VA_ARGS__)
-	#define USBDBG0(format) usb_dbg(__FUNCTION__,format,NULL)
+	#define USBDBG0(format) usb_dbg(__FUNCTION__,"%s",format)
 #endif
 
 typedef enum
@@ -155,21 +170,6 @@ typedef enum
     USB_ERROR_TYPE_STRING,
     USB_ERROR_TYPE_ERRNO,
 } usb_error_type_t;
-
-
-enum USB_LOG_LEVEL
-{
-	LOG_OFF,
-	LOG_ERROR,
-	LOG_WARNING,
-	LOG_INFO,
-	LOG_DEBUG,
-
-	LOG_LEVEL_MAX,
-	LOG_LEVEL_MASK=0xff,
-	LOG_RAW=0x100
-
-};
 
 #if (!IS_DRIVER)
 	const char *usb_win_error_to_string(void);
