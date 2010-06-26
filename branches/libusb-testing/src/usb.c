@@ -229,7 +229,7 @@ int usb_get_string(usb_dev_handle *dev, int index, int langid, char *buf,
      * parameter. This will be fixed in libusb 1.0
      */
     return usb_control_msg(dev, USB_ENDPOINT_IN, USB_REQ_GET_DESCRIPTOR,
-                           (USB_DT_STRING << 8) + index, langid, buf, buflen, 1000);
+                           (USB_DT_STRING << 8) + index, langid, buf, (int)buflen, 1000);
 }
 
 int usb_get_string_simple(usb_dev_handle *dev, int index, char *buf, size_t buflen)
