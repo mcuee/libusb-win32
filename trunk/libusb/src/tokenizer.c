@@ -68,15 +68,15 @@ long tokenize_string(const char* src, // text to bo tokenized
 	if (!src || !dst || !token_entities || !src_count || !tok_prefix || !tok_suffix)
 		return -ERROR_BAD_ARGUMENTS;
 
-	tok_prefix_size = strlen(tok_prefix);
-	tok_suffix_size = strlen(tok_suffix);
+	tok_prefix_size = (long)strlen(tok_prefix);
+	tok_suffix_size = (long)strlen(tok_suffix);
 
 	// token prefix and suffix markers is required
 	if (!tok_prefix_size || !tok_suffix_size)
 		return -ERROR_BAD_ARGUMENTS;
 
 	// if the src buffer count <= 0 assume it is null terminated
-	if (src_count < 0) src_count = strlen(src);
+	if (src_count < 0) src_count = (long)strlen(src);
 	
 	// nothing to do
 	if (src_count == 0) return 0;
@@ -115,7 +115,7 @@ long tokenize_string(const char* src, // text to bo tokenized
 				free(pDst);
 				return -ERROR_BAD_ARGUMENTS;
 			}
-			match_length=strlen(next_match->match);
+			match_length=(long)strlen(next_match->match);
 
 			// if this token will be longer than what's left in src buffer, skip it.
 			if (src_count < (match_length+tok_suffix_size))
@@ -128,7 +128,7 @@ long tokenize_string(const char* src, // text to bo tokenized
 			if (strncmp(src,next_match->match,match_length)==0)
 			{
 				// found a valid token match
-				replace_length=strlen(next_match->replace);
+				replace_length=(long)strlen(next_match->replace);
 				StrCpyWithGrow(pDst, *dst, dst_pos, dst_alloc_size,
 					next_match->replace,replace_length);
 

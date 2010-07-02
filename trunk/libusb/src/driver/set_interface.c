@@ -25,7 +25,7 @@ NTSTATUS set_interface(libusb_device_t *dev, int interface, int altsetting,
 {
     NTSTATUS status = STATUS_SUCCESS;
     URB *urb;
-    int i, config_size, tmp_size;
+    int i, config_size, config_index, tmp_size;
 
     USB_CONFIGURATION_DESCRIPTOR *configuration_descriptor = NULL;
     USB_INTERFACE_DESCRIPTOR *interface_descriptor = NULL;
@@ -34,14 +34,14 @@ NTSTATUS set_interface(libusb_device_t *dev, int interface, int altsetting,
     USBMSG("interface %d altsetting %d timeout %d\n", 
 		interface,altsetting,timeout);
 
-    if (!dev->config.value)
+	if (!dev->config.value)
     {
         USBERR0("device is not configured\n");
         return STATUS_INVALID_DEVICE_STATE;
     }
 
     configuration_descriptor = get_config_descriptor(dev, dev->config.value,
-                               &config_size);
+                               &config_size, &config_index);
     if (!configuration_descriptor)
     {
         USBERR0("memory_allocation error\n");
@@ -60,9 +60,7 @@ NTSTATUS set_interface(libusb_device_t *dev, int interface, int altsetting,
         return STATUS_UNSUCCESSFUL;
     }
 
-    tmp_size = sizeof(struct _URB_SELECT_INTERFACE)
-               + interface_descriptor->bNumEndpoints
-               * sizeof(USBD_PIPE_INFORMATION);
+    tmp_size = sizeof(struct _URB_SELECT_INTERFACE) + interface_descriptor->bNumEndpoints * sizeof(USBD_PIPE_INFORMATION);
 
 
     urb = ExAllocatePool(NonPagedPool, tmp_size);
@@ -80,13 +78,9 @@ NTSTATUS set_interface(libusb_device_t *dev, int interface, int altsetting,
     urb->UrbHeader.Length = (USHORT)tmp_size;
 
     urb->UrbSelectInterface.ConfigurationHandle = dev->config.handle;
-    urb->UrbSelectInterface.Interface.Length =
-        sizeof(struct _USBD_INTERFACE_INFORMATION);
-    urb->UrbSelectInterface.Interface.NumberOfPipes =
-        interface_descriptor->bNumEndpoints;
-    urb->UrbSelectInterface.Interface.Length +=
-        interface_descriptor->bNumEndpoints
-        * sizeof(struct _USBD_PIPE_INFORMATION);
+    urb->UrbSelectInterface.Interface.Length = sizeof(struct _USBD_INTERFACE_INFORMATION);
+    urb->UrbSelectInterface.Interface.NumberOfPipes = interface_descriptor->bNumEndpoints;
+    urb->UrbSelectInterface.Interface.Length += interface_descriptor->bNumEndpoints * sizeof(struct _USBD_PIPE_INFORMATION);
 
     urb->UrbSelectInterface.Interface.InterfaceNumber = (UCHAR)interface;
     urb->UrbSelectInterface.Interface.AlternateSetting = (UCHAR)altsetting;
@@ -95,8 +89,7 @@ NTSTATUS set_interface(libusb_device_t *dev, int interface, int altsetting,
 
     for (i = 0; i < interface_descriptor->bNumEndpoints; i++)
     {
-        interface_information->Pipes[i].MaximumTransferSize
-        = LIBUSB_MAX_READ_WRITE;
+        interface_information->Pipes[i].MaximumTransferSize = LIBUSB_MAX_READ_WRITE;
     }
 
     status = call_usbd(dev, urb, IOCTL_INTERNAL_USB_SUBMIT_URB, timeout);

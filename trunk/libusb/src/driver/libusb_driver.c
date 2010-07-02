@@ -20,9 +20,60 @@
 #define __LIBUSB_DRIVER_C__
 
 #include "libusb_driver.h"
+#include "libusb_version.h"
+
+#define SKIP_DEVICES_PICOPP
+
+static void debug_show_devices(PDEVICE_OBJECT deviceObject, int index, bool_t showNextDevice)
+{
+	ANSI_STRING driverName;
+
+	if (index > 16) return;
+
+	if (deviceObject)
+	{
+		if (deviceObject->DriverObject)
+		{
+			if (NT_SUCCESS(RtlUnicodeStringToAnsiString(&driverName, &deviceObject->DriverObject->DriverName, TRUE)))
+			{
+				USBDBG("[%s #%d] %s\n", 
+					(showNextDevice ? "NextDevice" : "AttachedDevice"),
+					index, driverName.Buffer);
+				RtlFreeAnsiString(&driverName);
+			}
+		}
+		if (deviceObject->AttachedDevice && !showNextDevice)
+			debug_show_devices(deviceObject->AttachedDevice, index+1, showNextDevice);
+		if (deviceObject->NextDevice && showNextDevice)
+			debug_show_devices(deviceObject->NextDevice, index+1, showNextDevice);
+	}
+}
+
+static bool_t debug_is_attached_to(PDEVICE_OBJECT deviceObject, const char* driverString)
+{
+	ANSI_STRING driverName;
+	bool_t ret = FALSE;
+
+	if (deviceObject)
+	{
+		if (deviceObject->DriverObject)
+		{
+			if (NT_SUCCESS(RtlUnicodeStringToAnsiString(&driverName, &deviceObject->DriverObject->DriverName, TRUE)))
+			{
+				_strlwr(driverName.Buffer);
+
+				if (strstr(driverName.Buffer,driverString))
+					ret = TRUE;
+
+				RtlFreeAnsiString(&driverName);
+			}
+		}
+	}
+
+	return ret;
+}
 
 static void DDKAPI unload(DRIVER_OBJECT *driver_object);
-
 static NTSTATUS DDKAPI on_usbd_complete(DEVICE_OBJECT *device_object,
                                         IRP *irp,
                                         void *context);
@@ -32,14 +83,8 @@ NTSTATUS DDKAPI DriverEntry(DRIVER_OBJECT *driver_object,
 {
     int i;
 
-    /* initialize global variables */
-#if defined(_DEBUG) || defined(DEBUG) || defined(DBG) 
-	usb_log_set_level(LOG_DEBUG);
-#else
-	usb_log_set_level(LOG_INFO);
-#endif
-
-    USBMSG0("loading driver\n");
+ 	USBMSG("[loading-driver] v%d.%d.%d.%d\n",
+		VERSION_MAJOR, VERSION_MINOR, VERSION_MICRO, VERSION_NANO);
 
 	/* initialize the driver object's dispatch table */
     for (i = 0; i <= IRP_MJ_MAXIMUM_FUNCTION; i++)
@@ -66,24 +111,63 @@ NTSTATUS DDKAPI add_device(DRIVER_OBJECT *driver_object,
     WCHAR tmp_name_0[128];
     WCHAR tmp_name_1[128];
     char id[256];
-    int i;
+    char compat_id[256];
+	int i;
+	DEVICE_OBJECT* attached_device;
+
+	ANSI_STRING driver_name;
+
+	attached_device = physical_device_object->AttachedDevice;
 
     /* get the hardware ID from the registry */
-    if (!reg_get_hardware_id(physical_device_object, id, sizeof(id)))
+	RtlZeroMemory(id,sizeof(id));
+    if (!reg_get_hardware_id(physical_device_object, id, sizeof(id) - 1))
     {
         USBERR0("unable to read registry\n");
         return STATUS_SUCCESS;
     }
 
     /* only attach the (filter) driver to USB devices, skip hubs */
-    if (!strstr(id, "usb\\") || strstr(id, "hub"))
+    if (!strstr(id, "usb\\") || 
+		strstr(id, "hub") || 
+		!strstr(id, "vid_") ||
+		!strstr(id, "pid_"))
     {
+		USBDBG("skipping non-usb device or hub %s\n",id);
+        return STATUS_SUCCESS;
+    }
+    
+	RtlZeroMemory(compat_id,sizeof(compat_id));
+	if (!reg_get_compatible_id(physical_device_object, compat_id, sizeof(compat_id) - 1))
+    {
+        USBERR0("unable to read registry\n");
+        return STATUS_SUCCESS;
+    }
+	// Don't attach to usb device hubs
+    if (strstr(compat_id, "class_09"))
+    {
+		USBDBG("skipping usb device hub (%s) %s\n",compat_id, id);
         return STATUS_SUCCESS;
     }
 
-    /* retrieve the type of the lower device object */
-    device_object = IoGetAttachedDeviceReference(physical_device_object);
+	debug_show_devices(physical_device_object,0,FALSE);
 
+#ifdef SKIP_DEVICES_WINUSB
+	if (debug_is_attached_to(attached_device,"\\driver\\winusb"))
+	{
+		USBDBG("skipping WinUSB device %s\n", id);
+		return STATUS_SUCCESS;
+	}
+#endif
+#ifdef SKIP_DEVICES_PICOPP
+	if (debug_is_attached_to(attached_device,"\\driver\\picopp"))
+	{
+		USBDBG("skipping picopp device %s\n", id);
+		return STATUS_SUCCESS;
+	}
+#endif
+
+	device_object = IoGetAttachedDeviceReference(physical_device_object);
     if (device_object)
     {
         device_type = device_object->DeviceType;
@@ -114,7 +198,7 @@ NTSTATUS DDKAPI add_device(DRIVER_OBJECT *driver_object,
 
         if (NT_SUCCESS(status))
         {
-            USBMSG("device #%d created\n", i);
+            USBMSG("device #%d created for %s\n", i, id);
             break;
         }
 
@@ -148,6 +232,9 @@ NTSTATUS DDKAPI add_device(DRIVER_OBJECT *driver_object,
 	dev->physical_device_object = physical_device_object;
 	dev->id = i;
 
+	// store the device id in the device extentions
+	RtlCopyMemory(dev->device_id, id, sizeof(dev->device_id));
+
 	/* set initial power states */
 	dev->power_state.DeviceState = PowerDeviceD0;
 	dev->power_state.SystemState = PowerSystemWorking;
@@ -161,12 +248,17 @@ NTSTATUS DDKAPI add_device(DRIVER_OBJECT *driver_object,
         return STATUS_SUCCESS;
 	}
 
+	if (dev->is_filter && !attached_device)
+		USBWRN("[FILTER-MODE-MISMATCH] device is reporting itself as filter when there are no attached device(s).\n%s\n", id);
+	else if (!dev->is_filter && attached_device)
+		USBWRN("[FILTER-MODE-MISMATCH] device is reporting itself as normal when there are already attached device(s).\n%s\n", id);
+
 	clear_pipe_info(dev);
 
 	remove_lock_initialize(dev);
 	
-	// [trobinso] lock the device while we finish setting it up
-	//      Note: This should always return STATUS_SUCCESS at this point.
+	// make sure the the devices can't be removed
+	// before we are done adding it.
 	if (!NT_SUCCESS(remove_lock_acquire(dev)))
 	{
         USBERR0("remove_lock_acquire failed\n");
@@ -180,7 +272,7 @@ NTSTATUS DDKAPI add_device(DRIVER_OBJECT *driver_object,
 
     if (!dev->next_stack_device)
     {
-        USBERR0("attaching to device stack failed\n");
+        USBERR("attaching %s to device stack failed\n", id);
         IoDeleteSymbolicLink(&symbolic_link_name);
         IoDeleteDevice(device_object);
 		remove_lock_release(dev); // always release acquired locks
@@ -189,7 +281,7 @@ NTSTATUS DDKAPI add_device(DRIVER_OBJECT *driver_object,
 
 	if (dev->is_filter)
     {
-        USBMSG0("running in filter mode\n");
+		USBDBG("[filter-mode] id=#%d %s\n",dev->id, dev->device_id);
 
         /* send all USB requests to the PDO in filter driver mode */
         dev->target_device = dev->physical_device_object;
@@ -198,15 +290,15 @@ NTSTATUS DDKAPI add_device(DRIVER_OBJECT *driver_object,
         device_object->Flags |= dev->next_stack_device->Flags
                                 & (DO_BUFFERED_IO | DO_DIRECT_IO | DO_POWER_PAGABLE);
 
-		// [trobinso] use the same DeviceType as the underlying object
+		// use the same DeviceType as the underlying object
 		device_object->DeviceType = dev->next_stack_device->DeviceType;
 
-		// [trobinso] use the same Characteristics as the underlying object
+		// use the same Characteristics as the underlying object
 		device_object->Characteristics = dev->next_stack_device->Characteristics;
     }
     else
     {
-        USBMSG0("running in normal mode\n");
+		USBDBG("[normal-mode] id=#%d %s\n",dev->id, dev->device_id);
 
 		 /* send all USB requests to the lower object in device driver mode */
         dev->target_device = dev->next_stack_device;
@@ -214,7 +306,7 @@ NTSTATUS DDKAPI add_device(DRIVER_OBJECT *driver_object,
     }
 
     device_object->Flags &= ~DO_DEVICE_INITIALIZING;
-	remove_lock_release(dev); // always release acquired locks
+	remove_lock_release(dev);
 
     USBMSG("complete status=%08X\n",status);
 	return status;
@@ -223,7 +315,8 @@ NTSTATUS DDKAPI add_device(DRIVER_OBJECT *driver_object,
 
 VOID DDKAPI unload(DRIVER_OBJECT *driver_object)
 {
-    USBMSG0("unloading driver\n");
+ 	USBMSG("[unloading-driver] v%d.%d.%d.%d\n",
+		VERSION_MAJOR, VERSION_MINOR, VERSION_MICRO, VERSION_NANO);
 }
 
 NTSTATUS complete_irp(IRP *irp, NTSTATUS status, ULONG info)
@@ -234,6 +327,7 @@ NTSTATUS complete_irp(IRP *irp, NTSTATUS status, ULONG info)
 
     return status;
 }
+
 
 NTSTATUS call_usbd(libusb_device_t *dev, void *urb, ULONG control_code,
                    int timeout)
@@ -269,23 +363,29 @@ NTSTATUS call_usbd(libusb_device_t *dev, void *urb, ULONG control_code,
 
     status = IoCallDriver(dev->target_device, irp);
 
-    if (status == STATUS_PENDING)
-    {
-        _timeout.QuadPart = -(timeout * 10000);
+	if (NT_SUCCESS(status))
+	{
+		if (status == STATUS_PENDING)
+		{
+			_timeout.QuadPart = -(timeout * 10000);
 
-        if (KeWaitForSingleObject(&event, Executive, KernelMode,
-                                  FALSE, &_timeout) == STATUS_TIMEOUT)
-        {
-            USBERR0("request timed out\n");
-            IoCancelIrp(irp);
-        }
-    }
+			if (KeWaitForSingleObject(&event, Executive, KernelMode,
+									  FALSE, &_timeout) == STATUS_TIMEOUT)
+			{
+				USBERR0("request timed out\n");
+				IoCancelIrp(irp);
+			}
+		}
+		/* wait until completion routine is called */
+		KeWaitForSingleObject(&event, Executive, KernelMode, FALSE, NULL);
 
-    /* wait until completion routine is called */
-    KeWaitForSingleObject(&event, Executive, KernelMode, FALSE, NULL);
-
-    status = irp->IoStatus.Status;
-
+		status = irp->IoStatus.Status;
+	}
+	else
+	{
+		USBERR("status = %08Xh\n",status);
+		irp->IoStatus.Status = status;
+	}
     /* complete the request */
     IoCompleteRequest(irp, IO_NO_INCREMENT);
 
@@ -361,6 +461,33 @@ bool_t get_pipe_handle(libusb_device_t *dev, int endpoint_address,
     return FALSE;
 }
 
+bool_t get_pipe_info(libusb_device_t *dev, int endpoint_address,
+                       libusb_endpoint_t** pipe_info)
+{
+    int i, j;
+
+    *pipe_info = NULL;
+
+    for (i = 0; i < LIBUSB_MAX_NUMBER_OF_INTERFACES; i++)
+    {
+        if (dev->config.interfaces[i].valid)
+        {
+            for (j = 0; j < LIBUSB_MAX_NUMBER_OF_ENDPOINTS; j++)
+            {
+                if (dev->config.interfaces[i].endpoints[j].address
+                        == endpoint_address)
+                {
+                    *pipe_info = &dev->config.interfaces[i].endpoints[j];
+
+                    return !*pipe_info ? FALSE : TRUE;
+                }
+            }
+        }
+    }
+
+    return FALSE;
+}
+
 void clear_pipe_info(libusb_device_t *dev)
 {
     memset(dev->config.interfaces, 0 , sizeof(dev->config.interfaces));
@@ -371,6 +498,8 @@ bool_t update_pipe_info(libusb_device_t *dev,
 {
     int i;
     int number;
+	int maxTransferSize;
+	int maxPacketSize;
 
     if (!interface_info)
     {
@@ -399,16 +528,42 @@ bool_t update_pipe_info(libusb_device_t *dev,
         for (i = 0; i < (int)interface_info->NumberOfPipes
                 && i < LIBUSB_MAX_NUMBER_OF_ENDPOINTS; i++)
         {
-            USBMSG("endpoint address 0x%02x\n",
-                          interface_info->Pipes[i].EndpointAddress);
+			maxPacketSize = interface_info->Pipes[i].MaximumPacketSize;
+			maxTransferSize = interface_info->Pipes[i].MaximumTransferSize;
 
-            dev->config.interfaces[number].endpoints[i].handle
-            = interface_info->Pipes[i].PipeHandle;
-            dev->config.interfaces[number].endpoints[i].address =
-                interface_info->Pipes[i].EndpointAddress;
-        }
-    }
+			USBMSG("EP%02Xh maximum-packet-size=%d maximum-transfer-size=%d\n",
+				interface_info->Pipes[i].EndpointAddress,
+				maxPacketSize,
+				maxTransferSize);
 
+			dev->config.interfaces[number].endpoints[i].handle  = interface_info->Pipes[i].PipeHandle;
+            dev->config.interfaces[number].endpoints[i].address = interface_info->Pipes[i].EndpointAddress;
+            dev->config.interfaces[number].endpoints[i].maximum_packet_size = maxPacketSize;
+            dev->config.interfaces[number].endpoints[i].interval = interface_info->Pipes[i].Interval;
+            dev->config.interfaces[number].endpoints[i].pipe_type = interface_info->Pipes[i].PipeType;
+ 			dev->config.interfaces[number].endpoints[i].pipe_flags = interface_info->Pipes[i].PipeFlags;
+          
+			// max the maximum transfer size default an interval of max packet size.
+			//
+			maxTransferSize = maxTransferSize - (maxTransferSize % maxPacketSize);
+			if (maxTransferSize < maxPacketSize) 
+			{
+				maxTransferSize = LIBUSB_MAX_READ_WRITE;
+			}
+			else if (maxTransferSize > LIBUSB_MAX_READ_WRITE)
+			{
+				maxTransferSize = LIBUSB_MAX_READ_WRITE - (LIBUSB_MAX_READ_WRITE % maxPacketSize);
+			}
+
+			if (maxTransferSize != interface_info->Pipes[i].MaximumTransferSize)
+			{
+				USBWRN("overriding EP%02Xh maximum-transfer-size=%d\n",
+					dev->config.interfaces[number].endpoints[i].address,
+					maxTransferSize);
+			}
+			dev->config.interfaces[number].endpoints[i].maximum_transfer_size = maxTransferSize;
+		}
+	}
     return TRUE;
 }
 
@@ -487,4 +642,63 @@ find_interface_desc(USB_CONFIGURATION_DESCRIPTOR *config_desc,
 
     return NULL;
 }
+ULONG get_current_frame(IN PDEVICE_EXTENSION deviceExtension, IN PIRP Irp)
+/*++
 
+Routine Description:
+
+    This routine send an irp/urb pair with
+    function code URB_FUNCTION_GET_CURRENT_FRAME_NUMBER
+    to fetch the current frame
+
+Arguments:
+
+    DeviceObject - pointer to device object
+    PIRP - I/O request packet
+
+Return Value:
+
+    Current frame
+
+--*/
+{
+    KEVENT                               event;
+    PIO_STACK_LOCATION                   nextStack;
+    struct _URB_GET_CURRENT_FRAME_NUMBER urb;
+
+    //
+    // initialize the urb
+    //
+
+    urb.Hdr.Function = URB_FUNCTION_GET_CURRENT_FRAME_NUMBER;
+    urb.Hdr.Length = sizeof(urb);
+    urb.FrameNumber = (ULONG) -1;
+
+    nextStack = IoGetNextIrpStackLocation(Irp);
+    nextStack->Parameters.Others.Argument1 = (PVOID) &urb;
+    nextStack->Parameters.DeviceIoControl.IoControlCode =
+                                IOCTL_INTERNAL_USB_SUBMIT_URB;
+    nextStack->MajorFunction = IRP_MJ_INTERNAL_DEVICE_CONTROL;
+
+    KeInitializeEvent(&event,
+                      NotificationEvent,
+                      FALSE);
+
+    IoSetCompletionRoutine(Irp,
+                           on_usbd_complete,
+                           &event,
+                           TRUE,
+                           TRUE,
+                           TRUE);
+
+
+    IoCallDriver(deviceExtension->target_device, Irp);
+
+    KeWaitForSingleObject((PVOID) &event,
+                          Executive,
+                          KernelMode,
+                          FALSE,
+                          NULL);
+
+    return urb.FrameNumber;
+}

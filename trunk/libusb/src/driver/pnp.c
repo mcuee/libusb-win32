@@ -40,31 +40,32 @@ NTSTATUS dispatch_pnp(libusb_device_t *dev, IRP *irp)
     IO_STACK_LOCATION *stack_location = IoGetCurrentIrpStackLocation(irp);
     UNICODE_STRING symbolic_link_name;
     WCHAR tmp_name[128];
-    bool_t isFilter;
+    //bool_t isFilter;
 
     status = remove_lock_acquire(dev);
 
     if (!NT_SUCCESS(status))
     {
-        return complete_irp(irp, status, 0);
+		USBDBG("device %s is pending removal\n",dev->device_id);
+		return complete_irp(irp, status, 0);
     }
-
-    isFilter = !accept_irp(dev,irp);
 
     switch (stack_location->MinorFunction)
     {
     case IRP_MN_REMOVE_DEVICE:
 
-        USBMSG0("IRP_MN_REMOVE_DEVICE ");
-
         dev->is_started = FALSE;
 
-        /* wait until all outstanding requests are finished */
+		USBMSG("IRP_MN_REMOVE_DEVICE: is-filter=%c %s\n",
+			dev->is_filter ? 'Y' : 'N',
+			dev->device_id);
+
+		/* wait until all outstanding requests are finished */
         remove_lock_release_and_wait(dev);
 
         status = pass_irp_down(dev, irp, NULL, NULL);
 
-        USBRAWMSG("deleting device %d\n", dev->id);
+		USBMSG("deleting device #%d %s\n", dev->id, dev->device_id);
 
        _snwprintf(tmp_name, sizeof(tmp_name)/sizeof(WCHAR), L"%s%04d",
                    LIBUSB_SYMBOLIC_LINK_NAME, dev->id);
@@ -81,30 +82,36 @@ NTSTATUS dispatch_pnp(libusb_device_t *dev, IRP *irp)
 
     case IRP_MN_SURPRISE_REMOVAL:
 
-        USBMSG0("IRP_MN_SURPRISE_REMOVAL\n");
         dev->is_started = FALSE;
-        break;
+		USBMSG("IRP_MN_SURPRISE_REMOVAL: is-filter=%c %s\n",
+			dev->is_filter ? 'Y' : 'N',
+			dev->device_id);
+		break;
 
     case IRP_MN_START_DEVICE:
+		USBMSG("IRP_MN_START_DEVICE: is-filter=%c %s\n",
+			dev->is_filter ? 'Y' : 'N',
+			dev->device_id);
 
-        USBMSG0("IRP_MN_START_DEVICE\n");
-
-        /* report device state to Power Manager */
-        /* power_state.DeviceState has been set to D0 by add_device() */
-        if (!isFilter)
-            PoSetPowerState(dev->self, DevicePowerState, dev->power_state);
+		// TODO WDF FIX:
+		// All Drivers in the stack must call PoSetPowerState.
+		// Should this be done here or in on_start_complete?
+		//if (!dev->is_filter)
+        PoSetPowerState(dev->self, DevicePowerState, dev->power_state);
 
         return pass_irp_down(dev, irp, on_start_complete, NULL);
 
     case IRP_MN_STOP_DEVICE:
-
         dev->is_started = FALSE;
-        USBMSG0("IRP_MN_STOP_DEVICE\n");
+		USBDBG("IRP_MN_STOP_DEVICE: is-filter=%c %s\n",
+			dev->is_filter ? 'Y' : 'N',
+			dev->device_id);
         break;
 
     case IRP_MN_DEVICE_USAGE_NOTIFICATION:
-
-        USBMSG0("IRP_MN_DEVICE_USAGE_NOTIFICATION\n");
+		USBDBG("IRP_MN_DEVICE_USAGE_NOTIFICATION: is-filter=%c %s\n",
+			dev->is_filter ? 'Y' : 'N',
+			dev->device_id);
 
         if (!dev->self->AttachedDevice
                 || (dev->self->AttachedDevice->Flags & DO_POWER_PAGABLE))
@@ -112,24 +119,31 @@ NTSTATUS dispatch_pnp(libusb_device_t *dev, IRP *irp)
             dev->self->Flags |= DO_POWER_PAGABLE;
         }
 
-        return pass_irp_down(dev, irp, on_device_usage_notification_complete,
-                             NULL);
+        return pass_irp_down(dev, irp, on_device_usage_notification_complete, NULL);
 
     case IRP_MN_QUERY_CAPABILITIES:
+		USBDBG("IRP_MN_QUERY_CAPABILITIES: is-filter=%c %s\n",
+			dev->is_filter ? 'Y' : 'N',
+			dev->device_id);
 
-        USBMSG0("IRP_MN_QUERY_CAPABILITIES\n");
-
-        if (!dev->is_filter)
+		if (!dev->is_filter)
         {
             /* apply registry setting */
-            stack_location->Parameters.DeviceCapabilities.Capabilities
-            ->SurpriseRemovalOK = dev->surprise_removal_ok;
+            stack_location->Parameters.DeviceCapabilities.Capabilities->SurpriseRemovalOK = dev->surprise_removal_ok;
         }
 
         return pass_irp_down(dev, irp, on_query_capabilities_complete,  NULL);
 
     default:
-        ;
+#ifdef DEBUG_SNOOP
+		USBDBG("MINOR-FUNCTION=%02Xh accept_irp=%c is-filter=%c %s",
+			stack_location->MinorFunction,
+			accept_irp(dev,irp) ? 'Y' : 'N',
+			dev->is_filter ? 'Y' : 'N',
+			dev->device_id);
+#endif
+		break;
+
     }
 
     remove_lock_release(dev);
@@ -140,41 +154,62 @@ static NTSTATUS DDKAPI
 on_start_complete(DEVICE_OBJECT *device_object, IRP *irp, void *context)
 {
     libusb_device_t *dev = device_object->DeviceExtension;
-	int configuration;
-    if (irp->PendingReturned)
+
+	if (irp->PendingReturned)
     {
         IoMarkIrpPending(irp);
     }
+
+	USBDBG("is-filter=%c %s\n",
+		dev->is_filter ? 'Y' : 'N',
+		dev->device_id);
 
     if (dev->next_stack_device->Characteristics & FILE_REMOVABLE_MEDIA)
     {
         device_object->Characteristics |= FILE_REMOVABLE_MEDIA;
     }
-
-    dev->is_started = TRUE;
-
+#ifndef SKIP_CONFIGURE_NORMAL_DEVICES
 	// select initial configuration if not a filter
-	if (!dev->is_filter && !dev->config.value)
+	if (!dev->is_filter && !dev->is_started)
 	{
 		// optionally, the initial configuration value can be specified
 		// in the inf file. See reg_get_properties()
 		// HKR,,"InitialConfigValue",0x00010001,<your config value>
-		if (dev->initial_config_value < 0)
-			configuration = 1;
-		else if (dev->initial_config_value > 0) 
-			configuration = dev->initial_config_value;
-		else
-			configuration = 0;
 
-		if (configuration)
+		// If initial_config_value is negative, the configuration will
+		// only be set if the device is not already configured.
+		if (dev->initial_config_value)
 		{
-			if(NT_SUCCESS(set_configuration(dev, configuration, 1000)))
-				USBMSG("initial config value %u selected\n", dev->config.value);
+			if (dev->initial_config_value == SET_CONFIG_ACTIVE_CONFIG)
+			{
+				USBDBG("applying active configuration for %s\n",
+					dev->device_id);
+			}
 			else
-				USBERR0("selecting configuration failed\n");
+			{
+				USBDBG("applying InitialConfigValue %d for %s\n",
+					dev->initial_config_value, dev->device_id);
+			}
+
+			if(!NT_SUCCESS(set_configuration(dev, dev->initial_config_value, LIBUSB_DEFAULT_TIMEOUT)))
+			{
+				// we should always be able to apply the active configuration,
+				// even in the case of composite devices.
+				if (dev->initial_config_value == SET_CONFIG_ACTIVE_CONFIG)
+				{
+					USBERR("failed applying active configuration for %s\n",
+						dev->device_id);
+				}
+				else
+				{
+					USBERR("failed applying InitialConfigValue %d for %s\n",
+						dev->initial_config_value, dev->device_id);
+				}
+			}
 		}
 	}
-
+#endif
+	dev->is_started = TRUE;
     remove_lock_release(dev);
 
     return STATUS_SUCCESS;
