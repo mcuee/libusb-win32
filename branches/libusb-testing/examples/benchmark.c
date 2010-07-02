@@ -24,6 +24,8 @@
 
 #include "usb.h"
 
+#define _BENCHMARK_VER_ONLY
+#include "benchmark_rc.rc"
 
 #define MAX_OUTSTANDING_TRANSFERS 10
 
@@ -141,6 +143,11 @@ struct BENCHMARK_TRANSFER_PARAM
     INT TotalTimeoutCount;
     INT RunningTimeoutCount;
 	
+	INT TotalErrorCount;
+	INT RunningErrorCount;
+
+	INT ShortTransferCount;
+
 	INT TransferHandleNextIndex;
 	INT TransferHandleWaitIndex;
 	INT OutstandingTransferCount;
@@ -541,16 +548,55 @@ DWORD TransferThreadProc(struct BENCHMARK_TRANSFER_PARAM* transferParam)
 				// in a multi-threaded app.  It's used here because
 				// this is a test program.
 				//
-                CONERR("failed %s! ret=%d\n%s\n",
+
+				transferParam->TotalErrorCount++;
+                transferParam->RunningErrorCount++;
+				CONERR("failed %s! %d of %d ret=%d: %s\n",
 					TRANSFER_DISPLAY(transferParam,"reading","writing"),
+					transferParam->RunningErrorCount,
+					transferParam->Test->Retry+1,
 					ret,
 					usb_strerror());
-                break;
+
+				usb_resetep(transferParam->Test->DeviceHandle, transferParam->Ep.bEndpointAddress);
+
+                if (transferParam->RunningErrorCount > transferParam->Test->Retry)
+                    break;
+
             }
+			ret = 0;
         }
         else
         {
-            transferParam->RunningTimeoutCount = 0;
+			if (ret < transferParam->Test->BufferSize && !transferParam->Test->IsCancelled)
+			{
+				if (ret > 0)
+				{
+					transferParam->ShortTransferCount++;
+					CONWRN("Short transfer on Ep%02Xh expected %d got %d.\n",
+						transferParam->Ep.bEndpointAddress,
+						transferParam->Test->BufferSize,
+						ret);
+				}
+				else
+				{
+					CONWRN("Zero-length transfer on Ep%02Xh expected %d.\n",
+						transferParam->Ep.bEndpointAddress,
+						transferParam->Test->BufferSize);
+
+					transferParam->TotalErrorCount++;
+					transferParam->RunningErrorCount++;
+					if (transferParam->RunningErrorCount > transferParam->Test->Retry)
+						break;
+					usb_resetep(transferParam->Test->DeviceHandle, transferParam->Ep.bEndpointAddress);
+				}
+			}
+			else
+			{
+				transferParam->RunningErrorCount = 0;
+				transferParam->RunningTimeoutCount = 0;
+			}
+
 			if ((transferParam->Test->Verify) && 
 				(transferParam->Ep.bEndpointAddress & USB_ENDPOINT_DIR_MASK))
 			{
@@ -954,20 +1000,29 @@ void GetCurrentBytesSec(struct BENCHMARK_TRANSFER_PARAM* transferParam, DOUBLE* 
 
 void ShowRunningStatus(struct BENCHMARK_TRANSFER_PARAM* transferParam)
 {
+	struct BENCHMARK_TRANSFER_PARAM temp;
 	DOUBLE bpsOverall;
 	DOUBLE bpsLastTransfer;
+    
+	// LOCK the display critical section
+    EnterCriticalSection(&DisplayCriticalSection);
+	
+	memcpy(&temp, transferParam, sizeof(struct BENCHMARK_TRANSFER_PARAM));
+	
+	// UNLOCK the display critical section
+    LeaveCriticalSection(&DisplayCriticalSection);
 
-    if ((!transferParam->StartTick) || (transferParam->StartTick >= transferParam->LastTick))
+    if ((!temp.StartTick) || (temp.StartTick >= temp.LastTick))
     {
         CONMSG("Synchronizing %d..\n", abs(transferParam->Packets));
     }
     else
     {
-        GetAverageBytesSec(transferParam,&bpsOverall);
-        GetCurrentBytesSec(transferParam,&bpsLastTransfer);
+        GetAverageBytesSec(&temp,&bpsOverall);
+        GetCurrentBytesSec(&temp,&bpsLastTransfer);
 		transferParam->LastStartTick = 0;
 		CONMSG("Avg. Bytes/s: %.2f Transfers: %d Bytes/s: %.2f\n",
-			bpsOverall, transferParam->Packets, bpsLastTransfer);
+			bpsOverall, temp.Packets, bpsLastTransfer);
     }
 
 }
@@ -991,12 +1046,20 @@ void ShowTransferInfo(struct BENCHMARK_TRANSFER_PARAM* transferParam)
         GetCurrentBytesSec(transferParam,&bpsCurrent);
         CONMSG("\tTotal Bytes     : %I64d\n", transferParam->TotalTransferred);
         CONMSG("\tTotal Transfers : %d\n", transferParam->Packets);
-		
+
+		if (transferParam->ShortTransferCount)
+		{
+			CONMSG("\tShort Transfers : %d\n", transferParam->ShortTransferCount);
+		}
 		if (transferParam->TotalTimeoutCount)
 		{
 			CONMSG("\tTimeout Errors  : %d\n", transferParam->TotalTimeoutCount);
 		}
-		
+		if (transferParam->TotalErrorCount)
+		{
+			CONMSG("\tOther Errors    : %d\n", transferParam->TotalErrorCount);
+		}
+
         CONMSG("\tAvg. Bytes/sec  : %.2f\n", bpsAverage);
 
 		if (transferParam->StartTick && transferParam->StartTick < transferParam->LastTick)
@@ -1331,7 +1394,12 @@ int main(int argc, char** argv)
 	ShowTransferInfo(ReadTest);
 	ShowTransferInfo(WriteTest);
 
-    CONMSG0("Press 'Q' to exit, any other key to begin..");
+	CONMSG0("\nWhile the test is running:\n");
+	CONMSG0("Press 'Q' to quit\n");
+	CONMSG0("Press 'T' for test details\n");
+	CONMSG0("Press 'I' for status information\n");
+	CONMSG0("Press 'R' to reset averages\n");
+    CONMSG0("\nPress 'Q' to exit, any other key to begin..");
     key = _getch();
     CONMSG0("\n");
 
@@ -1416,17 +1484,12 @@ int main(int argc, char** argv)
             break;
         }
 
-        // LOCK the display critical section
-        EnterCriticalSection(&DisplayCriticalSection);
-
         // Print benchmark stats
         if (ReadTest)
             ShowRunningStatus(ReadTest);
         else
             ShowRunningStatus(WriteTest);
 
-        // UNLOCK the display critical section
-        LeaveCriticalSection(&DisplayCriticalSection);
     }
 
 	// Wait for the transfer threads to complete gracefully if it
@@ -1515,7 +1578,7 @@ void ShowHelp(void)
 
 void ShowCopyright(void)
 {
-	CONMSG0("LibUsb-Win32 USB Benchmark\n");
+	CONMSG0("LibUsb-Win32 USB Benchmark v" RC_VERSION_STR "\n");
 	CONMSG0("Copyright (c) 2010 Travis Robinson. <libusbdotnet@gmail.com>\n");
 	CONMSG0("website: http://sourceforge.net/projects/libusbdotnet\n");
 }

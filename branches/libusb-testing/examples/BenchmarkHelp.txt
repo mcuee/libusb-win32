@@ -1,5 +1,3 @@
-LibUsb-Win32 USB Benchmark v1.0.1
-By Travis Robinson
 
 USAGE: benchmark [pid=] [vid=] [intf=] [ep=] [list]
                  [read|write|loop] [notestselect]
