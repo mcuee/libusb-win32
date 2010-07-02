@@ -24,7 +24,10 @@ enum
 {
     LIBUSB_DEBUG_OFF,
     LIBUSB_DEBUG_ERR,
+    LIBUSB_DEBUG_WRN,
     LIBUSB_DEBUG_MSG,
+
+    LIBUSB_DEBUG_MAX = 0xff,
 };
 
 
@@ -115,6 +118,12 @@ enum
 
 #include <pshpack1.h>
 
+enum LIBUSB0_TRANSFER_FLAGS
+{
+	TRANSFER_FLAGS_SHORT_NOT_OK = 1 << 0,
+	TRANSFER_FLAGS_ISO_SET_START_FRAME = 1 << 30,
+	TRANSFER_FLAGS_ISO_ADD_LATENCY = 1 << 31,
+};
 
 typedef struct
 {
@@ -134,6 +143,11 @@ typedef struct
         {
             unsigned int endpoint;
             unsigned int packet_size;
+	
+			// TODO: max_transfer_size, short transfer not ok, use iso_start_frame
+			unsigned int max_transfer_size;
+			unsigned int transfer_flags;
+			unsigned int iso_start_frame_latency;
         } endpoint;
         struct
         {

@@ -100,12 +100,17 @@ Source: *.txt; DestDir: {app}; Flags: ignoreversion;
 ; Test Certificate
 Source: *.cer; DestDir: {app}; Flags: ignoreversion skipifsourcedoesntexist; Check: Is64;
 
+; DebugView
+Source: @PACKAGE_ROOT_DIR@additional\dbgview.*; DestDir: {app}\additional; Flags: ignoreversion skipifsourcedoesntexist;
+
 [Icons]
 Name: "{group}\Libusb-Win32 Test Certificate"; Filename: {app}\LibusbWin32TestCert.cer; Flags: createonlyiffileexists
 Name: "{group}\Enable filter (admin only)"; Filename: {app}\bin\install-filter.exe; Parameters: -i; Flags: createonlyiffileexists
 Name: "{group}\Disable filter (admin only)"; Filename: {app}\bin\install-filter.exe; Parameters: -u; Flags: createonlyiffileexists
 Name: "{group}\Test (Win) Program"; Filename: "{app}\bin\testlibusb-win.exe"; 
 Name: "{group}\INF Wizard"; Filename: "{app}\bin\inf-wizard.exe"; 
+Name: "{group}\DebugView\DebugView"; Filename: {app}\additional\Dbgview.exe; Flags: createonlyiffileexists
+Name: "{group}\DebugView\DebugView Help"; Filename: {app}\additional\dbgview.chm; Flags: createonlyiffileexists
 Name: "{group}\License\GPL License"; Filename: "{app}\COPYING_GPL.txt"
 Name: "{group}\License\LGPL License"; Filename: "{app}\COPYING_LGPL.txt"
 Name: "{group}\Uninstall LibUsb-Win32"; Filename: "{uninstallexe}"

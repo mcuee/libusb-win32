@@ -68,10 +68,10 @@ static void usb_log_def_handler(enum USB_LOG_LEVEL level,
 static const char *log_level_string[LOG_LEVEL_MAX+1] =
 {
     "off",
-    "error",
-    "warning",
-    "info",
-    "debug",
+    "err",
+    "wrn",
+    "nfo",
+    "dbg",
 
     "unknown",
 };
@@ -234,8 +234,8 @@ void _usb_log_v(enum USB_LOG_LEVEL level,
     const char* func;
     char* buffer;
     int masked_level;
-	const char** skip_list;
 	int app_prefix_func_end;
+	const char** skip_list = NULL;
 
 	masked_level = GetLogLevel(level);
 
@@ -258,6 +258,10 @@ void _usb_log_v(enum USB_LOG_LEVEL level,
     else
     {
         prefix = log_level_string[masked_level];
+#ifdef LOG_STYLE_SHORT
+		count = _snprintf(buffer, (LOGBUF_SIZE-1), "%s: ",  prefix);
+		func = "";
+#else
 		func = function;
 
 		if (func)
@@ -275,6 +279,8 @@ void _usb_log_v(enum USB_LOG_LEVEL level,
 
         // print app name, level string and short function name
         count = _snprintf(buffer, (LOGBUF_SIZE-1), "%s:%s [%s] ", app_name, prefix, func);
+#endif
+
         if (count > 0)
         {
 			app_prefix_func_end = count;
@@ -288,7 +294,8 @@ void _usb_log_v(enum USB_LOG_LEVEL level,
             }
         }
     }
-    if (count < 0)
+
+	if (count < 0)
         totalCount = LOGBUF_SIZE - 1;
 
     // make sure its null terminated
@@ -312,7 +319,14 @@ void _usb_log_v(enum USB_LOG_LEVEL level,
 
 void usb_log_set_level(enum USB_LOG_LEVEL level)
 {
+	// Debug builds of the driver force all messages on; all the time;
+	// Application can no longer change this.
+	//
+#if (defined(_DEBUG) || defined(DEBUG) || defined(DBG))
+	__usb_log_level = LOG_LEVEL_MAX;
+#else
     __usb_log_level = level > LOG_LEVEL_MAX ? LOG_LEVEL_MAX : level;
+#endif
 }
 
 int usb_log_get_level()

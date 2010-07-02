@@ -34,6 +34,8 @@
 #include "registry.h"
 #include "libusb_version.h"
 
+#define LIBUSB_WIN32_DLL_LARGE_TRANSFER_SUPPORT
+
 #define LIBUSB_DEFAULT_TIMEOUT 5000
 #define LIBUSB_DEVICE_NAME "\\\\.\\libusb0-"
 #define LIBUSB_BUS_NAME "bus-0"
@@ -121,7 +123,6 @@ BOOL WINAPI DllMain(HANDLE module, DWORD reason, LPVOID reserved)
  {
 	 char dev_name[LIBUSB_PATH_MAX];
 	 char *p;
-	 int config;
 
 	 if (!dev)
 	 {
@@ -177,7 +178,8 @@ BOOL WINAPI DllMain(HANDLE module, DWORD reason, LPVOID reserved)
 			 dev->config = config;
 		 }
 	 }
-	 */
+	*/
+
 	 return 0;
  }
 
@@ -560,8 +562,11 @@ static int _usb_transfer_sync(usb_dev_handle *dev, int control_code,
 
     do
     {
+#ifdef LIBUSB_WIN32_DLL_LARGE_TRANSFER_SUPPORT
         requested = size > LIBUSB_MAX_READ_WRITE ? LIBUSB_MAX_READ_WRITE : size;
-
+#else
+        requested = size;
+#endif
         ret = usb_submit_async(context, bytes, requested);
 
         if (ret < 0)
