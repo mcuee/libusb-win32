@@ -63,14 +63,14 @@ enum USB_LOG_LEVEL
 // writes log messages to standard error output
 #define LOG_OUTPUT_TYPE_STDERR		0x001
 
-// writes log messages to Win32 OutputDebugString
+// writes log messages to Win32 OutputDebugString (DbgPrint for drivers)
 #define LOG_OUTPUT_TYPE_DEBUGWINDOW	0x0002
+#define LOG_OUTPUT_TYPE_DBGPRINT	0x0002
 
 // displays error log messages to a messagebox (not recommended)
 #define LOG_OUTPUT_TYPE_MSGBOX		0x0004
 
 // writes log messages to Kernel-mode DbgPrint
-#define LOG_OUTPUT_TYPE_DBGPRINT	0x0008
 
 // writes log messages directly to a file
 #define LOG_OUTPUT_TYPE_FILE		0x0010
@@ -83,13 +83,7 @@ enum USB_LOG_LEVEL
 // File logging is never enabled by default.
 // The LOG_OUTPUT_TYPE define must be manually
 // set to enable file logging.
-#if IS_DRIVER
-	#ifndef LOG_DIRECTORY
-		#define LOG_FILE_PATH "\\DosDevices\\C:\\Log\\" LOG_APPNAME	".log"
-	#else
-		#define LOG_FILE_PATH "\\DosDevices\\" LOG_DIRECTORY LOG_APPNAME ".log"
-	#endif
-#else
+#if !IS_DRIVER
 	#ifndef LOG_DIRECTORY
 		#define LOG_FILE_PATH LOG_APPNAME ".log"
 	#else
@@ -97,11 +91,8 @@ enum USB_LOG_LEVEL
 	#endif
 #endif
 
-#if IS_DRIVER
-	// default logging for a driver
-	#define DEF_LOG_OUTPUT_TYPE LOG_OUTPUT_TYPE_DBGPRINT
-#elif IS_DLL
-	// default logging for a dll
+#if (IS_DRIVER) || (IS_DLL)
+	// default logging for drivers and dlls
 	#define DEF_LOG_OUTPUT_TYPE LOG_OUTPUT_TYPE_DEBUGWINDOW
 #else
 	// default logging for applications and everything else
@@ -112,15 +103,15 @@ enum USB_LOG_LEVEL
 #ifdef LOG_OUTPUT_TYPE
 	// all log messages (except errors) are stripped
 	#if (LOG_OUTPUT_TYPE & LOG_OUTPUT_TYPE_REMOVE)
-		#define USBMSG(format,...)
-		#define USBWRN(format,...)
-		#define USBDBG(format,...)
-		#define USBRAWMSG(format,...)
+		#define USBMSG(format,...) _usb_log_do_nothing()
+		#define USBWRN(format,...) _usb_log_do_nothing()
+		#define USBDBG(format,...) _usb_log_do_nothing()
+		#define USBRAWMSG(format,...) _usb_log_do_nothing()
 
-		#define USBMSG0(format)
-		#define USBWRN0(format)
-		#define USBDBG0(format)
-		#define USBRAWMSG0(format)
+		#define USBMSG0(format) _usb_log_do_nothing()
+		#define USBWRN0(format) _usb_log_do_nothing()
+		#define USBDBG0(format) _usb_log_do_nothing()
+		#define USBRAWMSG0(format) _usb_log_do_nothing()
 	#endif
 
 	#if (LOG_OUTPUT_TYPE & LOG_OUTPUT_TYPE_DEFAULT)
@@ -141,8 +132,8 @@ enum USB_LOG_LEVEL
 
 // only keep debug log messages in debug builds
 #if !(defined(_DEBUG) || defined(DEBUG) || defined(DBG)) && !defined(USBDBG)
-	#define USBDBG(format,...)
-	#define USBDBG0(format)
+	#define USBDBG(format,...) _usb_log_do_nothing()
+	#define USBDBG0(format) _usb_log_do_nothing()
 #endif
 
 // if USBMSG has not been defined as empty (see above)
@@ -186,6 +177,8 @@ void usb_wrn	(const char* function, const char* format, ...);
 void usb_msg	(const char* function, const char* format, ...);
 void usb_dbg	(const char* function, const char* format, ...);
 void usb_log	(enum USB_LOG_LEVEL level, const char* function, const char* format, ...);
+
+void  _usb_log_do_nothing(void);
 
 #endif /* _ERROR_H_ */
 

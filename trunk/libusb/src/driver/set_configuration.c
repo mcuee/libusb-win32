@@ -18,6 +18,7 @@
 
 
 #include "libusb_driver.h"
+#include <stdlib.h>
 
 
 NTSTATUS set_configuration(libusb_device_t *dev,

@@ -102,6 +102,7 @@ BOOL WINAPI DllMain(HANDLE module, DWORD reason, LPVOID reserved)
     return TRUE;
 }
 
+/*
  static int usb_get_configuration(usb_dev_handle *dev)
  {
    int ret;
@@ -118,6 +119,7 @@ BOOL WINAPI DllMain(HANDLE module, DWORD reason, LPVOID reserved)
 
    return ret;
  }
+*/
 
  int usb_os_open(usb_dev_handle *dev)
  {

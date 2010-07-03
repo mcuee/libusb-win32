@@ -22,7 +22,18 @@
 #include "libusb_driver.h"
 #include "libusb_version.h"
 
+const char* attached_driver_skip_list[] = 
+{
+	"\\driver\\picopp",
+	NULL
+};
+
 #define SKIP_DEVICES_PICOPP
+
+static bool_t match_driver(PDEVICE_OBJECT deviceObject, const char* driverString);
+
+
+#ifdef DBG
 
 static void debug_show_devices(PDEVICE_OBJECT deviceObject, int index, bool_t showNextDevice)
 {
@@ -48,8 +59,9 @@ static void debug_show_devices(PDEVICE_OBJECT deviceObject, int index, bool_t sh
 			debug_show_devices(deviceObject->NextDevice, index+1, showNextDevice);
 	}
 }
+#endif
 
-static bool_t debug_is_attached_to(PDEVICE_OBJECT deviceObject, const char* driverString)
+static bool_t match_driver(PDEVICE_OBJECT deviceObject, const char* driverString)
 {
 	ANSI_STRING driverName;
 	bool_t ret = FALSE;
@@ -115,13 +127,10 @@ NTSTATUS DDKAPI add_device(DRIVER_OBJECT *driver_object,
 	int i;
 	DEVICE_OBJECT* attached_device;
 
-	ANSI_STRING driver_name;
-
 	attached_device = physical_device_object->AttachedDevice;
 
     /* get the hardware ID from the registry */
-	RtlZeroMemory(id,sizeof(id));
-    if (!reg_get_hardware_id(physical_device_object, id, sizeof(id) - 1))
+    if (!reg_get_hardware_id(physical_device_object, id, sizeof(id)))
     {
         USBERR0("unable to read registry\n");
         return STATUS_SUCCESS;
@@ -137,8 +146,7 @@ NTSTATUS DDKAPI add_device(DRIVER_OBJECT *driver_object,
         return STATUS_SUCCESS;
     }
     
-	RtlZeroMemory(compat_id,sizeof(compat_id));
-	if (!reg_get_compatible_id(physical_device_object, compat_id, sizeof(compat_id) - 1))
+	if (!reg_get_compatible_id(physical_device_object, compat_id, sizeof(compat_id)))
     {
         USBERR0("unable to read registry\n");
         return STATUS_SUCCESS;
@@ -150,22 +158,21 @@ NTSTATUS DDKAPI add_device(DRIVER_OBJECT *driver_object,
         return STATUS_SUCCESS;
     }
 
-	debug_show_devices(physical_device_object,0,FALSE);
+#ifdef DBG
+	debug_show_devices(physical_device_object, 0, FALSE);
+#endif
 
-#ifdef SKIP_DEVICES_WINUSB
-	if (debug_is_attached_to(attached_device,"\\driver\\winusb"))
+	if (attached_device)
 	{
-		USBDBG("skipping WinUSB device %s\n", id);
-		return STATUS_SUCCESS;
+		for (i=0; attached_driver_skip_list[i] != NULL; i++)
+		{
+			if (match_driver(attached_device, attached_driver_skip_list[i]))
+			{
+				USBDBG("skipping device %s\n", id);
+				return STATUS_SUCCESS;
+			}
+		}
 	}
-#endif
-#ifdef SKIP_DEVICES_PICOPP
-	if (debug_is_attached_to(attached_device,"\\driver\\picopp"))
-	{
-		USBDBG("skipping picopp device %s\n", id);
-		return STATUS_SUCCESS;
-	}
-#endif
 
 	device_object = IoGetAttachedDeviceReference(physical_device_object);
     if (device_object)
@@ -249,9 +256,13 @@ NTSTATUS DDKAPI add_device(DRIVER_OBJECT *driver_object,
 	}
 
 	if (dev->is_filter && !attached_device)
+	{
 		USBWRN("[FILTER-MODE-MISMATCH] device is reporting itself as filter when there are no attached device(s).\n%s\n", id);
+	}
 	else if (!dev->is_filter && attached_device)
+	{
 		USBWRN("[FILTER-MODE-MISMATCH] device is reporting itself as normal when there are already attached device(s).\n%s\n", id);
+	}
 
 	clear_pipe_info(dev);
 

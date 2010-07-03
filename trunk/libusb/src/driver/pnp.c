@@ -40,7 +40,6 @@ NTSTATUS dispatch_pnp(libusb_device_t *dev, IRP *irp)
     IO_STACK_LOCATION *stack_location = IoGetCurrentIrpStackLocation(irp);
     UNICODE_STRING symbolic_link_name;
     WCHAR tmp_name[128];
-    //bool_t isFilter;
 
     status = remove_lock_acquire(dev);
 
@@ -93,10 +92,7 @@ NTSTATUS dispatch_pnp(libusb_device_t *dev, IRP *irp)
 			dev->is_filter ? 'Y' : 'N',
 			dev->device_id);
 
-		// TODO WDF FIX:
 		// All Drivers in the stack must call PoSetPowerState.
-		// Should this be done here or in on_start_complete?
-		//if (!dev->is_filter)
         PoSetPowerState(dev->self, DevicePowerState, dev->power_state);
 
         return pass_irp_down(dev, irp, on_start_complete, NULL);
@@ -135,13 +131,6 @@ NTSTATUS dispatch_pnp(libusb_device_t *dev, IRP *irp)
         return pass_irp_down(dev, irp, on_query_capabilities_complete,  NULL);
 
     default:
-#ifdef DEBUG_SNOOP
-		USBDBG("MINOR-FUNCTION=%02Xh accept_irp=%c is-filter=%c %s",
-			stack_location->MinorFunction,
-			accept_irp(dev,irp) ? 'Y' : 'N',
-			dev->is_filter ? 'Y' : 'N',
-			dev->device_id);
-#endif
 		break;
 
     }

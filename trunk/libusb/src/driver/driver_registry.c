@@ -72,18 +72,12 @@ bool_t reg_get_properties(libusb_device_t *dev)
     NTSTATUS status;
     UNICODE_STRING surprise_removal_ok_name;
     UNICODE_STRING initial_config_value_name;
-	UNICODE_STRING libusb_interface_guids;
-	ANSI_STRING libusb_interface_guidsA;
-
     KEY_VALUE_FULL_INFORMATION *info;
     ULONG pool_length;
     ULONG length;
 	ULONG val;
 
-	const unsigned char* chInfoData;
-	unsigned char* chInfo;
-
-    if (!dev->physical_device_object)
+	if (!dev->physical_device_object)
     {
         return FALSE;
     }
