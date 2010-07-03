@@ -83,7 +83,6 @@ static const char *skipped_function_prefix_list[] =
 	NULL
 };
 
-char usb_error_str[LOGBUF_SIZE] = "";
 int usb_error_errno = 0;
 
 #if (defined(_DEBUG) || defined(DEBUG) || defined(DBG))
@@ -97,6 +96,8 @@ usb_error_type_t usb_error_type = USB_ERROR_TYPE_NONE;
 const char** skipped_function_prefix = skipped_function_prefix_list;
 
 #if !IS_DRIVER
+
+char usb_error_str[LOGBUF_SIZE] = "";
 
 char *usb_strerror(void)
 {
@@ -344,27 +345,11 @@ static void usb_log_def_handler(enum USB_LOG_LEVEL level,
 								char* message,
 								const int message_length)
 {
-#if GetLogOuput(LOG_OUTPUT_TYPE_FILE) && !IS_DRIVER
-	FILE* file;
-#endif
-
-#if GetLogOuput(LOG_OUTPUT_TYPE_DBGPRINT)
+#if IS_DRIVER
 	DbgPrint("%s",message);
-#endif
-
-#if GetLogOuput(LOG_OUTPUT_TYPE_STDERR)
-	fprintf(stderr, message);
-#endif
-
-#if GetLogOuput(LOG_OUTPUT_TYPE_DEBUGWINDOW)
-	OutputDebugStringA(message);
-#endif
-
-// TODO: Kernel driver must use ZwCreateFile
-#if GetLogOuput(LOG_OUTPUT_TYPE_FILE)
-	#if IS_DRIVER
-		DbgPrint("%s",message);
-	#else
+#else
+	#if GetLogOuput(LOG_OUTPUT_TYPE_FILE)
+		FILE* file;
 		file = fopen(LOG_FILE_PATH,"a");
 		if (file)
 		{
@@ -373,14 +358,29 @@ static void usb_log_def_handler(enum USB_LOG_LEVEL level,
 			fclose(file);
 		}
 	#endif
-#endif
 
-#if GetLogOuput(LOG_OUTPUT_TYPE_MSGBOX)
-	if (GetLogLevel(level)==LOG_ERROR)
-	{
-		message[app_prefix_func_end-1]='\0';
-		MessageBoxA(NULL,message+strlen(message),message,MB_OK|MB_ICONERROR);
-	}
-#endif
+	#if GetLogOuput(LOG_OUTPUT_TYPE_STDERR)
+		fprintf(stderr, "%s", message);
+	#endif
+
+	#if GetLogOuput(LOG_OUTPUT_TYPE_DEBUGWINDOW)
+		OutputDebugStringA(message);
+	#endif
+
+
+	#if GetLogOuput(LOG_OUTPUT_TYPE_MSGBOX)
+		if (GetLogLevel(level)==LOG_ERROR)
+		{
+			message[app_prefix_func_end-1]='\0';
+			MessageBoxA(NULL,message+strlen(message),message,MB_OK|MB_ICONERROR);
+		}
+	#endif
+
+#endif // IS_DRIVER
+
+
 }
 
+void  _usb_log_do_nothing(void)
+{
+}

@@ -109,13 +109,6 @@ NTSTATUS dispatch_power(libusb_device_t *dev, IRP *irp)
     }
     else
     {
-#ifdef DEBUG_SNOOP
-		USBDBG("MINOR-FUNCTION=%02Xh accept_irp=%c is-filter=%c %s",
-			stack_location->MinorFunction,
-			accept_irp(dev,irp) ? 'Y' : 'N',
-			dev->is_filter ? 'Y' : 'N',
-			dev->device_id);
-#endif
 		/* pass all other power IRPs down without setting a completion routine */
         PoStartNextPowerIrp(irp);
         IoSkipCurrentIrpStackLocation(irp);
@@ -215,16 +208,12 @@ on_filter_power_state_complete(DEVICE_OBJECT *device_object,
             USBMSG("D%d\n",
 				power_state.DeviceState - PowerDeviceD0);
 
-
-			///////////////////////////////////////////////////////////////
-			// TODO WDF FIX:
             if (power_state.DeviceState <= dev->power_state.DeviceState)
             {
                 /* device is powered up, */
                 /* report device state to Power Manager */
                 PoSetPowerState(dev->self, DevicePowerState, power_state);
             }
-			///////////////////////////////////////////////////////////////
 
             /* save current device state */
             dev->power_state.DeviceState = power_state.DeviceState;
