@@ -505,20 +505,20 @@ void usb_fetch_and_parse_descriptors(usb_dev_handle *udev)
 
     for (i = 0; i < dev->descriptor.bNumConfigurations; i++)
     {
-        unsigned char buffer[8], *bigbuffer;
+        unsigned char buffer[USB_DT_CONFIG_SIZE], *bigbuffer;
         struct usb_config_descriptor config;
         int res;
 
         /* Get the first 8 bytes so we can figure out what the total length is */
-        res = usb_get_descriptor(udev, USB_DT_CONFIG, (unsigned char)i, buffer, 8);
-        if (res < 8)
+        res = usb_get_descriptor(udev, USB_DT_CONFIG, (unsigned char)i, buffer, USB_DT_CONFIG_SIZE);
+        if (res < USB_DT_CONFIG_SIZE)
         {
             if (usb_debug >= 1)
             {
                 if (res < 0)
                     fprintf(stderr, "Unable to get descriptor (%d)\n", res);
                 else
-                    fprintf(stderr, "Config descriptor too short (expected %d, got %d)\n", 8, res);
+                    fprintf(stderr, "Config descriptor too short (expected %d, got %d)\n", USB_DT_CONFIG_SIZE, res);
             }
 
             goto err;
