@@ -262,6 +262,7 @@ NTSTATUS DDKAPI add_device(DRIVER_OBJECT *driver_object,
 	else if (!dev->is_filter && attached_device)
 	{
 		USBWRN("[FILTER-MODE-MISMATCH] device is reporting itself as normal when there are already attached device(s).\n%s\n", id);
+		dev->is_filter = TRUE;
 	}
 
 	clear_pipe_info(dev);
