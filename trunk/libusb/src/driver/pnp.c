@@ -92,7 +92,12 @@ NTSTATUS dispatch_pnp(libusb_device_t *dev, IRP *irp)
 			dev->is_filter ? 'Y' : 'N',
 			dev->device_id);
 
-		// All Drivers in the stack must call PoSetPowerState.
+		// A driver calls this routine after receiving a device set-power 
+		// request and before calling PoStartNextPowerIrp. When handling a 
+		// PnP IRP_MN_START_DEVICE request, the driver should call 
+		// PoSetPowerState to notify the power manager that the device is 
+		// in the D0 state.
+		//
         PoSetPowerState(dev->self, DevicePowerState, dev->power_state);
 
         return pass_irp_down(dev, irp, on_start_complete, NULL);

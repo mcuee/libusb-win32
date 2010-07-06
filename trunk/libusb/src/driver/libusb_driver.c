@@ -22,13 +22,14 @@
 #include "libusb_driver.h"
 #include "libusb_version.h"
 
+// Device objects with an attached device using the 
+// driver names listed here skipped in the add_device() routine.
+//
 const char* attached_driver_skip_list[] = 
 {
 	"\\driver\\picopp",
 	NULL
 };
-
-#define SKIP_DEVICES_PICOPP
 
 static bool_t match_driver(PDEVICE_OBJECT deviceObject, const char* driverString);
 
