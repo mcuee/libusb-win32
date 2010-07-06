@@ -161,8 +161,6 @@ int usb_find_devices(void)
              */
             LIST_DEL(devices, dev);
 
-            LIST_ADD(bus->devices, dev);
-
             /*
              * Some ports fetch the descriptors on scanning (like Linux) so we don't
              * need to fetch them again.
@@ -180,7 +178,13 @@ int usb_find_devices(void)
                 }
             }
 
-            changes++;
+			// [ID:2928293 Tim Green] 
+			//
+			if (dev->config) 
+			{
+				LIST_ADD(bus->devices, dev);
+				changes++;
+			}
 
             dev = tdev;
         }
