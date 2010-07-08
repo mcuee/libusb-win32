@@ -1,10 +1,10 @@
 #include <usb.h>
 #include <stdio.h>
 
-//#define TEST_SET_CONFIGURATION
+#define TEST_SET_CONFIGURATION
 #define TEST_CLAIM_INTERFACE
 #define TEST_BULK_READ
-#define TEST_BULK_WRITE
+//#define TEST_BULK_WRITE
 
 /* the device's vendor and product id */
 #define MY_VID 1234

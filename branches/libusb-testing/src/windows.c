@@ -34,6 +34,8 @@
 #include "registry.h"
 #include "libusb_version.h"
 
+#define LIBUSB_WIN32_DLL_LARGE_TRANSFER_SUPPORT
+
 #define LIBUSB_DEFAULT_TIMEOUT 5000
 #define LIBUSB_DEVICE_NAME "\\\\.\\libusb0-"
 #define LIBUSB_BUS_NAME "bus-0"
@@ -100,6 +102,7 @@ BOOL WINAPI DllMain(HANDLE module, DWORD reason, LPVOID reserved)
     return TRUE;
 }
 
+/*
  static int usb_get_configuration(usb_dev_handle *dev)
  {
    int ret;
@@ -116,6 +119,7 @@ BOOL WINAPI DllMain(HANDLE module, DWORD reason, LPVOID reserved)
 
    return ret;
  }
+*/
 
  int usb_os_open(usb_dev_handle *dev)
  {

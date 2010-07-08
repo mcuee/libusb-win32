@@ -59,9 +59,6 @@
 
 #define SET_CONFIG_ACTIVE_CONFIG -258
 
-//#define CHECK_AND_AUTOCONFIGURE(dev) if (!dev->config.value) set_configuration(dev, SET_CONFIG_ACTIVE_CONFIG, LIBUSB_DEFAULT_TIMEOUT)
-#define CHECK_AND_AUTOCONFIGURE(dev)
-
 #define USB_RECIP_DEVICE    0x00
 #define USB_RECIP_INTERFACE 0x01
 #define USB_RECIP_ENDPOINT  0x02

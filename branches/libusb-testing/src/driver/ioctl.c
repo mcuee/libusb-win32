@@ -87,18 +87,6 @@
 						transfer_buffer_mdl,							\
 						transfer_buffer_length);
 
-	
-//#define TRANSFER_IOCTL_CHECK_AND_AUTOCONFIGURE()							\
-//{																			\
-//	CHECK_AND_AUTOCONFIGURE(dev);											\
-//	if (!dev->config.value)													\
-//	{																		\
-//		USBERR("device %s not configured\n", dev->device_id);				\
-//		status = STATUS_INVALID_PARAMETER;									\
-//		goto IOCTL_Done;													\
-//	}																		\
-//}
-#define TRANSFER_IOCTL_CHECK_AND_AUTOCONFIGURE()
 NTSTATUS dispatch_ioctl(libusb_device_t *dev, IRP *irp)
 {
 	int maxTransferSize;
@@ -149,9 +137,6 @@ NTSTATUS dispatch_ioctl(libusb_device_t *dev, IRP *irp)
             goto IOCTL_Done;
         }
 
-		// if the device is not configured
-		TRANSFER_IOCTL_CHECK_AND_AUTOCONFIGURE();
-
 		// check if the pipe exists and get the pipe information
 		TRANSFER_IOCTL_GET_PIPEINFO();
 
@@ -192,9 +177,6 @@ NTSTATUS dispatch_ioctl(libusb_device_t *dev, IRP *irp)
             goto IOCTL_Done;
         }
 
-		// if the device is not configured
-		TRANSFER_IOCTL_CHECK_AND_AUTOCONFIGURE();
-
 		// check if the pipe exists and get the pipe information
 		TRANSFER_IOCTL_GET_PIPEINFO();
 
@@ -230,9 +212,6 @@ NTSTATUS dispatch_ioctl(libusb_device_t *dev, IRP *irp)
             status = STATUS_INVALID_PARAMETER;
             goto IOCTL_Done;
         }
-
-		// check if the device is configured
-		TRANSFER_IOCTL_CHECK_AND_AUTOCONFIGURE();
 
 		// check if the pipe exists and get the pipe information
 		TRANSFER_IOCTL_GET_PIPEINFO();
@@ -272,9 +251,6 @@ NTSTATUS dispatch_ioctl(libusb_device_t *dev, IRP *irp)
             status = STATUS_INVALID_PARAMETER;
             goto IOCTL_Done;
         }
-
-		// check if the device is configured
-		TRANSFER_IOCTL_CHECK_AND_AUTOCONFIGURE();
 
 		// check if the pipe exists and get the pipe information
 		TRANSFER_IOCTL_GET_PIPEINFO();
@@ -328,27 +304,12 @@ NTSTATUS dispatch_ioctl(libusb_device_t *dev, IRP *irp)
 
     case LIBUSB_IOCTL_GET_CONFIGURATION:
 
-		TRANSFER_IOCTL_CHECK_AND_AUTOCONFIGURE();
-
         if (!output_buffer || output_buffer_length < 1)
         {
             USBERR0("get_configuration: invalid output buffer\n");
             status = STATUS_INVALID_PARAMETER;
             break;
         }
-
-
-		// We use the cached value here, even if it's 0.
-		// it's possible for this value is be out of sync, however
-		// this is what the driver is using so it becomes
-		// a question of which value is correct or correctly incorrect.
-		//if (dev->config.value)
-		//{
-			//output_buffer[0] = (char)dev->config.value;
-			//status = STATUS_SUCCESS;
-			//ret = 1;
-			//break;
-		//}
         status = get_configuration(dev, output_buffer, &ret, request->timeout);
 		break;
 
