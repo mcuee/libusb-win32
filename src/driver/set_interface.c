@@ -34,8 +34,6 @@ NTSTATUS set_interface(libusb_device_t *dev, int interface, int altsetting,
     USBMSG("interface %d altsetting %d timeout %d\n", 
 		interface,altsetting,timeout);
 
-	CHECK_AND_AUTOCONFIGURE(dev);
-
 	if (!dev->config.value)
     {
         USBERR0("device is not configured\n");

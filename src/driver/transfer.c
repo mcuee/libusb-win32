@@ -342,7 +342,7 @@ requests as necessary.
 
 [ISOCHRONOUS TRANSFERS]
 Each isoch irp/urb pair can span at most 255 packets.
-Each isoch irp/urb pair can reguest at the most 65536 bytes.
+Each isoch irp/urb pair can request at the most 65536 bytes.
 
 [BULK OR INTERRUPT TRANSFERS]
 Each bulk/interrupt irp/urb pair can request at the most 65536 bytes.
@@ -1352,7 +1352,7 @@ void set_urb_transfer_flags(libusb_device_t* dev, PIRP irp, PURB subUrb,int tran
 
 	else if (subUrb->UrbHeader.Function == URB_FUNCTION_CONTROL_TRANSFER)
 	{
-		// TODO: async control transfers
+		// TODO: large control transfers
 
 		// only keep the direction bit
 		subUrb->UrbControlTransfer.TransferFlags &= 1;

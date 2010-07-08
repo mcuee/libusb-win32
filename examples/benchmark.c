@@ -336,8 +336,17 @@ INT VerifyData(struct BENCHMARK_TRANSFER_PARAM* transferParam, BYTE* data, INT d
 		if (seedKey)
 			keyC = data[dataIndex+1];
 		else
-			keyC++;
-
+		{
+			if (data[dataIndex+1]==0)
+			{
+				keyC=0;
+			}
+			else
+			{
+				keyC++;
+			}
+		}
+		seedKey = FALSE;
 		// Index 0 is always 0.
 		// The key is always at index 1
 		verifyData[1] = keyC;
@@ -354,6 +363,9 @@ INT VerifyData(struct BENCHMARK_TRANSFER_PARAM* transferParam, BYTE* data, INT d
 			{
 				for (verifyIndex=0; verifyIndex<verifyDataSize; verifyIndex++)
 				{
+					if (verifyData[verifyIndex] == data[dataIndex + verifyIndex])
+						continue;
+
 					CONVDAT("packet-offset=%d expected %02Xh got %02Xh\n",
 						verifyIndex,
 						verifyData[verifyIndex],
@@ -714,6 +726,7 @@ int ParseBenchmarkArgs(struct BENCHMARK_TEST_PARAM* testParams, int argc, char *
 			testParams->Ep &= 0xf;
 		}
         else if (GetParamIntValue(arg, "refresh=", &testParams->Refresh)) {}
+        else if (GetParamIntValue(arg, "isopacketsize=", &testParams->IsoPacketSize)) {}
         else if ((value=GetParamStrValue(arg,"mode=")))
         {
             if (GetParamStrValue(value,"sync"))
@@ -889,7 +902,7 @@ struct BENCHMARK_TRANSFER_PARAM* CreateTransferParam(struct BENCHMARK_TEST_PARAM
         {
             CONERR("buffer size %d is not an interval of EP%02Xh maximum packet size of %d!\n",
 				transferParam->Test->BufferSize,
-				endpointID,
+				transferParam->Ep.bEndpointAddress,
 				transferParam->Ep.wMaxPacketSize);
 
             FreeTransferParam(&transferParam);
