@@ -12,6 +12,6 @@
 #define RC_VERSION_STR "1.2.0.0"
 #define VERSION 1.2.0.0
 #define INF_VERSION 1.2.0.0
-#define INF_DATE 07/06/2010
+#define INF_DATE 07/07/2010
 
 #endif
