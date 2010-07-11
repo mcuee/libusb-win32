@@ -22,8 +22,16 @@
 #define ID_INFO_TEXT 10012
 #define ID_LIST_HEADER_TEXT 10013
 
+#define ID_BUTTON_INSTALLNOW 10014
+
 #define ID_LIBUSB_INF 10020
+#define ID_LIBUSB_DLL 10030
+#define ID_LIBUSB_SYS 10031
+
 #define ID_INF_TEXT 300
+#define ID_X86 400
+#define ID_AMD64 401
+#define ID_IA64 402
 
 #define ID_DUMMY 11000
 
@@ -94,6 +102,7 @@ CAPTION "LibUSB-Win32 - INF File Wizard"
 FONT 8, "MS Sans Serif"
 BEGIN
     PUSHBUTTON      "Finish",ID_BUTTON_NEXT,245,175,50,15
+    PUSHBUTTON      "Install Now",ID_BUTTON_INSTALLNOW,10,175,50,15
     GROUPBOX        "Information",ID_DUMMY+8,10,10,285,155
     LTEXT           0,ID_INFO_TEXT,20,25,265,100
 END
@@ -101,5 +110,17 @@ END
 ID_MANIFEST RT_MANIFEST MANIFEST_FILE
 
 ID_LIBUSB_INF ID_INF_TEXT "libusb-win32.inf.in"
+
+#ifdef EMBEDDED_LIBUSB_WIN32
+ID_LIBUSB_DLL ID_X86 "Z:\\packages\\libusb-win32\\bin\\x86\\libusb0.dll"
+ID_LIBUSB_SYS ID_X86 "Z:\\packages\\libusb-win32\\bin\\x86\\libusb0.sys"
+
+ID_LIBUSB_DLL ID_AMD64 "Z:\\packages\\libusb-win32\\bin\\amd64\\libusb0.dll"
+ID_LIBUSB_SYS ID_AMD64 "Z:\\packages\\libusb-win32\\bin\\amd64\\libusb0.sys"
+
+ID_LIBUSB_DLL ID_IA64 "Z:\\packages\\libusb-win32\\bin\\ia64\\libusb0.dll"
+ID_LIBUSB_SYS ID_IA64 "Z:\\packages\\libusb-win32\\bin\\ia64\\libusb0.sys"
+#endif
+
 #endif
 

@@ -27,22 +27,23 @@ HKR,,Icon,,-20
 
 [SourceDisksFiles.x86]
 libusb0.sys = 1,x86
-libusb0.dll = 1,x86
+libusb0_x86.dll = 1,x86
 
 [SourceDisksFiles.amd64]
 libusb0.sys = 1,amd64
 libusb0.dll = 1,amd64
-x86\libusb0.dll = 1
+libusb0_x86.dll = 1,x86
 
 [SourceDisksFiles.ia64]
 libusb0.sys = 1,ia64
 libusb0.dll = 1,ia64
-x86\libusb0.dll = 1
+libusb0_x86.dll = 1,x86
 
 [DestinationDirs]
 libusb_files_sys = 10,system32\drivers
 libusb_files_dll = 10,system32
 libusb_files_dll_wow64 = 10,syswow64
+libusb_files_dll_x86 = 10,system32
 
 [libusb_files_sys]
 libusb0.sys
@@ -50,15 +51,18 @@ libusb0.sys
 [libusb_files_dll]
 libusb0.dll
 
+[libusb_files_dll_x86]
+libusb0.dll, libusb0_x86.dll
+
 [libusb_files_dll_wow64]
-libusb0.dll,x86\libusb0.dll
+libusb0.dll, libusb0_x86.dll
 
 ;--------------------------------------------------------------------------
 ; libusb-win32 device driver
 ;--------------------------------------------------------------------------
 
 [#BASE_FILENAME#_DEV.NT]
-CopyFiles = libusb_files_sys, libusb_files_dll
+CopyFiles = libusb_files_sys, libusb_files_dll_x86
 
 [#BASE_FILENAME#_DEV.NTAMD64]
 CopyFiles = libusb_files_sys, libusb_files_dll, libusb_files_dll_wow64
@@ -116,7 +120,11 @@ ServiceBinary  = %12%\libusb0.sys
 ; #BASE_FILENAME#
 ;--------------------------------------------------------------------------
 
-[#BASE_FILENAME#]
+; Hardware IDs in a 'Devices' section can be installed by libusb-win32
+; using usb_install_driver_np(), usb_install_driver_np_rundll(), or the
+; inf-wizard utility.
+;
+[Devices]
 "#DEVICE_DESCRIPTION#"=#BASE_FILENAME#_DEV, #HARDWAREID#
 
 [#BASE_FILENAME#.NT]

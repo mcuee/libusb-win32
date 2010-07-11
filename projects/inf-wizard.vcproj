@@ -44,7 +44,7 @@
 				Name="VCCLCompilerTool"
 				Optimization="0"
 				AdditionalIncludeDirectories="..\src;..\src\driver"
-				PreprocessorDefinitions="LOG_APPNAME=&quot;\&quot;$(ProjectName)\&quot;&quot;;TARGETTYPE=PROGRAMwindows;MANIFEST_FILE=&quot;\&quot;..\\manifest_x86.xml\&quot;&quot;;_WIN32_WINNT=0x0500"
+				PreprocessorDefinitions="LOG_APPNAME=&quot;\&quot;$(ProjectName)\&quot;&quot;;TARGETTYPE=PROGRAMwindows;MANIFEST_FILE=&quot;\&quot;..\\manifest_x86.xml\&quot;&quot;;_WIN32_WINNT=0x0500;EMBEDDED_LIBUSB_WIN32"
 				MinimalRebuild="true"
 				BasicRuntimeChecks="3"
 				RuntimeLibrary="1"
@@ -58,7 +58,7 @@
 			/>
 			<Tool
 				Name="VCResourceCompilerTool"
-				PreprocessorDefinitions="LOG_APPNAME=&quot;\&quot;$(ProjectName)\&quot;&quot;;MANIFEST_FILE=&quot;\&quot;..\\manifest_x86.xml\&quot;&quot;;_WIN32_WINNT=0x0500"
+				PreprocessorDefinitions="LOG_APPNAME=&quot;\&quot;$(ProjectName)\&quot;&quot;;MANIFEST_FILE=&quot;\&quot;..\\manifest_x86.xml\&quot;&quot;;_WIN32_WINNT=0x0500;EMBEDDED_LIBUSB_WIN32"
 				AdditionalIncludeDirectories="..\src"
 			/>
 			<Tool
@@ -82,91 +82,6 @@
 			<Tool
 				Name="VCManifestTool"
 				EmbedManifest="false"
-			/>
-			<Tool
-				Name="VCXDCMakeTool"
-			/>
-			<Tool
-				Name="VCBscMakeTool"
-			/>
-			<Tool
-				Name="VCFxCopTool"
-			/>
-			<Tool
-				Name="VCAppVerifierTool"
-			/>
-			<Tool
-				Name="VCPostBuildEventTool"
-			/>
-		</Configuration>
-		<Configuration
-			Name="Release|Win32"
-			OutputDirectory="$(SolutionDir)$(ConfigurationName)\$(PlatformName)\$(ProjectName)\"
-			IntermediateDirectory="$(SolutionDir)$(ConfigurationName)\$(PlatformName)\$(ProjectName)\"
-			ConfigurationType="1"
-			CharacterSet="2"
-			WholeProgramOptimization="1"
-			>
-			<Tool
-				Name="VCPreBuildEventTool"
-			/>
-			<Tool
-				Name="VCCustomBuildTool"
-			/>
-			<Tool
-				Name="VCXMLDataGeneratorTool"
-			/>
-			<Tool
-				Name="VCWebServiceProxyGeneratorTool"
-			/>
-			<Tool
-				Name="VCMIDLTool"
-			/>
-			<Tool
-				Name="VCCLCompilerTool"
-				Optimization="2"
-				EnableIntrinsicFunctions="true"
-				AdditionalIncludeDirectories="..\src;..\src\driver"
-				PreprocessorDefinitions="LOG_APPNAME=&quot;\&quot;$(ProjectName)\&quot;&quot;;TARGETTYPE=PROGRAMwindows;MANIFEST_FILE=&quot;\&quot;..\\manifest_x86.xml\&quot;&quot;;_WIN32_WINNT=0x0500"
-				RuntimeLibrary="0"
-				EnableFunctionLevelLinking="true"
-				WarningLevel="3"
-				DebugInformationFormat="3"
-				CompileAs="1"
-				DisableSpecificWarnings="4996"
-			/>
-			<Tool
-				Name="VCManagedResourceCompilerTool"
-			/>
-			<Tool
-				Name="VCResourceCompilerTool"
-				PreprocessorDefinitions="LOG_APPNAME=&quot;\&quot;$(ProjectName)\&quot;&quot;;MANIFEST_FILE=&quot;\&quot;..\\manifest_x86.xml\&quot;&quot;;_WIN32_WINNT=0x0500"
-				AdditionalIncludeDirectories="..\src"
-			/>
-			<Tool
-				Name="VCPreLinkEventTool"
-			/>
-			<Tool
-				Name="VCLinkerTool"
-				AdditionalDependencies="setupapi.lib kernel32.lib advapi32.lib user32.lib comctl32.lib comdlg32.lib $(NOINHERIT)"
-				OutputFile="$(OutDir)\$(ProjectName).exe"
-				AdditionalLibraryDirectories=""
-				EnableUAC="false"
-				UACExecutionLevel="0"
-				IgnoreAllDefaultLibraries="false"
-				ModuleDefinitionFile=""
-				GenerateDebugInformation="true"
-				OptimizeReferences="2"
-				EnableCOMDATFolding="2"
-				TargetMachine="1"
-			/>
-			<Tool
-				Name="VCALinkTool"
-			/>
-			<Tool
-				Name="VCManifestTool"
-				EmbedManifest="false"
-				VerboseOutput="false"
 			/>
 			<Tool
 				Name="VCXDCMakeTool"
@@ -249,6 +164,91 @@
 			<Tool
 				Name="VCManifestTool"
 				EmbedManifest="false"
+			/>
+			<Tool
+				Name="VCXDCMakeTool"
+			/>
+			<Tool
+				Name="VCBscMakeTool"
+			/>
+			<Tool
+				Name="VCFxCopTool"
+			/>
+			<Tool
+				Name="VCAppVerifierTool"
+			/>
+			<Tool
+				Name="VCPostBuildEventTool"
+			/>
+		</Configuration>
+		<Configuration
+			Name="Release|Win32"
+			OutputDirectory="$(SolutionDir)$(ConfigurationName)\$(PlatformName)\$(ProjectName)\"
+			IntermediateDirectory="$(SolutionDir)$(ConfigurationName)\$(PlatformName)\$(ProjectName)\"
+			ConfigurationType="1"
+			CharacterSet="2"
+			WholeProgramOptimization="1"
+			>
+			<Tool
+				Name="VCPreBuildEventTool"
+			/>
+			<Tool
+				Name="VCCustomBuildTool"
+			/>
+			<Tool
+				Name="VCXMLDataGeneratorTool"
+			/>
+			<Tool
+				Name="VCWebServiceProxyGeneratorTool"
+			/>
+			<Tool
+				Name="VCMIDLTool"
+			/>
+			<Tool
+				Name="VCCLCompilerTool"
+				Optimization="2"
+				EnableIntrinsicFunctions="true"
+				AdditionalIncludeDirectories="..\src;..\src\driver"
+				PreprocessorDefinitions="LOG_APPNAME=&quot;\&quot;$(ProjectName)\&quot;&quot;;TARGETTYPE=PROGRAMwindows;MANIFEST_FILE=&quot;\&quot;..\\manifest_x86.xml\&quot;&quot;;_WIN32_WINNT=0x0500;EMBEDDED_LIBUSB_WIN32"
+				RuntimeLibrary="0"
+				EnableFunctionLevelLinking="true"
+				WarningLevel="3"
+				DebugInformationFormat="3"
+				CompileAs="1"
+				DisableSpecificWarnings="4996"
+			/>
+			<Tool
+				Name="VCManagedResourceCompilerTool"
+			/>
+			<Tool
+				Name="VCResourceCompilerTool"
+				PreprocessorDefinitions="LOG_APPNAME=&quot;\&quot;$(ProjectName)\&quot;&quot;;MANIFEST_FILE=&quot;\&quot;..\\manifest_x86.xml\&quot;&quot;;_WIN32_WINNT=0x0500;EMBEDDED_LIBUSB_WIN32"
+				AdditionalIncludeDirectories="..\src"
+			/>
+			<Tool
+				Name="VCPreLinkEventTool"
+			/>
+			<Tool
+				Name="VCLinkerTool"
+				AdditionalDependencies="setupapi.lib kernel32.lib advapi32.lib user32.lib comctl32.lib comdlg32.lib $(NOINHERIT)"
+				OutputFile="$(OutDir)\$(ProjectName).exe"
+				AdditionalLibraryDirectories=""
+				EnableUAC="false"
+				UACExecutionLevel="0"
+				IgnoreAllDefaultLibraries="false"
+				ModuleDefinitionFile=""
+				GenerateDebugInformation="true"
+				OptimizeReferences="2"
+				EnableCOMDATFolding="2"
+				TargetMachine="1"
+			/>
+			<Tool
+				Name="VCALinkTool"
+			/>
+			<Tool
+				Name="VCManifestTool"
+				EmbedManifest="false"
+				VerboseOutput="false"
 			/>
 			<Tool
 				Name="VCXDCMakeTool"
@@ -367,6 +367,10 @@
 			</File>
 			<File
 				RelativePath="..\src\inf_wizard.c"
+				>
+			</File>
+			<File
+				RelativePath="..\src\install.c"
 				>
 			</File>
 			<File
