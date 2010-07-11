@@ -76,6 +76,7 @@ token_entity_t libusb_inf_entities[]=
 #define _STRINGIFY(x) #x
 #define STRINGIFY(x) _STRINGIFY(x)
 
+static char installnow_inf[MAX_PATH]={0};
 
 DEFINE_GUID(GUID_DEVINTERFACE_USB_HUB, 0xf18a0e88, 0xc30c, 0x11d0, 0x88, \
             0x15, 0x00, 0xa0, 0xc9, 0x06, 0xbe, 0xd8);
@@ -135,6 +136,20 @@ static void device_list_add(HWND list, device_context_t *device);
 static void device_list_clean(HWND list);
 
 static int save_file(HWND dialog, device_context_t *device);
+
+int write_driver_binary(LPCSTR resource_name, 
+					 LPCSTR resource_type,
+					 const char* dst);
+
+static int write_driver_resource(const char* inf_dir, 
+								 const char* file_dir,
+								 const char* file_ext,
+								 int id_file,
+								 int id_file_type);
+void close_file(FILE** file);
+
+int usb_install_driver_np(const char *inf_file);
+char *usb_strerror(void);
 
 int APIENTRY WinMain(HINSTANCE instance, HINSTANCE prev_instance,
                      LPSTR cmd_line, int cmd_show)
@@ -416,11 +431,31 @@ BOOL CALLBACK dialog_proc_3(HWND dialog, UINT message,
                 device->manufacturer);
 
         SetWindowText(GetDlgItem(dialog, ID_INFO_TEXT), tmp);
+		if (GetFileAttributesA(installnow_inf)!=INVALID_FILE_ATTRIBUTES)
+		{
+			EnableWindow(GetDlgItem(dialog, ID_BUTTON_INSTALLNOW), TRUE);
+		}
+		else
+		{
+			EnableWindow(GetDlgItem(dialog, ID_BUTTON_INSTALLNOW), FALSE);
+		}
         return TRUE;
 
     case WM_COMMAND:
         switch (LOWORD(w_param))
         {
+        case ID_BUTTON_INSTALLNOW:
+			if (usb_install_driver_np(installnow_inf)==ERROR_SUCCESS)
+			{
+				EndDialog(dialog, 0);
+			}
+			else
+			{
+				MessageBoxA(dialog, (LPCSTR) usb_strerror(), "Error",
+                       MB_OK | MB_APPLMODAL | MB_ICONWARNING);
+
+			}
+            return TRUE;
         case ID_BUTTON_NEXT:
         case IDCANCEL:
             EndDialog(dialog, 0);
@@ -556,19 +591,23 @@ static int save_file(HWND dialog, device_context_t *device)
     OPENFILENAME open_file;
     char inf_name[MAX_PATH];
     char inf_path[MAX_PATH];
+    char inf_dir[MAX_PATH];
 
     char cat_name[MAX_PATH];
     char cat_path[MAX_PATH];
 
     char error[MAX_PATH];
-    FILE *file;
+    FILE *file = NULL;
 
 	long inf_file_size;
 	char *dst=NULL;
 	char* c;
+	int length;
 
     memset(&open_file, 0, sizeof(open_file));
     memset(inf_path, 0, sizeof(inf_path));
+	memset(installnow_inf,0,sizeof(installnow_inf));
+
 	if (strlen(device->description))
 	{
 		if (stricmp(device->description,"Insert device description")!=0)
@@ -646,6 +685,37 @@ static int save_file(HWND dialog, device_context_t *device)
 				fwrite(dst,sizeof(char),inf_file_size,file);
 				fflush(file);
 				free(dst);
+
+#ifdef EMBEDDED_LIBUSB_WIN32
+				safe_strcpy(inf_dir,inf_path);
+				while ((length = strlen(inf_dir)))
+				{
+					if (inf_dir[length-1]=='\\' || inf_dir[length-1]=='/')
+					{
+						break;
+					}
+					inf_dir[length-1]='\0';
+				}
+
+				// libusb-win32 x86 binaries. 
+				if (write_driver_resource(inf_dir, "x86", "_x86.dll", ID_LIBUSB_DLL, ID_X86) != ERROR_SUCCESS)
+					goto Done;
+				if (write_driver_resource(inf_dir, "x86", ".sys", ID_LIBUSB_SYS, ID_X86) != ERROR_SUCCESS)
+					goto Done;
+
+				// libusb-win32 amd64 binaries. 
+				if (write_driver_resource(inf_dir, "amd64", ".dll", ID_LIBUSB_DLL, ID_AMD64) != ERROR_SUCCESS)
+					goto Done;
+				if (write_driver_resource(inf_dir, "amd64", ".sys", ID_LIBUSB_SYS, ID_AMD64) != ERROR_SUCCESS)
+					goto Done;
+
+				// libusb-win32 ia64 binaries. 
+				if (write_driver_resource(inf_dir, "ia64", ".dll", ID_LIBUSB_DLL, ID_IA64) != ERROR_SUCCESS)
+					goto Done;
+				if (write_driver_resource(inf_dir, "ia64", ".sys", ID_LIBUSB_SYS, ID_IA64) != ERROR_SUCCESS)
+					goto Done;
+#endif
+
 			}
 			else
 			{
@@ -654,7 +724,7 @@ static int save_file(HWND dialog, device_context_t *device)
 						   MB_OK | MB_APPLMODAL | MB_ICONWARNING);
 			}
 
-			fclose(file);
+			close_file(&file);
         }
         else
         {
@@ -669,7 +739,7 @@ static int save_file(HWND dialog, device_context_t *device)
         if (file)
         {
             fprintf(file, "%s", cat_file_content);
-            fclose(file);
+			close_file(&file);
         }
         else
         {
@@ -678,7 +748,102 @@ static int save_file(HWND dialog, device_context_t *device)
                        MB_OK | MB_APPLMODAL | MB_ICONWARNING);
         }
 
+
+		safe_strcpy(installnow_inf, inf_path);
 		return TRUE;
     }
+Done:
+	close_file(&file);
     return FALSE;
+}
+
+int write_driver_binary(LPCSTR resource_name, 
+					 LPCSTR resource_type,
+					 const char* dst)
+{
+	void* src;
+	long src_count;
+	HGLOBAL res_data;
+	FILE* driver_file;
+	int ret;
+
+	HRSRC hSrc = FindResourceA(NULL, resource_name, resource_type);
+
+	if (!hSrc)
+		return -ERROR_RESOURCE_DATA_NOT_FOUND;
+
+	src_count = SizeofResource(NULL, hSrc);
+
+	res_data = LoadResource(NULL,hSrc);
+	
+	if (!res_data)
+		return -ERROR_RESOURCE_DATA_NOT_FOUND;
+
+	src = LockResource(res_data);
+
+	if (!src)
+		return -ERROR_RESOURCE_DATA_NOT_FOUND;
+
+	if (!(driver_file = fopen(dst,"wb")))
+		return -1;
+
+	ret = fwrite(src,1,src_count,driver_file);
+	fflush(driver_file);
+	close_file(&driver_file);
+
+	return (ret == src_count) ? src_count : -1;
+}
+
+void close_file(FILE** file)
+{
+	if (*file)
+	{
+		fclose(*file);
+		*file=NULL;
+	}
+}
+
+static int write_driver_resource(const char* inf_dir, 
+								 const char* file_dir,
+								 const char* file_ext,
+								 int id_file,
+								 int id_file_type)
+{
+	HANDLE hFindFile = NULL;
+	WIN32_FIND_DATA findFileData;
+	char driver_file[MAX_PATH];
+	char error[256];
+
+	safe_strcpy(driver_file,inf_dir);
+	strcat(driver_file, file_dir);
+	if ((hFindFile = FindFirstFileA(driver_file,&findFileData)) == INVALID_HANDLE_VALUE)
+	{
+		if (!CreateDirectoryA(driver_file,NULL))
+		{
+			sprintf(error, "Error: unable to create directory file: %s", driver_file);
+			MessageBox(NULL, error, "Error",
+					   MB_OK | MB_APPLMODAL | MB_ICONWARNING);
+			goto DoneWithErrors;
+		}
+	}
+	else
+	{
+		FindClose(hFindFile);
+		hFindFile = NULL;
+	}
+
+	sprintf(driver_file,"%s%s%c%s%s",inf_dir, file_dir, inf_dir[strlen(inf_dir)-1], "libusb0", file_ext);
+	if (write_driver_binary(MAKEINTRESOURCEA(id_file),MAKEINTRESOURCEA(id_file_type),driver_file) < 0)
+	{
+		sprintf(error, "Error: unable to write file: %s", driver_file);
+		MessageBox(NULL, error, "Error",
+				   MB_OK | MB_APPLMODAL | MB_ICONWARNING);
+		goto DoneWithErrors;
+	}
+	
+	return ERROR_SUCCESS;
+
+DoneWithErrors:
+
+	return -ERROR_PATH_NOT_FOUND;
 }
