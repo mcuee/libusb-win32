@@ -24,6 +24,7 @@
 #define INITGUID
 #include "libusb_version.h"
 #include "tokenizer.h"
+#include "error.h"
 
 #include <windows.h>
 #include <commdlg.h>
@@ -95,9 +96,16 @@ const char info_text_0[] =
     "Before clicking \"Next\" make sure that your device is connected to the "
     "system.\n";
 
+#ifdef EMBEDDED_LIBUSB_WIN32
+const char info_text_1[] =
+    "A driver install package has been created successfully for the following "
+	"device. This package contains an .inf file, a .cat file, and the libusb-win32 v"
+	RC_VERSION_STR " binaries:\n\n";
+#else
 const char info_text_1[] =
     "An .inf and .cat file has been created successfully for the following "
     "device:\n\n";
+#endif
 
 const char list_header_text[] =
     "Select your device from the list of detected devices below.\n"
@@ -116,6 +124,8 @@ typedef struct
 {
     int vid;
     int pid;
+	int rev;
+    int mi;
     char description[MAX_PATH];
     char manufacturer[MAX_PATH];
 } device_context_t;
@@ -351,6 +361,7 @@ BOOL CALLBACK dialog_proc_2(HWND dialog, UINT message,
 {
     static device_context_t *device = NULL;
     char tmp[MAX_PATH];
+	int i;
 
     switch (message)
     {
@@ -367,8 +378,16 @@ BOOL CALLBACK dialog_proc_2(HWND dialog, UINT message,
             sprintf(tmp, "0x%04X", device->pid);
             SetWindowText(GetDlgItem(dialog, ID_TEXT_PID), tmp);
 
-            SetWindowText(GetDlgItem(dialog, ID_TEXT_MANUFACTURER),
+            memset(tmp, 0, sizeof(tmp));
+			if (device->mi != -1)
+			{
+				sprintf(tmp, "0x%02X", device->mi);
+			}
+            SetWindowText(GetDlgItem(dialog, ID_TEXT_MI), tmp);
+
+			SetWindowText(GetDlgItem(dialog, ID_TEXT_MANUFACTURER),
                           device->manufacturer);
+
             SetWindowText(GetDlgItem(dialog, ID_TEXT_DEV_NAME),
                           device->description);
         }
@@ -379,6 +398,7 @@ BOOL CALLBACK dialog_proc_2(HWND dialog, UINT message,
         {
         case ID_BUTTON_NEXT:
             memset(device, 0, sizeof(*device));
+			device->mi = -1;
 
             GetWindowText(GetDlgItem(dialog, ID_TEXT_MANUFACTURER),
                           device->manufacturer, sizeof(tmp));
@@ -391,7 +411,13 @@ BOOL CALLBACK dialog_proc_2(HWND dialog, UINT message,
             GetWindowText(GetDlgItem(dialog, ID_TEXT_PID), tmp, sizeof(tmp));
             sscanf(tmp, "0x%04x", &device->pid);
 
-            if (save_file(dialog, device))
+            GetWindowText(GetDlgItem(dialog, ID_TEXT_MI), tmp, sizeof(tmp));
+
+            if (sscanf(tmp, "0x%02x", &i) == 1)
+				if (i > -1 && i < 256)
+					device->mi = i;
+
+			if (save_file(dialog, device))
                 EndDialog(dialog, ID_DIALOG_3);
             return TRUE ;
         case ID_BUTTON_BACK:
@@ -406,31 +432,49 @@ BOOL CALLBACK dialog_proc_2(HWND dialog, UINT message,
 
     return FALSE;
 }
+#define MAX_TEXT_LENGTH 1024
 
 BOOL CALLBACK dialog_proc_3(HWND dialog, UINT message,
                             WPARAM w_param, LPARAM l_param)
 {
     static device_context_t *device = NULL;
-    char tmp[MAX_PATH];
+    char* buffer = NULL;
+    char* bufferTemp = NULL;
+	int ret;
 
     switch (message)
     {
     case WM_INITDIALOG:
         device = (device_context_t *)l_param;
 
-        sprintf(tmp,
-                "%s\n"
-                "Vendor ID:\t\t 0x%04X\n\n"
-                "Product ID:\t\t 0x%04X\n\n"
-                "Device description:\t %s\n\n"
-                "Manufacturer:\t\t %s\n\n",
-                info_text_1,
-                device->vid,
-                device->pid,
-                device->description,
-                device->manufacturer);
+		buffer = malloc(MAX_TEXT_LENGTH * 2);
+		if (buffer)
+		{
+			memset(buffer,0,MAX_TEXT_LENGTH * 2);
+			bufferTemp = buffer + MAX_TEXT_LENGTH;
 
-        SetWindowText(GetDlgItem(dialog, ID_INFO_TEXT), tmp);
+			sprintf_s(buffer,(MAX_TEXT_LENGTH - 1), "%s\n",info_text_1);
+
+			sprintf_s(bufferTemp,(MAX_TEXT_LENGTH - 1), "Vendor ID:\t\t 0x%04X\n",device->vid);
+			strcat_s(buffer,(MAX_TEXT_LENGTH - 1),bufferTemp);
+
+			sprintf_s(bufferTemp,(MAX_TEXT_LENGTH - 1), "Product ID:\t\t 0x%04X\n",device->pid);
+			strcat_s(buffer,(MAX_TEXT_LENGTH - 1),bufferTemp);
+			if (device->mi!=-1)
+			{
+				sprintf_s(bufferTemp,(MAX_TEXT_LENGTH - 1), "Interface # (MI):\t\t 0x%02X\n",device->mi);
+				strcat_s(buffer,(MAX_TEXT_LENGTH - 1),bufferTemp);
+			}
+					
+			sprintf_s(bufferTemp,(MAX_TEXT_LENGTH - 1), "Device description:\t %s\n",device->description);
+			strcat_s(buffer,(MAX_TEXT_LENGTH - 1),bufferTemp);
+					
+			sprintf_s(bufferTemp,(MAX_TEXT_LENGTH - 1), "Manufacturer:\t\t %s\n",device->manufacturer);
+			strcat_s(buffer,(MAX_TEXT_LENGTH - 1),bufferTemp);
+
+			SetWindowText(GetDlgItem(dialog, ID_INFO_TEXT), buffer);
+			free(buffer);
+		}
 		if (GetFileAttributesA(installnow_inf)!=INVALID_FILE_ATTRIBUTES)
 		{
 			EnableWindow(GetDlgItem(dialog, ID_BUTTON_INSTALLNOW), TRUE);
@@ -445,14 +489,20 @@ BOOL CALLBACK dialog_proc_3(HWND dialog, UINT message,
         switch (LOWORD(w_param))
         {
         case ID_BUTTON_INSTALLNOW:
-			if (usb_install_driver_np(installnow_inf)==ERROR_SUCCESS)
+			SetCursor(LoadCursor(NULL,IDC_WAIT));
+			SetWindowText(GetDlgItem(dialog, IDL_INSTALLING_TEXT), "Installing driver, please wait..");
+			ret = usb_install_driver_np(installnow_inf);
+			SetWindowText(GetDlgItem(dialog, IDL_INSTALLING_TEXT), "");
+			SetCursor(LoadCursor(NULL,IDC_ARROW));
+
+			if (ret == ERROR_SUCCESS)
 			{
+				MessageBoxA(dialog,"Driver installation successful.", "Install Driver Done", MB_OK | MB_APPLMODAL);
 				EndDialog(dialog, 0);
 			}
 			else
 			{
-				MessageBoxA(dialog, (LPCSTR) usb_strerror(), "Error",
-                       MB_OK | MB_APPLMODAL | MB_ICONWARNING);
+				MessageBoxA(dialog, usb_strerror(), "Install Driver Error", MB_OK | MB_APPLMODAL | MB_ICONWARNING);
 
 			}
             return TRUE;
@@ -487,10 +537,15 @@ static void device_list_init(HWND list)
     lvc.pszText = "Product ID";
     ListView_InsertColumn(list, 2, &lvc);
 
-    lvc.cx = 250;
+	lvc.cx = 250;
     lvc.iSubItem = 2;
     lvc.pszText = "Description";
     ListView_InsertColumn(list, 3, &lvc);
+
+	lvc.cx = 70;
+    lvc.iSubItem = 3;
+	lvc.pszText = "MI";
+    ListView_InsertColumn(list, 4, &lvc);
 }
 
 static void device_list_refresh(HWND list)
@@ -500,6 +555,7 @@ static void device_list_refresh(HWND list)
     int dev_index = 0;
     device_context_t *device;
     char tmp[MAX_PATH];
+	int ret;
 
     device_list_clean(list);
 
@@ -514,34 +570,43 @@ static void device_list_refresh(HWND list)
         return;
     }
 
-    while (SetupDiEnumDeviceInfo(dev_info, dev_index, &dev_info_data))
+    while (SetupDiEnumDeviceInfo(dev_info, dev_index++, &dev_info_data))
     {
         if (usb_registry_match(dev_info, &dev_info_data))
         {
-            device = (device_context_t *) malloc(sizeof(device_context_t));
-            memset(device, 0, sizeof(*device));
-
-            usb_registry_get_property(SPDRP_HARDWAREID, dev_info,
+            if (usb_registry_get_property(SPDRP_HARDWAREID, dev_info,
                                       &dev_info_data,
-                                      tmp, sizeof(tmp) - 1);
+                                      tmp, sizeof(tmp) - 1))
+			{
 
-            sscanf(tmp + sizeof("USB\\VID_") - 1, "%04x", &device->vid);
-            sscanf(tmp + sizeof("USB\\VID_XXXX&PID_") - 1, "%04x", &device->pid);
+				device = (device_context_t *) malloc(sizeof(device_context_t));
+				memset(device, 0, sizeof(*device));
+				device->mi = -1;
 
-            usb_registry_get_property(SPDRP_DEVICEDESC, dev_info,
-                                      &dev_info_data,
-                                      tmp, sizeof(tmp) - 1);
-            strcpy(device->description, tmp);
+				strlwr(tmp);
+				ret = sscanf(tmp, "usb\\vid_%04x&pid_%04x&rev_%04d&mi_%02x", &device->vid, &device->pid, &device->rev, &device->mi);
+				if (ret < 3)
+				{
+					free(device);
+					continue;
+				}
 
-            usb_registry_get_property(SPDRP_MFG, dev_info,
-                                      &dev_info_data,
-                                      tmp, sizeof(tmp) - 1);
-            strcpy(device->manufacturer, tmp);
+				//sscanf(tmp + sizeof("USB\\VID_") - 1, "%04x", &device->vid);
+				//sscanf(tmp + sizeof("USB\\VID_XXXX&PID_") - 1, "%04x", &device->pid);
 
-            device_list_add(list, device);
+				usb_registry_get_property(SPDRP_DEVICEDESC, dev_info,
+										  &dev_info_data,
+										  tmp, sizeof(tmp) - 1);
+				strcpy(device->description, tmp);
+
+				usb_registry_get_property(SPDRP_MFG, dev_info,
+										  &dev_info_data,
+										  tmp, sizeof(tmp) - 1);
+				strcpy(device->manufacturer, tmp);
+
+				device_list_add(list, device);
+			}
         }
-
-        dev_index++;
     }
 
     SetupDiDestroyDeviceInfoList(dev_info);
@@ -552,13 +617,19 @@ static void device_list_add(HWND list, device_context_t *device)
     LVITEM item;
     char vid[32];
     char pid[32];
+    char mi[32];
 
     memset(&item, 0, sizeof(item));
     memset(vid, 0, sizeof(vid));
     memset(pid, 0, sizeof(pid));
+    memset(mi, 0, sizeof(mi));
 
     sprintf(vid, "0x%04X", device->vid);
     sprintf(pid, "0x%04X", device->pid);
+	if (device->mi > -1)
+	{
+		sprintf(mi, "0x%02X", device->mi);
+	}
 
     item.mask = LVIF_TEXT | LVIF_PARAM;
     item.lParam = (LPARAM)device;
@@ -568,6 +639,7 @@ static void device_list_add(HWND list, device_context_t *device)
     ListView_SetItemText(list, 0, 0, vid);
     ListView_SetItemText(list, 0, 1, pid);
     ListView_SetItemText(list, 0, 2, device->description);
+    ListView_SetItemText(list, 0, 3, mi);
 }
 
 static void device_list_clean(HWND list)
@@ -672,7 +744,14 @@ static int save_file(HWND dialog, device_context_t *device)
 			safe_strcpy(libusb_inf_entities[INF_FILENAME].replace,inf_name);
 			safe_strcpy(libusb_inf_entities[CAT_FILENAME].replace,cat_name);
 			safe_strcpy(libusb_inf_entities[BASE_FILENAME].replace,"LIBUSB_WIN32");
-			sprintf(libusb_inf_entities[HARDWAREID].replace,"USB\\VID_%04x&PID_%04x",device->vid, device->pid);
+			
+			if (device->mi == -1)
+				sprintf(libusb_inf_entities[HARDWAREID].replace,"USB\\VID_%04x&PID_%04x",
+				device->vid, device->pid);
+			else
+				sprintf(libusb_inf_entities[HARDWAREID].replace,"USB\\VID_%04x&PID_%04x&MI_%02x",
+				device->vid, device->pid, device->mi);
+
 			safe_strcpy(libusb_inf_entities[DRIVER_DATE].replace,STRINGIFY(INF_DATE));
 			safe_strcpy(libusb_inf_entities[DRIVER_VERSION].replace,STRINGIFY(INF_VERSION));
 			safe_strcpy(libusb_inf_entities[DEVICE_MANUFACTURER].replace,device->manufacturer);

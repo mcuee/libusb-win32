@@ -625,8 +625,9 @@ bool_t usb_registry_match(HDEVINFO dev_info,
 
     /* search for USB devices, skip root hubs and interfaces of composite */
     /* devices */
-    if (usb_registry_mz_string_find_sub(tmp, "&mi_")
-            || usb_registry_mz_string_find_sub(tmp, "root_hub"))
+//    if (usb_registry_mz_string_find_sub(tmp, "&mi_")
+//            || usb_registry_mz_string_find_sub(tmp, "root_hub"))
+    if (usb_registry_mz_string_find_sub(tmp, "root_hub"))
     {
         return FALSE;
     }
