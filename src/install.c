@@ -215,7 +215,7 @@ int usb_uninstall_service_np(void)
     return 0;
 }
 
-int usb_install_driver_np(const char *inf_file)
+int usb_install_driver_ex_np(const char *inf_file, BOOL* update_driver_success)
 {
     HDEVINFO dev_info;
     SP_DEVINFO_DATA dev_info_data;
@@ -230,10 +230,13 @@ int usb_install_driver_np(const char *inf_file)
     int dev_index;
     HINSTANCE newdev_dll = NULL;
     HMODULE setupapi_dll = NULL;
+	CONFIGRET cr;
 
     update_driver_for_plug_and_play_devices_t UpdateDriverForPlugAndPlayDevices;
     setup_copy_oem_inf_t SetupCopyOEMInf;
     newdev_dll = LoadLibrary("newdev.dll");
+
+	*update_driver_success = FALSE;
 
     if (!newdev_dll)
     {
@@ -317,7 +320,7 @@ int usb_install_driver_np(const char *inf_file)
 
         /* update all connected devices matching this ID, but only if this */
         /* driver is better or newer */
-        UpdateDriverForPlugAndPlayDevices(NULL, id, inf_path, INSTALLFLAG_FORCE,
+        *update_driver_success = UpdateDriverForPlugAndPlayDevices(NULL, id, inf_path, INSTALLFLAG_FORCE,
                                           &reboot);
 
 
@@ -356,11 +359,13 @@ int usb_install_driver_np(const char *inf_file)
                     /* found a match? */
                     if (strstr(p, id))
                     {
-                        /* is this device disconnected? */
-                        if (CM_Get_DevNode_Status(&status,
+						cr = CM_Get_DevNode_Status(&status,
                                                   &problem,
                                                   dev_info_data.DevInst,
-                                                  0) == CR_NO_SUCH_DEVINST)
+                                                  0);
+
+                        /* is this device disconnected? */
+                        if (cr == CR_NO_SUCH_DEVINST)
                         {
                             /* found a device node that represents an unattached */
                             /* device */
@@ -383,7 +388,7 @@ int usb_install_driver_np(const char *inf_file)
                                                                  (BYTE *)&config_flags,
                                                                  sizeof(config_flags));
                             }
-                        }
+						}
                         /* a match was found, skip the rest */
                         break;
                     }
@@ -407,7 +412,11 @@ int usb_install_driver_np(const char *inf_file)
 
     return 0;
 }
-
+int usb_install_driver_np(const char *inf_file)
+{
+	BOOL update_driver_success;
+	return usb_install_driver_ex_np(inf_file,&update_driver_success);
+}
 bool_t usb_service_load_dll()
 {
     if (usb_registry_is_nt())

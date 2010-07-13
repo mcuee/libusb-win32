@@ -159,7 +159,7 @@ static int write_driver_resource(const char* inf_dir,
 								 int id_file_type);
 void close_file(FILE** file);
 
-int usb_install_driver_np(const char *inf_file);
+int usb_install_driver_ex_np(const char *inf_file, BOOL* update_driver_success);
 char *usb_strerror(void);
 
 int APIENTRY WinMain(HINSTANCE instance, HINSTANCE prev_instance,
@@ -442,6 +442,7 @@ BOOL CALLBACK dialog_proc_3(HWND dialog, UINT message,
     char* buffer = NULL;
     char* bufferTemp = NULL;
 	int ret;
+	BOOL update_driver_success;
 
     switch (message)
     {
@@ -492,13 +493,24 @@ BOOL CALLBACK dialog_proc_3(HWND dialog, UINT message,
         case ID_BUTTON_INSTALLNOW:
 			SetCursor(LoadCursor(NULL,IDC_WAIT));
 			SetWindowText(GetDlgItem(dialog, IDL_INSTALLING_TEXT), "Installing driver, please wait..");
-			ret = usb_install_driver_np(installnow_inf);
+			ret = usb_install_driver_ex_np(installnow_inf, &update_driver_success);
 			SetWindowText(GetDlgItem(dialog, IDL_INSTALLING_TEXT), "");
 			SetCursor(LoadCursor(NULL,IDC_ARROW));
 
 			if (ret == ERROR_SUCCESS)
 			{
-				MessageBoxA(dialog,"Driver installation successful.", "Install Driver Done", MB_OK | MB_APPLMODAL);
+				if (update_driver_success)
+				{
+					MessageBoxA(dialog,"Driver installation successful.", 
+						"Install Driver Done", MB_OK | MB_APPLMODAL);
+				}
+				else
+				{
+					MessageBoxA(dialog, 
+						"Driver installation successful. The new driver will take effect the next time the device is connected.",
+						"Install Driver Done", MB_OK | MB_APPLMODAL);
+				}
+
 				EndDialog(dialog, 0);
 			}
 			else
@@ -585,7 +597,8 @@ static void device_list_refresh(HWND list)
 				device->mi = -1;
 
 				strlwr(tmp);
-				ret = sscanf(tmp, "usb\\vid_%04x&pid_%04x&rev_%04d&mi_%02x", &device->vid, &device->pid, &device->rev, &device->mi);
+				ret = sscanf(tmp, "usb\\vid_%04x&pid_%04x&rev_%04d&mi_%02x", 
+					&device->vid, &device->pid, &device->rev, &device->mi);
 				if (ret < 3)
 				{
 					free(device);
@@ -768,13 +781,16 @@ static int save_file(HWND dialog, device_context_t *device)
 
 #ifdef EMBEDDED_LIBUSB_WIN32
 				safe_strcpy(inf_dir,inf_path);
-				while ((length = strlen(inf_dir)))
+
+				// strip the filename
+				length = strlen(inf_dir);
+				while (length)
 				{
-					if (inf_dir[length-1]=='\\' || inf_dir[length-1]=='/')
-					{
+					length--;
+					if (inf_dir[length]=='\\' || inf_dir[length]=='/')
 						break;
-					}
-					inf_dir[length-1]='\0';
+
+					inf_dir[length]='\0';
 				}
 
 				// libusb-win32 x86 binaries. 
@@ -794,6 +810,9 @@ static int save_file(HWND dialog, device_context_t *device)
 					goto Done;
 				if (write_driver_resource(inf_dir, "ia64", ".sys", ID_LIBUSB_SYS, ID_IA64) != ERROR_SUCCESS)
 					goto Done;
+
+				safe_strcpy(installnow_inf, inf_path);
+
 #endif
 
 			}
@@ -829,7 +848,6 @@ static int save_file(HWND dialog, device_context_t *device)
         }
 
 
-		safe_strcpy(installnow_inf, inf_path);
 		return TRUE;
     }
 Done:
