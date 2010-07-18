@@ -11,9 +11,11 @@ C_DEFINES = $(COMMON_C_DEFINES) /DMANIFEST_FILE="\"manifest_$(_BUILDARCH).xml\""
 
 TARGETLIBS =  $(SDK_LIB_PATH)\setupapi.lib \
               $(SDK_LIB_PATH)\kernel32.lib \
-              $(SDK_LIB_PATH)\advapi32.lib \
               $(SDK_LIB_PATH)\user32.lib \
               $(SDK_LIB_PATH)\comctl32.lib \
-              $(SDK_LIB_PATH)\comdlg32.lib
+              $(SDK_LIB_PATH)\comdlg32.lib \
+              $(SDK_LIB_PATH)\shell32.lib \
+              $(SDK_LIB_PATH)\ole32.lib \
+              libwdi.lib
 
-SOURCES = inf_wizard.c registry.c error.c tokenizer.c inf_wizard_rc.rc
+SOURCES = inf_wizard.c inf_wizard_rc.rc
