@@ -2,11 +2,11 @@
 <VisualStudioProject
 	ProjectType="Visual C++"
 	Version="9.00"
-	Name="inf-wizard"
-	ProjectGUID="{040945A3-5236-4F2E-A726-58FB98576E7B}"
-	RootNamespace="infwizard"
-	AssemblyReferenceSearchPaths="&quot;.\additional&quot;"
-	TargetFrameworkVersion="131072"
+	Name="embedder"
+	ProjectGUID="{792D44D5-28A7-4EB3-B84B-8021FE3189F9}"
+	RootNamespace="embedder"
+	Keyword="Win32Proj"
+	TargetFrameworkVersion="196613"
 	>
 	<Platforms>
 		<Platform
@@ -21,10 +21,11 @@
 	<Configurations>
 		<Configuration
 			Name="Debug|Win32"
-			OutputDirectory="$(SolutionDir)$(ConfigurationName)\$(PlatformName)\$(ProjectName)\"
-			IntermediateDirectory="$(SolutionDir)$(ConfigurationName)\$(PlatformName)\$(ProjectName)\"
+			OutputDirectory="$(SolutionDir)$(PlatformName)\$(ConfigurationName)\helper"
+			IntermediateDirectory="$(SolutionDir)$(PlatformName)\$(ConfigurationName)\helper\$(ProjectName)"
 			ConfigurationType="1"
 			CharacterSet="2"
+			BuildLogFile="$(IntDir)\$(ProjectName).htm"
 			>
 			<Tool
 				Name="VCPreBuildEventTool"
@@ -44,37 +45,32 @@
 			<Tool
 				Name="VCCLCompilerTool"
 				Optimization="0"
-				AdditionalIncludeDirectories="..\src;.\additional\libwdi\libwdi"
-				PreprocessorDefinitions="_WIN32_WINNT=0x0500"
+				AdditionalIncludeDirectories="..\msvc"
+				PreprocessorDefinitions="_CRT_SECURE_NO_WARNINGS;INSTALLER_PATH_PREFIX=&quot;\&quot;..\\..\\..\&quot;&quot;;LIBUSB0_DIR=&quot;\&quot;$(LIBUSB0_DIR)\&quot;&quot;"
 				MinimalRebuild="true"
 				BasicRuntimeChecks="3"
 				RuntimeLibrary="1"
+				UsePrecompiledHeader="0"
 				WarningLevel="3"
 				DebugInformationFormat="4"
-				CompileAs="1"
-				DisableSpecificWarnings="4996"
 			/>
 			<Tool
 				Name="VCManagedResourceCompilerTool"
 			/>
 			<Tool
 				Name="VCResourceCompilerTool"
-				PreprocessorDefinitions="LOG_APPNAME=&quot;\&quot;$(ProjectName)\&quot;&quot;;MANIFEST_FILE=&quot;\&quot;..\\manifest_x86.xml\&quot;&quot;;_WIN32_WINNT=0x0500;EMBEDDED_LIBUSB_WIN32"
-				AdditionalIncludeDirectories="..\src"
 			/>
 			<Tool
 				Name="VCPreLinkEventTool"
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="comctl32.lib newdev.lib setupapi.lib"
-				OutputFile="$(OutDir)\$(ProjectName).exe"
-				AdditionalLibraryDirectories="&quot;$(ProjectDir)additional\$(PlatformName)&quot;"
-				GenerateManifest="false"
-				IgnoreAllDefaultLibraries="false"
-				IgnoreDefaultLibraryNames=""
-				ModuleDefinitionFile=""
+				AdditionalDependencies="version.lib"
+				LinkIncremental="2"
+				AdditionalLibraryDirectories=""
 				GenerateDebugInformation="true"
+				ProgramDatabaseFile="$(TargetDir)$(ProjectName).pdb"
+				SubSystem="1"
 				TargetMachine="1"
 			/>
 			<Tool
@@ -82,7 +78,6 @@
 			/>
 			<Tool
 				Name="VCManifestTool"
-				EmbedManifest="false"
 			/>
 			<Tool
 				Name="VCXDCMakeTool"
@@ -102,10 +97,11 @@
 		</Configuration>
 		<Configuration
 			Name="Debug|x64"
-			OutputDirectory="$(SolutionDir)$(ConfigurationName)\$(PlatformName)\$(ProjectName)\"
-			IntermediateDirectory="$(SolutionDir)$(ConfigurationName)\$(PlatformName)\$(ProjectName)\"
+			OutputDirectory="$(SolutionDir)$(PlatformName)\$(ConfigurationName)\helper"
+			IntermediateDirectory="$(SolutionDir)$(PlatformName)\$(ConfigurationName)\helper\$(ProjectName)"
 			ConfigurationType="1"
 			CharacterSet="2"
+			BuildLogFile="$(IntDir)\$(ProjectName).htm"
 			>
 			<Tool
 				Name="VCPreBuildEventTool"
@@ -126,38 +122,32 @@
 			<Tool
 				Name="VCCLCompilerTool"
 				Optimization="0"
-				AdditionalIncludeDirectories="..\src;.additional\libwdi\libwdi"
-				PreprocessorDefinitions="LOG_APPNAME=&quot;\&quot;$(ProjectName)\&quot;&quot;;TARGETTYPE=PROGRAMwindows;MANIFEST_FILE=&quot;\&quot;..\\manifest_x86.xml\&quot;&quot;;_WIN32_WINNT=0x0500"
+				AdditionalIncludeDirectories="..\msvc"
+				PreprocessorDefinitions="_CRT_SECURE_NO_WARNINGS; _WIN64"
 				MinimalRebuild="true"
 				BasicRuntimeChecks="3"
 				RuntimeLibrary="1"
+				UsePrecompiledHeader="0"
 				WarningLevel="3"
 				DebugInformationFormat="3"
-				CompileAs="1"
-				DisableSpecificWarnings="4996"
 			/>
 			<Tool
 				Name="VCManagedResourceCompilerTool"
 			/>
 			<Tool
 				Name="VCResourceCompilerTool"
-				PreprocessorDefinitions="LOG_APPNAME=&quot;\&quot;$(ProjectName)\&quot;&quot;;MANIFEST_FILE=&quot;\&quot;..\\manifest_x86.xml\&quot;&quot;;_WIN32_WINNT=0x0500"
-				AdditionalIncludeDirectories="..\src"
 			/>
 			<Tool
 				Name="VCPreLinkEventTool"
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="comctl32.lib newdev.lib setupapi.lib"
-				OutputFile="$(OutDir)\$(ProjectName).exe"
-				AdditionalLibraryDirectories="&quot;$(ProjectDir)additional\$(PlatformName)&quot;"
-				EnableUAC="true"
-				UACExecutionLevel="2"
-				IgnoreAllDefaultLibraries="false"
-				IgnoreDefaultLibraryNames=""
-				ModuleDefinitionFile=""
+				AdditionalDependencies="version.lib"
+				LinkIncremental="2"
+				AdditionalLibraryDirectories=""
 				GenerateDebugInformation="true"
+				ProgramDatabaseFile="$(TargetDir)$(ProjectName).pdb"
+				SubSystem="1"
 				TargetMachine="17"
 			/>
 			<Tool
@@ -165,7 +155,6 @@
 			/>
 			<Tool
 				Name="VCManifestTool"
-				EmbedManifest="true"
 			/>
 			<Tool
 				Name="VCXDCMakeTool"
@@ -185,11 +174,12 @@
 		</Configuration>
 		<Configuration
 			Name="Release|Win32"
-			OutputDirectory="$(SolutionDir)$(ConfigurationName)\$(PlatformName)\$(ProjectName)\"
-			IntermediateDirectory="$(SolutionDir)$(ConfigurationName)\$(PlatformName)\$(ProjectName)\"
+			OutputDirectory="$(SolutionDir)$(PlatformName)\$(ConfigurationName)\helper"
+			IntermediateDirectory="$(SolutionDir)$(PlatformName)\$(ConfigurationName)\helper\$(ProjectName)"
 			ConfigurationType="1"
 			CharacterSet="2"
 			WholeProgramOptimization="1"
+			BuildLogFile="$(IntDir)\$(ProjectName).htm"
 			>
 			<Tool
 				Name="VCPreBuildEventTool"
@@ -210,36 +200,30 @@
 				Name="VCCLCompilerTool"
 				Optimization="2"
 				EnableIntrinsicFunctions="true"
-				AdditionalIncludeDirectories="..\src;.\additional\libwdi\libwdi"
-				PreprocessorDefinitions="_WIN32_WINNT=0x0500;LIBWDI_INSTALLER_PATH_PREFX=&quot;..\\..\\..\\&quot;"
+				AdditionalIncludeDirectories="..\msvc"
+				PreprocessorDefinitions="_CRT_SECURE_NO_WARNINGS;INSTALLER_PATH_PREFIX=&quot;\&quot;..\\..\\..\&quot;&quot;"
 				RuntimeLibrary="0"
 				EnableFunctionLevelLinking="true"
+				UsePrecompiledHeader="0"
 				WarningLevel="3"
 				DebugInformationFormat="3"
-				CompileAs="1"
-				DisableSpecificWarnings="4996"
 			/>
 			<Tool
 				Name="VCManagedResourceCompilerTool"
 			/>
 			<Tool
 				Name="VCResourceCompilerTool"
-				PreprocessorDefinitions="LOG_APPNAME=&quot;\&quot;$(ProjectName)\&quot;&quot;;MANIFEST_FILE=&quot;\&quot;..\\manifest_x86.xml\&quot;&quot;;_WIN32_WINNT=0x0500;EMBEDDED_LIBUSB_WIN32"
-				AdditionalIncludeDirectories="..\src"
 			/>
 			<Tool
 				Name="VCPreLinkEventTool"
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="comctl32.lib newdev.lib setupapi.lib"
-				OutputFile="$(OutDir)\$(ProjectName).exe"
-				AdditionalLibraryDirectories="&quot;$(ProjectDir)additional\$(PlatformName)&quot;"
-				GenerateManifest="false"
-				IgnoreAllDefaultLibraries="false"
-				IgnoreDefaultLibraryNames=""
-				ModuleDefinitionFile=""
-				GenerateDebugInformation="true"
+				AdditionalDependencies="version.lib"
+				LinkIncremental="1"
+				AdditionalLibraryDirectories=""
+				GenerateDebugInformation="false"
+				SubSystem="1"
 				OptimizeReferences="2"
 				EnableCOMDATFolding="2"
 				TargetMachine="1"
@@ -249,8 +233,6 @@
 			/>
 			<Tool
 				Name="VCManifestTool"
-				EmbedManifest="false"
-				VerboseOutput="false"
 			/>
 			<Tool
 				Name="VCXDCMakeTool"
@@ -270,11 +252,12 @@
 		</Configuration>
 		<Configuration
 			Name="Release|x64"
-			OutputDirectory="$(SolutionDir)$(ConfigurationName)\$(PlatformName)\$(ProjectName)\"
-			IntermediateDirectory="$(SolutionDir)$(ConfigurationName)\$(PlatformName)\$(ProjectName)\"
+			OutputDirectory="$(SolutionDir)$(PlatformName)\$(ConfigurationName)\helper"
+			IntermediateDirectory="$(SolutionDir)$(PlatformName)\$(ConfigurationName)\helper\$(ProjectName)"
 			ConfigurationType="1"
 			CharacterSet="2"
 			WholeProgramOptimization="1"
+			BuildLogFile="$(IntDir)\$(ProjectName).htm"
 			>
 			<Tool
 				Name="VCPreBuildEventTool"
@@ -296,37 +279,30 @@
 				Name="VCCLCompilerTool"
 				Optimization="2"
 				EnableIntrinsicFunctions="true"
-				AdditionalIncludeDirectories="..\src;.additional\libwdi\libwdi"
-				PreprocessorDefinitions="LOG_APPNAME=&quot;\&quot;$(ProjectName)\&quot;&quot;;TARGETTYPE=PROGRAMwindows;MANIFEST_FILE=&quot;\&quot;..\\manifest_x86.xml\&quot;&quot;;_WIN32_WINNT=0x0500"
+				AdditionalIncludeDirectories="..\msvc"
+				PreprocessorDefinitions="_CRT_SECURE_NO_WARNINGS; _WIN64"
 				RuntimeLibrary="0"
 				EnableFunctionLevelLinking="true"
+				UsePrecompiledHeader="0"
 				WarningLevel="3"
 				DebugInformationFormat="3"
-				CompileAs="1"
-				DisableSpecificWarnings="4996"
 			/>
 			<Tool
 				Name="VCManagedResourceCompilerTool"
 			/>
 			<Tool
 				Name="VCResourceCompilerTool"
-				PreprocessorDefinitions="LOG_APPNAME=&quot;\&quot;$(ProjectName)\&quot;&quot;;MANIFEST_FILE=&quot;\&quot;..\\manifest_x86.xml\&quot;&quot;;_WIN32_WINNT=0x0500"
-				AdditionalIncludeDirectories="..\src"
 			/>
 			<Tool
 				Name="VCPreLinkEventTool"
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="comctl32.lib newdev.lib setupapi.lib"
-				OutputFile="$(OutDir)\$(ProjectName).exe"
-				AdditionalLibraryDirectories="&quot;$(ProjectDir)additional\$(PlatformName)&quot;"
-				EnableUAC="true"
-				UACExecutionLevel="2"
-				IgnoreAllDefaultLibraries="false"
-				IgnoreDefaultLibraryNames=""
-				ModuleDefinitionFile=""
-				GenerateDebugInformation="true"
+				AdditionalDependencies="version.lib"
+				LinkIncremental="1"
+				AdditionalLibraryDirectories=""
+				GenerateDebugInformation="false"
+				SubSystem="1"
 				OptimizeReferences="2"
 				EnableCOMDATFolding="2"
 				TargetMachine="17"
@@ -336,8 +312,6 @@
 			/>
 			<Tool
 				Name="VCManifestTool"
-				EmbedManifest="true"
-				VerboseOutput="false"
 			/>
 			<Tool
 				Name="VCXDCMakeTool"
@@ -362,42 +336,26 @@
 		<Filter
 			Name="Source Files"
 			Filter="cpp;c;cc;cxx;def;odl;idl;hpj;bat;asm;asmx"
-			UniqueIdentifier="{4FC737F1-C7A5-4376-A066-2A32D752A2FF}"
+			UniqueIdentifier="{AF571DD9-AF6B-4F0A-9A9E-D041D12982F7}"
 			>
 			<File
-				RelativePath="..\src\inf_wizard.c"
+				RelativePath=".\embedder.c"
 				>
 			</File>
 		</Filter>
 		<Filter
 			Name="Header Files"
-			Filter="h;hpp;hxx;hm;inl;inc;xsd"
-			UniqueIdentifier="{93995380-89BD-4b04-88EB-625FBE52EBFB}"
 			>
 			<File
-				RelativePath="..\src\libusb_version.h"
+				RelativePath="..\msvc\config.h"
 				>
 			</File>
 			<File
-				RelativePath="..\src\usb.h"
-				>
-			</File>
-		</Filter>
-		<Filter
-			Name="Resource Files"
-			Filter="rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav"
-			UniqueIdentifier="{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}"
-			>
-			<File
-				RelativePath="..\src\inf_wizard.ico"
+				RelativePath=".\embedder.h"
 				>
 			</File>
 			<File
-				RelativePath="..\src\inf_wizard.manifest"
-				>
-			</File>
-			<File
-				RelativePath="..\src\inf_wizard_rc.rc"
+				RelativePath=".\embedder_files.h"
 				>
 			</File>
 		</Filter>

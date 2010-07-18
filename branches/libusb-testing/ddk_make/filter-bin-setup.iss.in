@@ -68,39 +68,43 @@ end;
 Name: tasklibusb; Flags:unchecked; Description: Enable libusb-win32 filter service? This allows access to USB devices without an INF file.  This can be loaded/unloaded at anytime from the libusb-win32 start menu; GroupDescription: libusb-win32;
 
 [Files]
-; LibUsb-win32 x86 (Windows 2000)
-Source: @PACKAGE_BIN_DIR@w2k\libusb0.dll; DestDir: {sys}; Flags: uninsneveruninstall replacesameversion restartreplace promptifolder; onlybelowversion: 0,5.01.2600;
-Source: @PACKAGE_BIN_DIR@w2k\libusb0.sys; DestDir: {sys}\drivers; Flags: uninsneveruninstall replacesameversion restartreplace promptifolder; onlybelowversion: 0,5.01.2600;
-Source: @PACKAGE_BIN_DIR@w2k\*.exe; DestDir: {app}\bin; Flags: ignoreversion; onlybelowversion: 0,5.01.2600;
-
-; LibUsb-win32 x86 (XP and greater)
-Source: @PACKAGE_BIN_DIR@x86\libusb0.dll; DestDir: {sys}; Flags: uninsneveruninstall replacesameversion restartreplace promptifolder; minversion: 0,5.01.2600; Check: IsX86;
-Source: @PACKAGE_BIN_DIR@x86\libusb0.sys; DestDir: {sys}\drivers; Flags: uninsneveruninstall replacesameversion restartreplace promptifolder; minversion: 0,5.01.2600; Check: IsX86;
-Source: @PACKAGE_BIN_DIR@x86\*.exe; DestDir: {app}\bin; Flags: ignoreversion; minversion: 0,5.01.2600; Check: IsX86;
+; LibUsb-win32 x86 (Windows 2000/XP and greater)
+Source: @PACKAGE_BIN_DIR@x86\libusb0_x86.dll; DestName: libusb0.dll; DestDir: {sys}; Flags: uninsneveruninstall replacesameversion restartreplace promptifolder; Check: IsX86;
+Source: @PACKAGE_BIN_DIR@x86\libusb0.sys; DestDir: {sys}\drivers; Flags: uninsneveruninstall replacesameversion restartreplace promptifolder; Check: IsX86;
+Source: @PACKAGE_BIN_DIR@x86\install-filter.exe; DestDir: {app}\bin; Flags: ignoreversion; Check: IsX86;
+Source: @PACKAGE_BIN_DIR@x86\testlibusb-win.exe; DestDir: {app}\bin; Flags: ignoreversion; Check: IsX86;
+Source: @PACKAGE_BIN_DIR@x86\testlibusb.exe; DestDir: {app}\bin; Flags: ignoreversion; Check: IsX86;
 
 ; LibUsb-win32 AMD 64bit
-Source: @PACKAGE_BIN_DIR@x86\libusb0.dll; DestDir: {syswow64}; Flags: uninsneveruninstall replacesameversion restartreplace promptifolder; Check: IsX64;
+Source: @PACKAGE_BIN_DIR@x86\libusb0_x86.dll; DestName: libusb0.dll; DestDir: {syswow64}; Flags: uninsneveruninstall replacesameversion restartreplace promptifolder; Check: IsX64;
 Source: @PACKAGE_BIN_DIR@amd64\libusb0.sys; DestDir: {sys}\drivers; Flags: uninsneveruninstall replacesameversion restartreplace promptifolder; Check: IsX64;
 Source: @PACKAGE_BIN_DIR@amd64\libusb0.dll; DestDir: {sys}; Flags: uninsneveruninstall replacesameversion restartreplace promptifolder; Check: IsX64;
-Source: @PACKAGE_BIN_DIR@amd64\*.exe; DestDir: {app}\bin; Flags: ignoreversion; Check: IsX64;
+Source: @PACKAGE_BIN_DIR@amd64\install-filter.exe; DestDir: {app}\bin; Flags: ignoreversion; Check: IsX64;
+Source: @PACKAGE_BIN_DIR@amd64\testlibusb-win.exe; DestDir: {app}\bin; Flags: ignoreversion; Check: IsX64;
+Source: @PACKAGE_BIN_DIR@amd64\testlibusb.exe; DestDir: {app}\bin; Flags: ignoreversion; Check: IsX64;
 
 ; LibUsb-win32 Itanium 64bit
-Source: @PACKAGE_BIN_DIR@x86\libusb0.dll; DestDir: {syswow64}; Flags: uninsneveruninstall replacesameversion restartreplace promptifolder; Check: IsI64;
+Source: @PACKAGE_BIN_DIR@x86\libusb0_x86.dll; DestName: libusb0.dll; DestDir: {syswow64}; Flags: uninsneveruninstall replacesameversion restartreplace promptifolder; Check: IsI64;
 Source: @PACKAGE_BIN_DIR@ia64\libusb0.sys; DestDir: {sys}\drivers; Flags: uninsneveruninstall replacesameversion restartreplace promptifolder; Check: IsI64;
 Source: @PACKAGE_BIN_DIR@ia64\libusb0.dll; DestDir: {sys}; Flags: uninsneveruninstall replacesameversion restartreplace promptifolder; Check: IsI64;
-Source: @PACKAGE_BIN_DIR@ia64\*.exe; DestDir: {app}\bin; Flags: ignoreversion; Check: IsI64;
+Source: @PACKAGE_BIN_DIR@ia64\install-filter.exe; DestDir: {app}\bin; Flags: ignoreversion; Check: IsI64;
+Source: @PACKAGE_BIN_DIR@ia64\testlibusb-win.exe; DestDir: {app}\bin; Flags: ignoreversion; Check: IsI64;
+Source: @PACKAGE_BIN_DIR@ia64\testlibusb.exe; DestDir: {app}\bin; Flags: ignoreversion; Check: IsI64;
 
-; WXP-WIN7 (x86 runtimes for 64bit machines)
-Source: @PACKAGE_BIN_DIR@x86\inf-wizard.exe; DestDir: {app}\bin\x86; Flags: ignoreversion; minversion: 0,5.01.2600; Check: Is64;
-Source: @PACKAGE_BIN_DIR@x86\testlibusb-win.exe; DestDir: {app}\bin\x86; Flags: ignoreversion; minversion: 0,5.01.2600; Check: Is64;
+;inf-wizard (x86 only)
+Source: @PACKAGE_BIN_DIR@x86\inf-wizard.exe; DestDir: {app}\bin; Flags: ignoreversion;
+
+; test applications(x86 runtimes for 64bit machines)
+Source: @PACKAGE_BIN_DIR@x86\testlibusb-win.exe; DestDir: {app}\bin\x86; Flags: ignoreversion; Check: Is64;
+Source: @PACKAGE_BIN_DIR@x86\testlibusb.exe; DestDir: {app}\bin\x86; Flags: ignoreversion; Check: Is64;
 
 ; Text, Licenses
 Source: *.txt; DestDir: {app}; Flags: ignoreversion;
 
-; Test Certificate
+; Test Certificate (This is only included in debug builds)
 Source: *.cer; DestDir: {app}; Flags: ignoreversion skipifsourcedoesntexist; Check: Is64;
 
-; DebugView
+; DebugView (This is only included in debug builds)
 Source: @PACKAGE_ROOT_DIR@additional\dbgview.*; DestDir: {app}\additional; Flags: ignoreversion skipifsourcedoesntexist;
 
 [Icons]
@@ -122,4 +126,4 @@ Filename: "rundll32"; Parameters: "libusb0.dll,usb_install_service_np_rundll"; S
 Filename: "rundll32"; Parameters: "libusb0.dll,usb_uninstall_service_np_rundll"; 
 
 [Messages]
-StatusUninstalling=Removing filter and uninstalling %1...
+StatusUninstalling=Uninstalling %1 and removing all device filters...
