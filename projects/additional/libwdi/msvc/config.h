@@ -19,7 +19,7 @@
 
 /* embed libusb0 driver files from the following location */
 #ifndef LIBUSB0_DIR
-#define LIBUSB0_DIR "c:/libusb-win32"
+#define LIBUSB0_DIR "D:/libusb-win32"
 #endif
 
 /* DDK WDF coinstaller version (string) */
