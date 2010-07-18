@@ -93,7 +93,7 @@ struct BENCHMARK_TEST_PARAM
     INT BufferCount;	// Number of outstanding asynchronous transfers
     BOOL NoTestSelect;	// If true, don't send control message to select the test type.
     BOOL UseList;		// Show the user a device list and let them choose a benchmark device. 
-	WORD IsoPacketSize; // Isochronous packet size (defaults to the endpoints max packet size)
+	INT IsoPacketSize; // Isochronous packet size (defaults to the endpoints max packet size)
     INT Priority;		// Priority to run this thread at.
 	BOOL Verify;		// Only for loop and read test. If true, verifies data integrity. 
 	BOOL VerifyDetails;	// If true, prints detailed information for each invalid byte.
@@ -1591,7 +1591,7 @@ void ShowHelp(void)
 
 void ShowCopyright(void)
 {
-	CONMSG0("LibUsb-Win32 USB Benchmark v" RC_VERSION_STR "\n");
+	CONMSG0("libusb-win32 USB Benchmark v" RC_VERSION_STR "\n");
 	CONMSG0("Copyright (c) 2010 Travis Robinson. <libusbdotnet@gmail.com>\n");
 	CONMSG0("website: http://sourceforge.net/projects/libusbdotnet\n");
 }

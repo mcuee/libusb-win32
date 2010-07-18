@@ -1,4 +1,4 @@
-/* LIBUSB-WIN32, Generic Windows USB Library
+/* libusb-win32, Generic Windows USB Library
  * Copyright (c) 2010 Travis Robinson <libusbdotnet@gmail.com>
  *
  * This library is free software; you can redistribute it and/or

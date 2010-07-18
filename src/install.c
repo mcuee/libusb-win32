@@ -1,4 +1,4 @@
-/* LIBUSB-WIN32, Generic Windows USB Library
+/* libusb-win32, Generic Windows USB Library
  * Copyright (c) 2002-2005 Stephan Meyer <ste_meyer@web.de>
  *
  * This library is free software; you can redistribute it and/or
@@ -136,7 +136,7 @@ int usb_install_service_np(void)
 
         /* create the Display Name */
         _snprintf(display_name, sizeof(display_name) - 1,
-                  "LibUsb-Win32 - Kernel Driver, Version %d.%d.%d.%d",
+                  "libusb-win32 - Kernel Driver, Version %d.%d.%d.%d",
                   VERSION_MAJOR, VERSION_MINOR, VERSION_MICRO, VERSION_NANO);
 
        /* create the kernel service */
@@ -195,8 +195,8 @@ int usb_uninstall_service_np(void)
                          "\\RunServices",
                          0, KEY_ALL_ACCESS, &reg_key) == ERROR_SUCCESS)
         {
- 			USBMSG("deleting %s\n","LibUsb-Win32 Daemon");
-            RegDeleteValue(reg_key, "LibUsb-Win32 Daemon");
+ 			USBMSG("deleting %s\n","libusb-win32 Daemon");
+            RegDeleteValue(reg_key, "libusb-win32 Daemon");
             RegCloseKey(reg_key);
         }
     }
