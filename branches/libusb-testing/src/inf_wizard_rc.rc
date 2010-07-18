@@ -40,7 +40,7 @@
 //#define DIALOG_FONT "MS Sans Serif"
 #define DIALOG_FONT "Tahoma"
 #define DIALOG_FONT_SIZE 8.5
-#define DIALOG_CAPTION "LibUSB-Win32 Inf-Wizard\0"
+#define DIALOG_CAPTION "libusb-win32 Inf-Wizard\0"
 
 #ifndef __INF_WIZARD_C__
 

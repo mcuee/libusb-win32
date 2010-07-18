@@ -40,6 +40,10 @@ SET _PACKAGE_TYPE_=%~1
 :: Package build section [if any]
 :: 
 IF /I "!_PACKAGE_TYPE_!" EQU "clean" (
+	CALL :Super_Clean %*
+	GOTO CMDEXIT
+)
+IF /I "!_PACKAGE_TYPE_!" EQU "cleanpackage" (
 	CALL :Package_Clean %*
 	GOTO CMDEXIT
 )
@@ -421,6 +425,11 @@ GOTO :EOF
 	POPD
 GOTO :EOF
 
+:Super_Clean
+	CALL :LoadArguments 1 %*
+	CALL make_super_clean.bat
+GOTO :EOF
+	
 :Package_Clean
 	CALL :LoadArguments 1 %*
 	CALL :SafeCleanDir "!PACKAGE_BIN_DIR!"

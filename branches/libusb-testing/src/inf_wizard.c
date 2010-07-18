@@ -1,4 +1,4 @@
-/* LIBUSB-WIN32, Generic Windows USB Library
+/* libusb-win32, Generic Windows USB Library
 * Copyright (c) 2002-2006 Stephan Meyer <ste_meyer@web.de>
 * Copyright (c) 2010 Travis Robinson <libusbdotnet@gmail.com>
 *
@@ -79,6 +79,8 @@ typedef struct
 
 	BOOL user_allocated_wdi;
 	BOOL modified; // unused
+
+	VS_FIXEDFILEINFO* driver_info;
 } device_context_t;
 
 typedef struct
@@ -157,8 +159,6 @@ TOOLINFO g_toolItem;
 HWND g_hwndTrackingTT = NULL;
 BOOL g_TrackingMouse = FALSE;
 
-device_context_t device;
-
 HWND create_tooltip(HWND hMain, HINSTANCE hInstance, UINT max_tip_width, create_tooltip_t tool_tips[]);
 HWND CreateTrackingToolTip(HWND hDlg, TCHAR* pText);
 
@@ -205,6 +205,7 @@ void output_debug(char* format,...)
 int APIENTRY WinMain(HINSTANCE instance, HINSTANCE prev_instance,
 					 LPSTR cmd_line, int cmd_show)
 {
+	device_context_t device;
 	int next_dialog;
 
 	LoadLibrary("comctl32.dll");
@@ -552,6 +553,8 @@ BOOL CALLBACK dialog_proc_2(HWND dialog, UINT message,
 
 		if (device)
 		{
+			wdi_is_driver_supported(WDI_LIBUSB, &device->driver_info);
+
 			//g_hwndTrackingTT = CreateTrackingToolTip(dialog,TEXT(" "));
 			hToolTip = create_tooltip(dialog, g_hInst, 300, tooltips_dlg2);
 
@@ -739,13 +742,16 @@ BOOL CALLBACK dialog_proc_3(HWND dialog, UINT message,
 			safe_sprintf(bufferText, MAX_TEXT_LENGTH, "%s", device->manufacturer);
 			create_labeled_text(bufferLabel,bufferText,dialog,g_hInst,x,y,LBL_HEIGHT,LBL_WIDTH,TXT_WIDTH, ID_INFO_TEXT, ID_INFO_TEXT);
 
-			y += LBL_HEIGHT+LBL_SEP*2;
-			safe_sprintf(bufferLabel, MAX_TEXT_LENGTH, package_contents_fmt_0, 
-				"libusb-win32",
-				VERSION_MAJOR, VERSION_MINOR, VERSION_MICRO, VERSION_NANO,
-				"x86, x64, ia64");
+			if  (device->driver_info)
+			{
+				y += LBL_HEIGHT+LBL_SEP*2;
+				safe_sprintf(bufferLabel, MAX_TEXT_LENGTH, package_contents_fmt_0, "libusb-win32",
+					(int)device->driver_info->dwFileVersionMS>>16, (int)device->driver_info->dwFileVersionMS&0xFFFF,
+					(int)device->driver_info->dwFileVersionLS>>16, (int)device->driver_info->dwFileVersionLS&0xFFFF,
+					"x86, x64, ia64");
 
-			hwnd = create_labeled_text(NULL,bufferLabel,dialog,g_hInst,x,y,LBL_HEIGHT*2, 0, LBL_WIDTH+TXT_WIDTH, ID_TEXT_HIGHLIGHT_INFO, ID_TEXT_HIGHLIGHT_INFO);
+				hwnd = create_labeled_text(NULL,bufferLabel,dialog,g_hInst,x,y,LBL_HEIGHT*2, 0, LBL_WIDTH+TXT_WIDTH, ID_TEXT_HIGHLIGHT_INFO, ID_TEXT_HIGHLIGHT_INFO);
+			}
 
 			free(bufferLabel);
 

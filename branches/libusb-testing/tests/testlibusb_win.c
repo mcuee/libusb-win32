@@ -1,4 +1,4 @@
-/* LIBUSB-WIN32, Generic Windows USB Library
+/* libusb-win32, Generic Windows USB Library
  * Copyright (c) 2002-2004 Stephan Meyer <ste_meyer@web.de>
  * Copyright (c) 2000-2004 Johannes Erdfelt <johannes@erdfelt.com>
  *
