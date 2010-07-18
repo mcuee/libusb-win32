@@ -55,6 +55,7 @@ IF /I "!_PACKAGE_TYPE_!" EQU "bin" (
 )
 
 IF /I "!_PACKAGE_TYPE_!" EQU "dist" (
+	SET LIBUSB_DIST_BUILD=true
 	CALL :TokenizeLibusbVersionH %*
 	CALL :Package_Distributables %*
 	IF "!BUILD_ERRORLEVEL!" NEQ 0 GOTO CMDERROR
@@ -143,7 +144,7 @@ IF "!BUILD_ERRORLEVEL!" NEQ "0" GOTO CMDERROR
 SET _FRE_OR_CHECK_=fre
 IF /I "!CMDVAR_DEBUGMODE!" equ "true" SET _FRE_OR_CHECK_=chk
 
-IF /I "!CMDVAR_ARCH!" EQU "x86" (
+IF /I "!CMDVAR_ARCH!" EQU "notused" (
 	CALL :SetDDK "!CMDVAR_WINDDK_DIR!" normal !_FRE_OR_CHECK_! WXP
 	IF !BUILD_ERRORLEVEL! NEQ 0 GOTO CMDERROR
 ) ELSE IF /I "!CMDVAR_ARCH!" EQU "x64" (
@@ -152,7 +153,7 @@ IF /I "!CMDVAR_ARCH!" EQU "x86" (
 ) ELSE IF /I "!CMDVAR_ARCH!" EQU "i64" (
 	CALL :SetDDK "!CMDVAR_WINDDK_DIR!" normal !_FRE_OR_CHECK_! 64 WNET
 	IF !BUILD_ERRORLEVEL! NEQ 0 GOTO CMDERROR
-) ELSE IF /I "!CMDVAR_ARCH!" EQU "w2k" (
+) ELSE IF /I "!CMDVAR_ARCH!" EQU "x86" (
 	CALL :SetDDK "!CMDVAR_WINDDK_W2K_DIR!" forceoacr !_FRE_OR_CHECK_! W2K 
 	IF !BUILD_ERRORLEVEL! NEQ 0 GOTO CMDERROR
 ) ELSE (
@@ -240,8 +241,8 @@ GOTO :EOF
 	CALL :SafeCleanDir "!PACKAGE_BIN_DIR!"
 	IF !ERRORLEVEL! NEQ 0 GOTO :EOF
 	
-	CALL :Build_PackageBinaries w2k msvc w2k
-	IF !BUILD_ERRORLEVEL! NEQ 0 GOTO CMDERROR
+	REM CALL :Build_PackageBinaries w2k msvc w2k
+	REM IF !BUILD_ERRORLEVEL! NEQ 0 GOTO CMDERROR
 
 	CALL :Build_PackageBinaries x86 msvc x86
 	IF !BUILD_ERRORLEVEL! NEQ 0 GOTO CMDERROR
@@ -278,7 +279,13 @@ GOTO :EOF
 	SET _OUTDIR_=!PACKAGE_BIN_DIR!x86\
 	CALL :CmdExe make.cmd !_ARG_LINE! "arch=x86" "app=inf_wizard" "outdir=!_OUTDIR_!"
 	IF !BUILD_ERRORLEVEL! NEQ 0 GOTO CMDERROR
+	CALL :SafeDelete "!_OUTDIR_!*.lib"
 	
+	IF /I "!LIBUSB_DIST_BUILD!" EQU "true" (
+		ECHO All binaries built to !PACKAGE_BIN_DIR!
+		ECHO Sign these files now or
+		pause
+	)
 	
 
 GOTO :EOF

@@ -35,10 +35,16 @@ RMDIR /S /Q .\additional\libwdi\libwdi\objfre_wxp_x86 2>NUL>NUL
 RMDIR /S /Q .\additional\libwdi\libwdi\objchk_wxp_x86 2>NUL>NUL
 RMDIR /S /Q .\additional\libwdi\libwdi\objfre_wxp_amd64 2>NUL>NUL
 RMDIR /S /Q .\additional\libwdi\libwdi\objchk_wxp_amd64 2>NUL>NUL
+RMDIR /S /Q .\additional\libwdi\libwdi\objfre_w2k_x86 2>NUL>NUL
+RMDIR /S /Q .\additional\libwdi\libwdi\objchk_w2k_x86 2>NUL>NUL
+RMDIR /S /Q .\additional\libwdi\libwdi\objfre_w2k_amd64 2>NUL>NUL
+RMDIR /S /Q .\additional\libwdi\libwdi\objchk_w2k_amd64 2>NUL>NUL
 RMDIR /S /Q .\additional\libwdi\Win32 2>NUL>NUL
 RMDIR /S /Q .\additional\libwdi\x64 2>NUL>NUL
 RMDIR /S /Q .\additional\libwdi\examples\objfre_wxp_x86 2>NUL>NUL
 RMDIR /S /Q .\additional\libwdi\examples\objchk_wxp_x86 2>NUL>NUL
+RMDIR /S /Q .\additional\libwdi\examples\objfre_wxp_w2k 2>NUL>NUL
+RMDIR /S /Q .\additional\libwdi\examples\objchk_wxp_w2k 2>NUL>NUL
 
 DEL .\additional\libwdi\libwdi\embedded.h 2>NUL>NUL
 

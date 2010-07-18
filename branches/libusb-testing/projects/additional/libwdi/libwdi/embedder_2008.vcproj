@@ -201,7 +201,7 @@
 				Optimization="2"
 				EnableIntrinsicFunctions="true"
 				AdditionalIncludeDirectories="..\msvc"
-				PreprocessorDefinitions="_CRT_SECURE_NO_WARNINGS;INSTALLER_PATH_PREFIX=&quot;\&quot;..\\..\\..\&quot;&quot;"
+				PreprocessorDefinitions="_CRT_SECURE_NO_WARNINGS;INSTALLER_PATH_PREFIX=&quot;\&quot;..\\..\\..\&quot;&quot;;LIBUSB0_DIR=&quot;\&quot;$(LIBUSB0_DIR)\&quot;&quot;"
 				RuntimeLibrary="0"
 				EnableFunctionLevelLinking="true"
 				UsePrecompiledHeader="0"
