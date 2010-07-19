@@ -19,9 +19,11 @@
  */
 #pragma once
 
+/*
 #if !defined(OPT_M32) && !defined(OPT_M64)
 #error both 32 and 64 bit support have been disabled - check your config.h
 #endif
+*/
 
 #if !defined(DDK_DIR) && !defined(LIBUSB0_DIR) && !defined(USER_DIR)
 #error at least one of DDK_DIR, LIBUSB0_DIR or USER_DIR must be defined - check your config.h
@@ -31,7 +33,6 @@
 #if defined(_MSC_VER)
 #define __STR2__(x) #x
 #define __STR1__(x) __STR2__(x)
-// TODO: feed preprocessor arg to custom step?
 #if defined(_WIN64) && defined(OPT_M32)
 // a 64 bit application/library CANNOT be used on 32 bit platforms
 #pragma message(__FILE__ "(" __STR1__(__LINE__) ") : warning : library is compiled as 64 bit - disabling 32 bit support")
@@ -42,23 +43,23 @@
 /*
  * Defines where we should we pick the 32 and 64 bit installer exes to embed
  */
-#if !defined(INSTALLER_PATH_PREFIX)
-#define INSTALLER_PATH_PREFIX ".."
-#endif
-
 #if defined(_MSC_VER) && !defined(DDKBUILD)
+#if !defined(SOLUTIONDIR)
+#define SOLUTIONDIR ".."
+#endif
 #if defined(_DEBUG)
-#define INSTALLER_PATH_32 INSTALLER_PATH_PREFIX "\\Win32\\Debug\\helper"
-#define INSTALLER_PATH_64 INSTALLER_PATH_PREFIX "\\x64\\Debug\\helper"
+#define INSTALLER_PATH_32 SOLUTIONDIR "\\Win32\\Debug\\helper"
+#define INSTALLER_PATH_64 SOLUTIONDIR "\\x64\\Debug\\helper"
 #else
-#define INSTALLER_PATH_32 INSTALLER_PATH_PREFIX "\\Win32\\Release\\helper"
-#define INSTALLER_PATH_64 INSTALLER_PATH_PREFIX "\\x64\\Release\\helper"
+#define INSTALLER_PATH_32 SOLUTIONDIR "\\Win32\\Release\\helper"
+#define INSTALLER_PATH_64 SOLUTIONDIR "\\x64\\Release\\helper"
 #endif
 #else
+#if !defined(SOLUTIONDIR)
+#define SOLUTIONDIR "."
+#endif
 // If you compile with shared libs, DON'T PICK THE EXE IN "installer",
 // as it won't run from ANYWHERE ELSE! Use the one from .libs instead.
-#define INSTALLER_PATH_32 "."
-#define INSTALLER_PATH_64 "."
+#define INSTALLER_PATH_32 SOLUTIONDIR
+#define INSTALLER_PATH_64 SOLUTIONDIR
 #endif
-
-#define drv_sprintf(s, ...)	_snprintf(s, sizeof(s), __VA_ARGS__)

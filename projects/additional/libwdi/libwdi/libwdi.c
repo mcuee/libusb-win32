@@ -53,9 +53,12 @@
 #undef OPT_M32
 #endif
 
+/*
 #if !defined(OPT_M32) && !defined(OPT_M64)
 #error both 32 and 64 bit support have been disabled - check your config.h
 #endif
+*/
+
 #if defined(OPT_M64) && !defined(OPT_M32)
 #pragma message(__FILE__ "(" __STR1__(__LINE__) ") : warning : this library will be INCOMPATIBLE with 32 bit platforms")
 #endif

@@ -101,6 +101,10 @@ const char info_text_1[] =
 const char package_contents_fmt_0[] =
 "This package contains %s v%d.%d.%d.%d drivers and support for the following platforms: %s.";
 
+const char package_contents_fmt_1[] =
+"This package contains an inf file only.";
+
+
 const char list_header_text[] =
 "Select your device from the list of detected devices below. "
 "If your device isn't listed then either connect it or click \"Next\" "
@@ -742,21 +746,25 @@ BOOL CALLBACK dialog_proc_3(HWND dialog, UINT message,
 			safe_sprintf(bufferText, MAX_TEXT_LENGTH, "%s", device->manufacturer);
 			create_labeled_text(bufferLabel,bufferText,dialog,g_hInst,x,y,LBL_HEIGHT,LBL_WIDTH,TXT_WIDTH, ID_INFO_TEXT, ID_INFO_TEXT);
 
+			y += LBL_HEIGHT+LBL_SEP*2;
 			if  (device->driver_info)
 			{
-				y += LBL_HEIGHT+LBL_SEP*2;
 				safe_sprintf(bufferLabel, MAX_TEXT_LENGTH, package_contents_fmt_0, "libusb-win32",
 					(int)device->driver_info->dwFileVersionMS>>16, (int)device->driver_info->dwFileVersionMS&0xFFFF,
 					(int)device->driver_info->dwFileVersionLS>>16, (int)device->driver_info->dwFileVersionLS&0xFFFF,
 					"x86, x64, ia64");
 
-				hwnd = create_labeled_text(NULL,bufferLabel,dialog,g_hInst,x,y,LBL_HEIGHT*2, 0, LBL_WIDTH+TXT_WIDTH, ID_TEXT_HIGHLIGHT_INFO, ID_TEXT_HIGHLIGHT_INFO);
 			}
+			else
+			{
+				safe_sprintf(bufferLabel, MAX_TEXT_LENGTH, "%s", package_contents_fmt_1);
+			}
+			hwnd = create_labeled_text(NULL,bufferLabel,dialog,g_hInst,x,y,LBL_HEIGHT*2, 0, LBL_WIDTH+TXT_WIDTH, ID_TEXT_HIGHLIGHT_INFO, ID_TEXT_HIGHLIGHT_INFO);
 
 			free(bufferLabel);
 
 		}
-		if (GetFileAttributesA(device->inf_path)!=INVALID_FILE_ATTRIBUTES)
+		if ((device->driver_info) && GetFileAttributesA(device->inf_path)!=INVALID_FILE_ATTRIBUTES)
 			EnableWindow(GetDlgItem(dialog, ID_BUTTON_INSTALLNOW), TRUE);
 		else
 			EnableWindow(GetDlgItem(dialog, ID_BUTTON_INSTALLNOW), FALSE);

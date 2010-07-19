@@ -18,8 +18,8 @@
 	<Configurations>
 		<Configuration
 			Name="Debug|Win32"
-			OutputDirectory="$(SolutionDir)$(ConfigurationName)\$(PlatformName)\$(ProjectName)\"
-			IntermediateDirectory="$(SolutionDir)$(ConfigurationName)\$(PlatformName)\$(ProjectName)\"
+			OutputDirectory="$(SolutionDir)$(PlatformName)\$(ConfigurationName)\$(ProjectName)\"
+			IntermediateDirectory="$(SolutionDir)$(PlatformName)\$(ConfigurationName)\$(ProjectName)\"
 			ConfigurationType="1"
 			CharacterSet="2"
 			>
@@ -99,8 +99,8 @@
 		</Configuration>
 		<Configuration
 			Name="Release|Win32"
-			OutputDirectory="$(SolutionDir)$(ConfigurationName)\$(PlatformName)\$(ProjectName)\"
-			IntermediateDirectory="$(SolutionDir)$(ConfigurationName)\$(PlatformName)\$(ProjectName)\"
+			OutputDirectory="$(SolutionDir)$(PlatformName)\$(ConfigurationName)\$(ProjectName)\"
+			IntermediateDirectory="$(SolutionDir)$(PlatformName)\$(ConfigurationName)\$(ProjectName)\"
 			ConfigurationType="1"
 			CharacterSet="2"
 			WholeProgramOptimization="1"
