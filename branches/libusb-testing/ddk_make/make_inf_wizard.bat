@@ -10,15 +10,14 @@ call make_clean.bat
 SET _ARGS_=%*
 IF "!LIBWDI_DIR!" EQU "" (
 	IF "%~1" EQU "" (
-		
-		ECHO The libwdi directory must be passed as first argument or the LIBWDI_DIR
+		ECHO The libwdi directory must be passed as the first argument or the LIBWDI_DIR
 		ECHO environment variable must be set.
 		ECHO Example:
 		ECHO make_inf_wizard.bat "Z:\PROJECTS\libusb-win32-stage\projects\additional\libwdi"
 		GOTO :SHOW_LIBWDI_HELP
 	) ELSE (
 		SET LIBWDI_DIR=%~1
-		SET _ARGS_="%~2"
+		SET _ARGS_=%~2
 	)
 )
 
@@ -39,8 +38,12 @@ CD /D "!LIBWDI_DIR!"
 IF EXIST "build%BUILD_ALT_DIR%.err" DEL /Q "build%BUILD_ALT_DIR%.err" >NUL
 IF EXIST "build%BUILD_ALT_DIR%.wrn" DEL /Q "build%BUILD_ALT_DIR%.wrn" >NUL
 
-IF EXIST "!LIBUSB0_DIR!" SET C_DEFINES=/DLIBUSB0_DIR=\"!LIBUSB0_DIR!\"
-CALL ddk_build.cmd static libwdi
+IF EXIST "!LIBUSB0_DIR!" (
+	SET C_DEFINES=/DLIBUSB0_DIR=\"!LIBUSB0_DIR!\" /DOPT_M32 /DOPT_M64 /DOPT_IA64
+) ELSE (
+	SET C_DEFINES=/DUSER_DIR=\"\"
+)
+CALL ddk_build.cmd no_samples
 
 IF EXIST "build%BUILD_ALT_DIR%.err" SET BUILD_ERRORLEVEL=1
 IF EXIST "build%BUILD_ALT_DIR%.err" SET ERRORLEVEL=1
@@ -52,12 +55,14 @@ IF !BUILD_ERRORLEVEL! NEQ 0 (
 
 POPD
 
-copy /Y "!LIBWDI_DIR!\libwdi\libwdi.lib" >NUL
-copy /Y "!LIBWDI_DIR!\libwdi\libwdi.h" >NUL
-copy /Y sources_inf_wizard sources >NUL
-copy /Y %SRC_DIR%\inf_wizard*.* >NUL
-copy /Y %SRC_DIR%\libusb_version.h >NUL
-copy /Y %SRC_DIR%\common*.* >NUL
+::
+:: Copy in the inf-wizard sources
+COPY /Y "!LIBWDI_DIR!\libwdi\libwdi.lib" >NUL
+COPY /Y "!LIBWDI_DIR!\libwdi\libwdi.h" >NUL
+COPY /Y sources_inf_wizard sources >NUL
+COPY /Y %SRC_DIR%\inf_wizard*.* >NUL
+COPY /Y %SRC_DIR%\libusb_version.h >NUL
+COPY /Y %SRC_DIR%\common*.* >NUL
 
 ECHO Building (%BUILD_ALT_DIR%) %0..
 CALL build_ddk.bat !_ARGS_!

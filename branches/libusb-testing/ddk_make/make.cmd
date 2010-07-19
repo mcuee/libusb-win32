@@ -280,16 +280,18 @@ GOTO :EOF
 	CALL :SafeCopy "!PACKAGE_ROOT_DIR!bcc\libusb.lib" "!PACKAGE_LIB_DIR!bcc\libusb.lib" false
 	CALL :SafeMove "!PACKAGE_BIN_DIR!x86\libusb0.dll" "!PACKAGE_BIN_DIR!x86\libusb0_x86.dll"
 	
+	
+	IF /I "!LIBUSB_DIST_BUILD!" EQU "true" (
+		ECHO.
+		ECHO libusb-win32 binaries built to !PACKAGE_BIN_DIR!
+		SET /P __DUMMY=Sign these files now and/or press [Enter] to continue:
+	)
+	
 	SET _OUTDIR_=!PACKAGE_BIN_DIR!x86\
 	CALL :CmdExe make.cmd !_ARG_LINE! "arch=x86" "app=inf_wizard" "outdir=!_OUTDIR_!"
 	IF !BUILD_ERRORLEVEL! NEQ 0 GOTO CMDERROR
 	CALL :SafeDelete "!_OUTDIR_!*.lib"
-	
-	IF /I "!LIBUSB_DIST_BUILD!" EQU "true" (
-		ECHO All binaries built to !PACKAGE_BIN_DIR!
-		ECHO Sign these files now or
-		pause
-	)
+
 	
 
 GOTO :EOF

@@ -23,6 +23,8 @@ IF NOT EXIST ..\projects\ GOTO DONE
 
 PUSHD !CD!
 CD ..\projects
+RMDIR /S /Q .\Debug 2>NUL>NUL
+RMDIR /S /Q .\Release 2>NUL>NUL
 RMDIR /S /Q .\Win32 2>NUL>NUL
 RMDIR /S /Q .\x64 2>NUL>NUL
 
@@ -48,8 +50,8 @@ RMDIR /S /Q .\additional\libwdi\examples\objchk_wxp_w2k 2>NUL>NUL
 
 DEL .\additional\libwdi\libwdi\embedded.h 2>NUL>NUL
 
-RMDIR /S /Q ".\Debug" 2>NUL>NUL
-RMDIR /S /Q ".\Release" 2>NUL>NUL
+RMDIR /S /Q ".\Win32" 2>NUL>NUL
+RMDIR /S /Q ".\x64" 2>NUL>NUL
 POPD
 
 :DONE
