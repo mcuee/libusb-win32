@@ -280,19 +280,19 @@ GOTO :EOF
 	CALL :SafeCopy "!PACKAGE_ROOT_DIR!bcc\libusb.lib" "!PACKAGE_LIB_DIR!bcc\libusb.lib" false
 	CALL :SafeMove "!PACKAGE_BIN_DIR!x86\libusb0.dll" "!PACKAGE_BIN_DIR!x86\libusb0_x86.dll"
 	
-	
+	ECHO.
+	ECHO libusb-win32 v!VERSION! binaries built at '!PACKAGE_BIN_DIR!'
 	IF /I "!LIBUSB_DIST_BUILD!" EQU "true" (
-		ECHO.
-		ECHO libusb-win32 binaries built to !PACKAGE_BIN_DIR!
-		SET /P __DUMMY=Sign these files now and/or press [Enter] to continue:
+		SET /P __DUMMY=[Sign these files now and/or press 'Enter' to continue]
 	)
+	ECHO.
 	
+	CALL :SafeCopy "!DIR_LIBUSB_DDK!..\installer_license.txt" "!PACKAGE_ROOT_DIR!installer_license.txt"
 	SET _OUTDIR_=!PACKAGE_BIN_DIR!x86\
 	CALL :CmdExe make.cmd !_ARG_LINE! "arch=x86" "app=inf_wizard" "outdir=!_OUTDIR_!"
 	IF !BUILD_ERRORLEVEL! NEQ 0 GOTO CMDERROR
-	CALL :SafeDelete "!_OUTDIR_!*.lib"
-
 	
+	CALL :SafeDelete "!_OUTDIR_!*.lib"
 
 GOTO :EOF
 
@@ -574,6 +574,11 @@ GOTO :EOF
 	SHIFT /1
 	IF /I "%~1" EQU "forceoacr" SET WINDDK_AUTOCODEREVIEW=
 	SHIFT /1
+	IF NOT EXIST "!SELECTED_DDK!\bin\setenv.bat" (
+		ECHO Failed locating WinDDK setenv.bat at '!SELECTED_DDK!\bin\setenv.bat'
+		SET BUILD_ERRORLEVEL=1
+		GOTO :EOF
+	)
 	CALL "!SELECTED_DDK!\bin\setenv.bat" !SELECTED_DDK! %1 %2 %3 %4 !WINDDK_AUTOCODEREVIEW!
 	SET BUILD_ERRORLEVEL=!ERRORLEVEL!
 	POPD
@@ -899,9 +904,9 @@ EXIT /B !BUILD_ERRORLEVEL!
 ECHO.
 ECHO LIBUSB-WIN32 WinDDK build utility/application packager
 ECHO.
-ECHO Summary: This batch script automates the libusb-win32 WinDDK build process and
-ECHO          creates libusb-win32 redistributable packages.
-ECHO.
+ECHO Summary: This batch script automates the libusb-win32 WinDDK build process
+ECHO          and creates libusb-win32 redistributable packages.
+ECHO          [see also make.cfg]
 ECHO.
 ECHO BUILD USAGE: CMD /C make.cmd "Option=Value"
 ECHO Options: 
@@ -921,8 +926,8 @@ ECHO              [Default = false]
 ECHO TESTSIGNING  Setting this option to 'on' signs te dll and driver with a
 ECHO              test certifcate.
 ECHO              [Default = off]
-ECHO LOG_OUTPUT   Changes the log output type.  By default, applications send
-ECHO              log messages to stderr, dlls send log messages to 
+ECHO LOG_OUTPUT   Changes the log output type.  By default, console apps send log
+ECHO              messages to stderr, dlls and windows apps send log messages to 
 ECHO              OutputDebugString and kernel drivers send messages to 
 ECHO              DbgPrint. Use DebugView to view DBGPRINT, DEBUGWINDOW logs.
 ECHO              http://download.sysinternals.com/Files/DebugView.zip
@@ -930,12 +935,10 @@ ECHO              Log Output Types (case sensitive, combinable with +):
 ECHO					DEFAULT      Use the build defaults. [see above]
 ECHO					REMOVE       Strip all log messages [except errors].
 ECHO					STDERR       output to stderr
-ECHO					DEBUGWINDOW	 OutputDebugString
+ECHO					DEBUGWINDOW	 OutputDebugString, DbgPrint
 ECHO					FILE	     redirect log messages to a file.
-ECHO					DBGPRINT	 DbgPrint
 ECHO.
 ECHO [Note: See make.cfg for more options that can be used when building]
-ECHO.
 ECHO Examples:
 ECHO CMD /C make.cmd "arch=x86" "app=all" "outdir=.\x86"
 ECHO CMD /C make.cmd "arch=x64" "outdir=.\x64" "winddk=%SystemDrive%\WinDDK\7600.16385.0\"

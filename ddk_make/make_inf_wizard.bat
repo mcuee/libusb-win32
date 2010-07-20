@@ -7,25 +7,14 @@ call make_clean.bat
 
 :: Check arguments
 ::
-SET _ARGS_=%*
-IF "!LIBWDI_DIR!" EQU "" (
-	IF "%~1" EQU "" (
-		ECHO The libwdi directory must be passed as the first argument or the LIBWDI_DIR
-		ECHO environment variable must be set.
-		ECHO Example:
-		ECHO make_inf_wizard.bat "Z:\PROJECTS\libusb-win32-stage\projects\additional\libwdi"
-		GOTO :SHOW_LIBWDI_HELP
-	) ELSE (
-		SET LIBWDI_DIR=%~1
-		SET _ARGS_=%~2
-	)
-)
+
+IF "!LIBWDI_DIR!" EQU "" SET LIBWDI_DIR=..\projects\additional\libwdi\
 
 :: Check for libwdi ddk_build.cmd
 ::
 IF NOT EXIST "!LIBWDI_DIR!\ddk_build.cmd" (
 	ECHO libwdi ddk_build.cmd not found at '!LIBWDI_DIR!'
-	GOTO :SHOW_LIBWDI_HELP
+	GOTO SHOW_LIBWDI_HELP
 )
 
 :: Build libwdi
@@ -41,9 +30,16 @@ IF EXIST "build%BUILD_ALT_DIR%.wrn" DEL /Q "build%BUILD_ALT_DIR%.wrn" >NUL
 IF EXIST "!LIBUSB0_DIR!" (
 	SET C_DEFINES=/DLIBUSB0_DIR=\"!LIBUSB0_DIR!\" /DOPT_M32 /DOPT_M64 /DOPT_IA64
 ) ELSE (
-	SET C_DEFINES=/DUSER_DIR=\"\"
+	ECHO.
+	ECHO [Warning] The LIBUSB0_DIR environment variable has not been set. This 
+	ECHO           inf-wizard will contain only the inf generator and not
+	ECHO           embedded libusb-win32 binaries. 
+	ECHO.
+	ECHO '!LIBUSB0_DIR!'
+	SET C_DEFINES=/DUSER_DIR=\"\" /DOPT_M32 /DOPT_M64
 )
-CALL ddk_build.cmd no_samples
+ECHO Building (%BUILD_ALT_DIR%) libwdi..
+CALL ddk_build.cmd no_samples 2>NUL
 
 IF EXIST "build%BUILD_ALT_DIR%.err" SET BUILD_ERRORLEVEL=1
 IF EXIST "build%BUILD_ALT_DIR%.err" SET ERRORLEVEL=1
@@ -75,6 +71,20 @@ EXIT /B 1
 GOTO BUILD_DONE
 
 :SHOW_LIBWDI_HELP
+ECHO.
+ECHO inf-wizard-libusb-win32 WinDDK build utility
+ECHO.
+ECHO Summary: This batch script automates the inf-wizard WinDDK build process
+ECHO          and creates inf-wizard with embedded binaries.
+ECHO.
+ECHO NOTE : This batch script must be run from a x86 windkk build environment.
+ECHO.
+ECHO USAGE EXAMPLE:
+ECHO
+ECHO example #1.
+ECHO SET LIBUSB0_DIR=Z:\packages\libusb-win32\
+ECHO make_inf_wizard.bat
+ECHO.
 GOTO BUILD_DONE
 
 :BUILD_SUCCESS
