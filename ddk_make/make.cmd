@@ -30,6 +30,7 @@ IF NOT EXIST "!MAKE_CFG!" (
 	ECHO !MAKE_CFG! configuration file not found.
 	GOTO CMDERROR
 )
+
 CALL :LoadConfig
 
 IF !BUILD_ERRORLEVEL! NEQ 0 GOTO CMDERROR
@@ -115,9 +116,30 @@ IF /I "%~1" EQU "signfile" (
 )
 
 IF /I "%~1" EQU "launchdevenv" (
-	"%VS90COMNTOOLS%..\IDE\devenv.exe" %2
+	CALL :ToShortName DIR_VS_IDE_10 "%VS100COMNTOOLS%..\IDE\"
+	CALL :ToShortName DIR_VS_IDE_9 "%VS90COMNTOOLS%..\IDE\"
+	IF EXIST "!DIR_VS_IDE_10!" (
+		SET DIR_VS=!DIR_VS_IDE_10!
+	) ELSE IF EXIST "!DIR_VS_IDE_9!" (
+		SET DIR_VS=!DIR_VS_IDE_9!
+	) ELSE (
+		Echo failed locating visual studio ide directory
+		GOTO CMDEXIT
+	)
+
+	IF EXIST "!DIR_VS!devenv.exe" (
+		"!DIR_VS!devenv.exe" %2
+	) ELSE IF EXIST "!DIR_VS!VCExpress.exe" (
+		"!DIR_VS!VCExpress.exe" %2
+	) ELSE (
+		Echo failed locating visual studio ide
+		GOTO CMDEXIT
+	)
+
 	GOTO CMDEXIT
 )
+
+
 
 IF /I "%~1" EQU "install" (
 	CALL :SafeCopy "!PACKAGE_ROOT_DIR!bin\!!PROCESSOR_ARCHITECTURE!\libusb0.sys" "!SystemRoot!\system32\drivers\"
@@ -653,9 +675,19 @@ GOTO :EOF
 		IF NOT "%%~I" EQU "" (
 			SET _PNAME=%%~I
 			SET _PNAME=!_PNAME: =!
-			SET _PVALUE=%%J
-			SET CMDVAR_!_PNAME!=!_PVALUE!
+			IF /I "!_PNAME!" EQU "ZIP" (
+				CALL :ToShortName _PVALUE "%%~J"
+			) ELSE IF /I "!_PNAME!" EQU "ISCC" (
+				CALL :ToShortName _PVALUE "%%~J"
+			) ELSE IF /I "!_PNAME!" EQU "IMPLIB" (
+				CALL :ToShortName _PVALUE "%%~J"
+			) ELSE IF /I "!_PNAME!" EQU "DLLTOOL" (
+				CALL :ToShortName _PVALUE "%%~J"
+			) ELSE (
+				SET _PVALUE=%%J
+			)
 			SET !_PNAME!=!_PVALUE!
+			SET CMDVAR_!_PNAME!=!_PVALUE!
 		)
 	)
 	SET LIBUSB0_DIR=!PACKAGE_ROOT_DIR:\=/!
@@ -821,6 +853,15 @@ GOTO :EOF
 		SHIFT /1
 		SHIFT /1
 		GOTO ToAbsolutePaths
+	)
+GOTO :EOF
+
+:ToShortName
+	IF NOT "%~1" EQU "" (
+		SET %~1=%~s2
+		SHIFT /1
+		SHIFT /1
+		GOTO ToShortName
 	)
 GOTO :EOF
 
