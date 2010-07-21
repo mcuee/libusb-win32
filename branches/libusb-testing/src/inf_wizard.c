@@ -614,7 +614,7 @@ BOOL CALLBACK dialog_proc_2(HWND dialog, UINT message,
 
 			if (sscanf(tmp, "0x%02x", &val) == 1)
 			{
-				device->wdi->mi = (WORD)val;
+				device->wdi->mi = (BYTE)val;
 				device->wdi->is_composite=true;
 			}
 			if (save_file(dialog, device))

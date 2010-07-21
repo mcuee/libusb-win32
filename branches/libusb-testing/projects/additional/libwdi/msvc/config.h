@@ -29,23 +29,14 @@
 /* embed IA64 driver files */
 //#define OPT_IA64
 
-#if defined(DBG) || defined(DEBUG) || defined(_DEBUG)
-	/* Debug message logging */
-	#define ENABLE_DEBUG_LOGGING
-
-	/* Debug message logging (toggable) */
-	#define INCLUDE_DEBUG_LOGGING
-
-	/* Message logging */
-	#define ENABLE_LOGGING 1
-#endif
-
 #else // end of MSVC defaults
 
-// GCC defaults
+
+#endif
+
+// MSVC and GCC defaults
 #if defined(DBG) || defined(DEBUG) || defined(_DEBUG)
 	/* Debug message logging */
-
 	#define ENABLE_DEBUG_LOGGING
 
 	/* Debug message logging (toggable) */
@@ -53,7 +44,7 @@
 
 	/* Message logging */
 	#define ENABLE_LOGGING 1
-#endif
 
+	/* Output log message to a debug window/DebugView */
+	#define LOG_OUTPUT_DEBUGWINDOW
 #endif
-

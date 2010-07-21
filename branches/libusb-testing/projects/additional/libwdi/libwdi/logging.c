@@ -120,7 +120,10 @@ void console_wdi_log_v(enum wdi_log_level level,
 {
 	FILE *stream;
 	const char *prefix;
-
+#ifdef LOG_OUTPUT_DEBUGWINDOW
+	char fmt[LOGBUF_SIZE];
+	char buf[LOGBUF_SIZE];
+#endif
 	stream = stdout;
 
 #ifndef ENABLE_DEBUG_LOGGING
@@ -149,12 +152,19 @@ void console_wdi_log_v(enum wdi_log_level level,
 		prefix = "unknown";
 		break;
 	}
+#ifdef LOG_OUTPUT_DEBUGWINDOW
+		safe_snprintf(fmt, LOGBUF_SIZE, "libwdi:%s [%s] %s\n", prefix, function, format);
 
+		safe_vsnprintf(buf,LOGBUF_SIZE, fmt, args);
+
+		OutputDebugStringA(buf);
+#else
 	fprintf(stream, "libwdi:%s [%s] ", prefix, function);
-
+	
 	vfprintf(stream, format, args);
-
+	
 	fprintf(stream, "\n");
+#endif
 
 }
 

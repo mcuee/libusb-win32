@@ -30,6 +30,10 @@ ifdef host_prefix
 	override host_prefix := $(host_prefix)-
 endif
 
+ifdef cflags
+	DBG_DEFINE = $(cflags)
+endif
+
 CC = $(host_prefix)gcc
 LD = $(host_prefix)ld
 WINDRES = $(host_prefix)windres
@@ -77,7 +81,7 @@ LIBWDI_OBJECTS = $(LIBWDI_DIR)/logging.5.o \
 
 INCLUDES = -I./src -I./src/driver -I.
 
-CFLAGS = -O2 -Wall -mno-cygwin -DWINVER=0x500 $(ADD_DEFINES)
+CFLAGS = -O2 -Wall -mno-cygwin -DWINVER=0x500 $(DBG_DEFINE)
 WIN_CFLAGS = $(CFLAGS) -mwindows
 
 CPPFLAGS = -DMANIFEST_FILE=$(MANIFEST_FILE)
