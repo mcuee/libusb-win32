@@ -1,9 +1,6 @@
 /* config.h.  Manual config for MSVC.  */
 
-#ifndef _MSC_VER
-#warn "msvc/config.h shouldn't be included for your development environment."
-#error "Please make sure the msvc/ directory is removed from your build path."
-#endif
+#ifdef _MSC_VER
 
 /* embed WinUSB driver files from the following DDK location */
 #ifndef DDK_DIR
@@ -16,8 +13,8 @@
 #endif
 
 /* embed user defined driver files from the following location */
-#ifndef USER_DIR
-// #define USER_DIR "C:/signed-driver"
+#if !defined(USER_DIR) && !defined(LIBUSB0_DIR) && !defined(DDK_DIR)
+	#define USER_DIR ""
 #endif
 
 /* DDK WDF coinstaller version (string) */
@@ -32,11 +29,31 @@
 /* embed IA64 driver files */
 //#define OPT_IA64
 
-/* Debug message logging */
-//#define ENABLE_DEBUG_LOGGING
+#if defined(DBG) || defined(DEBUG) || defined(_DEBUG)
+	/* Debug message logging */
+	#define ENABLE_DEBUG_LOGGING
 
-/* Debug message logging (toggable) */
-#define INCLUDE_DEBUG_LOGGING
+	/* Debug message logging (toggable) */
+	#define INCLUDE_DEBUG_LOGGING
 
-/* Message logging */
-#define ENABLE_LOGGING 1
+	/* Message logging */
+	#define ENABLE_LOGGING 1
+#endif
+
+#else // end of MSVC defaults
+
+// GCC defaults
+#if defined(DBG) || defined(DEBUG) || defined(_DEBUG)
+	/* Debug message logging */
+
+	#define ENABLE_DEBUG_LOGGING
+
+	/* Debug message logging (toggable) */
+	#define INCLUDE_DEBUG_LOGGING
+
+	/* Message logging */
+	#define ENABLE_LOGGING 1
+#endif
+
+#endif
+
