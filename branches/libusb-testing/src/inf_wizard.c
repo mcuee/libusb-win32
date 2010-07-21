@@ -18,8 +18,12 @@
 */
 
 #ifdef __GNUC__
-#define _WIN32_IE 0x0400
-#define WINVER 0x0500
+	#if !defined(WINVER)
+		#define WINVER 0x0500
+	#endif
+	#if !defined(_WIN32_IE)
+		#define _WIN32_IE 0x0400
+	#endif
 #endif
 
 #define INITGUID
@@ -545,6 +549,7 @@ BOOL CALLBACK dialog_proc_2(HWND dialog, UINT message,
 	static device_context_t *device = NULL;
 	static HWND hToolTip;
 	char tmp[MAX_TEXT_LENGTH];
+	int val;
 
 	switch (message)
 	{
@@ -593,20 +598,25 @@ BOOL CALLBACK dialog_proc_2(HWND dialog, UINT message,
 
 			GetWindowText(GetDlgItem(dialog, ID_TEXT_MANUFACTURER),
 				device->manufacturer, sizeof(tmp));
+
 			GetWindowText(GetDlgItem(dialog, ID_TEXT_DEV_NAME),
 				device->description, sizeof(tmp));
 
 			GetWindowText(GetDlgItem(dialog, ID_TEXT_VID), tmp, sizeof(tmp));
-			sscanf(tmp, "0x%04x", &device->wdi->vid);
+			if(sscanf(tmp, "0x%04x", &val) == 1) 
+				device->wdi->vid = (WORD)val;
 
 			GetWindowText(GetDlgItem(dialog, ID_TEXT_PID), tmp, sizeof(tmp));
-			sscanf(tmp, "0x%04x", &device->wdi->pid);
+			if(sscanf(tmp, "0x%04x", &val) == 1) 
+				device->wdi->pid = (WORD)val;
 
 			GetWindowText(GetDlgItem(dialog, ID_TEXT_MI), tmp, sizeof(tmp));
 
-			if (sscanf(tmp, "0x%02x", &device->wdi->mi) == 1)
+			if (sscanf(tmp, "0x%02x", &val) == 1)
+			{
+				device->wdi->mi = (WORD)val;
 				device->wdi->is_composite=true;
-
+			}
 			if (save_file(dialog, device))
 				EndDialog(dialog, ID_DIALOG_3);
 			return TRUE ;
@@ -635,7 +645,7 @@ HWND create_labeled_text(char* label, char* text,
 						 UINT label_width, UINT text_width, 
 						 UINT uIDLabel, UINT uIDText)
 {
-	HWND hwnd;
+	HWND hwnd = NULL;
 	HFONT dlgFont;
 	LOGFONT logFont;
 	HFONT labelFont;
