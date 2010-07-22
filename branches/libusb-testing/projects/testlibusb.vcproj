@@ -44,7 +44,7 @@
 				Name="VCCLCompilerTool"
 				Optimization="0"
 				AdditionalIncludeDirectories="..\src"
-				PreprocessorDefinitions="LOG_APPNAME=&quot;\&quot;$(ProjectName)\&quot;&quot;;MANIFEST_FILE=&quot;\&quot;..\\manifest_x86.xml\&quot;&quot;;snprintf=_snprintf"
+				PreprocessorDefinitions="LOG_APPNAME=&quot;\&quot;$(ProjectName)\&quot;&quot;;snprintf=_snprintf"
 				MinimalRebuild="true"
 				BasicRuntimeChecks="3"
 				RuntimeLibrary="1"
@@ -58,7 +58,7 @@
 			/>
 			<Tool
 				Name="VCResourceCompilerTool"
-				PreprocessorDefinitions="LOG_APPNAME=&quot;\&quot;$(ProjectName)\&quot;&quot;;MANIFEST_FILE=&quot;\&quot;..\\manifest_x86.xml\&quot;&quot;"
+				PreprocessorDefinitions="LOG_APPNAME=&quot;\&quot;$(ProjectName)\&quot;&quot;"
 				AdditionalIncludeDirectories="..\src"
 			/>
 			<Tool
@@ -67,7 +67,7 @@
 			<Tool
 				Name="VCLinkerTool"
 				AdditionalDependencies="kernel32.lib advapi32.lib user32.lib setupapi.lib $(NOINHERIT)"
-				AdditionalLibraryDirectories="$(SolutionDir)$(ConfigurationName)\$(PlatformName)\libusb-dll\"
+				AdditionalLibraryDirectories=""
 				EnableUAC="false"
 				UACExecutionLevel="0"
 				GenerateDebugInformation="true"
@@ -123,7 +123,7 @@
 				Name="VCCLCompilerTool"
 				Optimization="0"
 				AdditionalIncludeDirectories="..\src"
-				PreprocessorDefinitions="LOG_APPNAME=&quot;\&quot;$(ProjectName)\&quot;&quot;;MANIFEST_FILE=&quot;\&quot;..\\manifest_x86.xml\&quot;&quot;;snprintf=_snprintf"
+				PreprocessorDefinitions="LOG_APPNAME=&quot;\&quot;$(ProjectName)\&quot;&quot;;snprintf=_snprintf"
 				MinimalRebuild="true"
 				BasicRuntimeChecks="3"
 				RuntimeLibrary="1"
@@ -137,7 +137,7 @@
 			/>
 			<Tool
 				Name="VCResourceCompilerTool"
-				PreprocessorDefinitions="LOG_APPNAME=&quot;\&quot;$(ProjectName)\&quot;&quot;;MANIFEST_FILE=&quot;\&quot;..\\manifest_x86.xml\&quot;&quot;"
+				PreprocessorDefinitions="LOG_APPNAME=&quot;\&quot;$(ProjectName)\&quot;&quot;"
 				AdditionalIncludeDirectories="..\src"
 			/>
 			<Tool
@@ -146,7 +146,7 @@
 			<Tool
 				Name="VCLinkerTool"
 				AdditionalDependencies="kernel32.lib advapi32.lib user32.lib setupapi.lib $(NOINHERIT)"
-				AdditionalLibraryDirectories="$(SolutionDir)$(ConfigurationName)\$(PlatformName)\libusb-dll\"
+				AdditionalLibraryDirectories=""
 				EnableUAC="false"
 				UACExecutionLevel="0"
 				GenerateDebugInformation="true"
@@ -203,7 +203,7 @@
 				Optimization="2"
 				EnableIntrinsicFunctions="true"
 				AdditionalIncludeDirectories="..\src"
-				PreprocessorDefinitions="LOG_APPNAME=&quot;\&quot;$(ProjectName)\&quot;&quot;;MANIFEST_FILE=&quot;\&quot;..\\manifest_x86.xml\&quot;&quot;;snprintf=_snprintf"
+				PreprocessorDefinitions="LOG_APPNAME=&quot;\&quot;$(ProjectName)\&quot;&quot;;snprintf=_snprintf"
 				RuntimeLibrary="0"
 				EnableFunctionLevelLinking="true"
 				WarningLevel="3"
@@ -216,7 +216,7 @@
 			/>
 			<Tool
 				Name="VCResourceCompilerTool"
-				PreprocessorDefinitions="LOG_APPNAME=&quot;\&quot;$(ProjectName)\&quot;&quot;;MANIFEST_FILE=&quot;\&quot;..\\manifest_x86.xml\&quot;&quot;"
+				PreprocessorDefinitions="LOG_APPNAME=&quot;\&quot;$(ProjectName)\&quot;&quot;"
 				AdditionalIncludeDirectories="..\src"
 			/>
 			<Tool
@@ -225,7 +225,7 @@
 			<Tool
 				Name="VCLinkerTool"
 				AdditionalDependencies="kernel32.lib advapi32.lib user32.lib setupapi.lib $(NOINHERIT)"
-				AdditionalLibraryDirectories="$(SolutionDir)$(ConfigurationName)\$(PlatformName)\libusb-dll\"
+				AdditionalLibraryDirectories=""
 				EnableUAC="false"
 				UACExecutionLevel="0"
 				GenerateDebugInformation="true"
@@ -286,7 +286,7 @@
 				Optimization="2"
 				EnableIntrinsicFunctions="true"
 				AdditionalIncludeDirectories="..\src"
-				PreprocessorDefinitions="LOG_APPNAME=&quot;\&quot;$(ProjectName)\&quot;&quot;;MANIFEST_FILE=&quot;\&quot;..\\manifest_x86.xml\&quot;&quot;;snprintf=_snprintf"
+				PreprocessorDefinitions="LOG_APPNAME=&quot;\&quot;$(ProjectName)\&quot;&quot;;snprintf=_snprintf"
 				RuntimeLibrary="0"
 				EnableFunctionLevelLinking="true"
 				WarningLevel="3"
@@ -299,7 +299,7 @@
 			/>
 			<Tool
 				Name="VCResourceCompilerTool"
-				PreprocessorDefinitions="LOG_APPNAME=&quot;\&quot;$(ProjectName)\&quot;&quot;;MANIFEST_FILE=&quot;\&quot;..\\manifest_x86.xml\&quot;&quot;"
+				PreprocessorDefinitions="LOG_APPNAME=&quot;\&quot;$(ProjectName)\&quot;&quot;"
 				AdditionalIncludeDirectories="..\src"
 			/>
 			<Tool
@@ -308,7 +308,7 @@
 			<Tool
 				Name="VCLinkerTool"
 				AdditionalDependencies="kernel32.lib advapi32.lib user32.lib setupapi.lib $(NOINHERIT)"
-				AdditionalLibraryDirectories="$(SolutionDir)$(ConfigurationName)\$(PlatformName)\libusb-dll\"
+				AdditionalLibraryDirectories=""
 				EnableUAC="false"
 				UACExecutionLevel="0"
 				GenerateDebugInformation="true"

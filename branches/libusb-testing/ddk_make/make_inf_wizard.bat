@@ -59,6 +59,7 @@ COPY /Y sources_inf_wizard sources >NUL
 COPY /Y %SRC_DIR%\inf_wizard*.* >NUL
 COPY /Y %SRC_DIR%\libusb_version.h >NUL
 COPY /Y %SRC_DIR%\common*.* >NUL
+copy %SRC_DIR%\*.manifest . >NUL
 
 ECHO Building (%BUILD_ALT_DIR%) %0..
 CALL build_ddk.bat !_ARGS_!

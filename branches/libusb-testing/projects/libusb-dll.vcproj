@@ -2,7 +2,7 @@
 <VisualStudioProject
 	ProjectType="Visual C++"
 	Version="9.00"
-	Name="libusb-dll"
+	Name="libusb0"
 	ProjectGUID="{C52E6FA6-AFF5-468D-A82F-E9932E8203D4}"
 	RootNamespace="libusbdll"
 	TargetFrameworkVersion="131072"
@@ -44,7 +44,7 @@
 				Name="VCCLCompilerTool"
 				Optimization="0"
 				AdditionalIncludeDirectories="..\src;..\src\driver"
-				PreprocessorDefinitions="LOG_APPNAME=&quot;\&quot;$(ProjectName)\&quot;&quot;;MANIFEST_FILE=&quot;\&quot;..\\manifest_x86.xml\&quot;&quot;;TARGETTYPE=DYNLINK"
+				PreprocessorDefinitions="LOG_APPNAME=&quot;\&quot;$(ProjectName)\&quot;&quot;;TARGETTYPE=DYNLINK"
 				MinimalRebuild="true"
 				BasicRuntimeChecks="3"
 				RuntimeLibrary="3"
@@ -67,7 +67,6 @@
 			<Tool
 				Name="VCLinkerTool"
 				AdditionalDependencies="setupapi.lib kernel32.lib advapi32.lib user32.lib $(NOINHERIT)"
-				OutputFile="$(OutDir)\libusb0.dll"
 				AdditionalLibraryDirectories=""
 				GenerateManifest="false"
 				EnableUAC="false"
@@ -150,7 +149,6 @@
 			<Tool
 				Name="VCLinkerTool"
 				AdditionalDependencies="setupapi.lib kernel32.lib advapi32.lib user32.lib $(NOINHERIT)"
-				OutputFile="$(OutDir)\libusb0.dll"
 				AdditionalLibraryDirectories=""
 				GenerateManifest="false"
 				EnableUAC="false"
@@ -211,7 +209,7 @@
 				Optimization="2"
 				EnableIntrinsicFunctions="true"
 				AdditionalIncludeDirectories="..\src;..\src\driver"
-				PreprocessorDefinitions="LOG_APPNAME=&quot;\&quot;$(ProjectName)\&quot;&quot;;MANIFEST_FILE=&quot;\&quot;..\\manifest_x86.xml\&quot;&quot;;TARGETTYPE=DYNLINK"
+				PreprocessorDefinitions="LOG_APPNAME=&quot;\&quot;$(ProjectName)\&quot;&quot;;TARGETTYPE=DYNLINK"
 				RuntimeLibrary="2"
 				EnableFunctionLevelLinking="true"
 				WarningLevel="3"
@@ -224,7 +222,7 @@
 			/>
 			<Tool
 				Name="VCResourceCompilerTool"
-				PreprocessorDefinitions="LOG_APPNAME=&quot;\&quot;$(ProjectName)\&quot;&quot;;MANIFEST_FILE=&quot;\&quot;..\\manifest_x86.xml\&quot;&quot;"
+				PreprocessorDefinitions="LOG_APPNAME=&quot;\&quot;$(ProjectName)\&quot;&quot;"
 				AdditionalIncludeDirectories="..\src"
 			/>
 			<Tool
@@ -233,7 +231,6 @@
 			<Tool
 				Name="VCLinkerTool"
 				AdditionalDependencies="setupapi.lib kernel32.lib advapi32.lib user32.lib $(NOINHERIT)"
-				OutputFile="$(OutDir)\libusb0.dll"
 				AdditionalLibraryDirectories=""
 				GenerateManifest="false"
 				EnableUAC="false"
@@ -298,7 +295,7 @@
 				Optimization="2"
 				EnableIntrinsicFunctions="true"
 				AdditionalIncludeDirectories="..\src;..\src\driver"
-				PreprocessorDefinitions="LOG_APPNAME=&quot;\&quot;$(ProjectName)\&quot;&quot;;MANIFEST_FILE=&quot;\&quot;..\\manifest_x86.xml\&quot;&quot;;TARGETTYPE=DYNLINK"
+				PreprocessorDefinitions="LOG_APPNAME=&quot;\&quot;$(ProjectName)\&quot;&quot;;TARGETTYPE=DYNLINK"
 				RuntimeLibrary="2"
 				EnableFunctionLevelLinking="true"
 				WarningLevel="3"
@@ -311,7 +308,7 @@
 			/>
 			<Tool
 				Name="VCResourceCompilerTool"
-				PreprocessorDefinitions="LOG_APPNAME=&quot;\&quot;$(ProjectName)\&quot;&quot;;MANIFEST_FILE=&quot;\&quot;..\\manifest_x86.xml\&quot;&quot;"
+				PreprocessorDefinitions="LOG_APPNAME=&quot;\&quot;$(ProjectName)\&quot;&quot;"
 				AdditionalIncludeDirectories="..\src"
 			/>
 			<Tool
@@ -320,7 +317,6 @@
 			<Tool
 				Name="VCLinkerTool"
 				AdditionalDependencies="setupapi.lib kernel32.lib advapi32.lib user32.lib $(NOINHERIT)"
-				OutputFile="$(OutDir)\libusb0.dll"
 				AdditionalLibraryDirectories=""
 				GenerateManifest="false"
 				EnableUAC="false"
