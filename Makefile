@@ -51,7 +51,6 @@ LIB = lib
 IMPLIB = implib
 UNIX2DOS = unix2dos
 
-MANIFEST_FILE = '\"manifest_x86.xml\"'
 TARGET = libusb
 DLL_TARGET = $(TARGET)0
 LIB_TARGET = $(TARGET)
@@ -83,8 +82,6 @@ INCLUDES = -I./src -I./src/driver -I.
 
 CFLAGS = -O2 -Wall -mno-cygwin -DWINVER=0x500 $(DBG_DEFINE)
 WIN_CFLAGS = $(CFLAGS) -mwindows
-
-CPPFLAGS = -DMANIFEST_FILE=$(MANIFEST_FILE)
 
 WINDRES_FLAGS = -I$(SRC_DIR)
 
