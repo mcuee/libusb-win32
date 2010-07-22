@@ -29,7 +29,9 @@
 ifdef host_prefix
 	override host_prefix := $(host_prefix)-
 endif
-
+ifdef host_prefix_x86
+	override host_prefix_x86 := $(host_prefix_x86)-
+endif
 ifdef cflags
 	DBG_DEFINE = $(cflags)
 endif
@@ -38,6 +40,11 @@ CC = $(host_prefix)gcc
 LD = $(host_prefix)ld
 WINDRES = $(host_prefix)windres
 DLLTOOL = $(host_prefix)dlltool
+
+CC86 = $(host_prefix_x86)gcc
+LD86 = $(host_prefix_x86)ld
+WINDRES86 = $(host_prefix_x86)windres
+DLLTOOL86 = $(host_prefix_x86)dlltool
 
 MAKE = make
 CP = cp
@@ -181,11 +188,11 @@ installer_x86: INSTALLER_LDFLAGS = -s -mno-cygwin -L. -ladvapi32 -lnewdev -lsetu
 installer_x86: installer_x86.exe
 
 installer_x86.exe: $(LIBWDI_DIR)/installer.6.o
-	$(CC) $(INSTALLER_CFLAGS) -o $@ -I$(LIBWDI_DIR)  $^ $(INSTALLER_LDFLAGS)
+	$(CC86) $(INSTALLER_CFLAGS) -o $@ -I$(LIBWDI_DIR)  $^ $(INSTALLER_LDFLAGS)
 	$(CP) $(LIBWDI_DIR)/../msvc/config.h $(LIBWDI_DIR)
 
 %.6.o: %.c $(LIBWDI_DIR)/installer.h
-	$(CC) -c $< -o $@ $(INSTALLER_CFLAGS) $(CPPFLAGS) -DWINVER=0x500 -I$(LIBWDI_DIR)
+	$(CC86) -c $< -o $@ $(INSTALLER_CFLAGS) $(CPPFLAGS) -DWINVER=0x500 -I$(LIBWDI_DIR)
 
 #
 # LIBWDI embedder
@@ -197,13 +204,13 @@ embedder: EMBEDDER_LDFLAGS = -s -mno-cygwin -L. -luser32 -lversion
 embedder: embedder.exe
 
 embedder.exe: $(LIBWDI_DIR)/embedder.7.o
-	$(CC) $(EMBEDDER_CFLAGS) -o $@ -I$(LIBWDI_DIR) $^ $(EMBEDDER_LDFLAGS)
+	$(CC86) $(EMBEDDER_CFLAGS) -o $@ -I$(LIBWDI_DIR) $^ $(EMBEDDER_LDFLAGS)
 	$(CP) -u $(LIBWDI_DIR)/winusb.inf.in ./
 	$(CP) -u $(LIBWDI_DIR)/libusb-win32.inf.in ./
 	embedder embedded.h
 
 %.7.o: %.c $(LIBWDI_DIR)/embedder.h
-	$(CC) -c $< -o $@ $(EMBEDDER_CFLAGS) $(CPPFLAGS) -DWINVER=0x500 -I$(LIBWDI_DIR)
+	$(CC86) -c $< -o $@ $(EMBEDDER_CFLAGS) $(CPPFLAGS) -DWINVER=0x500 -I$(LIBWDI_DIR)
 
 .PHONY: infwizard
 infwizard: embedder
@@ -211,13 +218,13 @@ infwizard: INFWIZARD_CFLAGS = $(CFLAGS) -DLOG_APPNAME=\"infwizard\" -DTARGETTYPE
 infwizard: inf-wizard.exe
 
 inf-wizard.exe: inf_wizard.5.o inf_wizard_rc.5.o $(LIBWDI_OBJECTS)
-	$(CC) $(WIN_CFLAGS) -o $@ -I./src -I$(LIBWDI_DIR) $^ $(WIN_LDFLAGS)
+	$(CC86) $(WIN_CFLAGS) -o $@ -I./src -I$(LIBWDI_DIR) $^ $(WIN_LDFLAGS)
 
 %.5.o: %.c libusb_version.h $(LIBWDI_DIR)/libwdi.h
-	$(CC) -c $< -o $@ -I$(LIBWDI_DIR) $(INFWIZARD_CFLAGS) $(CPPFLAGS) $(INCLUDES) 
+	$(CC86) -c $< -o $@ -I$(LIBWDI_DIR) $(INFWIZARD_CFLAGS) $(CPPFLAGS) $(INCLUDES) 
 
 %.5.o: %.rc
-	$(WINDRES) $(CPPFLAGS) $(WINDRES_FLAGS) $< -o $@
+	$(WINDRES86) $(CPPFLAGS) $(WINDRES_FLAGS) $< -o $@
 
 .PHONY: driver
 driver: DRIVER_CFLAGS = $(CFLAGS) -DLOG_APPNAME=\"$(DLL_TARGET)-sys\" -DTARGETTYPE=DRIVER

@@ -479,7 +479,7 @@ static int _usb_reap_async(void *context, int timeout, int cancel)
         }
 
         USBERR0("timeout error\n");
-        return -ETIMEDOUT;
+        return -ETRANSFER_TIMEDOUT;
     }
 
     if (!GetOverlappedResult(c->dev->impl_info, &c->ol, &ret, TRUE))

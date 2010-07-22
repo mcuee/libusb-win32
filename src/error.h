@@ -38,7 +38,7 @@ enum USB_LOG_LEVEL
 };
 
 /* Connection timed out */
-#define ETIMEDOUT 116
+#define ETRANSFER_TIMEDOUT 116
 
 #define LOGBUF_SIZE 512
 
