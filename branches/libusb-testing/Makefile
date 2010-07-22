@@ -82,6 +82,7 @@ DRIVER_OBJECTS = abort_endpoint.o claim_interface.o clear_feature.o \
 LIBWDI_OBJECTS = $(LIBWDI_DIR)/logging.5.o \
 				 $(LIBWDI_DIR)/tokenizer.5.o \
 				 $(LIBWDI_DIR)/vid_data.5.o \
+				 $(LIBWDI_DIR)/libwdi_dlg.5.o \
 				 $(LIBWDI_DIR)/libwdi.5.o
 				 
 

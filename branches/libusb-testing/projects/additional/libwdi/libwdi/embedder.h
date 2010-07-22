@@ -19,11 +19,9 @@
  */
 #pragma once
 
-/*
 #if !defined(OPT_M32) && !defined(OPT_M64)
 #error both 32 and 64 bit support have been disabled - check your config.h
 #endif
-*/
 
 #if !defined(DDK_DIR) && !defined(LIBUSB0_DIR) && !defined(USER_DIR)
 #error at least one of DDK_DIR, LIBUSB0_DIR or USER_DIR must be defined - check your config.h
