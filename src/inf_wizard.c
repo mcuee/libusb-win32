@@ -1070,7 +1070,7 @@ int infwizard_install_driver(HWND dialog, device_context_t *device)
 	int ret;
 
 	memset(&options,0,sizeof(options));
-
+	options.hWnd = dialog;
 	if ((ret = wdi_install_driver(device->wdi, device->inf_dir, device->inf_name, &options) != WDI_SUCCESS))
 	{
 		MessageBoxA(dialog, wdi_strerror(ret),"Error Installing Driver", MB_OK|MB_ICONWARNING);
