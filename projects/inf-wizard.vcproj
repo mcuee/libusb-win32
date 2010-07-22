@@ -56,7 +56,7 @@
 			/>
 			<Tool
 				Name="VCResourceCompilerTool"
-				PreprocessorDefinitions="LOG_APPNAME=&quot;\&quot;$(ProjectName)\&quot;&quot;;MANIFEST_FILE=&quot;\&quot;..\\manifest_x86.xml\&quot;&quot;;_WIN32_WINNT=0x0500;EMBEDDED_LIBUSB_WIN32"
+				PreprocessorDefinitions="LOG_APPNAME=&quot;\&quot;$(ProjectName)\&quot;&quot;;_WIN32_WINNT=0x0500;EMBEDDED_LIBUSB_WIN32"
 				AdditionalIncludeDirectories="..\src"
 			/>
 			<Tool
@@ -65,8 +65,7 @@
 			<Tool
 				Name="VCLinkerTool"
 				AdditionalDependencies="comctl32.lib newdev.lib setupapi.lib"
-				OutputFile="$(OutDir)\$(ProjectName).exe"
-				AdditionalLibraryDirectories="&quot;$(ProjectDir)additional\$(PlatformName)&quot;"
+				AdditionalLibraryDirectories=""
 				GenerateManifest="false"
 				IgnoreAllDefaultLibraries="false"
 				IgnoreDefaultLibraryNames=""
@@ -138,7 +137,7 @@
 			/>
 			<Tool
 				Name="VCResourceCompilerTool"
-				PreprocessorDefinitions="LOG_APPNAME=&quot;\&quot;$(ProjectName)\&quot;&quot;;MANIFEST_FILE=&quot;\&quot;..\\manifest_x86.xml\&quot;&quot;;_WIN32_WINNT=0x0500;EMBEDDED_LIBUSB_WIN32"
+				PreprocessorDefinitions="LOG_APPNAME=&quot;\&quot;$(ProjectName)\&quot;&quot;;_WIN32_WINNT=0x0500;EMBEDDED_LIBUSB_WIN32"
 				AdditionalIncludeDirectories="..\src"
 			/>
 			<Tool
@@ -148,7 +147,7 @@
 				Name="VCLinkerTool"
 				AdditionalDependencies="comctl32.lib newdev.lib setupapi.lib"
 				OutputFile="$(OutDir)\$(ProjectName).exe"
-				AdditionalLibraryDirectories="&quot;$(ProjectDir)additional\$(PlatformName)&quot;"
+				AdditionalLibraryDirectories=""
 				GenerateManifest="false"
 				IgnoreAllDefaultLibraries="false"
 				IgnoreDefaultLibraryNames=""
@@ -217,10 +216,6 @@
 			>
 			<File
 				RelativePath="..\src\inf_wizard.ico"
-				>
-			</File>
-			<File
-				RelativePath="..\src\inf_wizard.manifest"
 				>
 			</File>
 			<File

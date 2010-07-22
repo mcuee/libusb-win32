@@ -44,7 +44,7 @@
 				Name="VCCLCompilerTool"
 				Optimization="0"
 				AdditionalIncludeDirectories="..\src;..\src\driver"
-				PreprocessorDefinitions="TARGETTYPE=PROGRAMconsole;LOG_APPNAME=&quot;\&quot;$(ProjectName)\&quot;&quot;;MANIFEST_FILE=&quot;\&quot;..\\manifest_x86.xml\&quot;&quot;"
+				PreprocessorDefinitions="TARGETTYPE=PROGRAMconsole;LOG_APPNAME=&quot;\&quot;$(ProjectName)\&quot;&quot;"
 				MinimalRebuild="true"
 				BasicRuntimeChecks="3"
 				RuntimeLibrary="3"
@@ -58,7 +58,7 @@
 			/>
 			<Tool
 				Name="VCResourceCompilerTool"
-				PreprocessorDefinitions="LOG_APPNAME=&quot;\&quot;$(ProjectName)\&quot;&quot;;MANIFEST_FILE=&quot;\&quot;..\\manifest_x86.xml\&quot;&quot;"
+				PreprocessorDefinitions="LOG_APPNAME=&quot;\&quot;$(ProjectName)\&quot;&quot;"
 				AdditionalIncludeDirectories="..\src"
 			/>
 			<Tool
@@ -201,7 +201,7 @@
 				Optimization="2"
 				EnableIntrinsicFunctions="true"
 				AdditionalIncludeDirectories="..\src;..\src\driver"
-				PreprocessorDefinitions="TARGETTYPE=PROGRAMconsole;LOG_APPNAME=&quot;\&quot;$(ProjectName)\&quot;&quot;;MANIFEST_FILE=&quot;\&quot;..\\manifest_x86.xml\&quot;&quot;"
+				PreprocessorDefinitions="TARGETTYPE=PROGRAMconsole;LOG_APPNAME=&quot;\&quot;$(ProjectName)\&quot;&quot;"
 				RuntimeLibrary="2"
 				EnableFunctionLevelLinking="true"
 				WarningLevel="3"
@@ -214,7 +214,7 @@
 			/>
 			<Tool
 				Name="VCResourceCompilerTool"
-				PreprocessorDefinitions="LOG_APPNAME=&quot;\&quot;$(ProjectName)\&quot;&quot;;MANIFEST_FILE=&quot;\&quot;..\\manifest_x86.xml\&quot;&quot;"
+				PreprocessorDefinitions="LOG_APPNAME=&quot;\&quot;$(ProjectName)\&quot;&quot;"
 				AdditionalIncludeDirectories="..\src"
 			/>
 			<Tool

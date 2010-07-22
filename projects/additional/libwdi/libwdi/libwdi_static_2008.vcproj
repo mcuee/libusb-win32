@@ -62,7 +62,6 @@
 			/>
 			<Tool
 				Name="VCLibrarianTool"
-				OutputFile="$(OutDir)\libwdi.lib"
 			/>
 			<Tool
 				Name="VCALinkTool"
@@ -128,7 +127,6 @@
 			/>
 			<Tool
 				Name="VCLibrarianTool"
-				OutputFile="$(OutDir)\libwdi.lib"
 			/>
 			<Tool
 				Name="VCALinkTool"
