@@ -208,7 +208,7 @@ embedder.exe: $(LIBWDI_DIR)/embedder.7.o
 	$(CC86) $(EMBEDDER_CFLAGS) -o $@ -I$(LIBWDI_DIR) $^ $(EMBEDDER_LDFLAGS)
 	$(CP) -u $(LIBWDI_DIR)/winusb.inf.in ./
 	$(CP) -u $(LIBWDI_DIR)/libusb-win32.inf.in ./
-	embedder embedded.h
+	./embedder.exe embedded.h
 
 %.7.o: %.c $(LIBWDI_DIR)/embedder.h
 	$(CC86) -c $< -o $@ $(EMBEDDER_CFLAGS) $(CPPFLAGS) -DWINVER=0x500 -I$(LIBWDI_DIR)
