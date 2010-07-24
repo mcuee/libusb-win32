@@ -302,6 +302,7 @@ NTSTATUS dispatch_ioctl(libusb_device_t *dev, IRP *irp)
 			request->timeout);
         break;
 
+    case LIBUSB_IOCTL_GET_CACHED_CONFIGURATION:
     case LIBUSB_IOCTL_GET_CONFIGURATION:
 
         if (!output_buffer || output_buffer_length < 1)
@@ -310,7 +311,20 @@ NTSTATUS dispatch_ioctl(libusb_device_t *dev, IRP *irp)
             status = STATUS_INVALID_PARAMETER;
             break;
         }
-        status = get_configuration(dev, output_buffer, &ret, request->timeout);
+		if (control_code == LIBUSB_IOCTL_GET_CACHED_CONFIGURATION)
+		{
+			ret = 0;
+			if (dev->config.value >= 0)
+			{
+				*output_buffer = dev->config.value;
+				ret = 1;
+			}
+			status = STATUS_SUCCESS;
+		}
+		else
+		{
+			status = get_configuration(dev, output_buffer, &ret, request->timeout);
+		}
 		break;
 
     case LIBUSB_IOCTL_SET_INTERFACE:
