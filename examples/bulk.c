@@ -1,10 +1,14 @@
 #include <usb.h>
 #include <stdio.h>
 
+//////////////////////////////
+// User configurable defines
 #define TEST_SET_CONFIGURATION
 #define TEST_CLAIM_INTERFACE
+#define TEST_ASYNC
 #define TEST_BULK_READ
 //#define TEST_BULK_WRITE
+//////////////////////////////
 
 /* the device's vendor and product id */
 #define MY_VID 1234
@@ -45,6 +49,8 @@ int main(void)
     usb_dev_handle *dev = NULL; /* the device handle */
     char tmp[BUF_SIZE];
 	int ret;
+	void* async_read_context = NULL;
+	void* async_write_context = NULL;
 
     usb_init(); /* initialize the library */
     usb_find_busses(); /* find all busses */
@@ -88,29 +94,70 @@ int main(void)
 #endif
 
 #ifdef TEST_BULK_WRITE
-	ret = usb_bulk_write(dev, EP_OUT, tmp, sizeof(tmp), 5000);
-    if (ret <= 0)
-    {
+	#ifdef TEST_ASYNC
+		// Running an async write test
+		ret = usb_bulk_setup_async(dev, &async_write_context, EP_OUT);
+		if (ret < 0)
+		{
+			printf("error usb_bulk_setup_async:\n%s\n",usb_strerror());
+			goto Done;
+		}
+		ret = usb_submit_async(async_write_context,tmp,sizeof(tmp));
+		if (ret < 0)
+		{
+			printf("error usb_submit_async:\n%s\n",usb_strerror());
+			usb_free_async(&async_write_context);
+			goto Done;
+		}
+		ret = usb_reap_async(async_write_context,5000);
+		usb_free_async(&async_write_context);
+	#else
+		// Running a sync write test
+		ret = usb_bulk_write(dev, EP_OUT, tmp, sizeof(tmp), 5000);
+	#endif
+	if (ret < 0)
+	{
 		printf("error writing:\n%s\n",usb_strerror());
-    }
+	}
 	else
 	{
-        printf("success: bulk write %d bytes\n",ret);
+		printf("success: bulk write %d bytes\n",ret);
 	}
 #endif
 
 #ifdef TEST_BULK_READ
-	ret = usb_bulk_read(dev, EP_IN, tmp, sizeof(tmp), 5000);
-    if (ret <= 0)
-    {
+	#ifdef TEST_ASYNC
+		// Running an async read test
+		ret = usb_bulk_setup_async(dev, &async_read_context, EP_IN);
+		if (ret < 0)
+		{
+			printf("error usb_bulk_setup_async:\n%s\n",usb_strerror());
+			goto Done;
+		}
+		ret = usb_submit_async(async_read_context,tmp,sizeof(tmp));
+		if (ret < 0)
+		{
+			printf("error usb_submit_async:\n%s\n",usb_strerror());
+			usb_free_async(&async_read_context);
+			goto Done;
+		}
+		ret = usb_reap_async(async_read_context,5000);
+		usb_free_async(&async_read_context);
+	#else
+		// Running a sync read test
+		ret = usb_bulk_read(dev, EP_IN, tmp, sizeof(tmp), 5000);
+	#endif
+	if (ret < 0)
+	{
 		printf("error reading:\n%s\n",usb_strerror());
-    }
+	}
 	else
 	{
-        printf("success: bulk read %d bytes\n",ret);
+		printf("success: bulk read %d bytes\n",ret);
 	}
 #endif
 
+Done:
     usb_release_interface(dev, 0);
     usb_close(dev);
     printf("Done.\n");
