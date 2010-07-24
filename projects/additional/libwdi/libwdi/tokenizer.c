@@ -15,7 +15,14 @@
  * License along with this library; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  *
- */
+*/
+
+/*
+07/23/2010 Revisions:
+  o Fixed positive return value if memory allocation fails
+  o Changed grow size from 8192 to 1024
+*/
+
 #include "tokenizer.h"
 #include <stdlib.h>
 
@@ -23,25 +30,26 @@
 #define safe_strcpy(dst, dst_max, src) safe_strncpy(dst, dst_max, src, strlen(src)+1)
 
 // If the dst buffer is to small it grows to what is needed+GROW_SIZE
-#define GetDestSize(RequiredSize) RequiredSize+8192
+#define GetDestSize(RequiredSize) RequiredSize+1024
 
-// copies text into the destination buffer; growing the buffer as needed.
-#define StrCpyWithGrow(DstPtr, DstPtrOrig, DstPos, DstAllocSize,  \
-	                    ReplaceString, ReplaceLength)             \
-{                                                                 \
-	if (DstPos+(ReplaceLength) >= DstAllocSize+1)                 \
-	{                                                             \
-		DstAllocSize = GetDestSize(DstPos + ReplaceLength);       \
-		DstPtr = realloc(DstPtr,DstAllocSize);                    \
-	}                                                             \
-	if (!DstPtr)                                                  \
-	{                                                             \
-		free(DstPtrOrig);                                         \
-		return -ERROR_NOT_ENOUGH_MEMORY;                          \
-	}                                                             \
-	DstPtrOrig = DstPtr;                                          \
-	safe_strncpy(&DstPtr[DstPos],DstAllocSize-DstPos, ReplaceString,ReplaceLength);    \
-	DstPos += ReplaceLength;                                      \
+BOOL grow_strcpy(char** DstPtr, char** DstPtrOrig, long* DstPos, long* DstAllocSize, 
+					const char* ReplaceString, long ReplaceLength)
+{
+	if ((*DstPos)+(ReplaceLength) >= (*DstAllocSize))
+	{
+		*DstAllocSize = GetDestSize((*DstPos) + ReplaceLength);
+		*DstPtr = realloc((*DstPtr),(*DstAllocSize));
+	}
+	if (!(*DstPtr))
+	{
+		free((*DstPtrOrig));                                         
+		return FALSE;
+	}
+	*DstPtrOrig = (*DstPtr);
+	safe_strncpy(((*DstPtr)+(*DstPos)),(*DstAllocSize)-(*DstPos), ReplaceString, ReplaceLength);
+	*DstPos += ReplaceLength;
+
+	return TRUE;
 }
 
 // replaces tokens in text.
@@ -85,9 +93,8 @@ long tokenize_string(const char* src, // text to bo tokenized
 	// nothing to do
 	if (src_count == 0) return 0;
 
-	// allocate twice the size of the src buffer to start things off
-	// the destination buffer will grow as needed.
-	dst_alloc_size=src_count*2;
+	// Set the initial buffer size.
+	dst_alloc_size = GetDestSize(src_count);
 	*dst = pDst = malloc(dst_alloc_size);
 	if (!pDst)
 		return -ERROR_NOT_ENOUGH_MEMORY;
@@ -103,60 +110,76 @@ long tokenize_string(const char* src, // text to bo tokenized
 		match_found=0;
 		match_length = (long)(match_start-src);
 
-		StrCpyWithGrow(pDst,*dst, dst_pos,dst_alloc_size,src,match_length);
+		// copy all the text up to the tok_prefix start from src to dst.
+		if (!grow_strcpy(&pDst, dst, &dst_pos, &dst_alloc_size, src, match_length))
+		{
+			return -ERROR_NOT_ENOUGH_MEMORY;
+		}
 
 		src+=match_length+tok_prefix_size;
 		src_count-=(match_length+tok_prefix_size);
-		if (src_count <= 0)
-			break;
+		//ASSERT(src_count >=0);
 
-		// iterate through the match/replace tokens
-		while ((next_match=&token_entities[match_replace_pos++]))
+		// If src_count equals 0 this is a token prefix and the end of src.
+		if (src_count > 0)
 		{
-			// the match and replace fields must both be set
-			if (!next_match->match || !next_match->replace)
+			// iterate through the match/replace tokens
+			while ((next_match=&token_entities[match_replace_pos++]))
 			{
-				free(pDst);
-				return -ERROR_BAD_ARGUMENTS;
-			}
-			match_length=(long)strlen(next_match->match);
+				// the match and replace fields must both be set
+				if (!next_match->match || !next_match->replace)
+				{
+					break;
+				}
+				match_length=(long)strlen(next_match->match);
 
-			// if this token will be longer than what's left in src buffer, skip it.
-			if (src_count < (match_length+tok_suffix_size))
-				continue; // not found
+				// if this token will be longer than what's left in src buffer, skip it.
+				if (src_count < (match_length+tok_suffix_size))
+					continue; // not found
 
-			// check for a match suffix
-			if (strncmp(src+match_length,tok_suffix,tok_suffix_size)!=0)
-				continue; // not found
+				// check for a match suffix
+				if (strncmp(src+match_length,tok_suffix,tok_suffix_size)!=0)
+					continue; // not found
 
-			if (strncmp(src,next_match->match,match_length)==0)
-			{
-				// found a valid token match
-				replace_length=(long)strlen(next_match->replace);
-				StrCpyWithGrow(pDst, *dst, dst_pos, dst_alloc_size,
-					next_match->replace,replace_length);
+				if (strncmp(src,next_match->match,match_length)==0)
+				{
+					// found a valid token match
+					replace_length=(long)strlen(next_match->replace);
 
-				src+=match_length+tok_suffix_size;
-				src_count-=(match_length+tok_suffix_size);
-				match_found=1;
-				match_count++;
-				break;
+					if (!grow_strcpy(&pDst, dst, &dst_pos, &dst_alloc_size,
+						next_match->replace, replace_length))
+					{
+						return -ERROR_NOT_ENOUGH_MEMORY;
+					}
+
+					src+=match_length+tok_suffix_size;
+					src_count-=(match_length+tok_suffix_size);
+					match_found=1;
+					match_count++;
+					break;
+				}
 			}
 		}
-
 		if (!match_found)
 		{
 			// No matches were found; leave it as-is.
-			StrCpyWithGrow(pDst, *dst, dst_pos, dst_alloc_size,
-				tok_prefix, tok_prefix_size);
+			if (!grow_strcpy(&pDst, dst, &dst_pos, &dst_alloc_size,
+				tok_prefix, tok_prefix_size))
+			{
+				return -ERROR_NOT_ENOUGH_MEMORY;
+			}
 		}
 	}
 
 	match_length=src_count;
 	if (match_length > 0)
-		StrCpyWithGrow(pDst, *dst, dst_pos, dst_alloc_size, src, match_length);
-
-	// StrCpyWithGrow is aware an extra char is always needed for null.
+	{
+		if (!grow_strcpy(&pDst, dst, &dst_pos, &dst_alloc_size, src, match_length))
+		{
+			return -ERROR_NOT_ENOUGH_MEMORY;
+		}
+	}
+	// grow_strcpy is aware an extra char is always needed for null.
 	pDst[dst_pos]='\0';
 
 	if (recursive && match_count)
