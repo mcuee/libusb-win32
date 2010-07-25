@@ -24,7 +24,11 @@
 #include <string.h>
 
 #ifdef __GNUC__
-#include <cfgmgr32.h>
+	#if  defined(_WIN64)
+		#include <cfgmgr32.h>
+	#else
+		#include <ddk/cfgmgr32.h>
+	#endif
 #else
 #include <cfgmgr32.h>
 #define strlwr(p) _strlwr(p)
