@@ -316,7 +316,7 @@ NTSTATUS dispatch_ioctl(libusb_device_t *dev, IRP *irp)
 			ret = 0;
 			if (dev->config.value >= 0)
 			{
-				*output_buffer = dev->config.value;
+				*output_buffer = (char)dev->config.value;
 				ret = 1;
 			}
 			status = STATUS_SUCCESS;
