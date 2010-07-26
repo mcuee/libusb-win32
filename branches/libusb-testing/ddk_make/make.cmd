@@ -297,6 +297,8 @@ GOTO :EOF
 	
 	IF EXIST "!PACKAGE_ROOT_DIR!!PACKAGE_BIN_NAME!-README.txt.in" (
 		CALL :TagEnv "!PACKAGE_ROOT_DIR!!PACKAGE_BIN_NAME!-README.txt.in" "!PACKAGE_BIN_DIR!!PACKAGE_BIN_NAME!-README.txt"
+	) ELSE (
+		ECHO No package information.>"!PACKAGE_BIN_DIR!!PACKAGE_BIN_NAME!-README.txt"
 	)
 	
 	ECHO.
@@ -990,9 +992,10 @@ ECHO DIST      Creates libusb-win32 dist packages.
 ECHO SNAPSHOT  Creates libusb-win32 snapshot packages.
 ECHO.
 ECHO Additional Commands:
-ECHO CLEAN     Cleans all temporary files and root package directory.
-ECHO SIGNFILE  Signs a dll or sys file with a test certificate.
-ECHO MAKEVER   Re/creates libusb_version.h from the template.
+ECHO CLEAN        Cleans all temporary files.
+ECHO CLEANPACKAGE Cleans root package directory.
+ECHO SIGNFILE     Signs a dll or sys file with a test certificate.
+ECHO MAKEVER      Re/creates libusb_version.h from the template.
 ECHO.
 ECHO [Note: See make.cfg for options that can be used when packaging]
 ECHO.
