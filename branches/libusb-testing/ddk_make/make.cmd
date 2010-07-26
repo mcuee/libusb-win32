@@ -139,16 +139,6 @@ IF /I "%~1" EQU "launchdevenv" (
 	GOTO CMDEXIT
 )
 
-
-
-IF /I "%~1" EQU "install" (
-	CALL :SafeCopy "!PACKAGE_ROOT_DIR!bin\!!PROCESSOR_ARCHITECTURE!\libusb0.sys" "!SystemRoot!\system32\drivers\"
-	CALL :SafeCopy "!PACKAGE_ROOT_DIR!bin\!!PROCESSOR_ARCHITECTURE!\libusb0.dll" "!SystemRoot!\system32\"
-	IF EXIST  "!SystemRoot!\syswow64\" CALL :SafeCopy "!PACKAGE_ROOT_DIR!bin\!x86\libusb0.dll" "!SystemRoot!\syswow64\"
-	GOTO CMDEXIT
-)
-
-
 :: 
 :: End of Package build section
 :: oooooooooooooooooooooooooooooooooooo
@@ -302,14 +292,20 @@ GOTO :EOF
 	CALL :SafeCopy "!PACKAGE_ROOT_DIR!bcc\libusb.lib" "!PACKAGE_LIB_DIR!bcc\libusb.lib" false
 	CALL :SafeMove "!PACKAGE_BIN_DIR!x86\libusb0.dll" "!PACKAGE_BIN_DIR!x86\libusb0_x86.dll"
 	
+	
+	CALL :SafeCopy "!DIR_LIBUSB_DDK!..\installer_license.txt" "!PACKAGE_ROOT_DIR!installer_license.txt"
+	
+	IF EXIST "!PACKAGE_ROOT_DIR!!PACKAGE_BIN_NAME!-README.txt.in" (
+		CALL :TagEnv "!PACKAGE_ROOT_DIR!!PACKAGE_BIN_NAME!-README.txt.in" "!PACKAGE_BIN_DIR!!PACKAGE_BIN_NAME!-README.txt"
+	)
+	
 	ECHO.
 	ECHO libusb-win32 v!VERSION! binaries built at '!PACKAGE_BIN_DIR!'
 	IF /I "!LIBUSB_DIST_BUILD!" EQU "true" (
 		SET /P __DUMMY=[Sign these files now and/or press 'Enter' to continue]
 	)
 	ECHO.
-	
-	CALL :SafeCopy "!DIR_LIBUSB_DDK!..\installer_license.txt" "!PACKAGE_ROOT_DIR!installer_license.txt"
+		
 	SET _OUTDIR_=!PACKAGE_BIN_DIR!x86\
 	CALL :CmdExe make.cmd !_ARG_LINE! "arch=x86" "app=inf_wizard" "outdir=!_OUTDIR_!"
 	IF !BUILD_ERRORLEVEL! NEQ 0 GOTO CMDERROR
@@ -333,13 +329,14 @@ GOTO :EOF
 
 
 :PackageText
-	CALL :TagEnv "..\README.in" "%~1\README.txt"
-	COPY /Y "..\*.txt" "%~1"
+	CALL :TagEnv "..\README.in" "%~2\README.txt"
+	COPY /Y "..\*.txt" "%~2"
 	IF EXIST "!PACKAGE_ROOT_DIR!libusb-win32-changelog-!CMDVAR_VERSION!.txt" (
-		COPY /Y "!PACKAGE_ROOT_DIR!libusb-win32-changelog-!CMDVAR_VERSION!.txt"  "%~1\"
+		COPY /Y "!PACKAGE_ROOT_DIR!libusb-win32-changelog-!CMDVAR_VERSION!.txt"  "%~2\"
 	) ELSE (
-		ECHO No change log.>"%~1\libusb-win32-changelog-!CMDVAR_VERSION!.txt"
+		ECHO No change log.>"%~2\libusb-win32-changelog-!CMDVAR_VERSION!.txt"
 	)
+
 GOTO :EOF
 
 :PrepForPackaging
@@ -394,7 +391,7 @@ GOTO :EOF
 	CALL :SafeCopy "!PACKAGE_ROOT_DIR!gcc\*" "!_WORKING_DIR!lib\gcc\"
 	CALL :SafeCopy "!PACKAGE_ROOT_DIR!bcc\*" "!_WORKING_DIR!lib\bcc\"
 
-	CALL :PackageText "!_WORKING_DIR!"
+	CALL :PackageText bin "!_WORKING_DIR!"
 	
 	PUSHD "!CD!"
 	CD /D "!PACKAGE_WORKING!"
@@ -415,7 +412,7 @@ GOTO :EOF
 
 	CALL :SafeCopyDir "..\*" "!_WORKING_DIR!"
 	
-	CALL :PackageText "!_WORKING_DIR!"
+	CALL :PackageText src "!_WORKING_DIR!"
 
 	PUSHD "!CD!"
 	CD /D "!PACKAGE_WORKING!"
@@ -430,7 +427,7 @@ GOTO :EOF
 	SET _WORKING_DIR=!PACKAGE_WORKING!!PACKAGE_SETUP_NAME!\
 	CALL :SafeReCreateDir "!_WORKING_DIR!"
 
-	CALL :PackageText "!_WORKING_DIR!"
+	CALL :PackageText setup "!_WORKING_DIR!"
 	
 	IF /I "!CMDVAR_TESTSIGNING!" EQU "on" (
 		CALL :SafeCopy "!PACKAGE_ROOT_DIR!cert\!CERT_FILE!" "!_WORKING_DIR!"
