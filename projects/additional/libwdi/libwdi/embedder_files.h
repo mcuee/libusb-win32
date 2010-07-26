@@ -76,6 +76,7 @@ struct emb embeddable_fixed[] = {
 	{ LIBUSB0_DIR "\\bin\\x86\\libusb0_x86.dll", "x86" },
 	{ LIBUSB0_DIR "\\bin\\x86\\libusb0.sys", "x86" },
 	{ LIBUSB0_DIR "\\installer_license.txt", "license\\libusb-win32" },
+	{ LIBUSB0_DIR "\\bin\\libusb-win32-bin-README.txt", "" },
 #endif
 #if defined(DDK_DIR)
 	{ DDK_DIR "\\license.rtf", "license\\WinUSB" },	// WinUSB License file
