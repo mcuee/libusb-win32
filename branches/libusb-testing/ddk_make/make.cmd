@@ -294,12 +294,7 @@ GOTO :EOF
 	
 	
 	CALL :SafeCopy "!DIR_LIBUSB_DDK!..\installer_license.txt" "!PACKAGE_ROOT_DIR!installer_license.txt"
-	
-	IF EXIST "!PACKAGE_ROOT_DIR!!PACKAGE_BIN_NAME!-README.txt.in" (
-		CALL :TagEnv "!PACKAGE_ROOT_DIR!!PACKAGE_BIN_NAME!-README.txt.in" "!PACKAGE_BIN_DIR!!PACKAGE_BIN_NAME!-README.txt"
-	) ELSE (
-		ECHO No package information.>"!PACKAGE_BIN_DIR!!PACKAGE_BIN_NAME!-README.txt"
-	)
+	CALL :TagEnv "!DIR_LIBUSB_DDK!..\!PACKAGE_BIN_NAME!-README.txt.in" "!PACKAGE_BIN_DIR!!PACKAGE_BIN_NAME!-README.txt"
 	
 	ECHO.
 	ECHO libusb-win32 v!VERSION! binaries built at '!PACKAGE_BIN_DIR!'
