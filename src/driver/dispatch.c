@@ -60,7 +60,7 @@ NTSTATUS DDKAPI dispatch(DEVICE_OBJECT *device_object, IRP *irp)
 
             if (dev->is_started)
             {
-                if (dev->power_state.DeviceState != PowerDeviceD0)
+                if (dev->power_state.DeviceState != PowerDeviceD0 && !dev->is_filter)
                 {
                     /* power up the device, block until the call */
                     /* completes */
