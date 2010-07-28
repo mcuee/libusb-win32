@@ -73,9 +73,13 @@ NTSTATUS set_configuration(libusb_device_t *dev,
 	status = get_configuration(dev, &active_config, &ret, timeout);
 	if (!NT_SUCCESS(status))
 	{
+		active_config = 0;
+
+#ifdef REMOVED_FOR_TESTING
 			USBERR("failed setting active configuration for %s timeout=%d\n",
 				dev->device_id, timeout);
 			return status;
+#endif
 	}
 
 	if (configuration == SET_CONFIG_ACTIVE_CONFIG)
