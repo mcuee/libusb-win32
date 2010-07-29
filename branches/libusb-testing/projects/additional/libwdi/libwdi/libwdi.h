@@ -61,10 +61,10 @@ enum wdi_driver_type {
  * Log level
  */
 enum wdi_log_level {
-	LOG_LEVEL_DEBUG,
-	LOG_LEVEL_INFO,
-	LOG_LEVEL_WARNING,
-	LOG_LEVEL_ERROR
+	WDI_LOG_LEVEL_DEBUG,
+	WDI_LOG_LEVEL_INFO,
+	WDI_LOG_LEVEL_WARNING,
+	WDI_LOG_LEVEL_ERROR
 };
 
 /*
@@ -190,7 +190,7 @@ struct wdi_options_prepare_driver {
 
 // wdi_install_driver options:
 struct wdi_options_install_driver {
-	/** Handle to a Window application */
+	/** Handle to a Window application that should receive a modal progress dialog */
 	HWND hWnd;
 };
 
