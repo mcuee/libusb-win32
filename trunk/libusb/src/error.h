@@ -38,7 +38,7 @@ enum USB_LOG_LEVEL
 };
 
 /* Connection timed out */
-#define ETIMEDOUT 116
+#define ETRANSFER_TIMEDOUT 116
 
 #define LOGBUF_SIZE 512
 
@@ -91,7 +91,7 @@ enum USB_LOG_LEVEL
 	#endif
 #endif
 
-#if (IS_DRIVER) || (IS_DLL)
+#if (IS_DRIVER) || (IS_DLL) || (IS_WINDOW_APP)
 	// default logging for drivers and dlls
 	#define DEF_LOG_OUTPUT_TYPE LOG_OUTPUT_TYPE_DEBUGWINDOW
 #else

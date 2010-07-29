@@ -1,4 +1,4 @@
-/* LIBUSB-WIN32, Generic Windows USB Library
+/* libusb-win32, Generic Windows USB Library
  * Copyright (c) 2002-2005 Stephan Meyer <ste_meyer@web.de>
  *
  * This program is free software; you can redistribute it and/or modify
@@ -73,9 +73,13 @@ NTSTATUS set_configuration(libusb_device_t *dev,
 	status = get_configuration(dev, &active_config, &ret, timeout);
 	if (!NT_SUCCESS(status))
 	{
+		active_config = 0;
+
+#ifdef REMOVED_FOR_TESTING
 			USBERR("failed setting active configuration for %s timeout=%d\n",
 				dev->device_id, timeout);
 			return status;
+#endif
 	}
 
 	if (configuration == SET_CONFIG_ACTIVE_CONFIG)

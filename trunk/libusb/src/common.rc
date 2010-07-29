@@ -1,18 +1,18 @@
-/* LIBUSB-WIN32, Generic Windows USB Library
+/* libusb-win32, Generic Windows USB Library
  * Copyright (c) 2002-2005 Stephan Meyer <ste_meyer@web.de>
  *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation; either
+ * version 2 of the License, or (at your option) any later version.
  *
- * This program is distributed in the hope that it will be useful,
+ * This library is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
@@ -37,12 +37,12 @@ BEGIN
         BEGIN
             VALUE "CompanyName",     "http://libusb-win32.sourceforge.net"
             VALUE "FileDescription", RC_PRODUCT_STR
-            VALUE "FileVersion",     RC_VERSION_STR
+            VALUE "FileVersion",     _DEFTOSTR(VERSION)
             VALUE "InternalName",    RC_FILE_NAME_STR
             VALUE "LegalCopyright",  "2002-2009 S. Meyer; 2010 T. Robinson"
             VALUE "OriginalFilename",RC_FILE_NAME_STR
             VALUE "ProductName",     RC_PRODUCT_STR
-            VALUE "ProductVersion",  RC_VERSION_STR
+            VALUE "ProductVersion",  _DEFTOSTR(VERSION)
         END
     END
 
