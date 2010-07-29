@@ -37,7 +37,7 @@
 
 #define INSTALLER_PIPE_NAME         "\\\\.\\pipe\\libwdi-installer"
 
-#define safe_free(p) do {if (p != NULL) {free(p); p = NULL;}} while(0)
+#define safe_free(p) do {if (p != NULL) {free((void*)(p)); p = NULL;}} while(0)
 #define safe_strncpy(dst, dst_max, src, count) strncpy(dst, src, min(count, dst_max - 1))
 #define safe_strcpy(dst, dst_max, src) safe_strncpy(dst, dst_max, src, strlen(src)+1)
 #define static_strcpy(dst, src) safe_strcpy(dst, sizeof(dst), src)
@@ -90,7 +90,7 @@ enum windows_version {
  * API macros - from libusb-win32 1.x
  */
 #define DLL_DECLARE(api, ret, name, args)                    \
-  typedef ret (api * __dll_##name##_t)args; __dll_##name##_t name
+  typedef ret (api * __dll_##name##_t)args; __dll_##name##_t name = NULL
 
 #define DLL_LOAD(dll, name, ret_on_failure)                   \
 	do {                                                      \

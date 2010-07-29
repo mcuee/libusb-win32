@@ -35,6 +35,7 @@
 #endif
 #include "installer.h"
 #include "libwdi.h"
+#include "msapi_utf8.h"
 
 #define REQUEST_TIMEOUT 5000
 
@@ -54,6 +55,7 @@ typedef DEVINSTID_A DEVINSTID;
 DLL_DECLARE(WINAPI, CONFIGRET, CM_Locate_DevNode, (PDEVINST, DEVINSTID, ULONG));
 DLL_DECLARE(WINAPI, CONFIGRET, CM_Reenumerate_DevNode, (DEVINST, ULONG));
 DLL_DECLARE(WINAPI, CONFIGRET, CM_Get_DevNode_Status, (PULONG, PULONG, DEVINST, ULONG));
+DLL_DECLARE(WINAPI, int, __wgetmainargs, (int*, wchar_t***, wchar_t***, int, int*));
 
 /*
  * Globals
@@ -69,6 +71,7 @@ static int init_dlls(void)
 	DLL_LOAD(Cfgmgr32.dll, CM_Locate_DevNode, TRUE);
 	DLL_LOAD(Cfgmgr32.dll, CM_Reenumerate_DevNode, TRUE);
 	DLL_LOAD(Cfgmgr32.dll, CM_Get_DevNode_Status, TRUE);
+	DLL_LOAD(Msvcrt.dll, __wgetmainargs, FALSE);
 	return 0;
 }
 
@@ -220,7 +223,7 @@ void check_removed(char* device_hardware_id)
 	char hardware_id[STR_BUFFER_SIZE];
 
 	// List all known USB devices (including non present ones)
-	dev_info = SetupDiGetClassDevs(NULL, "USB", NULL, DIGCF_ALLCLASSES);
+	dev_info = SetupDiGetClassDevsA(NULL, "USB", NULL, DIGCF_ALLCLASSES);
 	if (dev_info == INVALID_HANDLE_VALUE) {
 		return;
 	}
@@ -250,13 +253,13 @@ void check_removed(char* device_hardware_id)
 		}
 
 		// Flag for reinstall on next plugin
-		if (!SetupDiGetDeviceRegistryProperty(dev_info, &dev_info_data, SPDRP_CONFIGFLAGS,
+		if (!SetupDiGetDeviceRegistryPropertyA(dev_info, &dev_info_data, SPDRP_CONFIGFLAGS,
 			&reg_type, (BYTE*)&config_flags, sizeof(DWORD), &size)) {
 			plog("could not read SPDRP_CONFIGFLAGS for phantom device %s", hardware_id);
 			continue;
 		}
 		config_flags |= CONFIGFLAG_REINSTALL;
-		if (!SetupDiSetDeviceRegistryProperty(dev_info, &dev_info_data, SPDRP_CONFIGFLAGS,
+		if (!SetupDiSetDeviceRegistryPropertyA(dev_info, &dev_info_data, SPDRP_CONFIGFLAGS,
 			(BYTE*)&config_flags, sizeof(DWORD))) {
 			plog("could not write SPDRP_CONFIGFLAGS for phantom device %s", hardware_id);
 			continue;
@@ -481,15 +484,13 @@ static __inline int process_error(DWORD r, char* path) {
 
 // TODO: allow commandline options (v2)
 // TODO: remove existing infs for similar devices (v2)
-int
-#ifdef _MSC_VER
-__cdecl
-#endif
-main(int argc, char** argv)
+int __cdecl main(int argc_ansi, char** argv_ansi)
 {
 	DWORD r;
-	int ret;
 	BOOL b;
+	int i, ret, argc = argc_ansi, si=0;
+	char** argv = argv_ansi;
+	wchar_t **wenv, **wargv;
 	char* hardware_id = NULL;
 	char* device_id = NULL;
 	char* user_sid = NULL;
@@ -499,7 +500,7 @@ main(int argc, char** argv)
 	uintptr_t syslog_reader_thid = -1L;
 
 	// Connect to the messaging pipe
-	pipe_handle = CreateFile(INSTALLER_PIPE_NAME, GENERIC_READ|GENERIC_WRITE, 0, NULL, OPEN_EXISTING,
+	pipe_handle = CreateFileA(INSTALLER_PIPE_NAME, GENERIC_READ|GENERIC_WRITE, 0, NULL, OPEN_EXISTING,
 		FILE_ATTRIBUTE_NORMAL|FILE_FLAG_OVERLAPPED, NULL);
 	if (pipe_handle == INVALID_HANDLE_VALUE) {
 		printf("could not open pipe for writing: errcode %d\n", (int)GetLastError());
@@ -512,16 +513,25 @@ main(int argc, char** argv)
 		goto out;
 	}
 
+	// libwdi provides the arguments as UTF-16 => read them and convert to UTF-8
+	if (__wgetmainargs != NULL) {
+		__wgetmainargs(&argc, &wargv, &wenv, 1, &si);
+		argv = calloc(argc, sizeof(char*));
+		for (i=0; i<argc; i++) {
+			argv[i] = wchar_to_utf8(wargv[i]);
+		}
+	} else {
+		plog("unable to access UTF-16 args - trying ANSI");
+	}
+
 	if (argc < 2) {
 		printf("usage: %s <inf_name>\n", argv[0]);
 		plog("missing inf_name parameter");
-		return 0;
 	}
 
 	inf_name = argv[1];
 	plog("got parameter %s", argv[1]);
-
-	r = GetFullPathNameA(".", MAX_PATH_LENGTH, path, NULL);
+	r = GetFullPathNameU(".", MAX_PATH_LENGTH, path, NULL);
 	if ((r == 0) || (r > MAX_PATH_LENGTH)) {
 		plog("could not retrieve absolute path of working directory");
 		ret = WDI_ERROR_ACCESS;
@@ -552,7 +562,7 @@ main(int argc, char** argv)
 	send_status(IC_SET_TIMEOUT_INFINITE);
 	if ((hardware_id != NULL) && (hardware_id[0] != 0)) {
 		plog("Installing driver for %s - please wait...", hardware_id);
-		b = UpdateDriverForPlugAndPlayDevicesA(NULL, hardware_id, path, INSTALLFLAG_FORCE, NULL);
+		b = UpdateDriverForPlugAndPlayDevicesU(NULL, hardware_id, path, INSTALLFLAG_FORCE, NULL);
 		send_status(IC_SET_TIMEOUT_DEFAULT);
 		if (b == true) {
 			// Success
@@ -568,9 +578,9 @@ main(int argc, char** argv)
 	}
 
 	// TODO: try URL for OEMSourceMediaLocation (v2)
-	plog("Copying inf file (for next time device is plugged in) - please wait...");
+	plog("Copying inf file (for the next time device is plugged) - please wait...");
 	send_status(IC_SET_TIMEOUT_INFINITE);
-	b = SetupCopyOEMInfA(path, NULL, SPOST_PATH, 0, destname, MAX_PATH_LENGTH, NULL, NULL);
+	b = SetupCopyOEMInfU(path, NULL, SPOST_PATH, 0, destname, MAX_PATH_LENGTH, NULL, NULL);
 	send_status(IC_SET_TIMEOUT_DEFAULT);
 	if (b) {
 		plog("copied inf to %s", destname);
@@ -591,8 +601,15 @@ out:
 	// Report any error status code and wait for target app to read it
 	send_status(IC_INSTALLER_COMPLETED);
 	pstat(ret);
+	// TODO: have libwi send an ACK?
 	Sleep(1000);
 	SetEvent(syslog_terminate_event);
+	if (argv != argv_ansi) {
+		for (i=0; i<argc; i++) {
+			safe_free(argv[i]);
+		}
+		safe_free(argv);
+	}
 	CloseHandle(syslog_ready_event);
 	CloseHandle(syslog_terminate_event);
 	CloseHandle((HANDLE)syslog_reader_thid);

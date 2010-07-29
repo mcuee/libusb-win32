@@ -32,7 +32,7 @@
 // If the dst buffer is to small it grows to what is needed+GROW_SIZE
 #define GetDestSize(RequiredSize) RequiredSize+1024
 
-BOOL grow_strcpy(char** DstPtr, char** DstPtrOrig, long* DstPos, long* DstAllocSize, 
+BOOL grow_strcpy(char** DstPtr, char** DstPtrOrig, long* DstPos, long* DstAllocSize,
 					const char* ReplaceString, long ReplaceLength)
 {
 	if ((*DstPos)+(ReplaceLength) >= (*DstAllocSize))
@@ -42,7 +42,7 @@ BOOL grow_strcpy(char** DstPtr, char** DstPtrOrig, long* DstPos, long* DstAllocS
 	}
 	if (!(*DstPtr))
 	{
-		free((*DstPtrOrig));                                         
+		free((*DstPtrOrig));
 		return FALSE;
 	}
 	*DstPtrOrig = (*DstPtr);
