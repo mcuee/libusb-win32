@@ -30,6 +30,7 @@ IF NOT EXIST "!MAKE_CFG!" (
 	ECHO !MAKE_CFG! configuration file not found.
 	GOTO CMDERROR
 )
+
 CALL :LoadConfig
 
 IF !BUILD_ERRORLEVEL! NEQ 0 GOTO CMDERROR
@@ -40,6 +41,10 @@ SET _PACKAGE_TYPE_=%~1
 :: Package build section [if any]
 :: 
 IF /I "!_PACKAGE_TYPE_!" EQU "clean" (
+	CALL :Super_Clean %*
+	GOTO CMDEXIT
+)
+IF /I "!_PACKAGE_TYPE_!" EQU "cleanpackage" (
 	CALL :Package_Clean %*
 	GOTO CMDEXIT
 )
@@ -55,6 +60,7 @@ IF /I "!_PACKAGE_TYPE_!" EQU "bin" (
 )
 
 IF /I "!_PACKAGE_TYPE_!" EQU "dist" (
+	SET LIBUSB_DIST_BUILD=true
 	CALL :TokenizeLibusbVersionH %*
 	CALL :Package_Distributables %*
 	IF "!BUILD_ERRORLEVEL!" NEQ 0 GOTO CMDERROR
@@ -110,17 +116,28 @@ IF /I "%~1" EQU "signfile" (
 )
 
 IF /I "%~1" EQU "launchdevenv" (
-	"%VS90COMNTOOLS%..\IDE\devenv.exe" %2
+	CALL :ToShortName DIR_VS_IDE_10 "%VS100COMNTOOLS%..\IDE\"
+	CALL :ToShortName DIR_VS_IDE_9 "%VS90COMNTOOLS%..\IDE\"
+	IF EXIST "!DIR_VS_IDE_10!" (
+		SET DIR_VS=!DIR_VS_IDE_10!
+	) ELSE IF EXIST "!DIR_VS_IDE_9!" (
+		SET DIR_VS=!DIR_VS_IDE_9!
+	) ELSE (
+		Echo failed locating visual studio ide directory
+		GOTO CMDEXIT
+	)
+
+	IF EXIST "!DIR_VS!devenv.exe" (
+		"!DIR_VS!devenv.exe" %2
+	) ELSE IF EXIST "!DIR_VS!VCExpress.exe" (
+		"!DIR_VS!VCExpress.exe" %2
+	) ELSE (
+		Echo failed locating visual studio ide
+		GOTO CMDEXIT
+	)
+
 	GOTO CMDEXIT
 )
-
-IF /I "%~1" EQU "install" (
-	CALL :SafeCopy "!PACKAGE_ROOT_DIR!bin\!!PROCESSOR_ARCHITECTURE!\libusb0.sys" "!SystemRoot!\system32\drivers\"
-	CALL :SafeCopy "!PACKAGE_ROOT_DIR!bin\!!PROCESSOR_ARCHITECTURE!\libusb0.dll" "!SystemRoot!\system32\"
-	IF EXIST  "!SystemRoot!\syswow64\" CALL :SafeCopy "!PACKAGE_ROOT_DIR!bin\!x86\libusb0.dll" "!SystemRoot!\syswow64\"
-	GOTO CMDEXIT
-)
-
 
 :: 
 :: End of Package build section
@@ -143,7 +160,7 @@ IF "!BUILD_ERRORLEVEL!" NEQ "0" GOTO CMDERROR
 SET _FRE_OR_CHECK_=fre
 IF /I "!CMDVAR_DEBUGMODE!" equ "true" SET _FRE_OR_CHECK_=chk
 
-IF /I "!CMDVAR_ARCH!" EQU "x86" (
+IF /I "!CMDVAR_ARCH!" EQU "notused" (
 	CALL :SetDDK "!CMDVAR_WINDDK_DIR!" normal !_FRE_OR_CHECK_! WXP
 	IF !BUILD_ERRORLEVEL! NEQ 0 GOTO CMDERROR
 ) ELSE IF /I "!CMDVAR_ARCH!" EQU "x64" (
@@ -152,7 +169,7 @@ IF /I "!CMDVAR_ARCH!" EQU "x86" (
 ) ELSE IF /I "!CMDVAR_ARCH!" EQU "i64" (
 	CALL :SetDDK "!CMDVAR_WINDDK_DIR!" normal !_FRE_OR_CHECK_! 64 WNET
 	IF !BUILD_ERRORLEVEL! NEQ 0 GOTO CMDERROR
-) ELSE IF /I "!CMDVAR_ARCH!" EQU "w2k" (
+) ELSE IF /I "!CMDVAR_ARCH!" EQU "x86" (
 	CALL :SetDDK "!CMDVAR_WINDDK_W2K_DIR!" forceoacr !_FRE_OR_CHECK_! W2K 
 	IF !BUILD_ERRORLEVEL! NEQ 0 GOTO CMDERROR
 ) ELSE (
@@ -183,7 +200,7 @@ IF !ERRORLEVEL! NEQ 0 (
 IF EXIST *.sys MOVE /Y *.sys "!CMDVAR_OUTDIR!" >NUL
 IF EXIST *.dll MOVE /Y *.dll "!CMDVAR_OUTDIR!" >NUL
 IF EXIST *.exe MOVE /Y *.exe "!CMDVAR_OUTDIR!" >NUL
-IF EXIST *.lib COPY /Y *.lib "!CMDVAR_OUTDIR!" >NUL
+IF EXIST libusb.lib COPY /Y libusb.lib "!CMDVAR_OUTDIR!" >NUL
 
 CALL :DestroyErrorMarker
 
@@ -203,20 +220,20 @@ GOTO CMDEXIT
 	CALL make_clean.bat
 	
 	SET CMDVAR_BUILDARCH=!_BUILDARCH!
-	SET _ADD_C_DEFINES=
+	SET _ADD_C_DEFINES=/DLIBUSB0_DIR=\"!LIBUSB0_DIR!\"
 	IF DEFINED CMDVAR_LOG_OUTPUT (
 		SET _LOG_OUTPUT_=LOG_OUTPUT_TYPE_!CMDVAR_LOG_OUTPUT:+=+LOG_OUTPUT_TYPE_!
 		SET _ADD_C_DEFINES=!_ADD_C_DEFINES! /DLOG_OUTPUT_TYPE=!_LOG_OUTPUT_!
 	)
 	
 	CALL make_!_LIBUSB_APP!.bat !_ADD_C_DEFINES!
-
 	IF !ERRORLEVEL! NEQ 0 SET BUILD_ERRORLEVEL=!ERRORLEVEL!
 	IF !BUILD_ERRORLEVEL! NEQ 0 (
 		SET BUILD_ERRORLEVEL=!ERRORLEVEL!
 		IF !BUILD_ERRORLEVEL! EQU 0 SET BUILD_ERRORLEVEL=1
 		GOTO :EOF
 	)
+		
 	IF /I "!CMDVAR_DIR_INTERMEDIATE!" NEQ "" (
 		CALL :SafeCopyDir "!DIR_LIBUSB_DDK!obj!BUILD_ALT_DIR!\*" "!CMDVAR_DIR_INTERMEDIATE!"
 	)
@@ -240,8 +257,8 @@ GOTO :EOF
 	CALL :SafeCleanDir "!PACKAGE_BIN_DIR!"
 	IF !ERRORLEVEL! NEQ 0 GOTO :EOF
 	
-	CALL :Build_PackageBinaries w2k msvc w2k
-	IF !BUILD_ERRORLEVEL! NEQ 0 GOTO CMDERROR
+	REM CALL :Build_PackageBinaries w2k msvc w2k
+	REM IF !BUILD_ERRORLEVEL! NEQ 0 GOTO CMDERROR
 
 	CALL :Build_PackageBinaries x86 msvc x86
 	IF !BUILD_ERRORLEVEL! NEQ 0 GOTO CMDERROR
@@ -273,6 +290,24 @@ GOTO :EOF
 	
 	CALL :SafeCopy "!PACKAGE_ROOT_DIR!gcc\libusb.a" "!PACKAGE_LIB_DIR!gcc\libusb.a" false
 	CALL :SafeCopy "!PACKAGE_ROOT_DIR!bcc\libusb.lib" "!PACKAGE_LIB_DIR!bcc\libusb.lib" false
+	CALL :SafeMove "!PACKAGE_BIN_DIR!x86\libusb0.dll" "!PACKAGE_BIN_DIR!x86\libusb0_x86.dll"
+	
+	
+	CALL :SafeCopy "!DIR_LIBUSB_DDK!..\installer_license.txt" "!PACKAGE_ROOT_DIR!installer_license.txt"
+	CALL :TagEnv "!DIR_LIBUSB_DDK!..\!PACKAGE_BIN_NAME!-README.txt.in" "!PACKAGE_BIN_DIR!!PACKAGE_BIN_NAME!-README.txt"
+	
+	ECHO.
+	ECHO libusb-win32 v!VERSION! binaries built at '!PACKAGE_BIN_DIR!'
+	IF /I "!LIBUSB_DIST_BUILD!" EQU "true" (
+		SET /P __DUMMY=[Sign these files now and/or press 'Enter' to continue]
+	)
+	ECHO.
+		
+	SET _OUTDIR_=!PACKAGE_BIN_DIR!x86\
+	CALL :CmdExe make.cmd !_ARG_LINE! "arch=x86" "app=inf_wizard" "outdir=!_OUTDIR_!"
+	IF !BUILD_ERRORLEVEL! NEQ 0 GOTO CMDERROR
+	
+	CALL :SafeDelete "!_OUTDIR_!*.lib"
 
 GOTO :EOF
 
@@ -291,13 +326,14 @@ GOTO :EOF
 
 
 :PackageText
-	CALL :TagEnv "..\README.in" "%~1\README.txt"
-	COPY /Y "..\*.txt" "%~1"
+	CALL :TagEnv "..\README.in" "%~2\README.txt"
+	COPY /Y "..\*.txt" "%~2"
 	IF EXIST "!PACKAGE_ROOT_DIR!libusb-win32-changelog-!CMDVAR_VERSION!.txt" (
-		COPY /Y "!PACKAGE_ROOT_DIR!libusb-win32-changelog-!CMDVAR_VERSION!.txt"  "%~1\"
+		COPY /Y "!PACKAGE_ROOT_DIR!libusb-win32-changelog-!CMDVAR_VERSION!.txt"  "%~2\"
 	) ELSE (
-		ECHO No change log.>"%~1\libusb-win32-changelog-!CMDVAR_VERSION!.txt"
+		ECHO No change log.>"%~2\libusb-win32-changelog-!CMDVAR_VERSION!.txt"
 	)
+
 GOTO :EOF
 
 :PrepForPackaging
@@ -352,7 +388,7 @@ GOTO :EOF
 	CALL :SafeCopy "!PACKAGE_ROOT_DIR!gcc\*" "!_WORKING_DIR!lib\gcc\"
 	CALL :SafeCopy "!PACKAGE_ROOT_DIR!bcc\*" "!_WORKING_DIR!lib\bcc\"
 
-	CALL :PackageText "!_WORKING_DIR!"
+	CALL :PackageText bin "!_WORKING_DIR!"
 	
 	PUSHD "!CD!"
 	CD /D "!PACKAGE_WORKING!"
@@ -373,7 +409,7 @@ GOTO :EOF
 
 	CALL :SafeCopyDir "..\*" "!_WORKING_DIR!"
 	
-	CALL :PackageText "!_WORKING_DIR!"
+	CALL :PackageText src "!_WORKING_DIR!"
 
 	PUSHD "!CD!"
 	CD /D "!PACKAGE_WORKING!"
@@ -388,7 +424,7 @@ GOTO :EOF
 	SET _WORKING_DIR=!PACKAGE_WORKING!!PACKAGE_SETUP_NAME!\
 	CALL :SafeReCreateDir "!_WORKING_DIR!"
 
-	CALL :PackageText "!_WORKING_DIR!"
+	CALL :PackageText setup "!_WORKING_DIR!"
 	
 	IF /I "!CMDVAR_TESTSIGNING!" EQU "on" (
 		CALL :SafeCopy "!PACKAGE_ROOT_DIR!cert\!CERT_FILE!" "!_WORKING_DIR!"
@@ -407,6 +443,11 @@ GOTO :EOF
 	POPD
 GOTO :EOF
 
+:Super_Clean
+	CALL :LoadArguments 1 %*
+	CALL make_super_clean.bat
+GOTO :EOF
+	
 :Package_Clean
 	CALL :LoadArguments 1 %*
 	CALL :SafeCleanDir "!PACKAGE_BIN_DIR!"
@@ -549,6 +590,11 @@ GOTO :EOF
 	SHIFT /1
 	IF /I "%~1" EQU "forceoacr" SET WINDDK_AUTOCODEREVIEW=
 	SHIFT /1
+	IF NOT EXIST "!SELECTED_DDK!\bin\setenv.bat" (
+		ECHO Failed locating WinDDK setenv.bat at '!SELECTED_DDK!\bin\setenv.bat'
+		SET BUILD_ERRORLEVEL=1
+		GOTO :EOF
+	)
 	CALL "!SELECTED_DDK!\bin\setenv.bat" !SELECTED_DDK! %1 %2 %3 %4 !WINDDK_AUTOCODEREVIEW!
 	SET BUILD_ERRORLEVEL=!ERRORLEVEL!
 	POPD
@@ -623,11 +669,23 @@ GOTO :EOF
 		IF NOT "%%~I" EQU "" (
 			SET _PNAME=%%~I
 			SET _PNAME=!_PNAME: =!
-			SET _PVALUE=%%J
-			SET CMDVAR_!_PNAME!=!_PVALUE!
+			IF /I "!_PNAME!" EQU "ZIP" (
+				CALL :ToShortName _PVALUE "%%~J"
+			) ELSE IF /I "!_PNAME!" EQU "ISCC" (
+				CALL :ToShortName _PVALUE "%%~J"
+			) ELSE IF /I "!_PNAME!" EQU "IMPLIB" (
+				CALL :ToShortName _PVALUE "%%~J"
+			) ELSE IF /I "!_PNAME!" EQU "DLLTOOL" (
+				CALL :ToShortName _PVALUE "%%~J"
+			) ELSE (
+				SET _PVALUE=%%J
+			)
 			SET !_PNAME!=!_PVALUE!
+			SET CMDVAR_!_PNAME!=!_PVALUE!
 		)
 	)
+	SET LIBUSB0_DIR=!PACKAGE_ROOT_DIR:\=/!
+	IF "!LIBUSB0_DIR:~-1!" EQU "/" SET LIBUSB0_DIR=!LIBUSB0_DIR:~0,-1!
 	
 	IF /I "!WINDDK_AUTOCODEREVIEW!" EQU "false" (
 		SET WINDDK_AUTOCODEREVIEW=no_oacr
@@ -792,6 +850,15 @@ GOTO :EOF
 	)
 GOTO :EOF
 
+:ToShortName
+	IF NOT "%~1" EQU "" (
+		SET %~1=%~s2
+		SHIFT /1
+		SHIFT /1
+		GOTO ToShortName
+	)
+GOTO :EOF
+
 :: 
 :: Params = <infile> <outfile>
 :: 
@@ -872,9 +939,9 @@ EXIT /B !BUILD_ERRORLEVEL!
 ECHO.
 ECHO LIBUSB-WIN32 WinDDK build utility/application packager
 ECHO.
-ECHO Summary: This batch script automates the libusb-win32 WinDDK build process and
-ECHO          creates libusb-win32 redistributable packages.
-ECHO.
+ECHO Summary: This batch script automates the libusb-win32 WinDDK build process
+ECHO          and creates libusb-win32 redistributable packages.
+ECHO          [see also make.cfg]
 ECHO.
 ECHO BUILD USAGE: CMD /C make.cmd "Option=Value"
 ECHO Options: 
@@ -894,8 +961,8 @@ ECHO              [Default = false]
 ECHO TESTSIGNING  Setting this option to 'on' signs te dll and driver with a
 ECHO              test certifcate.
 ECHO              [Default = off]
-ECHO LOG_OUTPUT   Changes the log output type.  By default, applications send
-ECHO              log messages to stderr, dlls send log messages to 
+ECHO LOG_OUTPUT   Changes the log output type.  By default, console apps send log
+ECHO              messages to stderr, dlls and windows apps send log messages to 
 ECHO              OutputDebugString and kernel drivers send messages to 
 ECHO              DbgPrint. Use DebugView to view DBGPRINT, DEBUGWINDOW logs.
 ECHO              http://download.sysinternals.com/Files/DebugView.zip
@@ -903,12 +970,10 @@ ECHO              Log Output Types (case sensitive, combinable with +):
 ECHO					DEFAULT      Use the build defaults. [see above]
 ECHO					REMOVE       Strip all log messages [except errors].
 ECHO					STDERR       output to stderr
-ECHO					DEBUGWINDOW	 OutputDebugString
+ECHO					DEBUGWINDOW	 OutputDebugString, DbgPrint
 ECHO					FILE	     redirect log messages to a file.
-ECHO					DBGPRINT	 DbgPrint
 ECHO.
 ECHO [Note: See make.cfg for more options that can be used when building]
-ECHO.
 ECHO Examples:
 ECHO CMD /C make.cmd "arch=x86" "app=all" "outdir=.\x86"
 ECHO CMD /C make.cmd "arch=x64" "outdir=.\x64" "winddk=%SystemDrive%\WinDDK\7600.16385.0\"
@@ -922,9 +987,10 @@ ECHO DIST      Creates libusb-win32 dist packages.
 ECHO SNAPSHOT  Creates libusb-win32 snapshot packages.
 ECHO.
 ECHO Additional Commands:
-ECHO CLEAN     Cleans all temporary files and root package directory.
-ECHO SIGNFILE  Signs a dll or sys file with a test certificate.
-ECHO MAKEVER   Re/creates libusb_version.h from the template.
+ECHO CLEAN        Cleans all temporary files.
+ECHO CLEANPACKAGE Cleans root package directory.
+ECHO SIGNFILE     Signs a dll or sys file with a test certificate.
+ECHO MAKEVER      Re/creates libusb_version.h from the template.
 ECHO.
 ECHO [Note: See make.cfg for options that can be used when packaging]
 ECHO.

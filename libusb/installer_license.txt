@@ -4,8 +4,8 @@ Copyright (c) 2000-2004 Thomas Sailer, <sailer@ife.ee.ethz.ch>
 Copyright (c) 2010 Travis Robinson, <libusbdotnet@gmail.com>
 
 This software is distributed under the following licenses:
-Driver, Installer:      GNU General Public License (GPL)
-Library, Test Files:    GNU Lesser General Public License (LGPL)
+Driver:      GNU General Public License (GPL)
+Library, Test Files, Installer:    GNU Lesser General Public License (LGPL)
 
 ***********************************************************************
                     GNU GENERAL PUBLIC LICENSE

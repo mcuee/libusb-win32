@@ -1,4 +1,4 @@
-/* LIBUSB-WIN32, Generic Windows USB Library
+/* libusb-win32, Generic Windows USB Library
  * Copyright (c) 2002-2005 Stephan Meyer <ste_meyer@web.de>
  *
  * This library is free software; you can redistribute it and/or
@@ -24,7 +24,11 @@
 #include <string.h>
 
 #ifdef __GNUC__
-#include <ddk/cfgmgr32.h>
+	#if  defined(_WIN64)
+		#include <cfgmgr32.h>
+	#else
+		#include <ddk/cfgmgr32.h>
+	#endif
 #else
 #include <cfgmgr32.h>
 #define strlwr(p) _strlwr(p)
@@ -625,8 +629,9 @@ bool_t usb_registry_match(HDEVINFO dev_info,
 
     /* search for USB devices, skip root hubs and interfaces of composite */
     /* devices */
-    if (usb_registry_mz_string_find_sub(tmp, "&mi_")
-            || usb_registry_mz_string_find_sub(tmp, "root_hub"))
+//    if (usb_registry_mz_string_find_sub(tmp, "&mi_")
+//            || usb_registry_mz_string_find_sub(tmp, "root_hub"))
+    if (usb_registry_mz_string_find_sub(tmp, "root_hub"))
     {
         return FALSE;
     }

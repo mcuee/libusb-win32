@@ -1,4 +1,4 @@
-/* LIBUSB-WIN32, Generic Windows USB Library
+/* libusb-win32, Generic Windows USB Library
  * Copyright (c) 2002-2005 Stephan Meyer <ste_meyer@web.de>
  *
  * This program is free software; you can redistribute it and/or modify
@@ -62,13 +62,13 @@ NTSTATUS dispatch_power(libusb_device_t *dev, IRP *irp)
 
         if (stack_location->Parameters.Power.Type == SystemPowerState)
         {
-            USBMSG("IRP_MN_SET_POWER: S%d\n",
-                          power_state.SystemState - PowerSystemWorking);
+            USBMSG("IRP_MN_SET_POWER: S%d %s\n",
+				power_state.SystemState - PowerSystemWorking, dev->device_id);
         }
         else
         {
-            USBMSG("IRP_MN_SET_POWER: D%d\n",
-                          power_state.DeviceState - PowerDeviceD0);
+            USBMSG("IRP_MN_SET_POWER: D%d %s\n",
+				power_state.DeviceState - PowerDeviceD0, dev->device_id);
 
             if (power_state.DeviceState > dev->power_state.DeviceState)
             {
@@ -137,8 +137,8 @@ on_power_state_complete(DEVICE_OBJECT *device_object,
     {
         if (stack_location->Parameters.Power.Type == SystemPowerState)
         {
-            USBMSG("S%d\n",
-				power_state.SystemState - PowerSystemWorking);
+            USBMSG("S%d %s\n",
+				power_state.SystemState - PowerSystemWorking, dev->device_id);
 
             /* save current system state */
             dev->power_state.SystemState = power_state.SystemState;
@@ -156,8 +156,8 @@ on_power_state_complete(DEVICE_OBJECT *device_object,
         }
         else /* DevicePowerState */
         {
-            USBMSG("D%d\n",
-				power_state.DeviceState - PowerDeviceD0);
+            USBMSG("D%d %s\n",
+				power_state.DeviceState - PowerDeviceD0, dev->device_id);
 
             if (power_state.DeviceState <= dev->power_state.DeviceState)
             {
@@ -165,7 +165,6 @@ on_power_state_complete(DEVICE_OBJECT *device_object,
                 /* report device state to Power Manager */
                 PoSetPowerState(dev->self, DevicePowerState, power_state);
             }
-
             /* save current device state */
             dev->power_state.DeviceState = power_state.DeviceState;
         }
@@ -246,6 +245,9 @@ void power_set_device_state(libusb_device_t *dev,
     POWER_STATE power_state;
 
     power_state.DeviceState = device_state;
+
+	USBMSG("setting device power state to D%d %s\n", 
+		power_state.DeviceState - PowerDeviceD0, dev->device_id);
 
     if (block) /* wait for IRP to complete */
     {

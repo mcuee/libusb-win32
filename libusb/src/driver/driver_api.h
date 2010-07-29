@@ -1,4 +1,4 @@
-/* LIBUSB-WIN32, Generic Windows USB Library
+/* libusb-win32, Generic Windows USB Library
  * Copyright (c) 2002-2005 Stephan Meyer <ste_meyer@web.de>
  *
  * This program is free software; you can redistribute it and/or modify
@@ -114,6 +114,13 @@ enum
 #define LIBUSB_IOCTL_GET_CUSTOM_REG_PROPERTY CTL_CODE(FILE_DEVICE_UNKNOWN,\
 0x901, METHOD_BUFFERED, FILE_ANY_ACCESS)
 
+/////////////////////////////////////////////////////////////////////////////
+
+/////////////////////////////////////////////////////////////////////////////
+// supported after 1.2.0.0
+/////////////////////////////////////////////////////////////////////////////
+#define LIBUSB_IOCTL_GET_CACHED_CONFIGURATION CTL_CODE(FILE_DEVICE_UNKNOWN,\
+0x902, METHOD_BUFFERED, FILE_ANY_ACCESS)
 /////////////////////////////////////////////////////////////////////////////
 
 #include <pshpack1.h>

@@ -1,17 +1,17 @@
 @echo off
 
-set OUTDIR=""
+set OUTDIR=
 
 if exist .\output\i386 set OUTDIR=.\output\i386
 if exist .\output\amd64 set OUTDIR=.\output\amd64
 if exist .\output\ia64  set OUTDIR=.\output\ia64
 
-if not OUTDIR=="" (
+if "%OUTDIR%"=="" GOTO NO_OUTDIR
   if exist %OUTDIR%\*.exe copy /y %OUTDIR%\*.exe . >NUL
   if exist %OUTDIR%\*.dll copy /y %OUTDIR%\*.dll . >NUL
   if exist %OUTDIR%\*.lib copy /y %OUTDIR%\*.lib . >NUL
   if exist %OUTDIR%\*.sys copy /y %OUTDIR%\*.sys . >NUL
-)
+:NO_OUTDIR
 
 if exist .\output rmdir /s /q .\output
 
@@ -38,4 +38,3 @@ DEL /Q "..\*.o" "..\*.dll" "..\*.a" "..\*.exp" "..\*.lib" "..\*.exe" 2>NUL>NUL
 DEL /Q "..\*.tar.gz" "..\*.iss" "..\*.rc" "..\*.h" "..\*.sys" "..\*.log" 2>NUL>NUL
 DEL /Q /S "..\*~" 2>NUL>NUL
 DEL /Q "..\README.txt" 2>NUL>NUL
-SET ERRORLEVEL=0

@@ -1,4 +1,4 @@
-/* LIBUSB-WIN32, Generic Windows USB Library
+/* libusb-win32, Generic Windows USB Library
  * Copyright (c) 2002-2005 Stephan Meyer <ste_meyer@web.de>
  *
  * This program is free software; you can redistribute it and/or modify
@@ -60,7 +60,10 @@ NTSTATUS DDKAPI dispatch(DEVICE_OBJECT *device_object, IRP *irp)
 
             if (dev->is_started)
             {
-                if (dev->power_state.DeviceState != PowerDeviceD0)
+				// TODO: a filter driver cannot act as the power policy owner.
+				// power_set_device_state() can only be issued by the PPO.
+				//
+                if (dev->power_state.DeviceState != PowerDeviceD0 /* && !dev->is_filter */)
                 {
                     /* power up the device, block until the call */
                     /* completes */

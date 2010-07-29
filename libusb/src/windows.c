@@ -1,4 +1,4 @@
-/* LIBUSB-WIN32, Generic Windows USB Library
+/* libusb-win32, Generic Windows USB Library
  * Copyright (c) 2002-2005 Stephan Meyer <ste_meyer@web.de>
  * Copyright (c) 2000-2005 Johannes Erdfelt <johannes@erdfelt.com>
  *
@@ -69,7 +69,7 @@ static int _usb_transfer_sync(usb_dev_handle *dev, int control_code,
                               int ep, int pktsize, char *bytes, int size,
                               int timeout);
 
-static int usb_get_configuration(usb_dev_handle *dev);
+static int usb_get_configuration(usb_dev_handle *dev, bool_t cached);
 static int _usb_cancel_io(usb_context_t *context);
 static int _usb_abort_ep(usb_dev_handle *dev, unsigned int ep);
 
@@ -102,88 +102,99 @@ BOOL WINAPI DllMain(HANDLE module, DWORD reason, LPVOID reserved)
     return TRUE;
 }
 
-/*
- static int usb_get_configuration(usb_dev_handle *dev)
- {
-   int ret;
-   char config;
 
-   ret = usb_control_msg(dev, USB_RECIP_DEVICE | USB_ENDPOINT_IN,
-                         USB_REQ_GET_CONFIGURATION, 0, 0, &config, 1,
-                         LIBUSB_DEFAULT_TIMEOUT); 
+static int usb_get_configuration(usb_dev_handle *dev, bool_t cached)
+{
+	int ret;
+	char config;
+	libusb_request request;
 
-   if(ret >= 0)
-     {
-       return config;
-     }
+	if (cached)
+	{
+		memset(&request, 0, sizeof(request));
+		request.timeout = LIBUSB_DEFAULT_TIMEOUT;
 
-   return ret;
- }
-*/
+		if (!_usb_io_sync(dev->impl_info, LIBUSB_IOCTL_GET_CACHED_CONFIGURATION,
+			&request, sizeof(request), &request, sizeof(request), &ret))
+		{
+			USBERR("sending get cached configuration ioctl failed, win error: %s\n", usb_win_error_to_string());
+			ret = -usb_win_error_to_errno();
+		}
 
- int usb_os_open(usb_dev_handle *dev)
- {
-	 char dev_name[LIBUSB_PATH_MAX];
-	 char *p;
+		if (ret < 1)
+			ret = -EINVAL;
+		else
+			config = *((char*)&request);
+	}
+	else
+	{
+		ret = usb_control_msg(dev, USB_RECIP_DEVICE | USB_ENDPOINT_IN,
+			USB_REQ_GET_CONFIGURATION, 0, 0, &config, 1,
+			LIBUSB_DEFAULT_TIMEOUT); 
+	}
 
-	 if (!dev)
-	 {
-		 USBERR("invalid device handle %p", dev);
-		 return -EINVAL;
-	 }
+	if(ret < 0)
+		return ret;
 
-	 dev->impl_info = INVALID_HANDLE_VALUE;
-	 dev->config = 0;
-	 dev->interface = -1;
-	 dev->altsetting = -1;
+	return config;
+}
 
-	 if (!dev->device->filename)
-	 {
-		 USBERR0("invalid file name\n");
-		 return -ENOENT;
-	 }
+int usb_os_open(usb_dev_handle *dev)
+{
+	char dev_name[LIBUSB_PATH_MAX];
+	char *p;
+	int config;
+	if (!dev)
+	{
+		USBERR("invalid device handle %p", dev);
+		return -EINVAL;
+	}
 
-	 /* build the Windows file name from the unique device name */
-	 strcpy(dev_name, dev->device->filename);
+	dev->impl_info = INVALID_HANDLE_VALUE;
+	dev->config = 0;
+	dev->interface = -1;
+	dev->altsetting = -1;
 
-	 p = strstr(dev_name, "--");
+	if (!dev->device->filename)
+	{
+		USBERR0("invalid file name\n");
+		return -ENOENT;
+	}
 
-	 if (!p)
-	 {
-		 USBERR("invalid file name %s\n", dev->device->filename);
-		 return -ENOENT;
-	 }
+	/* build the Windows file name from the unique device name */
+	strcpy(dev_name, dev->device->filename);
 
-	 *p = 0;
+	p = strstr(dev_name, "--");
 
-	 dev->impl_info = CreateFile(dev_name, 0, 0, NULL, OPEN_EXISTING,
-		 FILE_FLAG_OVERLAPPED, NULL);
+	if (!p)
+	{
+		USBERR("invalid file name %s\n", dev->device->filename);
+		return -ENOENT;
+	}
 
-	 if (dev->impl_info == INVALID_HANDLE_VALUE)
-	 {
-		 USBERR("failed to open %s: win error: %s",
-			 dev->device->filename, usb_win_error_to_string());
-		 return -ENOENT;
-	 }
+	*p = 0;
 
-	 /*
-	 // now, retrieve the device's current configuration, except from hubs
-	 if(dev->device->config && dev->device->config->interface
-		 && dev->device->config->interface[0].altsetting
-		 && dev->device->config->interface[0].altsetting[0].bInterfaceClass
-		 != USB_CLASS_HUB)
-	 {
-		 config = usb_get_configuration(dev);
+	dev->impl_info = CreateFile(dev_name, 0, 0, NULL, OPEN_EXISTING,
+		FILE_FLAG_OVERLAPPED, NULL);
 
-		 if(config > 0)
-		 {
-			 dev->config = config;
-		 }
-	 }
-	*/
+	if (dev->impl_info == INVALID_HANDLE_VALUE)
+	{
+		USBERR("failed to open %s: win error: %s",
+			dev->device->filename, usb_win_error_to_string());
+		return -ENOENT;
+	}
 
-	 return 0;
- }
+	// get the cached configuration (no device i/o)
+	config = usb_get_configuration(dev, TRUE);
+	if (config > 0)
+	{
+		dev->config = config;
+		dev->interface = -1;
+		dev->altsetting = -1;
+	}
+
+	return 0;
+}
 
 int usb_os_close(usb_dev_handle *dev)
 {
@@ -479,7 +490,7 @@ static int _usb_reap_async(void *context, int timeout, int cancel)
         }
 
         USBERR0("timeout error\n");
-        return -ETIMEDOUT;
+        return -ETRANSFER_TIMEDOUT;
     }
 
     if (!GetOverlappedResult(c->dev->impl_info, &c->ol, &ret, TRUE))

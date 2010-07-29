@@ -1,4 +1,4 @@
-/* LIBUSB-WIN32, Generic Windows USB Library
+/* libusb-win32, Generic Windows USB Library
  * Copyright (c) 2002-2005 Stephan Meyer <ste_meyer@web.de>
  *
  * This program is free software; you can redistribute it and/or modify
@@ -81,8 +81,15 @@ NTSTATUS vendor_class_request(libusb_device_t *dev,
             urb.UrbHeader.Function = URB_FUNCTION_VENDOR_OTHER;
             break;
         default:
+			// [Kevin Timmerman Patch]
+			USBMSG("recipient: reserved (0x%02x)\n", recipient);
+			urb.UrbHeader.Function = URB_FUNCTION_VENDOR_DEVICE;
+			urb.UrbControlVendorClassRequest.RequestTypeReservedBits = (UCHAR)recipient;
+			break;
+			/*
             USBERR0("invalid recipient\n");
             return STATUS_INVALID_PARAMETER;
+			*/
         }
         break;
     default:

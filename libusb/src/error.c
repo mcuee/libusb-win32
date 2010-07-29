@@ -140,7 +140,7 @@ int usb_win_error_to_errno(void)
         return EINVAL;
     case ERROR_SEM_TIMEOUT:
     case ERROR_OPERATION_ABORTED:
-        return ETIMEDOUT;
+        return ETRANSFER_TIMEDOUT;
     case ERROR_NOT_ENOUGH_MEMORY:
         return ENOMEM;
     default:
