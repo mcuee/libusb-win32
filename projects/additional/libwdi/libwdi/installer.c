@@ -503,8 +503,10 @@ int __cdecl main(int argc_ansi, char** argv_ansi)
 	pipe_handle = CreateFileA(INSTALLER_PIPE_NAME, GENERIC_READ|GENERIC_WRITE, 0, NULL, OPEN_EXISTING,
 		FILE_ATTRIBUTE_NORMAL|FILE_FLAG_OVERLAPPED, NULL);
 	if (pipe_handle == INVALID_HANDLE_VALUE) {
-		printf("could not open pipe for writing: errcode %d\n", (int)GetLastError());
-		return WDI_ERROR_RESOURCE;
+		// If we can't connect to the pipe, someone is probably trying to run us standalone
+		printf("This application can not be run from the command line.\n");
+		printf("Please use your initial installer application if you want to install the driver.\n");
+		return WDI_ERROR_NOT_SUPPORTED;
 	}
 
 	if (init_dlls()) {
@@ -537,7 +539,7 @@ int __cdecl main(int argc_ansi, char** argv_ansi)
 		ret = WDI_ERROR_ACCESS;
 		goto out;
 	}
-	safe_strcat(path, MAX_PATH_LENGTH, "\\");
+	safe_strcat(path, MAX_PATH_LENGTH, (char*)"\\");
 	safe_strcat(path, MAX_PATH_LENGTH, inf_name);
 
 	device_id = req_id(IC_GET_DEVICE_ID);
