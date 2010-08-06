@@ -105,63 +105,16 @@ NTSTATUS dispatch_power(libusb_device_t *dev, IRP *irp)
 
         return PoCallDriver(dev->next_stack_device, irp);
     }
-	else if (stack_location->MinorFunction == IRP_MN_QUERY_POWER)
+    else
     {
-        power_state = stack_location->Parameters.Power.State;
+		/* pass all other power IRPs down without setting a completion routine */
+        PoStartNextPowerIrp(irp);
+        IoSkipCurrentIrpStackLocation(irp);
+        status = PoCallDriver(dev->next_stack_device, irp);
+        remove_lock_release(dev);
 
-		if (stack_location->Parameters.Power.Type == DevicePowerState)
-		{
-			USBMSG("IRP_MN_QUERY_POWER: D%d %s\n",
-				power_state.DeviceState - PowerDeviceD0, dev->device_id);
-		}
-		else
-		{
-			USBMSG("IRP_MN_QUERY_POWER: S%d %s\n",
-				power_state.SystemState - PowerSystemWorking, dev->device_id);
-		}
-
-		if (dev->is_filter)
-		{
-			if (stack_location->Parameters.Power.Type == DevicePowerState)
-			{
-				if (power_state.DeviceState > PowerDeviceD0)
-				{
-					USBDBG("cancelling power mode D%d %s\n",
-						power_state.DeviceState - PowerDeviceD0,
-						dev->device_id);
-
-					PoStartNextPowerIrp(irp);
-					status = complete_irp(irp, STATUS_INVALID_DEVICE_STATE, 0);
-					remove_lock_release(dev);
-					return status;
-				}
-			}
-			else if (stack_location->Parameters.Power.Type == SystemPowerState)
-			{
-				/*
-				if (power_state.SystemState > PowerSystemWorking)
-				{
-					USBDBG("cancelling power mode S%d %s\n",
-						power_state.SystemState - PowerSystemWorking,
-						dev->device_id);
-
-					PoStartNextPowerIrp(irp);
-					status = complete_irp(irp, STATUS_INVALID_DEVICE_STATE, 0);
-					remove_lock_release(dev);
-					return status;
-				}
-				*/
-			}
-		}
-	}
-
-	/* pass all other power IRPs down without setting a completion routine */
-    PoStartNextPowerIrp(irp);
-    IoSkipCurrentIrpStackLocation(irp);
-    status = PoCallDriver(dev->next_stack_device, irp);
-    remove_lock_release(dev);
-
-    return status;
+        return status;
+    }
 }
 
 
