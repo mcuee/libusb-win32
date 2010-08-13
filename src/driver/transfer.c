@@ -106,8 +106,8 @@ static NTSTATUS create_urb(libusb_device_t *dev,
 						   MDL *buffer,
 						   int size);
 
-VOID large_transfer_cancel(IN PDEVICE_OBJECT DeviceObject, IN PIRP irp);
-VOID large_transfer_terminate(PMAIN_REQUEST_CONTEXT mainRequestContext);
+VOID large_transfer_cancel_routine(IN PDEVICE_OBJECT DeviceObject, IN PIRP irp);
+VOID large_transfer_cancel(IN PIRP irp, BOOLEAN releaseCancelSpinlock);
 
 NTSTATUS large_transfer_complete(IN PDEVICE_OBJECT DeviceObjectIsNULL,
 								 IN PIRP irp,
@@ -790,7 +790,7 @@ NTSTATUS large_transfer(IN libusb_device_t* dev,
 		// committed to calling each of the sub requests down the
 		// driver stack.
 		//
-		IoSetCancelRoutine(irp, large_transfer_cancel);
+		IoSetCancelRoutine(irp, large_transfer_cancel_routine);
 
 		for (i = 0; i < numIrps; i++)
 		{
@@ -1094,7 +1094,7 @@ NTSTATUS large_transfer_complete(IN PDEVICE_OBJECT DeviceObjectIsNULL,
 	if (IsListEmpty(&mainRequestContext->SubRequestList))
 	{
 		completeMainRequest = TRUE;
-
+		needs_cancelled = FALSE;
 		IoSetCancelRoutine(mainIrp, NULL);
 	}
 	else
@@ -1108,7 +1108,11 @@ NTSTATUS large_transfer_complete(IN PDEVICE_OBJECT DeviceObjectIsNULL,
 		//
 		if (needs_cancelled)
 		{
-			IoSetCancelRoutine(mainIrp, NULL);
+			// IoSetCancelRoutine returns the previous value of 
+			// mainIrp->CancelRoutine. If no Cancel routine was previously
+			// set, or if IRP cancellation is already in progress, 
+			// IoSetCancelRoutine returns NULL.
+			needs_cancelled = (IoSetCancelRoutine(mainIrp, NULL) == NULL) ? FALSE : TRUE;
 		}
 
 	}
@@ -1122,13 +1126,13 @@ NTSTATUS large_transfer_complete(IN PDEVICE_OBJECT DeviceObjectIsNULL,
 	//
 	IoReleaseCancelSpinLock(irql);
 
-	// needs_cancelled is only set for the first subrequest that returns
-	// "short".
-	if (needs_cancelled && !completeMainRequest)
+	// needs_cancelled is set for the first subrequest that returns "short".
+	// provided it is not the final subrequest.
+	if (needs_cancelled)
 	{
 		// we can only do this (after IoReleaseCancelSpinLock) because the 
 		// cancel routine for mainIrp was removed above.
-		large_transfer_terminate(mainRequestContext);
+		large_transfer_cancel(mainIrp, FALSE);
 	}
 
 	if (InterlockedDecrement(&subRequestContext->ReferenceCount) == 0)
@@ -1198,7 +1202,28 @@ Return Value:
 None
 
 --*/
-VOID large_transfer_cancel(IN PDEVICE_OBJECT DeviceObject, IN PIRP irp)
+VOID large_transfer_cancel_routine(IN PDEVICE_OBJECT DeviceObject, IN PIRP irp)
+{
+	large_transfer_cancel(irp, TRUE);
+}
+
+/*++
+
+Routine Description:
+
+Cancels all currently outstanding sub requests for the main
+request.
+
+Completing the main request is the responsibility of the sub
+request completion routine after all outstanding sub requests have
+completed.
+
+Return Value:
+
+None
+
+--*/
+VOID large_transfer_cancel(IN PIRP irp, BOOLEAN releaseCancelSpinlock)
 {
 	PMAIN_REQUEST_CONTEXT   mainRequestContext;
 	LIST_ENTRY              cancelList;
@@ -1241,112 +1266,20 @@ VOID large_transfer_cancel(IN PDEVICE_OBJECT DeviceObject, IN PIRP irp)
 		subRequestEntry = subRequestEntry->Flink;
 	}
 
-	// The main read/write irp can be completed immediately after
-	// releasing the cancel spin lock.  Do not access the main
-	// read/write irp or the mainRequestContext in any way beyond this
-	// point.
-	//
-	IoReleaseCancelSpinLock(irp->CancelIrql);
+	USBDBG("[%s #%d] cancel-reason=%s\n",
+		mainRequestContext->dispTransfer,
+		mainRequestContext->sequenceID,
+		releaseCancelSpinlock?"User":"ShortTransfer");
 
-
-
-	// Iterate over the list that was built of sub requests to cancel
-	// and cancel each sub request.
-	//
-	while (!IsListEmpty(&cancelList))
+	if (releaseCancelSpinlock)
 	{
-		subRequestEntry = RemoveHeadList(&cancelList);
 
-		subRequestContext = CONTAINING_RECORD(subRequestEntry,
-			SUB_REQUEST_CONTEXT,
-			CancelListEntry);
-
-		USBDBG("[%s #%d] cancelling sub-irp\n",
-			mainRequestContext->dispTransfer,
-			mainRequestContext->sequenceID);
-
-		if (!subRequestContext->SubIrp->Cancel)
-		{
-			IoCancelIrp(subRequestContext->SubIrp);
-		}
-
-		if (InterlockedDecrement(&subRequestContext->ReferenceCount) == 0)
-		{
-			// If the reference count is now zero then the completion
-			// routine already ran for the sub request but did not free
-			// the sub request so it can be freed now.
-			//
-			IoFreeIrp(subRequestContext->SubIrp);
-
-			ExFreePool(subRequestContext->SubUrb);
-
-			IoFreeMdl(subRequestContext->SubMdl);
-
-			ExFreePool(subRequestContext);
-		}
-		else
-		{
-			// The completion routine for the sub request has not yet
-			// executed and decremented the sub request reference count.
-			// Do not free the sub request here.  It will be freed when
-			// the sub request completion routine executes.
-		}
-	}
-}
-
-/*++
-
-Routine Description:
-
-Cancels all currently outstanding sub requests for the main
-request.
-
-Completing the main request is the responsibility of the sub
-request completion routine after all outstanding sub requests have
-completed.
-
-Return Value:
-
-None
-
---*/
-VOID large_transfer_terminate(PMAIN_REQUEST_CONTEXT mainRequestContext)
-{
-	LIST_ENTRY              cancelList;
-	PLIST_ENTRY             subRequestEntry;
-	PSUB_REQUEST_CONTEXT    subRequestContext;
-
-	// The mainRequestContext SubRequestList cannot be simultaneously
-	// changed by anything else as long as the cancel spin lock is still
-	// held, but can be changed immediately by the completion routine
-	// after the cancel spin lock is released.
-	//
-	// Iterate over the mainRequestContext SubRequestList and add all of
-	// the currently outstanding sub requests to the list of sub
-	// requests to be cancelled.
-	//
-	InitializeListHead(&cancelList);
-
-	USBDBG("transfer #%d was short. cancelling sub-irp(s)\n",
-		mainRequestContext->sequenceID);
-
-	subRequestEntry = mainRequestContext->SubRequestList.Flink;
-
-	while (subRequestEntry != &mainRequestContext->SubRequestList)
-	{
-		subRequestContext = CONTAINING_RECORD(subRequestEntry,
-			SUB_REQUEST_CONTEXT,
-			ListEntry);
-
-		// Prevent the sub request from being freed as soon as the
-		// cancel spin lock is released by incrementing the reference
-		// count on the sub request.
+		// The main read/write irp can be completed immediately after
+		// releasing the cancel spin lock.  Do not access the main
+		// read/write irp or the mainRequestContext in any way beyond this
+		// point.
 		//
-		InterlockedIncrement(&subRequestContext->ReferenceCount);
-
-		InsertTailList(&cancelList, &subRequestContext->CancelListEntry);
-
-		subRequestEntry = subRequestEntry->Flink;
+		IoReleaseCancelSpinLock(irp->CancelIrql);
 	}
 
 	// Iterate over the list that was built of sub requests to cancel
@@ -1359,10 +1292,6 @@ VOID large_transfer_terminate(PMAIN_REQUEST_CONTEXT mainRequestContext)
 		subRequestContext = CONTAINING_RECORD(subRequestEntry,
 			SUB_REQUEST_CONTEXT,
 			CancelListEntry);
-
-		USBDBG("[%s #%d] cancelling sub-irp\n",
-			mainRequestContext->dispTransfer,
-			mainRequestContext->sequenceID);
 
 		if (!subRequestContext->SubIrp->Cancel)
 		{
