@@ -22,6 +22,6 @@
 #define RC_PRODUCT_STR    "libusb-win32 - Test Program"
 #define RC_FILE_NAME_STR  "testlibusb-win.exe"
 
-#include "common.rc"
+#include "libusb-win32_version.rc"
 
 ID_MANIFEST RT_MANIFEST "common_controls.manifest"

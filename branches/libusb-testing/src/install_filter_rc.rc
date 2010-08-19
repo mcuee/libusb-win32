@@ -10,4 +10,4 @@
 #define RC_PRODUCT_STR    "libusb-win32 - Install-Filter"
 #define RC_FILE_NAME_STR  "install-filter.exe"
 
-#include "common.rc"
+#include "libusb-win32_version.rc"

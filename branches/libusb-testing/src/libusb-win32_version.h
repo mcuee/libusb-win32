@@ -1,4 +1,4 @@
-/* libusb_version.h ++ auto-generated
+/* libusb-win32_version.h ++ auto-generated
 */
 #ifndef __LIBUSB_VERSION_H
 #define __LIBUSB_VERSION_H

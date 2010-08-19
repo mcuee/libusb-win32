@@ -21,6 +21,6 @@
 #define RC_PRODUCT_STR    "libusb-win32 - DLL"
 #define RC_FILE_NAME_STR  "libusb0.dll"
 
-#include "common.rc"
+#include "libusb-win32_version.rc"
 
 

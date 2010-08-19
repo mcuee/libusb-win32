@@ -713,8 +713,8 @@ GOTO :EOF
 
 :: params = no_overwrite
 :TokenizeLibusbVersionH
-	CALL :ToAbsolutePaths _H_IN  "!DIR_LIBUSB_DDK!..\src\libusb_version_h.in"
-	CALL :ToAbsolutePaths _H_OUT "!DIR_LIBUSB_DDK!..\src\libusb_version.h"
+	CALL :ToAbsolutePaths _H_IN  "!DIR_LIBUSB_DDK!..\src\libusb-win32_version_h.in"
+	CALL :ToAbsolutePaths _H_OUT "!DIR_LIBUSB_DDK!..\src\libusb-win32_version.h"
 	IF /I "%~1" EQU "true" IF EXIST "!_H_OUT!" GOTO :EOF
 	CALL :SafeDelete "!_H_OUT!"
 	CALL :TagEnv "!_H_IN!" "!_H_OUT!"
@@ -990,7 +990,7 @@ ECHO Additional Commands:
 ECHO CLEAN        Cleans all temporary files.
 ECHO CLEANPACKAGE Cleans root package directory.
 ECHO SIGNFILE     Signs a dll or sys file with a test certificate.
-ECHO MAKEVER      Re/creates libusb_version.h from the template.
+ECHO MAKEVER      Re/creates libusb-win32_version.h from the template.
 ECHO.
 ECHO [Note: See make.cfg for options that can be used when packaging]
 ECHO.

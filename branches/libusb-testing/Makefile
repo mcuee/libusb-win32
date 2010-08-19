@@ -221,7 +221,7 @@ infwizard: inf-wizard.exe
 inf-wizard.exe: inf_wizard.5.o inf_wizard_rc.5.o $(LIBWDI_OBJECTS)
 	$(CC86) $(WIN_CFLAGS) -o $@ -I./src -I$(LIBWDI_DIR) $^ $(WIN_LDFLAGS)
 
-%.5.o: %.c libusb_version.h $(LIBWDI_DIR)/libwdi.h
+%.5.o: %.c libusb-win32_version.h $(LIBWDI_DIR)/libwdi.h
 	$(CC86) -c $< -o $@ -I$(LIBWDI_DIR) $(INFWIZARD_CFLAGS) $(CPPFLAGS) $(INCLUDES) 
 
 %.5.o: %.rc
