@@ -19,7 +19,7 @@
 
 
 #include "libusb_driver.h"
-#include "libusb_version.h"
+#include "libusb-win32_version.h"
 
 // used but all transfer functions to get a valid libusb_endpoint_t *
 // for the request.

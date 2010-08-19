@@ -40,7 +40,7 @@
 #include "registry.h"
 #include "error.h"
 #include "driver_api.h"
-#include "libusb_version.h"
+#include "libusb-win32_version.h"
 
 
 #define LIBUSB_DRIVER_PATH  "system32\\drivers\\libusb0.sys"

@@ -10,7 +10,7 @@ copy %SRC_DIR%\*.c . >NUL
 copy %SRC_DIR%\*.h . >NUL
 copy %SRC_DIR%\*.rc . >NUL
 copy %SRC_DIR%\..\*.rc . >NUL
-copy %SRC_DIR%\..\libusb_version.h . >NUL
+copy %SRC_DIR%\..\libusb-win32_version.h . >NUL
 copy %SRC_DIR%\..\error.? . >NUL
 
 ECHO Building (%BUILD_ALT_DIR%) %0..

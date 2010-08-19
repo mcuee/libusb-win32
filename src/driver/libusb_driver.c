@@ -20,7 +20,7 @@
 #define __LIBUSB_DRIVER_C__
 
 #include "libusb_driver.h"
-#include "libusb_version.h"
+#include "libusb-win32_version.h"
 
 // Device objects with an attached device using the 
 // driver names listed here skipped in the add_device() routine.

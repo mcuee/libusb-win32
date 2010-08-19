@@ -19,7 +19,7 @@
 #include <stdio.h>
 #include "usb.h"
 #include "error.h"
-#include "libusb_version.h"
+#include "libusb-win32_version.h"
 
 void usage(void);
 const char* get_argument(char **argv, int argc, const char* arg);

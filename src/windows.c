@@ -32,7 +32,7 @@
 #include "usbi.h"
 #include "driver_api.h"
 #include "registry.h"
-#include "libusb_version.h"
+#include "libusb-win32_version.h"
 
 #define LIBUSB_WIN32_DLL_LARGE_TRANSFER_SUPPORT
 
