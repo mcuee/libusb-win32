@@ -186,7 +186,10 @@ SET _LIBUSB_APP=!CMDVAR_APP!
 IF EXIST "build!BUILD_ALT_DIR!.err" DEL /Q "build!BUILD_ALT_DIR!.err"
 CALL :Build
 IF !BUILD_ERRORLEVEL! NEQ 0 GOTO CMDERROR
-IF EXIST "build!BUILD_ALT_DIR!.err" GOTO CMDERROR
+IF EXIST "build!BUILD_ALT_DIR!.err" (
+	SET BUILD_ERRORLEVEL=1
+	GOTO CMDERROR
+)
 
 :: 
 :: Copy binaries to the output directory
@@ -227,13 +230,11 @@ GOTO CMDEXIT
 	)
 	
 	CALL make_!_LIBUSB_APP!.bat !_ADD_C_DEFINES!
-	IF !ERRORLEVEL! NEQ 0 SET BUILD_ERRORLEVEL=!ERRORLEVEL!
+	IF !ERRORLEVEL! NEQ 0 SET BUILD_ERRORLEVEL=1
 	IF !BUILD_ERRORLEVEL! NEQ 0 (
-		SET BUILD_ERRORLEVEL=!ERRORLEVEL!
-		IF !BUILD_ERRORLEVEL! EQU 0 SET BUILD_ERRORLEVEL=1
-		GOTO :EOF
+		GOTO CMDERROR
 	)
-		
+
 	IF /I "!CMDVAR_DIR_INTERMEDIATE!" NEQ "" (
 		CALL :SafeCopyDir "!DIR_LIBUSB_DDK!obj!BUILD_ALT_DIR!\*" "!CMDVAR_DIR_INTERMEDIATE!"
 	)
@@ -615,8 +616,11 @@ GOTO :EOF
 	:BinariesNotBuilt
 	ECHO Binaries not found.  Building binaries first..
 	CALL :CmdExe make.cmd bin
-	IF !BUILD_ERRORLEVEL! NEQ 0 GOTO CMDERROR
-	
+	IF NOT !BUILD_ERRORLEVEL!==0 (
+		ECHO [CheckOrBuildBinaries] Failed.
+		pause
+	)
+
 GOTO :EOF
 
 :CheckPackaging
@@ -909,14 +913,19 @@ GOTO :EOF
 	IF EXIST "!DIR_LIBUSB_DDK!emarker.tmp" (
 		DEL /Q "!DIR_LIBUSB_DDK!emarker.tmp"
 		SET _EMARKER=1
+		ECHO [DestroyErrorMarker] Last build did not complete.
 	)
 GOTO :EOF
 
 :CmdExe
 	CALL :CreateErrorMarker
 	CMD /C %*
+	IF NOT !ERRORLEVEL!==0 SET BUILD_ERRORLEVEL=1
 	CALL :DestroyErrorMarker
-	IF DEFINED _EMARKER GOTO CMDERROR
+	IF DEFINED _EMARKER! (
+		SET BUILD_ERRORLEVEL=1
+		ECHO [CmdExe] Last build did not complete.
+	)
 GOTO :EOF
 
 

@@ -57,8 +57,7 @@ COPY /Y "!LIBWDI_DIR!\libwdi\libwdi.lib" >NUL
 COPY /Y "!LIBWDI_DIR!\libwdi\libwdi.h" >NUL
 COPY /Y sources_inf_wizard sources >NUL
 COPY /Y %SRC_DIR%\inf_wizard*.* >NUL
-COPY /Y %SRC_DIR%\libusb-win32_version.h >NUL
-COPY /Y %SRC_DIR%\common*.* >NUL
+COPY /Y %SRC_DIR%\libusb-win32_version.* >NUL
 copy %SRC_DIR%\*.manifest . >NUL
 
 ECHO Building (%BUILD_ALT_DIR%) %0..
