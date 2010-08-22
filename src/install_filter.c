@@ -17,69 +17,34 @@
  */
 
 #include <stdio.h>
+#include "registry.h"
 #include "usb.h"
 #include "error.h"
 #include "libusb-win32_version.h"
 
-void usage(void);
-const char* get_argument(char **argv, int argc, const char* arg);
 
-void usage(void)
+int main()
 {
-    fprintf(stderr, "Usage: install-filter.exe [option]\n"
-            "Options:\n"
-            "-h  prints this help message\n"
-            "-i  installs the filter driver\n"
-            "-u  uninstalls the filter driver\n"
-            "-v  verbose mode\n");
-}
-const char* get_argument(char **argv, int argc, const char* arg)
-{
-	int pos=0;
-	while(pos < argc)
-	{
-		if (strstr(argv[pos],arg)==argv[pos])
-			return argv[pos];
-		pos++;
-	}
-	return NULL;
-}
+    int ret = -1;
+    LPWSTR command_line_w;
 
-int main(int argc, char **argv)
-{
-#ifdef _DEBUG
-	usb_log_set_level(LOG_DEBUG);
-#else
-	usb_log_set_level(LOG_INFO);
-#endif
-	USBRAWMSG("\nLIBUSB-WIN32 (v%u.%u.%u.%u)\n",VERSION_MAJOR,VERSION_MINOR,VERSION_MICRO,VERSION_NANO);
 
-    if (argc >= 2)
+    #ifdef _DEBUG
+	    usb_log_set_level(LOG_DEBUG);
+    #else
+	    usb_log_set_level(LOG_INFO);
+    #endif
+
+	USBRAWMSG("\nlibusb-win32 installer (v%u.%u.%u.%u)\n",VERSION_MAJOR,VERSION_MINOR,VERSION_MICRO,VERSION_NANO);
+
+    if (!(command_line_w = GetCommandLineW()))
     {
-
-		if (get_argument(argv,argc,"-v"))
-			usb_log_set_level(LOG_DEBUG);
-
-        if (get_argument(argv,argc, "-i"))
-        {
-			USBRAWMSG0("This could take up to 20 seconds to complete.\n");
-			USBRAWMSG0("During this time USB devices may stop responding.\n");
- 			USBRAWMSG0("Installing..\n\n");
-            usb_install_service_np();
-            return 0;
-        }
-
-        if (get_argument(argv,argc, "-u"))
-        {
-			USBRAWMSG0("This could take up to 20 seconds to complete.\n");
-			USBRAWMSG0("During this time USB devices may stop responding.\n");
- 			USBRAWMSG0("Uninstalling..\n\n");
-            usb_uninstall_service_np();
-            return 0;
-        }
+        USBERR("failed GetCommandLineW:%X",GetLastError());
+        goto Done;
     }
 
-    usage();
+    usb_install_np(NULL, command_line_w, 1);
 
+Done:
     return 0;
 }

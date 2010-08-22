@@ -44,10 +44,10 @@
 				Name="VCCLCompilerTool"
 				Optimization="0"
 				AdditionalIncludeDirectories="..\src;..\src\driver"
-				PreprocessorDefinitions="_WIN32_WINNT=0x0500;TARGETTYPE=PROGRAMconsole;LOG_APPNAME=&quot;\&quot;$(ProjectName)\&quot;&quot;"
+				PreprocessorDefinitions="_WIN32_WINNT=0x0500;TARGETTYPE=PROGRAMconsole;LOG_APPNAME=&quot;\&quot;$(ProjectName)\&quot;&quot;;LOG_STYLE_SHORT"
 				MinimalRebuild="true"
 				BasicRuntimeChecks="3"
-				RuntimeLibrary="3"
+				RuntimeLibrary="1"
 				WarningLevel="3"
 				DebugInformationFormat="4"
 				CompileAs="1"
@@ -121,10 +121,10 @@
 				Name="VCCLCompilerTool"
 				Optimization="0"
 				AdditionalIncludeDirectories="..\src;..\src\driver"
-				PreprocessorDefinitions="_WIN32_WINNT=0x0501;TARGETTYPE=PROGRAMconsole;LOG_APPNAME=&quot;\&quot;$(ProjectName)\&quot;&quot;"
+				PreprocessorDefinitions="_WIN32_WINNT=0x0501;TARGETTYPE=PROGRAMconsole;LOG_APPNAME=&quot;\&quot;$(ProjectName)\&quot;&quot;;LOG_STYLE_SHORT"
 				MinimalRebuild="true"
 				BasicRuntimeChecks="3"
-				RuntimeLibrary="3"
+				RuntimeLibrary="1"
 				WarningLevel="3"
 				DebugInformationFormat="3"
 				CompileAs="1"
@@ -200,8 +200,8 @@
 				Optimization="2"
 				EnableIntrinsicFunctions="true"
 				AdditionalIncludeDirectories="..\src;..\src\driver"
-				PreprocessorDefinitions="_WIN32_WINNT=0x0500;TARGETTYPE=PROGRAMconsole;LOG_APPNAME=&quot;\&quot;$(ProjectName)\&quot;&quot;"
-				RuntimeLibrary="2"
+				PreprocessorDefinitions="_WIN32_WINNT=0x0500;TARGETTYPE=PROGRAMconsole;LOG_APPNAME=&quot;\&quot;$(ProjectName)\&quot;&quot;;LOG_STYLE_SHORT"
+				RuntimeLibrary="0"
 				EnableFunctionLevelLinking="true"
 				WarningLevel="3"
 				DebugInformationFormat="3"
@@ -281,8 +281,8 @@
 				Optimization="2"
 				EnableIntrinsicFunctions="true"
 				AdditionalIncludeDirectories="..\src;..\src\driver"
-				PreprocessorDefinitions="_WIN32_WINNT=0x0501;TARGETTYPE=PROGRAMconsole;LOG_APPNAME=&quot;\&quot;$(ProjectName)\&quot;&quot;"
-				RuntimeLibrary="2"
+				PreprocessorDefinitions="_WIN32_WINNT=0x0501;TARGETTYPE=PROGRAMconsole;LOG_APPNAME=&quot;\&quot;$(ProjectName)\&quot;&quot;;LOG_STYLE_SHORT"
+				RuntimeLibrary="0"
 				EnableFunctionLevelLinking="true"
 				WarningLevel="3"
 				DebugInformationFormat="3"
@@ -392,6 +392,10 @@
 				>
 			</File>
 		</Filter>
+		<File
+			RelativePath="..\src\install-filter-help.txt"
+			>
+		</File>
 	</Files>
 	<Globals>
 	</Globals>

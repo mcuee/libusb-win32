@@ -1,20 +1,20 @@
 /* libusb-win32, Generic Windows USB Library
- * Copyright (c) 2002-2005 Stephan Meyer <ste_meyer@web.de>
- *
- * This library is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Lesser General Public
- * License as published by the Free Software Foundation; either
- * version 2 of the License, or (at your option) any later version.
- *
- * This library is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public
- * License along with this library; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
- */
+* Copyright (c) 2002-2005 Stephan Meyer <ste_meyer@web.de>
+*
+* This library is free software; you can redistribute it and/or
+* modify it under the terms of the GNU Lesser General Public
+* License as published by the Free Software Foundation; either
+* version 2 of the License, or (at your option) any later version.
+*
+* This library is distributed in the hope that it will be useful,
+* but WITHOUT ANY WARRANTY; without even the implied warranty of
+* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+* Lesser General Public License for more details.
+*
+* You should have received a copy of the GNU Lesser General Public
+* License along with this library; if not, write to the Free Software
+* Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+*/
 
 
 #include <windows.h>
@@ -24,16 +24,17 @@
 #include <regstr.h>
 #include <wchar.h>
 #include <string.h>
+#include <ShellAPI.h>
 
 #ifdef __GNUC__
-	#if  defined(_WIN64)
-		#include <cfgmgr32.h>
-	#else
-		#include <ddk/cfgmgr32.h>
-	#endif
+#if  defined(_WIN64)
+#include <cfgmgr32.h>
 #else
-	#include <cfgmgr32.h>
-	#define strlwr(p) _strlwr(p)
+#include <ddk/cfgmgr32.h>
+#endif
+#else
+#include <cfgmgr32.h>
+#define strlwr(p) _strlwr(p)
 #endif
 
 #include "usb.h"
@@ -43,33 +44,98 @@
 #include "libusb-win32_version.h"
 
 
-#define LIBUSB_DRIVER_PATH  "system32\\drivers\\libusb0.sys"
-#define LIBUSB_OLD_SERVICE_NAME_NT "libusbd"
+//#define LIBUSB_DRIVER_PATH  "system32\\drivers\\libusb0.sys"
+//#define LIBUSB_OLD_SERVICE_NAME_NT "libusbd"
 
 #define INSTALLFLAG_FORCE 0x00000001
 
+/* commands */
+LPCWSTR paramcmd_inf[] = {
+    L"inf",
+    L"-f",
+    L"f",
+    0
+};
+
+LPCWSTR paramcmd_list[] = {
+    L"list",
+    L"-l",
+    L"l",
+    0
+};
+
+LPCWSTR paramcmd_install[] = {
+    L"install",
+    L"-i",
+    L"i",
+    0
+};
+
+LPCWSTR paramcmd_uninstall[] = {
+    L"uninstall",
+    L"-u",
+    L"u",
+    0
+};
+
+/* switches */
+LPCWSTR paramsw_all_classes[] = {
+    L"--all-classes",
+    L"-ac",
+    0
+};
+
+LPCWSTR paramsw_device_classes[] = {
+    L"--device-classes",
+    L"-dc",
+    0
+};
+
+LPCWSTR paramsw_class[] = {
+    L"--class=",
+    L"-c=",
+    0
+};
+
+LPCWSTR paramsw_device_upper[] = {
+    L"--device_upper=",
+    L"-duf=",
+    0
+};
+
+LPCWSTR paramsw_device_lower[] = {
+    L"--device_lower=",
+    L"-dlf=",
+    0
+};
+
+static bool_t get_argument(LPWSTR param_value, LPCWSTR* out_param,  LPWSTR* out_value, LPCWSTR* param_names);
+void usb_install_report(filter_params_t* filter_params);
+int usb_install(HWND hwnd, LPCWSTR cmd_line_w, int starg_arg, filter_params_t** out_filter_params);
+void usage(void);
+
 /* newdev.dll exports */
 typedef BOOL (WINAPI * update_driver_for_plug_and_play_devices_t)(HWND,
-        LPCSTR,
-        LPCSTR,
-        DWORD,
-        PBOOL);
+                                                                  LPCSTR,
+                                                                  LPCSTR,
+                                                                  DWORD,
+                                                                  PBOOL);
 /* setupapi.dll exports */
 typedef BOOL (WINAPI * setup_copy_oem_inf_t)(PCSTR, PCSTR, DWORD, DWORD,
-        PSTR, DWORD, PDWORD, PSTR*);
+                                             PSTR, DWORD, PDWORD, PSTR*);
 
 /* advapi32.dll exports */
 typedef SC_HANDLE (WINAPI * open_sc_manager_t)(LPCTSTR, LPCTSTR, DWORD);
 typedef SC_HANDLE (WINAPI * open_service_t)(SC_HANDLE, LPCTSTR, DWORD);
 typedef BOOL (WINAPI * change_service_config_t)(SC_HANDLE, DWORD, DWORD,
-        DWORD, LPCTSTR, LPCTSTR,
-        LPDWORD, LPCTSTR, LPCTSTR,
-        LPCTSTR, LPCTSTR);
+                                                DWORD, LPCTSTR, LPCTSTR,
+                                                LPDWORD, LPCTSTR, LPCTSTR,
+                                                LPCTSTR, LPCTSTR);
 typedef BOOL (WINAPI * close_service_handle_t)(SC_HANDLE);
 typedef SC_HANDLE (WINAPI * create_service_t)(SC_HANDLE, LPCTSTR, LPCTSTR,
-        DWORD, DWORD,DWORD, DWORD,
-        LPCTSTR, LPCTSTR, LPDWORD,
-        LPCTSTR, LPCTSTR, LPCTSTR);
+                                              DWORD, DWORD,DWORD, DWORD,
+                                              LPCTSTR, LPCTSTR, LPDWORD,
+                                              LPCTSTR, LPCTSTR, LPCTSTR);
 typedef BOOL (WINAPI * delete_service_t)(SC_HANDLE);
 typedef BOOL (WINAPI * start_service_t)(SC_HANDLE, DWORD, LPCTSTR);
 typedef BOOL (WINAPI * query_service_status_t)(SC_HANDLE, LPSERVICE_STATUS);
@@ -103,123 +169,108 @@ void CALLBACK usb_touch_inf_file_rundll(HWND wnd, HINSTANCE instance,
                                         LPSTR cmd_line, int cmd_show);
 
 void CALLBACK usb_install_service_np_rundll(HWND wnd, HINSTANCE instance,
-        LPSTR cmd_line, int cmd_show)
+                                            LPSTR cmd_line, int cmd_show)
 {
     usb_install_service_np();
 }
 
 void CALLBACK usb_uninstall_service_np_rundll(HWND wnd, HINSTANCE instance,
-        LPSTR cmd_line, int cmd_show)
+                                              LPSTR cmd_line, int cmd_show)
 {
     usb_uninstall_service_np();
 }
 
 void CALLBACK usb_install_driver_np_rundll(HWND wnd, HINSTANCE instance,
-        LPSTR cmd_line, int cmd_show)
+                                           LPSTR cmd_line, int cmd_show)
 {
     usb_install_driver_np(cmd_line);
 }
 
-
-int usb_install_service_np(void)
+int usb_install_service(filter_params_t* filter_params)
 {
+#if 0
     char display_name[MAX_PATH];
-    int ret = 0;
+#endif
 
-    /* uninstall old filter driver */
-    usb_uninstall_service_np();
+    int ret = 0;
+    const char* driver_name = LIBUSB_DRIVER_NAME_NT;
 
     /* stop devices that are handled by libusb's device driver */
-    usb_registry_stop_libusb_devices();
+    //usb_registry_stop_libusb_devices();
 
     /* the old driver is unloaded now */
 
+#if 0
     if (usb_registry_is_nt())
     {
         memset(display_name, 0, sizeof(display_name));
 
         /* create the Display Name */
         _snprintf(display_name, sizeof(display_name) - 1,
-                  "libusb-win32 - Kernel Driver, Version %d.%d.%d.%d",
-                  VERSION_MAJOR, VERSION_MINOR, VERSION_MICRO, VERSION_NANO);
+            "libusb-win32 - Kernel Driver, Version %d.%d.%d.%d",
+            VERSION_MAJOR, VERSION_MINOR, VERSION_MICRO, VERSION_NANO);
 
-       /* create the kernel service */
-        if (!usb_service_create(LIBUSB_DRIVER_NAME_NT, display_name,
-                                LIBUSB_DRIVER_PATH,
-                                SERVICE_KERNEL_DRIVER, SERVICE_DEMAND_START))
-		{
- 			USBERR("failed creating service %s\n",display_name);
+        /* create the kernel service */
+        USBMSG("creating %s service..\n",driver_name);
+        if (!usb_service_create(driver_name, display_name,
+            LIBUSB_DRIVER_PATH,
+            SERVICE_KERNEL_DRIVER, SERVICE_DEMAND_START))
+        {
+            USBERR("failed creating service %s\n",driver_name);
             ret = -1;
-		}
-		else
-		{
-			USBMSG("created service %s\n",display_name);
-		}
+        }
     }
-
+#endif
     /* restart devices that are handled by libusb's device driver */
-    usb_registry_start_libusb_devices();
+    //usb_registry_start_libusb_devices();
 
-    /* insert filter drivers */
-    usb_registry_insert_class_filter();
+    /* insert device filter drivers */
+    usb_registry_insert_device_filters(filter_params);
+
+    /* insert class filter driver */
+    usb_registry_insert_class_filter(filter_params);
 
     /* restart the whole USB system so that the new drivers will be loaded */
     usb_registry_restart_all_devices();
 
-	USBMSG0("done.\n");
     return ret;
 }
 
-int usb_uninstall_service_np(void)
+int usb_install_service_np(void)
 {
-    HANDLE win;
+    return usb_install_np(NULL,L"-i -dc", 0);
+}
+
+int usb_uninstall_service(filter_params_t* filter_params)
+{
     HKEY reg_key = NULL;
 
-    /* older version of libusb used a system service, just remove it */
-    if (usb_registry_is_nt())
-    {
-        usb_service_stop(LIBUSB_OLD_SERVICE_NAME_NT);
-        usb_service_delete(LIBUSB_OLD_SERVICE_NAME_NT);
-    }
-    else
-    {
-        do
-        {
-            win = FindWindow("LIBUSB_SERVICE_WINDOW_CLASS", NULL);
-            if (win != INVALID_HANDLE_VALUE)
-            {
-                PostMessage(win, WM_DESTROY, 0, 0);
-                Sleep(500);
-            }
-        }
-        while (win);
+    if (!usb_registry_is_nt()) return -1;
 
-       if (RegOpenKeyEx(HKEY_LOCAL_MACHINE,
-                         "Software\\Microsoft\\Windows\\CurrentVersion"
-                         "\\RunServices",
-                         0, KEY_ALL_ACCESS, &reg_key) == ERROR_SUCCESS)
-        {
- 			USBMSG("deleting %s\n","libusb-win32 Daemon");
-            RegDeleteValue(reg_key, "libusb-win32 Daemon");
-            RegCloseKey(reg_key);
-        }
-    }
+    /* older version of libusb used a system service, just remove it */
+#if 0
+    usb_service_stop(LIBUSB_OLD_SERVICE_NAME_NT);
+    usb_service_delete(LIBUSB_OLD_SERVICE_NAME_NT);
+#endif
 
     /* old versions used device filters that have to be removed */
-    usb_registry_remove_device_filter();
+    usb_registry_remove_device_filter(filter_params);
 
     /* remove class filter driver */
-    usb_registry_remove_class_filter();
+    usb_registry_remove_class_filter(filter_params);
 
     /* unload filter drivers */
     usb_registry_restart_all_devices();
-	
-	USBMSG0("done.\n");
 
     return 0;
 }
 
-int usb_install_driver_ex_np(const char *inf_file, BOOL* update_driver_success)
+int usb_uninstall_service_np(void)
+{
+    return usb_install_np(NULL,L"-u -ac",0);
+}
+
+int usb_install_driver_np(const char *inf_file)
 {
     HDEVINFO dev_info;
     SP_DEVINFO_DATA dev_info_data;
@@ -234,13 +285,11 @@ int usb_install_driver_ex_np(const char *inf_file, BOOL* update_driver_success)
     int dev_index;
     HINSTANCE newdev_dll = NULL;
     HMODULE setupapi_dll = NULL;
-	CONFIGRET cr;
+    CONFIGRET cr;
 
     update_driver_for_plug_and_play_devices_t UpdateDriverForPlugAndPlayDevices;
     setup_copy_oem_inf_t SetupCopyOEMInf;
     newdev_dll = LoadLibrary("newdev.dll");
-
-	*update_driver_success = FALSE;
 
     if (!newdev_dll)
     {
@@ -266,7 +315,7 @@ int usb_install_driver_ex_np(const char *inf_file, BOOL* update_driver_success)
         return -1;
     }
     SetupCopyOEMInf = (setup_copy_oem_inf_t)
-                      GetProcAddress(setupapi_dll, "SetupCopyOEMInfA");
+        GetProcAddress(setupapi_dll, "SetupCopyOEMInfA");
 
     if (!SetupCopyOEMInf)
     {
@@ -281,7 +330,7 @@ int usb_install_driver_ex_np(const char *inf_file, BOOL* update_driver_success)
     if (!GetFullPathName(inf_file, MAX_PATH, inf_path, NULL))
     {
         USBERR(".inf file %s not found\n",
-                  inf_file);
+            inf_file);
         return -1;
     }
 
@@ -291,7 +340,7 @@ int usb_install_driver_ex_np(const char *inf_file, BOOL* update_driver_success)
     if (inf_handle == INVALID_HANDLE_VALUE)
     {
         USBERR("unable to open .inf file %s\n",
-                  inf_file);
+            inf_file);
         return -1;
     }
 
@@ -299,7 +348,7 @@ int usb_install_driver_ex_np(const char *inf_file, BOOL* update_driver_success)
     if (!SetupFindFirstLine(inf_handle, "Devices", NULL, &inf_context))
     {
         USBERR(".inf file %s does not contain "
-                  "any device descriptions\n", inf_file);
+            "any device descriptions\n", inf_file);
         SetupCloseInfFile(inf_handle);
         return -1;
     }
@@ -324,8 +373,8 @@ int usb_install_driver_ex_np(const char *inf_file, BOOL* update_driver_success)
 
         /* update all connected devices matching this ID, but only if this */
         /* driver is better or newer */
-        *update_driver_success = UpdateDriverForPlugAndPlayDevices(NULL, id, inf_path, INSTALLFLAG_FORCE,
-                                          &reboot);
+        UpdateDriverForPlugAndPlayDevices(NULL, id, inf_path, INSTALLFLAG_FORCE,
+            &reboot);
 
 
         /* now search the registry for device nodes representing currently  */
@@ -350,9 +399,9 @@ int usb_install_driver_ex_np(const char *inf_file, BOOL* update_driver_success)
         {
             /* get the harware ID from the registry, this is a multi-zero string */
             if (SetupDiGetDeviceRegistryProperty(dev_info, &dev_info_data,
-                                                 SPDRP_HARDWAREID, NULL,
-                                                 (BYTE *)tmp_id,
-                                                 sizeof(tmp_id), NULL))
+                SPDRP_HARDWAREID, NULL,
+                (BYTE *)tmp_id,
+                sizeof(tmp_id), NULL))
             {
                 /* check all possible IDs contained in that multi-zero string */
                 for (p = tmp_id; *p; p += (strlen(p) + 1))
@@ -363,10 +412,10 @@ int usb_install_driver_ex_np(const char *inf_file, BOOL* update_driver_success)
                     /* found a match? */
                     if (strstr(p, id))
                     {
-						cr = CM_Get_DevNode_Status(&status,
-                                                  &problem,
-                                                  dev_info_data.DevInst,
-                                                  0);
+                        cr = CM_Get_DevNode_Status(&status,
+                            &problem,
+                            dev_info_data.DevInst,
+                            0);
 
                         /* is this device disconnected? */
                         if (cr == CR_NO_SUCH_DEVINST)
@@ -374,12 +423,12 @@ int usb_install_driver_ex_np(const char *inf_file, BOOL* update_driver_success)
                             /* found a device node that represents an unattached */
                             /* device */
                             if (SetupDiGetDeviceRegistryProperty(dev_info,
-                                                                 &dev_info_data,
-                                                                 SPDRP_CONFIGFLAGS,
-                                                                 NULL,
-                                                                 (BYTE *)&config_flags,
-                                                                 sizeof(config_flags),
-                                                                 NULL))
+                                &dev_info_data,
+                                SPDRP_CONFIGFLAGS,
+                                NULL,
+                                (BYTE *)&config_flags,
+                                sizeof(config_flags),
+                                NULL))
                             {
                                 /* mark the device to be reinstalled the next time it is */
                                 /* plugged in */
@@ -387,12 +436,12 @@ int usb_install_driver_ex_np(const char *inf_file, BOOL* update_driver_success)
 
                                 /* write the property back to the registry */
                                 SetupDiSetDeviceRegistryProperty(dev_info,
-                                                                 &dev_info_data,
-                                                                 SPDRP_CONFIGFLAGS,
-                                                                 (BYTE *)&config_flags,
-                                                                 sizeof(config_flags));
+                                    &dev_info_data,
+                                    SPDRP_CONFIGFLAGS,
+                                    (BYTE *)&config_flags,
+                                    sizeof(config_flags));
                             }
-						}
+                        }
                         /* a match was found, skip the rest */
                         break;
                     }
@@ -416,11 +465,7 @@ int usb_install_driver_ex_np(const char *inf_file, BOOL* update_driver_success)
 
     return 0;
 }
-int usb_install_driver_np(const char *inf_file)
-{
-	BOOL update_driver_success;
-	return usb_install_driver_ex_np(inf_file,&update_driver_success);
-}
+
 bool_t usb_service_load_dll()
 {
     if (usb_registry_is_nt())
@@ -434,35 +479,35 @@ bool_t usb_service_load_dll()
         }
 
         open_sc_manager = (open_sc_manager_t)
-                          GetProcAddress(advapi32_dll, "OpenSCManagerA");
+            GetProcAddress(advapi32_dll, "OpenSCManagerA");
 
         open_service = (open_service_t)
-                       GetProcAddress(advapi32_dll, "OpenServiceA");
+            GetProcAddress(advapi32_dll, "OpenServiceA");
 
         change_service_config = (change_service_config_t)
-                                GetProcAddress(advapi32_dll, "ChangeServiceConfigA");
+            GetProcAddress(advapi32_dll, "ChangeServiceConfigA");
 
         close_service_handle = (close_service_handle_t)
-                               GetProcAddress(advapi32_dll, "CloseServiceHandle");
+            GetProcAddress(advapi32_dll, "CloseServiceHandle");
 
         create_service = (create_service_t)
-                         GetProcAddress(advapi32_dll, "CreateServiceA");
+            GetProcAddress(advapi32_dll, "CreateServiceA");
 
         delete_service = (delete_service_t)
-                         GetProcAddress(advapi32_dll, "DeleteService");
+            GetProcAddress(advapi32_dll, "DeleteService");
 
         start_service = (start_service_t)
-                        GetProcAddress(advapi32_dll, "StartServiceA");
+            GetProcAddress(advapi32_dll, "StartServiceA");
 
         query_service_status = (query_service_status_t)
-                               GetProcAddress(advapi32_dll, "QueryServiceStatus");
+            GetProcAddress(advapi32_dll, "QueryServiceStatus");
 
         control_service = (control_service_t)
-                          GetProcAddress(advapi32_dll, "ControlService");
+            GetProcAddress(advapi32_dll, "ControlService");
 
         if (!open_sc_manager || !open_service || !change_service_config
-                || !close_service_handle || !create_service || !delete_service
-                || !start_service || !query_service_status || !control_service)
+            || !close_service_handle || !create_service || !delete_service
+            || !start_service || !query_service_status || !control_service)
         {
             FreeLibrary(advapi32_dll);
             USBERR0("loading exported functions of advapi32.dll failed");
@@ -481,7 +526,7 @@ bool_t usb_service_free_dll()
     }
     return TRUE;
 }
-
+#if 0
 bool_t usb_service_create(const char *name, const char *display_name,
                           const char *binary_path, unsigned long type,
                           unsigned long start_type)
@@ -498,12 +543,12 @@ bool_t usb_service_create(const char *name, const char *display_name,
     do
     {
         scm = open_sc_manager(NULL, SERVICES_ACTIVE_DATABASE,
-                              SC_MANAGER_ALL_ACCESS);
+            SC_MANAGER_ALL_ACCESS);
 
         if (!scm)
         {
             USBERR("opening service control "
-                      "manager failed: %s", usb_win_error_to_string());
+                "manager failed: %s", usb_win_error_to_string());
             break;
         }
 
@@ -512,20 +557,20 @@ bool_t usb_service_create(const char *name, const char *display_name,
         if (service)
         {
             if (!change_service_config(service,
-                                       type,
-                                       start_type,
-                                       SERVICE_ERROR_NORMAL,
-                                       binary_path,
-                                       NULL,
-                                       NULL,
-                                       NULL,
-                                       NULL,
-                                       NULL,
-                                       display_name))
+                type,
+                start_type,
+                SERVICE_ERROR_NORMAL,
+                binary_path,
+                NULL,
+                NULL,
+                NULL,
+                NULL,
+                NULL,
+                display_name))
             {
                 USBERR("changing config of "
-                          "service '%s' failed: %s",
-                          name, usb_win_error_to_string());
+                    "service '%s' failed: %s",
+                    name, usb_win_error_to_string());
                 break;
             }
             ret = TRUE;
@@ -535,20 +580,20 @@ bool_t usb_service_create(const char *name, const char *display_name,
         if (GetLastError() == ERROR_SERVICE_DOES_NOT_EXIST)
         {
             service = create_service(scm,
-                                     name,
-                                     display_name,
-                                     GENERIC_EXECUTE,
-                                     type,
-                                     start_type,
-                                     SERVICE_ERROR_NORMAL,
-                                     binary_path,
-                                     NULL, NULL, NULL, NULL, NULL);
+                name,
+                display_name,
+                GENERIC_EXECUTE,
+                type,
+                start_type,
+                SERVICE_ERROR_NORMAL,
+                binary_path,
+                NULL, NULL, NULL, NULL, NULL);
 
             if (!service)
             {
                 USBERR("creating "
-                          "service '%s' failed: %s",
-                          name, usb_win_error_to_string());
+                    "service '%s' failed: %s",
+                    name, usb_win_error_to_string());
             }
             ret = TRUE;
         }
@@ -582,15 +627,17 @@ bool_t usb_service_stop(const char *name)
         return FALSE;
     }
 
+    USBMSG("stopping %s service..\n",name);
+
     do
     {
         scm = open_sc_manager(NULL, SERVICES_ACTIVE_DATABASE,
-                              SC_MANAGER_ALL_ACCESS);
+            SC_MANAGER_ALL_ACCESS);
 
         if (!scm)
         {
             USBERR("opening service control "
-                      "manager failed: %s", usb_win_error_to_string());
+                "manager failed: %s", usb_win_error_to_string());
             break;
         }
 
@@ -605,8 +652,8 @@ bool_t usb_service_stop(const char *name)
         if (!query_service_status(service, &status))
         {
             USBERR("getting status of "
-                      "service '%s' failed: %s",
-                      name, usb_win_error_to_string());
+                "service '%s' failed: %s",
+                name, usb_win_error_to_string());
             break;
         }
 
@@ -619,7 +666,7 @@ bool_t usb_service_stop(const char *name)
         if (!control_service(service, SERVICE_CONTROL_STOP, &status))
         {
             USBERR("stopping service '%s' failed: %s",
-                      name, usb_win_error_to_string());
+                name, usb_win_error_to_string());
             break;
         }
 
@@ -630,8 +677,8 @@ bool_t usb_service_stop(const char *name)
             if (!query_service_status(service, &status))
             {
                 USBERR("getting status of "
-                          "service '%s' failed: %s",
-                          name, usb_win_error_to_string());
+                    "service '%s' failed: %s",
+                    name, usb_win_error_to_string());
                 break;
             }
             Sleep(500);
@@ -640,7 +687,7 @@ bool_t usb_service_stop(const char *name)
             if (wait > 20000)
             {
                 USBERR("stopping "
-                          "service '%s' failed, timeout", name);
+                    "service '%s' failed, timeout", name);
                 ret = FALSE;
                 break;
             }
@@ -676,15 +723,17 @@ bool_t usb_service_delete(const char *name)
         return FALSE;
     }
 
+    USBMSG("deleting %s service..\n",name);
+
     do
     {
         scm = open_sc_manager(NULL, SERVICES_ACTIVE_DATABASE,
-                              SC_MANAGER_ALL_ACCESS);
+            SC_MANAGER_ALL_ACCESS);
 
         if (!scm)
         {
             USBERR("opening service control "
-                      "manager failed: %s", usb_win_error_to_string());
+                "manager failed: %s", usb_win_error_to_string());
             break;
         }
 
@@ -700,8 +749,8 @@ bool_t usb_service_delete(const char *name)
         if (!delete_service(service))
         {
             USBERR("deleting "
-                      "service '%s' failed: %s",
-                      name, usb_win_error_to_string());
+                "service '%s' failed: %s",
+                name, usb_win_error_to_string());
             break;
         }
         ret = TRUE;
@@ -722,9 +771,10 @@ bool_t usb_service_delete(const char *name)
 
     return ret;
 }
+#endif
 
 void CALLBACK usb_touch_inf_file_np_rundll(HWND wnd, HINSTANCE instance,
-        LPSTR cmd_line, int cmd_show)
+                                           LPSTR cmd_line, int cmd_show)
 {
     usb_touch_inf_file_np(cmd_line);
 }
@@ -732,9 +782,9 @@ void CALLBACK usb_touch_inf_file_np_rundll(HWND wnd, HINSTANCE instance,
 int usb_touch_inf_file_np(const char *inf_file)
 {
     const char inf_comment[] = ";added by libusb to break this file's digital "
-                               "signature";
+        "signature";
     const wchar_t inf_comment_uni[] = L";added by libusb to break this file's "
-                                      L"digital signature";
+        L"digital signature";
 
     char buf[1024];
     wchar_t wbuf[1024];
@@ -817,7 +867,7 @@ int usb_install_needs_restart_np(void)
 
     dev_info_data.cbSize = sizeof(SP_DEVINFO_DATA);
     dev_info = SetupDiGetClassDevs(NULL, NULL, NULL,
-                                   DIGCF_ALLCLASSES | DIGCF_PRESENT);
+        DIGCF_ALLCLASSES | DIGCF_PRESENT);
 
     SetEnvironmentVariable("LIBUSB_NEEDS_REBOOT", "1");
 
@@ -833,7 +883,7 @@ int usb_install_needs_restart_np(void)
         install_params.cbSize = sizeof(SP_DEVINSTALL_PARAMS);
 
         if (SetupDiGetDeviceInstallParams(dev_info, &dev_info_data,
-                                          &install_params))
+            &install_params))
         {
             if (install_params.Flags & (DI_NEEDRESTART | DI_NEEDREBOOT))
             {
@@ -848,4 +898,414 @@ int usb_install_needs_restart_np(void)
     SetupDiDestroyDeviceInfoList(dev_info);
 
     return ret;
+}
+
+bool_t usb_filter_params_from_cmdline(filter_params_t* filter_params, 
+                                      LPCWSTR cmd_line, 
+                                      int arg_start, 
+                                      int* arg_cnt)
+{
+    int arg_pos;
+    LPWSTR* argv = NULL;
+    LPWSTR arg_param, arg_value;
+    bool_t success = TRUE;
+    int length;
+    char tmp[MAX_PATH+1];
+    filter_device_t* found_device;
+
+    *arg_cnt = 0;
+    if (!(argv = CommandLineToArgvW(cmd_line, arg_cnt)))
+    {
+        USBERR("failed CommandLineToArgvW:%X",GetLastError());
+        success = FALSE;
+        goto Done;
+    }
+
+    if (*arg_cnt <= arg_start)
+    {
+        success = FALSE;
+        goto Done;
+    }
+
+    for(arg_pos=arg_start; arg_pos < *arg_cnt; arg_pos++)
+    {
+        if (get_argument(argv[arg_pos], &arg_param, &arg_value, paramcmd_list))
+        {
+            filter_params->filter_mode |= FM_LIST;
+        }
+        else if (get_argument(argv[arg_pos], &arg_param, &arg_value, paramcmd_install))
+        {
+            filter_params->filter_mode |= FM_REMOVE | FM_INSTALL;
+        }
+        else if (get_argument(argv[arg_pos], &arg_param, &arg_value, paramcmd_uninstall))
+        {
+            filter_params->filter_mode |= FM_REMOVE;
+        }
+        else if (get_argument(argv[arg_pos], &arg_param, &arg_value, paramsw_all_classes))
+        {
+            filter_params->switches.add_all_classes = TRUE;
+        }
+        else if (get_argument(argv[arg_pos], &arg_param, &arg_value, paramsw_device_classes))
+        {
+            filter_params->switches.add_device_classes = TRUE;
+        }
+        else if (get_argument(argv[arg_pos], &arg_param, &arg_value, paramsw_device_upper))
+        {
+            memset(tmp,0,sizeof(tmp));
+            length = WideCharToMultiByte(CP_ACP,0,
+                arg_value,wcslen(arg_value),
+                tmp,MAX_PATH,
+                NULL,NULL);
+
+            if (length != wcslen(arg_value))
+            {
+                USBERR("failed WideCharToMultiByte %ls\n",argv[arg_pos]);
+                success = FALSE;
+                break;
+            }
+
+            usb_registry_add_filter_device_keys(&filter_params->device_filters, tmp, "", "", &found_device);
+            if (!found_device)
+            {
+                success = FALSE;
+                USBERR("failed adding device upper filter %ls\n",argv[arg_pos]);
+                break;
+            }
+            found_device->filter_type|=FT_DEVICE_UPPERFILTER;
+        }
+        else if (get_argument(argv[arg_pos], &arg_param, &arg_value, paramsw_device_lower))
+        {
+            memset(tmp,0,sizeof(tmp));
+            length = WideCharToMultiByte(CP_ACP,0,
+                arg_value,wcslen(arg_value),
+                tmp,MAX_PATH,
+                NULL,NULL);
+            if (length != wcslen(arg_value))
+            {
+                success = FALSE;
+                USBERR("invalid argument %ls\n",argv[arg_pos]);
+                break;
+            }
+
+            usb_registry_add_filter_device_keys(&filter_params->device_filters, tmp, "", "", &found_device);
+            if (!found_device)
+            {
+                success = FALSE;
+                USBERR("invalid argument %ls\n",argv[arg_pos]);
+                break;
+            }
+            found_device->filter_type|=FT_DEVICE_LOWERFILTER;
+        }
+        else if (get_argument(argv[arg_pos], &arg_param, &arg_value, paramsw_class))
+        {
+
+            if ((!arg_value) || wcslen(arg_value) != 38)
+            {
+               USBERR("invalid guid length %ls\n",argv[arg_pos]);
+               success = FALSE;
+            }
+            if (arg_value[0]!='{' || arg_value[wcslen(arg_value)-1]!='}')
+            {
+                USBERR("invalid guid terminators. use '{' and '}'. %ls\n",argv[arg_pos]);
+                success = FALSE;
+            }
+            if (!success)
+            {
+                break;
+            }
+            memset(tmp,0,sizeof(tmp));
+            length = WideCharToMultiByte(CP_ACP,0,
+                arg_value,wcslen(arg_value),
+                tmp,MAX_PATH,
+                NULL,NULL);
+
+            if (length != wcslen(arg_value))
+            {
+                USBERR("failed WideCharToMultiByte %ls\n",argv[arg_pos]);
+                success = FALSE;
+                break;
+            }
+            usb_registry_add_usb_class_key(filter_params,tmp);
+
+        }
+        else
+        {
+            USBERR("invalid argument %ls\n",argv[arg_pos]);
+            success = FALSE;
+            break;
+        }
+    }
+
+Done:
+    if (argv)
+    {
+        LocalFree(argv);
+    }
+    return success;
+}
+
+void CALLBACK usb_install_np_rundll(HWND wnd, HINSTANCE instance, LPSTR cmd_line, int cmd_show)
+{
+    WCHAR cmd_line_w[MAX_PATH+1];
+    int length;
+
+    if (!cmd_line)
+    {
+        if (wnd)
+        {
+            MessageBoxA(wnd, "invalid arguments.", "install-filter", MB_OK|MB_ICONERROR);
+        }
+        return;
+    }
+
+    memset(cmd_line_w,0,sizeof(cmd_line_w));
+    length = MultiByteToWideChar(CP_ACP,0,cmd_line,strlen(cmd_line),cmd_line_w,MAX_PATH);
+    if (length <= 0) return;
+
+    usb_install_np(wnd, cmd_line_w, 0);
+}
+
+int usb_install_np(HWND hwnd, LPCWSTR cmd_line_w, int starg_arg)
+{
+    return usb_install(hwnd, cmd_line_w, starg_arg, NULL);
+}
+
+void usb_install_destroy_filter_params(filter_params_t** filter_params)
+{
+    if ((filter_params) && *filter_params)
+    {
+        usb_registry_free_class_keys(&(*filter_params)->class_filters);
+        usb_registry_free_filter_devices(&(*filter_params)->device_filters);
+        free(*filter_params);
+        *filter_params = NULL;
+    }
+}
+
+int usb_install(HWND hwnd, LPCWSTR cmd_line_w, int starg_arg, filter_params_t** out_filter_params)
+{
+
+    filter_params_t* filter_params;
+    int ret = ERROR_SUCCESS;
+    int arg_cnt;
+
+    if (out_filter_params)
+        *out_filter_params = NULL;
+
+    filter_params = (filter_params_t*)malloc(sizeof(filter_params_t));
+    if (!filter_params)
+    {
+        USBERR0("memory allocation failure\n");
+        return -1;
+    }
+    memset(filter_params, 0, sizeof(filter_params_t));
+
+    if (!(usb_filter_params_from_cmdline(filter_params, cmd_line_w, starg_arg, &arg_cnt)))
+    {
+        if (arg_cnt <= starg_arg)
+        {
+            usage();
+        }
+        return -1;
+    }
+
+    /* only add the default class keys if there is nothing else to do. */
+    if (filter_params->class_filters || 
+        filter_params->device_filters ||
+        filter_params->switches.add_all_classes || 
+        filter_params->switches.add_device_classes)
+    {
+        filter_params->switches.no_def_classes = TRUE;
+    }
+
+    while (filter_params->filter_mode)
+    {
+        bool_t refresh_only;
+        if (filter_params->class_filters && (filter_params->switches.add_all_classes || filter_params->switches.add_device_classes))
+        {
+            usb_registry_free_class_keys(&filter_params->class_filters);
+        }
+
+        if (filter_params->filter_mode & FM_REMOVE)
+        {
+            filter_params->active_filter_mode = FM_REMOVE;
+
+            if (filter_params->switches.add_all_classes || filter_params->switches.add_device_classes)
+                refresh_only = FALSE;
+            else
+                refresh_only = TRUE;
+
+           if (!usb_registry_get_usb_class_keys(filter_params, refresh_only))
+            {
+                ret = -1;
+                break;
+            }
+
+            if (!usb_registry_get_all_class_keys(filter_params, refresh_only))
+            {
+                ret = -1;
+                break;
+            }
+            ret = usb_uninstall_service(filter_params);
+            if (ret < 0)
+            {
+                break;
+            }
+        }
+        else if (filter_params->filter_mode & FM_INSTALL)
+        {
+            filter_params->active_filter_mode = FM_INSTALL;
+            if (filter_params->switches.add_all_classes || filter_params->switches.add_device_classes)
+                refresh_only = FALSE;
+            else
+                refresh_only = TRUE;
+
+            if (!usb_registry_get_usb_class_keys(filter_params, refresh_only))
+            {
+                ret = -1;
+                break;
+            }
+
+            if (!usb_registry_get_all_class_keys(filter_params, refresh_only))
+            {
+                ret = -1;
+                break;
+            }
+
+            ret = usb_install_service(filter_params);
+            if (ret < 0)
+            {
+                break;
+            }
+        }
+        else if (filter_params->filter_mode & FM_LIST)
+        {
+            filter_params->active_filter_mode = FM_LIST;
+
+            if (!usb_registry_get_usb_class_keys(filter_params, TRUE))
+            {
+                ret = -1;
+                break;
+            }
+
+            if (!usb_registry_get_all_class_keys(filter_params, TRUE))
+            {
+                ret = -1;
+                break;
+            }
+
+            usb_install_report(filter_params);
+        }
+
+        filter_params->filter_mode ^= filter_params->active_filter_mode;
+        filter_params->active_filter_mode = 0;
+
+    }
+
+    if (out_filter_params && ret == ERROR_SUCCESS)
+    {
+        *out_filter_params = filter_params;
+    }
+    else
+    {
+        usb_install_destroy_filter_params(&filter_params);
+    }
+
+    return ret;
+}
+
+static bool_t get_argument(LPWSTR param_value, LPCWSTR* out_param,  LPWSTR* out_value, LPCWSTR* param_names)
+{
+    LPCWSTR param_name;
+    int param_name_length;
+    int param_name_pos = 0;
+    int ret;
+
+    if (!param_value || !out_param || !out_value)
+        return FALSE;
+
+    *out_param = 0;
+    *out_value = 0;
+
+    while(param_name=param_names[param_name_pos])
+    {
+        if (!(param_name_length = wcslen(param_name)))
+            return FALSE;
+
+        if (param_name[param_name_length-1]=='=')
+        {
+            ret = _wcsnicmp(param_value,param_name,param_name_length);
+        }
+        else
+        {
+            ret = _wcsicmp(param_value,param_name);
+        }
+        if (ret == 0)
+        {
+            *out_param = param_names[param_name_pos];
+            *out_value = param_value + param_name_length;
+            return TRUE;
+        }
+
+        param_name_pos++;
+    }
+
+    return FALSE;
+}
+
+void usb_install_report(filter_params_t* filter_params)
+{
+    filter_class_t* next_class;
+    filter_device_t* next_device;
+
+    next_class = filter_params->class_filters;
+    while (next_class)
+    {
+        if (next_class->class_filter_devices)
+        {
+            fprintf(stdout, "\n");
+        }
+
+        fprintf(stdout, "%s (%s)\n",
+            next_class->class_guid, next_class->class_name);
+
+        next_device = next_class->class_filter_devices;
+        while(next_device)
+        {
+
+            fprintf(stdout, "    %s - %s (%s)\n",
+                next_device->device_hwid, next_device->device_name, next_device->device_mfg);
+
+            next_device = next_device->next;
+        }
+        next_class = next_class->next;
+
+    }
+}
+
+void usage(void)
+{
+	#define ID_HELP_TEXT  10020
+	#define ID_DOS_TEXT   300
+
+	CONST CHAR* src;
+	DWORD src_count, charsWritten;
+	HGLOBAL res_data;
+	HANDLE handle;
+	HRSRC hSrc;
+
+    if ((handle=GetStdHandle(STD_ERROR_HANDLE)) == INVALID_HANDLE_VALUE)
+        return;
+
+	hSrc = FindResourceA(NULL, MAKEINTRESOURCEA(ID_HELP_TEXT),MAKEINTRESOURCEA(ID_DOS_TEXT));
+	if (!hSrc)	return;
+
+	src_count = SizeofResource(NULL, hSrc);
+
+	res_data = LoadResource(NULL, hSrc);
+	if (!res_data)	return;
+
+	src = (char*) LockResource(res_data);
+	if (!src) return;
+
+	WriteConsoleA(handle, src, src_count, &charsWritten, NULL);
 }
