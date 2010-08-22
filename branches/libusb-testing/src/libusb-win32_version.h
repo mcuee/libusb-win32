@@ -1,4 +1,4 @@
-/* libusb-win32_version.h ++ auto-generated
+/* libusb_version.h ++ auto-generated
 */
 #ifndef __LIBUSB_VERSION_H
 #define __LIBUSB_VERSION_H
@@ -9,8 +9,8 @@
 #define VERSION_MAJOR 1
 #define VERSION_MINOR 2
 #define VERSION_MICRO 1
-#define VERSION_NANO  17
-#define VERSION_DATE 08/15/2010
+#define VERSION_NANO  18
+#define VERSION_DATE 08/22/2010
 
 #define VERSION VERSION_MAJOR.VERSION_MINOR.VERSION_MICRO.VERSION_NANO
 #define RC_VERSION VERSION_MAJOR,VERSION_MINOR,VERSION_MICRO,VERSION_NANO
