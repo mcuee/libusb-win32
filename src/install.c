@@ -44,8 +44,8 @@
 #include "libusb-win32_version.h"
 
 
-//#define LIBUSB_DRIVER_PATH  "system32\\drivers\\libusb0.sys"
-//#define LIBUSB_OLD_SERVICE_NAME_NT "libusbd"
+#define LIBUSB_DRIVER_PATH  "system32\\drivers\\libusb0.sys"
+#define LIBUSB_OLD_SERVICE_NAME_NT "libusbd"
 
 #define INSTALLFLAG_FORCE 0x00000001
 
@@ -124,7 +124,6 @@ typedef BOOL (WINAPI * update_driver_for_plug_and_play_devices_t)(HWND,
 typedef BOOL (WINAPI * setup_copy_oem_inf_t)(PCSTR, PCSTR, DWORD, DWORD,
                                              PSTR, DWORD, PDWORD, PSTR*);
 
-#if defined(USE_INSTALL_SERVICE)
 
 /* advapi32.dll exports */
 typedef SC_HANDLE (WINAPI * open_sc_manager_t)(LPCTSTR, LPCTSTR, DWORD);
@@ -166,8 +165,6 @@ static bool_t usb_service_create(const char *name, const char *display_name,
 static bool_t usb_service_stop(const char *name);
 static bool_t usb_service_delete(const char *name);
 
-#endif
-
 void CALLBACK usb_touch_inf_file_rundll(HWND wnd, HINSTANCE instance,
                                         LPSTR cmd_line, int cmd_show);
 
@@ -191,20 +188,15 @@ void CALLBACK usb_install_driver_np_rundll(HWND wnd, HINSTANCE instance,
 
 int usb_install_service(filter_params_t* filter_params)
 {
-#if defined(USE_INSTALL_SERVICE)
     char display_name[MAX_PATH];
-#endif
 
     int ret = 0;
 
-#if defined(USE_INSTALL_SERVICE)
     const char* driver_name = LIBUSB_DRIVER_NAME_NT;
     /* stop devices that are handled by libusb's device driver */
-    //usb_registry_stop_libusb_devices();
+    usb_registry_stop_libusb_devices();
 
     /* the old driver is unloaded now */
-
-
     if (usb_registry_is_nt())
     {
         memset(display_name, 0, sizeof(display_name));
@@ -224,9 +216,8 @@ int usb_install_service(filter_params_t* filter_params)
             ret = -1;
         }
     }
-#endif
     /* restart devices that are handled by libusb's device driver */
-    //usb_registry_start_libusb_devices();
+    usb_registry_start_libusb_devices();
 
     /* insert device filter drivers */
     usb_registry_insert_device_filters(filter_params);
@@ -247,13 +238,13 @@ int usb_install_service_np(void)
 
 int usb_uninstall_service(filter_params_t* filter_params)
 {
-#if defined(USE_INSTALL_SERVICE)
     HKEY reg_key = NULL;
+
     if (!usb_registry_is_nt()) return -1;
+
     /* older version of libusb used a system service, just remove it */
     usb_service_stop(LIBUSB_OLD_SERVICE_NAME_NT);
     usb_service_delete(LIBUSB_OLD_SERVICE_NAME_NT);
-#endif
 
     /* old versions used device filters that have to be removed */
     usb_registry_remove_device_filter(filter_params);
@@ -468,7 +459,6 @@ int usb_install_driver_np(const char *inf_file)
     return 0;
 }
 
-#if defined(USE_INSTALL_SERVICE)
 
 bool_t usb_service_load_dll()
 {
@@ -775,7 +765,6 @@ bool_t usb_service_delete(const char *name)
 
     return ret;
 }
-#endif
 
 void CALLBACK usb_touch_inf_file_np_rundll(HWND wnd, HINSTANCE instance,
                                            LPSTR cmd_line, int cmd_show)
