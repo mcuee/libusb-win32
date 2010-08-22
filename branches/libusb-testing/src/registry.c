@@ -65,23 +65,6 @@ static const char *default_class_keys_nt[] =
     NULL
 };
 
-static const char *default_class_keys_9x[] =
-{
-    /* USB devices */
-    "usb",
-    /* HID devices */
-    "hid",
-    /* Network devices */
-    "net",
-    /* Image devices */
-    "image",
-    /* Media devices */
-    "media",
-    /* Modem devices */
-    "modem",
-    NULL
-};
-
 static bool_t usb_registry_set_device_state(DWORD state, HDEVINFO dev_info,
         SP_DEVINFO_DATA *dev_info_data);
 
@@ -932,7 +915,7 @@ char *usb_registry_mz_string_find(const char *src, const char *str, bool_t no_ca
     {
         if (no_case)
         {
-            ret = stricmp(src, str);
+            ret = _stricmp(src, str);
         }
         else
         {
@@ -1065,7 +1048,7 @@ bool_t usb_registry_add_filter_device_keys(filter_device_t** head,
 
     while (p)
     {
-        if (stricmp(p->device_hwid, hwid)==0)
+        if (_stricmp(p->device_hwid, hwid)==0)
         {
             *found = p;
             return TRUE;
@@ -1100,7 +1083,6 @@ static bool_t usb_registry_get_filter_device_keys(filter_class_t* filter_class,
     char hwid[MAX_PATH];
     char name[MAX_PATH];
     char mfg[MAX_PATH];
-    filter_device_t *p = filter_class->class_filter_devices;
     *found = NULL;
     if (dev_info && filter_class)
     {
@@ -1127,34 +1109,6 @@ static bool_t usb_registry_get_filter_device_keys(filter_class_t* filter_class,
         }
 
         return usb_registry_add_filter_device_keys(&filter_class->class_filter_devices, hwid, name, mfg, found);
-        /*
-        while (p)
-        {
-            if (stricmp(p->device_hwid, hwid)==0)
-            {
-                *found = p;
-                return FALSE;
-            }
-            p = p->next;
-        }
-
-        p = malloc(sizeof(filter_device_t));
-
-        if (!p)
-            return FALSE;
-
-        memset(p, 0, sizeof(filter_device_t));
-
-        strcpy(p->device_hwid, hwid);
-        strcpy(p->device_name, name);
-        strcpy(p->device_mfg, mfg);
-
-        *found = p;
-        p->next = filter_class->class_filter_devices;
-        filter_class->class_filter_devices = p;
-
-        return TRUE;
-        */
     }
 
     return FALSE;
@@ -1162,7 +1116,6 @@ static bool_t usb_registry_get_filter_device_keys(filter_class_t* filter_class,
 bool_t usb_registry_add_usb_class_key(filter_params_t* filter_params, const char* class_guid)
 {
     char tmp[MAX_PATH];
-    DWORD class_property = SPDRP_CLASSGUID;
     const char *class_path = CLASS_KEY_PATH_NT;
     filter_class_t* found = NULL;
 
@@ -1190,7 +1143,7 @@ bool_t usb_registry_get_usb_class_keys(filter_params_t* filter_params, bool_t re
     filter_class_t* found = NULL;
     filter_device_t* found_device = NULL;
     bool_t is_libusb_service;
-    bool_t add_device_classes;
+    bool_t add_device_classes = FALSE;
 
 
     class_property = SPDRP_CLASSGUID;

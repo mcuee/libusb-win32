@@ -25,9 +25,7 @@
 
 int main()
 {
-    int ret = -1;
     LPWSTR command_line_w;
-
 
     #ifdef _DEBUG
 	    usb_log_set_level(LOG_DEBUG);

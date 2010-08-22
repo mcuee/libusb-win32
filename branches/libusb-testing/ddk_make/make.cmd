@@ -467,7 +467,6 @@ GOTO :EOF
 		RMDIR /S /Q "%~1"
 		GOTO :EOF
 	)
-	ECHO [SafeCleanDir] nothing to do.
 GOTO :EOF
 
 :SafeCopyDir
@@ -495,7 +494,6 @@ GOTO :EOF
 		MKDIR "%~1"
 		GOTO :EOF
 	)
-	ECHO [SafeCreateDir] nothing to do.
 GOTO :EOF
 
 :SafeDeleteDir
@@ -504,7 +502,6 @@ GOTO :EOF
 		RMDIR /S /Q "%~1"
 		GOTO :EOF
 	)
-	ECHO [SafeDeleteDir] nothing to do.
 GOTO :EOF
 
 
@@ -514,7 +511,6 @@ GOTO :EOF
 		DEL /Q "%~1"
 		GOTO :EOF
 	)
-	ECHO [SafeDelete] nothing to do.
 GOTO :EOF
 
 :SafeCopy
@@ -528,7 +524,6 @@ GOTO :EOF
 		COPY /Y "%~1" "%~2" 2>NUL>NUL
 		GOTO :EOF
 	)
-	ECHO [SafeCopy] nothing to do.
 GOTO :EOF
 
 :SafeMove
@@ -538,7 +533,6 @@ GOTO :EOF
 		MOVE /Y "%~1" "%~2"
 		GOTO :EOF
 	)
-	ECHO [SafeMove] nothing to do.
 GOTO :EOF
 
 :DeleteAllDirectories
@@ -913,7 +907,6 @@ GOTO :EOF
 	IF EXIST "!DIR_LIBUSB_DDK!emarker.tmp" (
 		DEL /Q "!DIR_LIBUSB_DDK!emarker.tmp"
 		SET _EMARKER=1
-		ECHO [DestroyErrorMarker] Last build did not complete.
 	)
 GOTO :EOF
 

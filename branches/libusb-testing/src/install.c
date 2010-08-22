@@ -109,7 +109,7 @@ LPCWSTR paramsw_device_lower[] = {
     0
 };
 
-static bool_t get_argument(LPWSTR param_value, LPCWSTR* out_param,  LPWSTR* out_value, LPCWSTR* param_names);
+static bool_t get_argument(LPWSTR param_value, LPCWSTR* out_param,  LPCWSTR* out_value, LPCWSTR* param_names);
 void usb_install_report(filter_params_t* filter_params);
 int usb_install(HWND hwnd, LPCWSTR cmd_line_w, int starg_arg, filter_params_t** out_filter_params);
 void usage(void);
@@ -123,6 +123,8 @@ typedef BOOL (WINAPI * update_driver_for_plug_and_play_devices_t)(HWND,
 /* setupapi.dll exports */
 typedef BOOL (WINAPI * setup_copy_oem_inf_t)(PCSTR, PCSTR, DWORD, DWORD,
                                              PSTR, DWORD, PDWORD, PSTR*);
+
+#if defined(USE_INSTALL_SERVICE)
 
 /* advapi32.dll exports */
 typedef SC_HANDLE (WINAPI * open_sc_manager_t)(LPCTSTR, LPCTSTR, DWORD);
@@ -164,6 +166,7 @@ static bool_t usb_service_create(const char *name, const char *display_name,
 static bool_t usb_service_stop(const char *name);
 static bool_t usb_service_delete(const char *name);
 
+#endif
 
 void CALLBACK usb_touch_inf_file_rundll(HWND wnd, HINSTANCE instance,
                                         LPSTR cmd_line, int cmd_show);
@@ -188,19 +191,20 @@ void CALLBACK usb_install_driver_np_rundll(HWND wnd, HINSTANCE instance,
 
 int usb_install_service(filter_params_t* filter_params)
 {
-#if 0
+#if defined(USE_INSTALL_SERVICE)
     char display_name[MAX_PATH];
 #endif
 
     int ret = 0;
-    const char* driver_name = LIBUSB_DRIVER_NAME_NT;
 
+#if defined(USE_INSTALL_SERVICE)
+    const char* driver_name = LIBUSB_DRIVER_NAME_NT;
     /* stop devices that are handled by libusb's device driver */
     //usb_registry_stop_libusb_devices();
 
     /* the old driver is unloaded now */
 
-#if 0
+
     if (usb_registry_is_nt())
     {
         memset(display_name, 0, sizeof(display_name));
@@ -243,12 +247,10 @@ int usb_install_service_np(void)
 
 int usb_uninstall_service(filter_params_t* filter_params)
 {
+#if defined(USE_INSTALL_SERVICE)
     HKEY reg_key = NULL;
-
     if (!usb_registry_is_nt()) return -1;
-
     /* older version of libusb used a system service, just remove it */
-#if 0
     usb_service_stop(LIBUSB_OLD_SERVICE_NAME_NT);
     usb_service_delete(LIBUSB_OLD_SERVICE_NAME_NT);
 #endif
@@ -466,6 +468,8 @@ int usb_install_driver_np(const char *inf_file)
     return 0;
 }
 
+#if defined(USE_INSTALL_SERVICE)
+
 bool_t usb_service_load_dll()
 {
     if (usb_registry_is_nt())
@@ -526,7 +530,7 @@ bool_t usb_service_free_dll()
     }
     return TRUE;
 }
-#if 0
+
 bool_t usb_service_create(const char *name, const char *display_name,
                           const char *binary_path, unsigned long type,
                           unsigned long start_type)
@@ -907,7 +911,7 @@ bool_t usb_filter_params_from_cmdline(filter_params_t* filter_params,
 {
     int arg_pos;
     LPWSTR* argv = NULL;
-    LPWSTR arg_param, arg_value;
+    LPCWSTR arg_param, arg_value;
     bool_t success = TRUE;
     int length;
     char tmp[MAX_PATH+1];
@@ -1213,7 +1217,7 @@ int usb_install(HWND hwnd, LPCWSTR cmd_line_w, int starg_arg, filter_params_t** 
     return ret;
 }
 
-static bool_t get_argument(LPWSTR param_value, LPCWSTR* out_param,  LPWSTR* out_value, LPCWSTR* param_names)
+static bool_t get_argument(LPWSTR param_value, LPCWSTR* out_param,  LPCWSTR* out_value, LPCWSTR* param_names)
 {
     LPCWSTR param_name;
     int param_name_length;
@@ -1226,7 +1230,7 @@ static bool_t get_argument(LPWSTR param_value, LPCWSTR* out_param,  LPWSTR* out_
     *out_param = 0;
     *out_value = 0;
 
-    while(param_name=param_names[param_name_pos])
+    while((param_name=param_names[param_name_pos]))
     {
         if (!(param_name_length = wcslen(param_name)))
             return FALSE;

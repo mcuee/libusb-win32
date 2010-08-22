@@ -44,7 +44,7 @@
 				Name="VCCLCompilerTool"
 				Optimization="0"
 				AdditionalIncludeDirectories="..\src;..\src\driver"
-				PreprocessorDefinitions="_WIN32_WINNT=0x0500;TARGETTYPE=PROGRAMconsole;LOG_APPNAME=&quot;\&quot;$(ProjectName)\&quot;&quot;;LOG_STYLE_SHORT"
+				PreprocessorDefinitions="_WIN32_WINNT=0x0500;TARGETTYPE=PROGRAMconsole;LOG_APPNAME=&quot;\&quot;$(ProjectName)\&quot;&quot;"
 				MinimalRebuild="true"
 				BasicRuntimeChecks="3"
 				RuntimeLibrary="1"
