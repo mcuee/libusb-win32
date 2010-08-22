@@ -236,7 +236,9 @@ void _usb_log_v(enum USB_LOG_LEVEL level,
     char* buffer;
     int masked_level;
 	int app_prefix_func_end;
+#ifndef LOG_STYLE_SHORT
 	const char** skip_list = NULL;
+#endif
 
 	masked_level = GetLogLevel(level);
 

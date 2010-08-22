@@ -1,0 +1,23 @@
+
+USAGE: install-filter <command> <switches>
+                 
+COMMANDS:
+  install   (i)
+  uninstall (u)
+  list      (l)
+                       
+SWITCHES:
+  --all-classes         (-ac)
+  --device-classes      (-dc)
+  --class=<guid>        (-c)
+  --device-upper=<hwid> (-duf)
+  --device-lower=<hwid> (-dlf)
+    
+WARNING:
+          
+EXAMPLES:
+  install-filter install --device-classes
+  install-filter uninstall --all-classes
+  install-filter list --device-classes
+  install-filter install --class={00000000-0000-0000-0000-000000000000}
+  install-filter install --device-upper=USB\Vid_04d8&Pid_000c&Rev_0000

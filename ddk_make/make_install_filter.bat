@@ -9,6 +9,7 @@ copy %SRC_DIR%\*.c . >NUL
 copy %SRC_DIR%\*.h . >NUL
 copy %SRC_DIR%\*.rc . >NUL
 copy %SRC_DIR%\driver\driver_api.h . >NUL
+copy %SRC_DIR%\install-filter*.* . >NUL
 copy ..\manifest.txt . >NUL
 
 ECHO Building (%BUILD_ALT_DIR%) %0..

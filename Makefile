@@ -142,8 +142,8 @@ $(DLL_TARGET).dll: usb.2.o error.2.o descriptors.2.o windows.2.o install.2.o reg
 	$(WINDRES) $(CPPFLAGS) $(WINDRES_FLAGS) $< -o $@
 
 .PHONY: filter
-filter: FILTER_CFLAGS = $(CFLAGS) -DLOG_APPNAME=\"install-filter\" -DTARGETTYPE=PROGRAMconsole
-filter: FILTER_LDFLAGS = -s -mno-cygwin -L. -lgdi32 -luser32 -lcfgmgr32 -lsetupapi -lcomctl32
+filter: FILTER_CFLAGS = $(CFLAGS) -DLOG_APPNAME=\"install-filter\" -DTARGETTYPE=PROGRAMconsole -DLOG_STYLE_SHORT
+filter: FILTER_LDFLAGS = -s -mno-cygwin -L. -lgdi32 -luser32 -lcfgmgr32 -lsetupapi -lcomctl32 -lshell32
 filter: install-filter.exe
 
 install-filter.exe: install_filter.1.o error.1.o install.1.o registry.1.o install_filter_rc.1.o
