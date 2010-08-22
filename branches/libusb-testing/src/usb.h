@@ -385,6 +385,11 @@ extern "C"
 #define LIBUSB_HAS_INSTALL_NEEDS_RESTART_NP 1
     int usb_install_needs_restart_np(void);
 
+#define LIBUSB_HAS_INSTALL_NP 1
+    int usb_install_np(HWND hwnd, LPCWSTR cmd_line, int starg_arg);
+    void CALLBACK usb_install_np_rundll(HWND wnd, HINSTANCE instance, 
+            LPSTR cmd_line, int cmd_show);
+
     const struct usb_version *usb_get_version(void);
 
     int usb_isochronous_setup_async(usb_dev_handle *dev, void **context,
