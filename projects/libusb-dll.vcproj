@@ -396,6 +396,10 @@
 				>
 			</File>
 			<File
+				RelativePath="..\src\libusb-win32_version.h"
+				>
+			</File>
+			<File
 				RelativePath="..\src\registry.h"
 				>
 			</File>
