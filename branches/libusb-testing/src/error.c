@@ -70,7 +70,7 @@ static const char *log_level_string[LOG_LEVEL_MAX+1] =
     "off",
     "err",
     "wrn",
-    "nfo",
+    "",
     "dbg",
 
     "unknown",
@@ -262,7 +262,14 @@ void _usb_log_v(enum USB_LOG_LEVEL level,
     {
         prefix = log_level_string[masked_level];
 #ifdef LOG_STYLE_SHORT
-		count = _snprintf(buffer, (LOGBUF_SIZE-1), "%s: ",  prefix);
+        if ((prefix) && strlen(prefix))
+        {
+		    count = _snprintf(buffer, (LOGBUF_SIZE-1), "%s: ",  prefix);
+        }
+        else
+        {
+		    count = 0;
+        }
 		func = "";
 #else
 		func = function;
@@ -281,10 +288,17 @@ void _usb_log_v(enum USB_LOG_LEVEL level,
 		if(!func) func="none";
 
         // print app name, level string and short function name
-        count = _snprintf(buffer, (LOGBUF_SIZE-1), "%s:%s [%s] ", app_name, prefix, func);
+        if ((prefix) && strlen(prefix))
+        {
+            count = _snprintf(buffer, (LOGBUF_SIZE-1), "%s:%s [%s] ", app_name, prefix, func);
+        }
+        else
+        {
+            count = _snprintf(buffer, (LOGBUF_SIZE-1), "%s:[%s] ", app_name, func);
+        }
 #endif
 
-        if (count > 0)
+        if (count >= 0)
         {
 			app_prefix_func_end = count;
             buffer += count;

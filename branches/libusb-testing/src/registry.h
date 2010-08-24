@@ -40,6 +40,12 @@ typedef int bool_t;
 
 #define REGISTRY_BUF_SIZE 512
 
+typedef struct _filter_file_t filter_file_t;
+struct _filter_file_t
+{
+	filter_file_t* next;
+	char name[MAX_PATH];
+};
 
 typedef int filter_mode_e;
 enum _filter_mode_e
@@ -83,21 +89,25 @@ struct _filter_class_t
     filter_device_t* class_filter_devices;
 };
 
-typedef struct _filter_params_t filter_params_t;
-struct _filter_params_t
+typedef struct _filter_context_t filter_context_t;
+struct _filter_context_t
 {
-    struct 
+    union
     {
-	    bool_t           add_all_classes;
-	    bool_t           add_device_classes;
-
-	    bool_t           no_def_classes;
+        int switches_value;
+        struct 
+        {
+            bool_t           add_all_classes:1;
+            bool_t           add_device_classes:1;
+	        bool_t           add_default_classes:1;
+        };
     }switches;
 
 	filter_mode_e    filter_mode;
     filter_mode_e    active_filter_mode;
 	filter_class_t*  class_filters;
     filter_device_t* device_filters;
+    filter_file_t* inf_files;
 };
 
 bool_t usb_registry_is_nt(void);
@@ -142,30 +152,34 @@ bool_t usb_registry_is_service_libusb(HDEVINFO dev_info,
                                       SP_DEVINFO_DATA *dev_info_data,
                                       bool_t* is_libusb_service);
 
-bool_t usb_registry_insert_class_filter(filter_params_t* filter_params);
-bool_t usb_registry_remove_class_filter(filter_params_t* filter_params);
-bool_t usb_registry_remove_device_filter(filter_params_t* filter_params);
+bool_t usb_registry_insert_class_filter(filter_context_t* filter_context);
+bool_t usb_registry_remove_class_filter(filter_context_t* filter_context);
+bool_t usb_registry_remove_device_filter(filter_context_t* filter_context);
 bool_t usb_registry_free_class_keys(filter_class_t **head);
-bool_t usb_registry_get_usb_class_keys(filter_params_t* filter_params, bool_t refresh_only);
-bool_t usb_registry_get_all_class_keys(filter_params_t* filter_params, bool_t refresh_only);
-bool_t usb_registry_add_usb_class_key(filter_params_t* filter_params, const char* class_guid);
-bool_t usb_registry_free_filter_devices(filter_device_t **head);
-
-bool_t usb_registry_insert_device_filters(filter_params_t* filter_params);
-bool_t usb_registry_insert_device_filter(filter_params_t* filter_params, bool_t upper, 
-                                      HDEVINFO dev_info, SP_DEVINFO_DATA *dev_info_data);
-
-
+bool_t usb_registry_get_usb_class_keys(filter_context_t* filter_context, bool_t refresh_only);
+bool_t usb_registry_get_all_class_keys(filter_context_t* filter_context, bool_t refresh_only);
 bool_t usb_registry_get_device_filter_type(HDEVINFO dev_info,
                                            SP_DEVINFO_DATA *dev_info_data,
                                            filter_type_e* filter_type);
 
+bool_t usb_registry_add_usb_class_key(filter_context_t* filter_context, const char* class_guid);
 bool_t usb_registry_add_filter_device_keys(filter_device_t** head,
-                             const char* hwid,
-                             const char* name,
-                             const char* mfg,
-                             filter_device_t** found);
+                                           const char* hwid,
+                                           const char* name,
+                                           const char* mfg,
+                                           filter_device_t** found);
+bool_t usb_registry_add_filter_file_keys(filter_file_t** head,
+                                         const char* name,
+                                         filter_file_t** found);
+
+bool_t usb_registry_insert_device_filters(filter_context_t* filter_context);
+bool_t usb_registry_insert_device_filter(filter_context_t* filter_context, bool_t upper, 
+                                      HDEVINFO dev_info, SP_DEVINFO_DATA *dev_info_data);
+
+bool_t usb_registry_free_filter_devices(filter_device_t **head);
+bool_t usb_registry_free_filter_files(filter_file_t **head);
 
 filter_device_t* usb_registry_find_filter_device(filter_device_t** head, const char* hwid);
+
 
 #endif
