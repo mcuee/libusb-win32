@@ -20,4 +20,5 @@ EXAMPLES:
   install-filter uninstall --all-classes
   install-filter list --device-classes
   install-filter install --class={00000000-0000-0000-0000-000000000000}
-  install-filter install --device-upper=USB\Vid_04d8&Pid_000c&Rev_0000
+  install-filter install "--device-upper=USB\Vid_04d8&Pid_000c&Rev_0000"
+  install-filter install --device-upper=USB\Vid_04d8.Pid_000c.Rev_0000
