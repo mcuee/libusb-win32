@@ -21,11 +21,20 @@
 #
 #
 
-# If you're cross-compiling and your mingw32 tools are called
-# i586-mingw32msvc-gcc and so on, then you can compile libusb-win32
+# cross cross-compiling (host=x86 target=x64)
+# If you're cross-compiling and your mingw64 tools are called
+# mingw-w64-1.0-bin_i686 and so on, then you can compile libusb-win32
 # by running
-#    make host_prefix=i586-mingw32msvc all
+#    make host_prefix=x86_64-w64-mingw32 all
 #
+
+# cross cross-compiling (host=x64 target=x86)
+# If you're cross-compiling and your mingw32 tools are called
+# mingw-w32-1.0-bin_i686 and so on, then you can compile libusb-win32
+# by running
+#    make host_prefix_x86=i686-w64-mingw32 all
+#
+
 ifdef host_prefix
 	override host_prefix := $(host_prefix)-
 endif
@@ -43,8 +52,8 @@ DLLTOOL = $(host_prefix)dlltool
 
 CC86 = $(host_prefix_x86)gcc
 LD86 = $(host_prefix_x86)ld
-WINDRES86 = $(host_prefix_x86)windres
-DLLTOOL86 = $(host_prefix_x86)dlltool
+WINDRES86 = windres
+DLLTOOL86 = dlltool
 
 MAKE = make
 CP = cp
