@@ -124,7 +124,7 @@
 				Optimization="2"
 				EnableIntrinsicFunctions="true"
 				AdditionalIncludeDirectories="..\src;.\additional\libwdi\libwdi"
-				PreprocessorDefinitions="_WIN32_WINNT=0x0500;LIBWDI_INSTALLER_PATH_PREFX=&quot;..\\..\\..\\&quot;"
+				PreprocessorDefinitions="_WIN32_WINNT=0x0500"
 				RuntimeLibrary="0"
 				EnableFunctionLevelLinking="true"
 				WarningLevel="3"

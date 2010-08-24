@@ -946,7 +946,7 @@ bool_t usb_filter_params_from_cmdline(filter_params_t* filter_params,
         {
             memset(tmp,0,sizeof(tmp));
             length = WideCharToMultiByte(CP_ACP,0,
-                arg_value,wcslen(arg_value),
+                arg_value,(int)wcslen(arg_value),
                 tmp,MAX_PATH,
                 NULL,NULL);
 
@@ -970,7 +970,7 @@ bool_t usb_filter_params_from_cmdline(filter_params_t* filter_params,
         {
             memset(tmp,0,sizeof(tmp));
             length = WideCharToMultiByte(CP_ACP,0,
-                arg_value,wcslen(arg_value),
+                arg_value,(int)wcslen(arg_value),
                 tmp,MAX_PATH,
                 NULL,NULL);
             if (length != wcslen(arg_value))
@@ -1008,7 +1008,7 @@ bool_t usb_filter_params_from_cmdline(filter_params_t* filter_params,
             }
             memset(tmp,0,sizeof(tmp));
             length = WideCharToMultiByte(CP_ACP,0,
-                arg_value,wcslen(arg_value),
+                arg_value,(int)wcslen(arg_value),
                 tmp,MAX_PATH,
                 NULL,NULL);
 
@@ -1052,7 +1052,7 @@ void CALLBACK usb_install_np_rundll(HWND wnd, HINSTANCE instance, LPSTR cmd_line
     }
 
     memset(cmd_line_w,0,sizeof(cmd_line_w));
-    length = MultiByteToWideChar(CP_ACP,0,cmd_line,strlen(cmd_line),cmd_line_w,MAX_PATH);
+    length = MultiByteToWideChar(CP_ACP,0,cmd_line,(int)strlen(cmd_line),cmd_line_w,MAX_PATH);
     if (length <= 0) return;
 
     usb_install_np(wnd, cmd_line_w, 0);
@@ -1221,7 +1221,7 @@ static bool_t get_argument(LPWSTR param_value, LPCWSTR* out_param,  LPCWSTR* out
 
     while((param_name=param_names[param_name_pos]))
     {
-        if (!(param_name_length = wcslen(param_name)))
+        if (!(param_name_length = (int)wcslen(param_name)))
             return FALSE;
 
         if (param_name[param_name_length-1]=='=')
