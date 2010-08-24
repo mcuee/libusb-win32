@@ -280,7 +280,7 @@ bool_t usb_registry_set_property(DWORD which, HDEVINFO dev_info,
     return TRUE;
 }
 
-bool_t usb_registry_insert_class_filter(filter_params_t* filter_params)
+bool_t usb_registry_insert_class_filter(filter_context_t* filter_context)
 {
     const char *driver_name;
     filter_class_t *key;
@@ -288,12 +288,12 @@ bool_t usb_registry_insert_class_filter(filter_params_t* filter_params)
 
     driver_name = USB_GET_DRIVER_NAME();
 
-    if (!filter_params->class_filters)
+    if (!filter_context->class_filters)
     {
         return TRUE;
     }
 
-    key = filter_params->class_filters;
+    key = filter_context->class_filters;
 
     while (key)
     {
@@ -323,7 +323,7 @@ bool_t usb_registry_insert_class_filter(filter_params_t* filter_params)
 }
 
 
-bool_t usb_registry_remove_class_filter(filter_params_t* filter_params)
+bool_t usb_registry_remove_class_filter(filter_context_t* filter_context)
 {
     const char *driver_name;
     filter_class_t *key;
@@ -331,12 +331,12 @@ bool_t usb_registry_remove_class_filter(filter_params_t* filter_params)
 
     driver_name = USB_GET_DRIVER_NAME();
 
-    if (!filter_params->class_filters)
+    if (!filter_context->class_filters)
     {
         return TRUE;
     }
 
-    key = filter_params->class_filters;
+    key = filter_context->class_filters;
 	
     while (key)
     {
@@ -359,7 +359,7 @@ bool_t usb_registry_remove_class_filter(filter_params_t* filter_params)
     return TRUE;
 }
 
-bool_t usb_registry_remove_device_filter(filter_params_t* filter_params)
+bool_t usb_registry_remove_device_filter(filter_context_t* filter_context)
 {
     HDEVINFO dev_info;
     SP_DEVINFO_DATA dev_info_data;
@@ -369,7 +369,7 @@ bool_t usb_registry_remove_device_filter(filter_params_t* filter_params)
     const char *driver_name;
     filter_device_t* found_device;
 
-    if (!filter_params->device_filters)
+    if (!filter_context->device_filters)
         return TRUE;
 
     driver_name = USB_GET_DRIVER_NAME();
@@ -389,7 +389,7 @@ bool_t usb_registry_remove_device_filter(filter_params_t* filter_params)
     {
         if (usb_registry_get_hardware_id(dev_info, &dev_info_data, hwid))
         {
-            if ((found_device=usb_registry_find_filter_device(&filter_params->device_filters, hwid)))
+            if ((found_device=usb_registry_find_filter_device(&filter_context->device_filters, hwid)))
             {
                 /* remove libusb as a device upper filter */
                 if (usb_registry_get_property(SPDRP_UPPERFILTERS, dev_info,
@@ -453,7 +453,7 @@ filter_device_t* usb_registry_find_filter_device(filter_device_t** head, const c
     return NULL;
 }
 
-bool_t usb_registry_insert_device_filter(filter_params_t* filter_params, bool_t upper, 
+bool_t usb_registry_insert_device_filter(filter_context_t* filter_context, bool_t upper, 
                                       HDEVINFO dev_info, SP_DEVINFO_DATA *dev_info_data)
 {
 
@@ -484,7 +484,7 @@ bool_t usb_registry_insert_device_filter(filter_params_t* filter_params, bool_t 
     return FALSE;
 }
 
-bool_t usb_registry_insert_device_filters(filter_params_t* filter_params)
+bool_t usb_registry_insert_device_filters(filter_context_t* filter_context)
 {
     HDEVINFO dev_info;
     SP_DEVINFO_DATA dev_info_data;
@@ -494,7 +494,7 @@ bool_t usb_registry_insert_device_filters(filter_params_t* filter_params)
     filter_device_t* found;
     bool_t is_libusb_service;
 
-    if (!filter_params->device_filters)
+    if (!filter_context->device_filters)
         return TRUE;
 
     driver_name = USB_GET_DRIVER_NAME();
@@ -518,7 +518,7 @@ bool_t usb_registry_insert_device_filters(filter_params_t* filter_params)
             {
                 if (usb_registry_get_property(SPDRP_HARDWAREID, dev_info, &dev_info_data, hwid, MAX_PATH))
                 {
-                    if ((found=usb_registry_find_filter_device(&filter_params->device_filters, hwid)))
+                    if ((found=usb_registry_find_filter_device(&filter_context->device_filters, hwid)))
                     {
                         if (!usb_registry_get_property(SPDRP_DEVICEDESC, dev_info,
                                                        &dev_info_data,
@@ -535,14 +535,14 @@ bool_t usb_registry_insert_device_filters(filter_params_t* filter_params)
 
                         if (found->filter_type & FT_DEVICE_UPPERFILTER)
                         {
-                            if (!usb_registry_insert_device_filter(filter_params, TRUE, dev_info, &dev_info_data))
+                            if (!usb_registry_insert_device_filter(filter_context, TRUE, dev_info, &dev_info_data))
                             {
                                 USBERR("failed adding upper device filter for %s\n",found->device_hwid);
                             }
                         }
                         if (found->filter_type & FT_DEVICE_LOWERFILTER)
                         {
-                            if (!usb_registry_insert_device_filter(filter_params, FALSE, dev_info, &dev_info_data))
+                            if (!usb_registry_insert_device_filter(filter_context, FALSE, dev_info, &dev_info_data))
                             {
                                 USBERR("failed adding lower device filter for %s\n",found->device_hwid);
                             }
@@ -1074,6 +1074,39 @@ bool_t usb_registry_add_filter_device_keys(filter_device_t** head,
     return TRUE;
 }
 
+bool_t usb_registry_add_filter_file_keys(filter_file_t** head,
+                                         const char* name,
+                                         filter_file_t** found)
+{
+    filter_file_t *p = *head;
+    *found = NULL;
+
+    while (p)
+    {
+        if (_stricmp(p->name, name)==0)
+        {
+            *found = p;
+            return TRUE;
+        }
+        p = p->next;
+    }
+
+    p = malloc(sizeof(filter_file_t));
+
+    if (!p)
+        return FALSE;
+
+    memset(p, 0, sizeof(filter_file_t));
+
+    strcpy(p->name, name);
+
+    *found = p;
+    p->next = *head;
+    *head = p;
+
+    return TRUE;
+}
+
 static bool_t usb_registry_get_filter_device_keys(filter_class_t* filter_class,
                                              HDEVINFO dev_info,
                                              SP_DEVINFO_DATA *dev_info_data,
@@ -1113,7 +1146,7 @@ static bool_t usb_registry_get_filter_device_keys(filter_class_t* filter_class,
 
     return FALSE;
 }
-bool_t usb_registry_add_usb_class_key(filter_params_t* filter_params, const char* class_guid)
+bool_t usb_registry_add_usb_class_key(filter_context_t* filter_context, const char* class_guid)
 {
     char tmp[MAX_PATH];
     const char *class_path = CLASS_KEY_PATH_NT;
@@ -1122,13 +1155,13 @@ bool_t usb_registry_add_usb_class_key(filter_params_t* filter_params, const char
     if ((strlen(class_path) + strlen(class_guid)) < sizeof(tmp))
     {
         sprintf(tmp, "%s%s", class_path, class_guid);
-        usb_registry_add_class_key(&filter_params->class_filters, tmp, "", class_guid, &found, FALSE);
+        usb_registry_add_class_key(&filter_context->class_filters, tmp, "", class_guid, &found, FALSE);
         return TRUE;
     }
     return FALSE;
 }
 
-bool_t usb_registry_get_usb_class_keys(filter_params_t* filter_params, bool_t refresh_only)
+bool_t usb_registry_get_usb_class_keys(filter_context_t* filter_context, bool_t refresh_only)
 {
     HDEVINFO dev_info;
     SP_DEVINFO_DATA dev_info_data;
@@ -1151,23 +1184,23 @@ bool_t usb_registry_get_usb_class_keys(filter_params_t* filter_params, bool_t re
     default_class_keys = default_class_keys_nt;
     i = 0;
 
-    if (!filter_params->switches.no_def_classes)
+    if (filter_context->switches.add_default_classes)
     {
         while (default_class_keys[i])
         {
             if ((strlen(class_path) + strlen(default_class_keys[i])) < sizeof(tmp))
             {
                 sprintf(tmp, "%s%s", class_path, default_class_keys[i]);
-                usb_registry_add_class_key(&filter_params->class_filters, tmp, "", default_class_keys[i], &found, FALSE);
+                usb_registry_add_class_key(&filter_context->class_filters, tmp, "", default_class_keys[i], &found, FALSE);
             }
             i++;
         }
     }
-    if (filter_params->active_filter_mode == FM_INSTALL)
-        add_device_classes = filter_params->switches.add_device_classes | filter_params->switches.add_all_classes;
-    else if (filter_params->active_filter_mode == FM_LIST)
-        add_device_classes = filter_params->switches.add_device_classes;
-    else if (filter_params->active_filter_mode == FM_REMOVE)
+    if (filter_context->active_filter_mode == FM_INSTALL)
+        add_device_classes = filter_context->switches.add_device_classes | filter_context->switches.add_all_classes;
+    else if (filter_context->active_filter_mode == FM_LIST)
+        add_device_classes = filter_context->switches.add_device_classes;
+    else if (filter_context->active_filter_mode == FM_REMOVE)
         return TRUE;
 
     if (add_device_classes || refresh_only)
@@ -1201,7 +1234,7 @@ bool_t usb_registry_get_usb_class_keys(filter_params_t* filter_params, bool_t re
                     if ((strlen(class_path) + strlen(class)) < sizeof(tmp))
                     {
                         sprintf(tmp, "%s%s", class_path, class);
-                        usb_registry_add_class_key(&filter_params->class_filters, tmp, class_name, class, &found,
+                        usb_registry_add_class_key(&filter_context->class_filters, tmp, class_name, class, &found,
                             (add_device_classes) ? FALSE : refresh_only);
 
                         if (found)
@@ -1221,7 +1254,7 @@ bool_t usb_registry_get_usb_class_keys(filter_params_t* filter_params, bool_t re
     return TRUE;
 }
 
-bool_t usb_registry_get_all_class_keys(filter_params_t* filter_params, bool_t refresh_only)
+bool_t usb_registry_get_all_class_keys(filter_context_t* filter_context, bool_t refresh_only)
 {
     const char *class_path;
     HKEY reg_key, reg_class_key;
@@ -1233,18 +1266,18 @@ bool_t usb_registry_get_all_class_keys(filter_params_t* filter_params, bool_t re
     bool_t add_all_classes;
 
     // if these class keys are for an install, skip this step.
-    if (filter_params->active_filter_mode == FM_INSTALL)
+    if (filter_context->active_filter_mode == FM_INSTALL)
     {
         add_all_classes = FALSE;
     }
-    else if (filter_params->active_filter_mode == FM_REMOVE && !refresh_only && 
-        (filter_params->switches.add_all_classes || filter_params->switches.add_device_classes))
+    else if (filter_context->active_filter_mode == FM_REMOVE && !refresh_only && 
+        (filter_context->switches.add_all_classes || filter_context->switches.add_device_classes))
     {
         add_all_classes = TRUE;
     }
     else
     {
-        add_all_classes = filter_params->switches.add_all_classes;
+        add_all_classes = filter_context->switches.add_all_classes;
     }
 
     if (add_all_classes || refresh_only)
@@ -1282,7 +1315,7 @@ bool_t usb_registry_get_all_class_keys(filter_params_t* filter_params, bool_t re
                         RegCloseKey(reg_class_key);
                     }
  
-                    usb_registry_add_class_key(&filter_params->class_filters, tmp, class_name, class, &found, 
+                    usb_registry_add_class_key(&filter_context->class_filters, tmp, class_name, class, &found, 
                         (add_all_classes) ? FALSE : refresh_only);
                 }
 
@@ -1360,6 +1393,23 @@ bool_t usb_registry_free_class_keys(filter_class_t **head)
     {
         q = p->next;
         usb_registry_free_filter_devices(&p->class_filter_devices);
+        free(p);
+        p = q;
+    }
+
+    *head = NULL;
+
+    return TRUE;
+}
+
+bool_t usb_registry_free_filter_files(filter_file_t **head)
+{
+    filter_file_t *p = *head;
+    filter_file_t *q;
+
+    while (p)
+    {
+        q = p->next;
         free(p);
         p = q;
     }
