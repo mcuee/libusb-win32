@@ -91,6 +91,8 @@ LPCWSTR paramsw_class[] = {
 };
 
 LPCWSTR paramsw_device_upper[] = {
+    L"--device=",
+    L"-d=",
     L"--device-upper=",
     L"-duf=",
     0
@@ -232,7 +234,7 @@ int usb_install_service(filter_context_t* filter_context)
 
 int usb_install_service_np(void)
 {
-    return usb_install_np(NULL,L"-i -dc", 0);
+    return usb_install_np(NULL,L"install", 0);
 }
 
 int usb_uninstall_service(filter_context_t* filter_context)
@@ -259,7 +261,7 @@ int usb_uninstall_service(filter_context_t* filter_context)
 
 int usb_uninstall_service_np(void)
 {
-    return usb_install_np(NULL,L"-u -ac",0);
+    return usb_install_np(NULL,L"uninstall",0);
 }
 
 int usb_install_driver_np(const char *inf_file)
