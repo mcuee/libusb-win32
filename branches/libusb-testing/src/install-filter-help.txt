@@ -1,26 +1,65 @@
 
-USAGE: install-filter <command> <switches>
+USAGE: install-filter [install|uninstall|list] <-ac> <-dc> <-c=> <-d=>
 
 COMMANDS:
-  install   (i)
-  uninstall (u)
-  list      (l)
+  install   (i/-i)
+  uninstall (u/-u)
+  list      (l/-l)
 
-SWITCHES:
+Switches For Classes:
   --all-classes         (-ac)
+    install  : Installs libusb-win32 as an upper class filter for all
+               classes in the USB enumerator. (Same as -dc in install mode)
+    uninstall: Uninstalls libusb-win32 as an upper class filter for all
+               known classes.  This is a FULL class removal.
+    list     : Displays all known classes.
   --device-classes      (-dc)
-  --class=<guid>        (-c)
-  --device-upper=<hwid> (-duf)
-  --device-lower=<hwid> (-dlf)
-  --inf=<your_file.inf> (-f)
+    install  : Installs libusb-win32 as an upper class filter for all
+               classes in the USB enumerator.
+    uninstall: Uninstalls libusb-win32 as an upper class filter for all
+               classes in the USB enumerator.
+    list     : Displays all classes in the USB enumerator and the devices
+               contained within them.
+  --class=<nameOrGuid>  (-c=)
+    install  : Installs libusb-win32 as an upper class filter for the
+               specified class only.  Classes can be specified by name or
+               guid.
+    uninstall: Uninstalls libusb-win32 as an upper class filter for the
+               specified class only.  Classes can be specified by name or
+               guid.
+    list     : Displays information about the specified classes and the
+               devices contained within them.
 
-WARNING:
+Switches For Devices:
+  --device=<hwid>       (-d=)
+    install  : Installs libusb-win32 as an upper device filter for the
+               specified device.
+    uninstall: Uninstalls libusb-win32 as an upper device filter for the
+               specified device.
+    list     : <NA>
 
-EXAMPLES:
+Other Switches:
+ --inf=<your_file.inf> (-f=)
+    install  :
+    uninstall:
+    list     : <NA>
+
+Warning:
+  Improper use of the libusb-win32 filter driver can cause devices to
+  malfunction or in some cases a complete system failure.
+
+  THIS SOFTWARE IS PROVIDED IN AN “AS IS” CONDITION. NO WARRANTIES,
+  WHETHER EXPRESS, IMPLIED OR STATUTORY, INCLUDING, BUT NOT LIMITED
+  TO, IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A
+  PARTICULAR PURPOSE APPLY TO THIS SOFTWARE. THE COMPANY SHALL NOT,
+  IN ANY CIRCUMSTANCES, BE LIABLE FOR SPECIAL, INCIDENTAL OR
+  CONSEQUENTIAL DAMAGES, FOR ANY REASON WHATSOEVER.
+
+Exampes:
   install-filter install --device-classes
   install-filter uninstall --all-classes
   install-filter list --device-classes
   install-filter install --class={00000000-0000-0000-0000-000000000000}
-  install-filter install "--device-upper=USB\Vid_04d8&Pid_000c&Rev_0000"
-  install-filter install --device-upper=USB\Vid_04d8.Pid_000c.Rev_0000
+  install-filter install "--device=USB\Vid_04d8&Pid_000c&Rev_0000"
+  install-filter install --device=USB\Vid_04d8.Pid_000c.Rev_0000
   install-filter install --inf=your_file.inf
