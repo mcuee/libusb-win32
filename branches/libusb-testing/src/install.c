@@ -905,6 +905,7 @@ bool_t usb_filter_context_from_cmdline(filter_context_t* filter_context,
     bool_t success = TRUE;
     int length;
     char tmp[MAX_PATH+1];
+    char* next_wild_char;
     filter_device_t* found_device;
     filter_file_t* found_inf;
 
@@ -959,6 +960,13 @@ bool_t usb_filter_context_from_cmdline(filter_context_t* filter_context,
                 break;
             }
 
+            next_wild_char = tmp;
+            while(*next_wild_char)
+            {
+                if (*next_wild_char == '.')
+                    *next_wild_char = '&';
+                next_wild_char++;
+            }
             usb_registry_add_filter_device_keys(&filter_context->device_filters, tmp, "", "", &found_device);
             if (!found_device)
             {
