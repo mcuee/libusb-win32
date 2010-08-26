@@ -204,10 +204,6 @@
 				RelativePath="..\src\libusb-win32_version.h"
 				>
 			</File>
-			<File
-				RelativePath="..\src\usb.h"
-				>
-			</File>
 		</Filter>
 		<Filter
 			Name="Resource Files"
