@@ -103,11 +103,12 @@ struct _filter_context_t
         };
     }switches;
 
-	filter_mode_e    filter_mode;
-    filter_mode_e    active_filter_mode;
-	filter_class_t*  class_filters;
-    filter_device_t* device_filters;
-    filter_file_t* inf_files;
+	filter_mode_e       filter_mode;
+    filter_mode_e       filter_mode_main;
+    filter_mode_e       active_filter_mode;
+	filter_class_t*     class_filters;
+    filter_device_t*    device_filters;
+    filter_file_t*      inf_files;
 };
 
 bool_t usb_registry_is_nt(void);

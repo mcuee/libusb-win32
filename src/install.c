@@ -121,6 +121,19 @@ typedef BOOL (WINAPI * update_driver_for_plug_and_play_devices_t)(HWND,
                                                                   LPCSTR,
                                                                   DWORD,
                                                                   PBOOL);
+
+typedef BOOL (WINAPI * rollback_driver_t)(HDEVINFO,
+                                          PSP_DEVINFO_DATA,
+                                          HWND,
+                                          DWORD,
+                                          PBOOL);
+
+typedef BOOL (WINAPI * uninstall_device_t)(HWND,
+                                           HDEVINFO,
+                                           PSP_DEVINFO_DATA,
+                                           DWORD,
+                                           PBOOL);
+
 /* setupapi.dll exports */
 typedef BOOL (WINAPI * setup_copy_oem_inf_t)(PCSTR, PCSTR, DWORD, DWORD,
                                              PSTR, DWORD, PDWORD, PSTR*);
@@ -262,6 +275,258 @@ int usb_uninstall_service(filter_context_t* filter_context)
 int usb_uninstall_service_np(void)
 {
     return usb_install_np(NULL,L"uninstall",0);
+}
+
+int usb_install_inf_np(const char *inf_file, bool_t remove_mode, bool_t copy_oem_inf_mode)
+{
+    HDEVINFO dev_info;
+    SP_DEVINFO_DATA dev_info_data;
+    INFCONTEXT inf_context;
+    HINF inf_handle;
+    DWORD config_flags, problem, status;
+    BOOL reboot;
+    char inf_path[MAX_PATH];
+    char id[MAX_PATH];
+    char tmp_id[MAX_PATH];
+    char *p;
+    int dev_index;
+    HINSTANCE newdev_dll = NULL;
+    HMODULE setupapi_dll = NULL;
+    CONFIGRET cr;
+    update_driver_for_plug_and_play_devices_t UpdateDriverForPlugAndPlayDevices;
+    rollback_driver_t RollBackDriver;
+    uninstall_device_t UninstallDevice;
+    
+    setup_copy_oem_inf_t SetupCopyOEMInf;
+    newdev_dll = LoadLibrary("newdev.dll");
+
+    if (!newdev_dll)
+    {
+        USBERR0("loading newdev.dll failed\n");
+        return -1;
+    }
+
+    UpdateDriverForPlugAndPlayDevices =
+        (update_driver_for_plug_and_play_devices_t)
+        GetProcAddress(newdev_dll, "UpdateDriverForPlugAndPlayDevicesA");
+
+    UninstallDevice =
+        (uninstall_device_t)
+        GetProcAddress(newdev_dll, "DiUninstallDevice");
+
+    RollBackDriver =
+        (rollback_driver_t)
+        GetProcAddress(newdev_dll, "DiRollbackDriver");
+
+     if (!UpdateDriverForPlugAndPlayDevices)
+    {
+        USBERR0("loading newdev.dll failed\n");
+        return -1;
+    }
+
+    setupapi_dll = GetModuleHandle("setupapi.dll");
+
+    if (!setupapi_dll)
+    {
+        USBERR0("loading setupapi.dll failed\n");
+        return -1;
+    }
+    SetupCopyOEMInf = (setup_copy_oem_inf_t)
+        GetProcAddress(setupapi_dll, "SetupCopyOEMInfA");
+
+    if (!SetupCopyOEMInf)
+    {
+        USBERR0("loading setupapi.dll failed\n");
+        return -1;
+    }
+
+    dev_info_data.cbSize = sizeof(SP_DEVINFO_DATA);
+
+
+    /* retrieve the full .inf file path */
+    if (!GetFullPathName(inf_file, MAX_PATH, inf_path, NULL))
+    {
+        USBERR(".inf file %s not found\n",
+            inf_file);
+        return -1;
+    }
+
+    /* open the .inf file */
+    inf_handle = SetupOpenInfFile(inf_path, NULL, INF_STYLE_WIN4, NULL);
+
+    if (inf_handle == INVALID_HANDLE_VALUE)
+    {
+        USBERR("unable to open .inf file %s\n",
+            inf_file);
+        return -1;
+    }
+
+    /* find the .inf file's device description section marked "Devices" */
+    if (!SetupFindFirstLine(inf_handle, "Devices", NULL, &inf_context))
+    {
+        USBERR(".inf file %s does not contain "
+            "any device descriptions\n", inf_file);
+        SetupCloseInfFile(inf_handle);
+        return -1;
+    }
+
+
+    do
+    {
+        /* get the device ID from the .inf file */
+        if (!SetupGetStringField(&inf_context, 2, id, sizeof(id), NULL))
+        {
+            continue;
+        }
+
+        /* convert the string to lowercase */
+        strlwr(id);
+
+        reboot = FALSE;
+
+        if (!remove_mode)
+        {
+            if (copy_oem_inf_mode)
+            {
+                /* copy the .inf file to the system directory so that is will be found */
+                /* when new devices are plugged in */
+                SetupCopyOEMInf(inf_path, NULL, SPOST_PATH, 0, NULL, 0, NULL, NULL);
+            }
+            /* update all connected devices matching this ID, but only if this */
+            /* driver is better or newer */
+            UpdateDriverForPlugAndPlayDevices(NULL, id, inf_path, INSTALLFLAG_FORCE,
+                &reboot);
+        }
+
+        /* now search the registry for device nodes representing currently  */
+        /* unattached devices */
+
+
+        /* get all USB device nodes from the registry, present and non-present */
+        /* devices */
+        dev_info = SetupDiGetClassDevs(NULL, "USB", NULL, DIGCF_ALLCLASSES);
+
+        if (dev_info == INVALID_HANDLE_VALUE)
+        {
+            SetupCloseInfFile(inf_handle);
+            break;
+        }
+
+        dev_index = 0;
+
+        /* enumerate the device list to find all attached and unattached */
+        /* devices */
+        while (SetupDiEnumDeviceInfo(dev_info, dev_index, &dev_info_data))
+        {
+            /* get the harware ID from the registry, this is a multi-zero string */
+            if (SetupDiGetDeviceRegistryProperty(dev_info, &dev_info_data,
+                SPDRP_HARDWAREID, NULL,
+                (BYTE *)tmp_id,
+                sizeof(tmp_id), NULL))
+            {
+                /* check all possible IDs contained in that multi-zero string */
+                for (p = tmp_id; *p; p += (strlen(p) + 1))
+                {
+                    /* convert the string to lowercase */
+                    strlwr(p);
+
+                    /* found a match? */
+                    if (strstr(p, id))
+                    {
+
+                        if (remove_mode)
+                        {
+                            if (RollBackDriver)
+                            {
+                                if (RollBackDriver(dev_info, &dev_info_data, NULL, 0, &reboot))
+                                {
+                                    usb_registry_restart_all_devices();
+                                    break;
+                                }
+                                else
+                                {
+                                    USBERR("failed driver rollback for device %s\n",id);
+                                }
+                            }
+                            if (UninstallDevice)
+                            {
+                                if (UninstallDevice(NULL, dev_info, &dev_info_data, 0, &reboot))
+                                {
+                                    usb_registry_restart_all_devices();
+                                    break;
+                                }
+                                else
+                                {
+                                    USBERR("failed unnistalling device %s\n",id);
+                                }
+                            }
+                            
+                            if (SetupDiRemoveDevice(dev_info, &dev_info_data))
+                            {
+                                usb_registry_restart_all_devices();
+                                break;
+                            }
+                            else
+                            {
+                                USBERR("failed removing device %s\n",id);
+                            }
+
+                        }
+                        else
+                        {
+                            cr = CM_Get_DevNode_Status(&status,
+                                &problem,
+                                dev_info_data.DevInst,
+                                0);
+
+                            /* is this device disconnected? */
+                            if (cr == CR_NO_SUCH_DEVINST)
+                            {
+                                /* found a device node that represents an unattached */
+                                /* device */
+                                if (SetupDiGetDeviceRegistryProperty(dev_info,
+                                    &dev_info_data,
+                                    SPDRP_CONFIGFLAGS,
+                                    NULL,
+                                    (BYTE *)&config_flags,
+                                    sizeof(config_flags),
+                                    NULL))
+                                {
+                                    /* mark the device to be reinstalled the next time it is */
+                                    /* plugged in */
+                                    config_flags |= CONFIGFLAG_REINSTALL;
+
+                                    /* write the property back to the registry */
+                                    SetupDiSetDeviceRegistryProperty(dev_info,
+                                        &dev_info_data,
+                                        SPDRP_CONFIGFLAGS,
+                                        (BYTE *)&config_flags,
+                                        sizeof(config_flags));
+                                }
+                            }
+                        }
+                        /* a match was found, skip the rest */
+                        break;
+                    }
+                }
+            }
+            /* check the next device node */
+            dev_index++;
+        }
+
+        SetupDiDestroyDeviceInfoList(dev_info);
+
+        /* get the next device ID from the .inf file */
+    }
+    while (SetupFindNextLine(&inf_context, &inf_context));
+
+    /* we are done, close the .inf file */
+    SetupCloseInfFile(inf_handle);
+
+    usb_registry_stop_libusb_devices(); /* stop all libusb devices */
+    usb_registry_start_libusb_devices(); /* restart all libusb devices */
+
+    return 0;
 }
 
 int usb_install_driver_np(const char *inf_file)
@@ -928,13 +1193,17 @@ bool_t usb_filter_context_from_cmdline(filter_context_t* filter_context,
         if (get_argument(argv[arg_pos], &arg_param, &arg_value, paramcmd_list))
         {
             filter_context->filter_mode |= FM_LIST;
+            filter_context->filter_mode_main = FM_LIST;
+
         }
         else if (get_argument(argv[arg_pos], &arg_param, &arg_value, paramcmd_install))
         {
+            filter_context->filter_mode_main = FM_INSTALL;
             filter_context->filter_mode |= FM_REMOVE | FM_INSTALL;
         }
         else if (get_argument(argv[arg_pos], &arg_param, &arg_value, paramcmd_uninstall))
         {
+            filter_context->filter_mode_main = FM_REMOVE;
             filter_context->filter_mode |= FM_REMOVE;
         }
         else if (get_argument(argv[arg_pos], &arg_param, &arg_value, paramsw_all_classes))
@@ -1191,6 +1460,22 @@ int usb_install(HWND hwnd, LPCWSTR cmd_line_w, int starg_arg, filter_context_t**
                     break;
                 }
             }
+            if (filter_context->filter_mode_main == FM_REMOVE)
+            {
+                filter_file = filter_context->inf_files;
+                while (filter_file)
+                {
+                    USBMSG("uninstalling inf %s..\n",filter_file->name);
+                    if (usb_install_inf_np(filter_file->name, TRUE, FALSE) < 0)
+                    {
+                        ret = -1;
+                        break;
+                    }
+                    filter_file = filter_file->next; 
+                }
+                if (ret == -1)
+                    break;
+            }
         }
         else if (filter_context->filter_mode & FM_INSTALL)
         {
@@ -1224,20 +1509,22 @@ int usb_install(HWND hwnd, LPCWSTR cmd_line_w, int starg_arg, filter_context_t**
                     break;
                 }
             }
-
-            filter_file = filter_context->inf_files;
-            while (filter_file)
+            if (filter_context->filter_mode_main == FM_INSTALL)
             {
-                USBMSG("installing inf %s..\n",filter_file->name);
-                if (usb_install_driver_np(filter_file->name) != ERROR_SUCCESS)
+                filter_file = filter_context->inf_files;
+                while (filter_file)
                 {
-                    ret = -1;
-                    break;
+                    USBMSG("installing inf %s..\n",filter_file->name);
+                    if (usb_install_inf_np(filter_file->name, FALSE, FALSE) < 0)
+                    {
+                        ret = -1;
+                        break;
+                    }
+                    filter_file = filter_file->next; 
                 }
-                filter_file = filter_file->next; 
+                if (ret == -1)
+                    break;
             }
-            if (ret == -1)
-                break;
         }
         else if (filter_context->filter_mode & FM_LIST)
         {
