@@ -68,13 +68,6 @@ static const char *default_class_keys_nt[] =
 static bool_t usb_registry_set_device_state(DWORD state, HDEVINFO dev_info,
         SP_DEVINFO_DATA *dev_info_data);
 
-static bool_t usb_registry_add_class_key(filter_class_t **head,
-                                         const char *key,
-                                         const char *class_name,
-                                         const char *class_guid,
-                                         filter_class_t **found,
-                                         bool_t update_only);
-
 static bool_t usb_registry_get_filter_device_keys(filter_class_t* filter_class,
                                              HDEVINFO dev_info,
                                              SP_DEVINFO_DATA *dev_info_data,
@@ -1330,12 +1323,69 @@ bool_t usb_registry_get_all_class_keys(filter_context_t* filter_context, bool_t 
     return TRUE;
 }
 
-static bool_t usb_registry_add_class_key(filter_class_t **head,
-                                         const char *key,
-                                         const char *class_name,
-                                         const char *class_guid,
-                                         filter_class_t **found,
-                                         bool_t update_only)
+bool_t usb_registry_lookup_class_keys_by_name(filter_class_t** head)
+{
+    const char *class_path;
+    HKEY reg_key, reg_class_key;
+    char class[MAX_PATH];
+    char class_name[MAX_PATH];
+    char tmp[MAX_PATH];
+    filter_class_t* found = NULL;
+    DWORD reg_type;
+
+    if (usb_registry_is_nt())
+    {
+        class_path = CLASS_KEY_PATH_NT;
+    }
+    else
+    {
+        class_path = CLASS_KEY_PATH_9X;
+    }
+
+    if (RegOpenKeyEx(HKEY_LOCAL_MACHINE, class_path, 0, KEY_ALL_ACCESS,
+                     &reg_key) == ERROR_SUCCESS)
+    {
+        DWORD i = 0;
+        DWORD size = sizeof(class);
+        FILETIME junk;
+
+        memset(class, 0, sizeof(class));
+
+        while (RegEnumKeyEx(reg_key, i, class, &size, 0, NULL, NULL, &junk) == ERROR_SUCCESS)
+        {
+            strlwr(class);
+
+            if ((strlen(class_path) + strlen(class)) < sizeof(tmp))
+            {
+                memset(class_name,0,sizeof(class_name));
+                sprintf(tmp, "%s%s", class_path, class);
+                if (RegOpenKeyEx(HKEY_LOCAL_MACHINE, tmp, 0, KEY_ALL_ACCESS, &reg_class_key) == ERROR_SUCCESS)
+                {
+                    size = sizeof(class_name);
+                    RegQueryValueExA(reg_class_key, "Class", NULL, &reg_type, class_name, &size);
+                    RegCloseKey(reg_class_key);
+
+                    usb_registry_add_class_key(head, tmp, class_name, class, &found, TRUE);
+                }
+            }
+
+            memset(class, 0, sizeof(class));
+            size = sizeof(class);
+            i++;
+        }
+
+        RegCloseKey(reg_key);
+    }
+
+    return TRUE;
+}
+
+bool_t usb_registry_add_class_key(filter_class_t **head,
+                                  const char *key,
+                                  const char *class_name,
+                                  const char *class_guid,
+                                  filter_class_t **found,
+                                  bool_t update_only)
 {
     filter_class_t *p = *head;
     *found = NULL;
@@ -1347,16 +1397,27 @@ static bool_t usb_registry_add_class_key(filter_class_t **head,
 
         while (p)
         {
-            if (!strcmp(p->name, key))
+            if (!strlen(p->name))
             {
-                strcpy(p->class_guid, class_guid);
-                if ((!p->class_name) || strlen(p->class_name)==0)
+                if (!_stricmp(p->class_name, class_name))
                 {
-                    strcpy(p->class_name, class_name);
+                    *found = p;
                 }
+            }
+            else
+            {
+                if (!strcmp(p->name, key))
+                {
+                    *found = p;
+                }
+            }
+            if (*found)
+            {
+                strcpy(p->name, key);
+                strcpy(p->class_guid, class_guid);
+                strcpy(p->class_name, class_name);
 
-                *found = p;
-                return FALSE;
+                return TRUE;
             }
             p = p->next;
         }

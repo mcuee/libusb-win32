@@ -1172,6 +1172,7 @@ bool_t usb_filter_context_from_cmdline(filter_context_t* filter_context,
     char tmp[MAX_PATH+1];
     char* next_wild_char;
     filter_device_t* found_device;
+    filter_class_t* found_class;
     filter_file_t* found_inf;
 
     *arg_cnt = 0;
@@ -1273,32 +1274,53 @@ bool_t usb_filter_context_from_cmdline(filter_context_t* filter_context,
 
             if ((!arg_value) || wcslen(arg_value) != 38)
             {
-               USBERR("invalid guid length %ls\n",argv[arg_pos]);
-               success = FALSE;
-            }
-            if (arg_value[0]!='{' || arg_value[wcslen(arg_value)-1]!='}')
-            {
-                USBERR("invalid guid terminators. use '{' and '}'. %ls\n",argv[arg_pos]);
                 success = FALSE;
             }
-            if (!success)
+            else if (arg_value[0]!='{' || arg_value[wcslen(arg_value)-1]!='}')
             {
-                break;
-            }
-            memset(tmp,0,sizeof(tmp));
-            length = WideCharToMultiByte(CP_ACP,0,
-                arg_value,(int)wcslen(arg_value),
-                tmp,MAX_PATH,
-                NULL,NULL);
-
-            if (length != wcslen(arg_value))
-            {
-                USBERR("failed WideCharToMultiByte %ls\n",argv[arg_pos]);
                 success = FALSE;
+            }
+            if (!success && arg_value && wcslen(arg_value))
+            {
+                // match using the class name
+                success = TRUE;
+                memset(tmp,0,sizeof(tmp));
+                length = WideCharToMultiByte(CP_ACP,0,
+                    arg_value,(int)wcslen(arg_value),
+                    tmp,MAX_PATH,
+                    NULL,NULL);
+
+                if (length != wcslen(arg_value))
+                {
+                    USBERR("failed WideCharToMultiByte %ls\n",argv[arg_pos]);
+                    success = FALSE;
+                    break;
+                }
+                usb_registry_add_class_key(&filter_context->class_filters, "", tmp, "", &found_class, FALSE);
+            }
+            else if (success)
+            {
+                // match using the class guid
+                memset(tmp,0,sizeof(tmp));
+                length = WideCharToMultiByte(CP_ACP,0,
+                    arg_value,(int)wcslen(arg_value),
+                    tmp,MAX_PATH,
+                    NULL,NULL);
+
+                if (length != wcslen(arg_value))
+                {
+                    USBERR("failed WideCharToMultiByte %ls\n",argv[arg_pos]);
+                    success = FALSE;
+                    break;
+                }
+                usb_registry_add_usb_class_key(filter_context,tmp);
+            }
+            else
+            {
+                success = FALSE;
+                USBERR("invalid argument %ls\n",argv[arg_pos]);
                 break;
             }
-            usb_registry_add_usb_class_key(filter_context,tmp);
-
         }
         else if (get_argument(argv[arg_pos], &arg_param, &arg_value, paramsw_inf))
         {
@@ -1332,6 +1354,10 @@ bool_t usb_filter_context_from_cmdline(filter_context_t* filter_context,
     }
 
 Done:
+    if (success && filter_context->class_filters)
+    {
+        usb_registry_lookup_class_keys_by_name(&filter_context->class_filters);
+    }
     if (argv)
     {
         LocalFree(argv);
@@ -1402,10 +1428,21 @@ int usb_install(HWND hwnd, LPCWSTR cmd_line_w, int starg_arg, filter_context_t**
         if (arg_cnt <= starg_arg)
         {
             usage();
+            ret = -1;
+            goto Done;
         }
-        return -1;
+        ret = -1;
+        goto Done;
     }
 
+    if (!filter_context->filter_mode)
+    {
+        USBERR("command not specified. Use %ls, %ls, or %ls.\n",
+            paramcmd_list[0], paramcmd_install[0], paramcmd_uninstall[0]);
+        ret = -1;
+        goto Done;
+
+    }
     /* only add the default class keys if there is nothing else to do. */
     if (filter_context->class_filters || 
         filter_context->device_filters ||
@@ -1550,6 +1587,7 @@ int usb_install(HWND hwnd, LPCWSTR cmd_line_w, int starg_arg, filter_context_t**
 
     }
 
+Done:
     if (out_filter_context && ret == ERROR_SUCCESS)
     {
         *out_filter_context = filter_context;
@@ -1557,6 +1595,10 @@ int usb_install(HWND hwnd, LPCWSTR cmd_line_w, int starg_arg, filter_context_t**
     else
     {
         usb_install_destroy_filter_context(&filter_context);
+        if (out_filter_context)
+        {
+            *out_filter_context = NULL;
+        }
     }
 
     return ret;

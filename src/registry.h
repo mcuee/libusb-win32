@@ -173,6 +173,14 @@ bool_t usb_registry_add_filter_file_keys(filter_file_t** head,
                                          const char* name,
                                          filter_file_t** found);
 
+bool_t usb_registry_lookup_class_keys_by_name(filter_class_t** head);
+bool_t usb_registry_add_class_key(filter_class_t **head,
+                                  const char *key,
+                                  const char *class_name,
+                                  const char *class_guid,
+                                  filter_class_t **found,
+                                  bool_t update_only);
+
 bool_t usb_registry_insert_device_filters(filter_context_t* filter_context);
 bool_t usb_registry_insert_device_filter(filter_context_t* filter_context, bool_t upper, 
                                       HDEVINFO dev_info, SP_DEVINFO_DATA *dev_info_data);
