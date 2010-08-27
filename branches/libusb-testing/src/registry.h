@@ -152,6 +152,9 @@ bool_t usb_registry_get_hardware_id(HDEVINFO dev_info,
 bool_t usb_registry_is_service_libusb(HDEVINFO dev_info,
 									  SP_DEVINFO_DATA *dev_info_data,
 									  bool_t* is_libusb_service);
+bool_t usb_registry_is_service_or_filter_libusb(HDEVINFO dev_info,
+												SP_DEVINFO_DATA *dev_info_data,
+												bool_t* is_libusb_service);
 
 bool_t usb_registry_insert_class_filter(filter_context_t* filter_context);
 bool_t usb_registry_remove_class_filter(filter_context_t* filter_context);
