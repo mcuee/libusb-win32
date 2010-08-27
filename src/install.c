@@ -266,15 +266,63 @@ int usb_uninstall_service(filter_context_t* filter_context)
 	/* remove class filter driver */
 	usb_registry_remove_class_filter(filter_context);
 
-	/* unload filter drivers */
-	usb_registry_restart_all_devices();
-
+	if (!(filter_context->filter_mode & FM_INSTALL))
+	{
+		/* unload filter drivers */
+		usb_registry_restart_all_devices();
+	}
 	return 0;
 }
 
 int usb_uninstall_service_np(void)
 {
 	return usb_install_np(NULL,L"uninstall",0);
+}
+
+BOOL usb_setup_find_model_section(HINF inf_handle, PINFCONTEXT inf_context)
+{
+	char model_section_name[MAX_PATH];
+	char model_section_name_tmp[MAX_PATH];
+	BOOL found_model_section_name = FALSE;
+
+	/* find the .inf file's device description section marked "Devices" */
+	if (SetupFindFirstLine(inf_handle, "Manufacturer", NULL, inf_context))
+	{
+		if(SetupGetStringField(inf_context, 1, model_section_name, sizeof(model_section_name), NULL))
+		{
+			USBDBG("model-section-name=%s\n",model_section_name);
+			
+			found_model_section_name = SetupFindFirstLine(inf_handle, model_section_name, NULL, inf_context);
+			if (!found_model_section_name)
+			{
+				strcpy(model_section_name_tmp, model_section_name);
+				strcat_s(model_section_name_tmp, sizeof(model_section_name_tmp), ".NT");
+				found_model_section_name = SetupFindFirstLine(inf_handle, model_section_name_tmp, NULL, inf_context);
+			}
+			if (!found_model_section_name)
+			{
+				strcpy(model_section_name_tmp, model_section_name);
+				strcat_s(model_section_name_tmp, sizeof(model_section_name_tmp), ".NTX86");
+				found_model_section_name = SetupFindFirstLine(inf_handle, model_section_name_tmp, NULL, inf_context);
+			}
+			if (!found_model_section_name)
+			{
+				strcpy(model_section_name_tmp, model_section_name);
+				strcat_s(model_section_name_tmp, sizeof(model_section_name_tmp), ".NTAMD64");
+				found_model_section_name = SetupFindFirstLine(inf_handle, model_section_name_tmp, NULL, inf_context);
+			}
+		}
+		else
+		{
+			USBERR0(".inf file does not contain a valid model-section-name\n");
+		}
+	}
+	else
+	{
+		USBERR0(".inf file does not contain a valid Manufacturer section\n");
+	}
+
+	return found_model_section_name;
 }
 
 int usb_install_inf_np(const char *inf_file, bool_t remove_mode, bool_t copy_oem_inf_mode)
@@ -296,44 +344,33 @@ int usb_install_inf_np(const char *inf_file, bool_t remove_mode, bool_t copy_oem
 	update_driver_for_plug_and_play_devices_t UpdateDriverForPlugAndPlayDevices;
 	rollback_driver_t RollBackDriver;
 	uninstall_device_t UninstallDevice;
-
+	bool_t usb_reset_required = FALSE;
+	int field_index;
 	setup_copy_oem_inf_t SetupCopyOEMInf;
-	newdev_dll = LoadLibrary("newdev.dll");
 
+	newdev_dll = LoadLibrary("newdev.dll");
 	if (!newdev_dll)
 	{
 		USBERR0("loading newdev.dll failed\n");
 		return -1;
 	}
 
-	UpdateDriverForPlugAndPlayDevices =
-		(update_driver_for_plug_and_play_devices_t)
-		GetProcAddress(newdev_dll, "UpdateDriverForPlugAndPlayDevicesA");
-
-	UninstallDevice =
-		(uninstall_device_t)
-		GetProcAddress(newdev_dll, "DiUninstallDevice");
-
-	RollBackDriver =
-		(rollback_driver_t)
-		GetProcAddress(newdev_dll, "DiRollbackDriver");
-
+	UpdateDriverForPlugAndPlayDevices = (update_driver_for_plug_and_play_devices_t)GetProcAddress(newdev_dll, "UpdateDriverForPlugAndPlayDevicesA");
 	if (!UpdateDriverForPlugAndPlayDevices)
 	{
 		USBERR0("loading newdev.dll failed\n");
 		return -1;
 	}
+	UninstallDevice = (uninstall_device_t)GetProcAddress(newdev_dll, "DiUninstallDevice");
+	RollBackDriver = (rollback_driver_t)GetProcAddress(newdev_dll, "DiRollbackDriver");
 
 	setupapi_dll = GetModuleHandle("setupapi.dll");
-
 	if (!setupapi_dll)
 	{
 		USBERR0("loading setupapi.dll failed\n");
 		return -1;
 	}
-	SetupCopyOEMInf = (setup_copy_oem_inf_t)
-		GetProcAddress(setupapi_dll, "SetupCopyOEMInfA");
-
+	SetupCopyOEMInf = (setup_copy_oem_inf_t)GetProcAddress(setupapi_dll, "SetupCopyOEMInfA");
 	if (!SetupCopyOEMInf)
 	{
 		USBERR0("loading setupapi.dll failed\n");
@@ -361,170 +398,188 @@ int usb_install_inf_np(const char *inf_file, bool_t remove_mode, bool_t copy_oem
 		return -1;
 	}
 
-	/* find the .inf file's device description section marked "Devices" */
-	if (!SetupFindFirstLine(inf_handle, "Devices", NULL, &inf_context))
+	if (!usb_setup_find_model_section(inf_handle, &inf_context))
 	{
-		USBERR(".inf file %s does not contain "
-			"any device descriptions\n", inf_file);
 		SetupCloseInfFile(inf_handle);
 		return -1;
 	}
 
-
 	do
 	{
 		/* get the device ID from the .inf file */
-		if (!SetupGetStringField(&inf_context, 2, id, sizeof(id), NULL))
+
+		field_index = 2;
+		while(SetupGetStringField(&inf_context, field_index++, id, sizeof(id), NULL))
 		{
-			continue;
-		}
+			/* convert the string to lowercase */
+			strlwr(id);
 
-		/* convert the string to lowercase */
-		strlwr(id);
-
-		reboot = FALSE;
-
-		if (!remove_mode)
-		{
-			if (copy_oem_inf_mode)
+			if (strncmp(id,"usb\\", 4) != 0)
 			{
-				/* copy the .inf file to the system directory so that is will be found */
-				/* when new devices are plugged in */
-				SetupCopyOEMInf(inf_path, NULL, SPOST_PATH, 0, NULL, 0, NULL, NULL);
+				USBERR("invalid hardware id %s\n", id);
+				SetupCloseInfFile(inf_handle);
+				return -1;
 			}
-			/* update all connected devices matching this ID, but only if this */
-			/* driver is better or newer */
-			UpdateDriverForPlugAndPlayDevices(NULL, id, inf_path, INSTALLFLAG_FORCE,
-				&reboot);
-		}
 
-		/* now search the registry for device nodes representing currently  */
-		/* unattached devices */
+			USBMSG("%s device %s..\n",
+				remove_mode ? "removing" : "installing", id+4);
 
+			reboot = FALSE;
 
-		/* get all USB device nodes from the registry, present and non-present */
-		/* devices */
-		dev_info = SetupDiGetClassDevs(NULL, "USB", NULL, DIGCF_ALLCLASSES);
-
-		if (dev_info == INVALID_HANDLE_VALUE)
-		{
-			SetupCloseInfFile(inf_handle);
-			break;
-		}
-
-		dev_index = 0;
-
-		/* enumerate the device list to find all attached and unattached */
-		/* devices */
-		while (SetupDiEnumDeviceInfo(dev_info, dev_index, &dev_info_data))
-		{
-			/* get the harware ID from the registry, this is a multi-zero string */
-			if (SetupDiGetDeviceRegistryProperty(dev_info, &dev_info_data,
-				SPDRP_HARDWAREID, NULL,
-				(BYTE *)tmp_id,
-				sizeof(tmp_id), NULL))
+			if (!remove_mode)
 			{
-				/* check all possible IDs contained in that multi-zero string */
-				for (p = tmp_id; *p; p += (strlen(p) + 1))
+				if (copy_oem_inf_mode)
 				{
-					/* convert the string to lowercase */
-					strlwr(p);
-
-					/* found a match? */
-					if (strstr(p, id))
+					/* copy the .inf file to the system directory so that is will be found */
+					/* when new devices are plugged in */
+					if (SetupCopyOEMInf(inf_path, NULL, SPOST_PATH, 0, NULL, 0, NULL, NULL))
 					{
+						USBDBG("SetupCopyOEMInf failed for %s\n",inf_path);
+					}
+					else
+					{
+						USBDBG(".inf file %s copied to system directory\n",inf_path);
+					}
+				}
+				/* update all connected devices matching this ID, but only if this */
+				/* driver is better or newer */
+				UpdateDriverForPlugAndPlayDevices(NULL, id, inf_path, INSTALLFLAG_FORCE,
+					&reboot);
+			}
 
-						if (remove_mode)
+			/* now search the registry for device nodes representing currently  */
+			/* unattached devices or remove devices depending on the mode */
+
+			/* get all USB device nodes from the registry, present and non-present */
+			/* devices */
+			dev_info = SetupDiGetClassDevs(NULL, "USB", NULL, DIGCF_ALLCLASSES);
+
+			if (dev_info == INVALID_HANDLE_VALUE)
+			{
+				SetupCloseInfFile(inf_handle);
+				return -1;
+			}
+
+			dev_index = 0;
+
+			/* enumerate the device list to find all attached and unattached */
+			/* devices */
+			while (SetupDiEnumDeviceInfo(dev_info, dev_index, &dev_info_data))
+			{
+				/* get the harware ID from the registry, this is a multi-zero string */
+				if (SetupDiGetDeviceRegistryProperty(dev_info, &dev_info_data,
+					SPDRP_HARDWAREID, NULL,
+					(BYTE *)tmp_id,
+					sizeof(tmp_id), NULL))
+				{
+					/* check all possible IDs contained in that multi-zero string */
+					for (p = tmp_id; *p; p += (strlen(p) + 1))
+					{
+						/* convert the string to lowercase */
+						strlwr(p);
+
+						/* found a match? */
+						if (strstr(p, id))
 						{
-							if (RollBackDriver)
+							if (remove_mode)
 							{
-								if (RollBackDriver(dev_info, &dev_info_data, NULL, 0, &reboot))
+								if (RollBackDriver)
 								{
-									usb_registry_restart_all_devices();
-									break;
+									if (RollBackDriver(dev_info, &dev_info_data, NULL, 0, &reboot))
+									{
+										break;
+									}
+									else
+									{
+										USBERR("failed driver rollback for device %s\n", p);
+									}
 								}
-								else
+								if (UninstallDevice)
 								{
-									USBERR("failed driver rollback for device %s\n",id);
+									if (UninstallDevice(NULL, dev_info, &dev_info_data, 0, &reboot))
+									{
+										usb_reset_required = TRUE;
+										break;
+									}
+									else
+									{
+										USBERR("failed unnistalling device %s\n", p);
+									}
 								}
-							}
-							if (UninstallDevice)
-							{
-								if (UninstallDevice(NULL, dev_info, &dev_info_data, 0, &reboot))
-								{
-									usb_registry_restart_all_devices();
-									break;
-								}
-								else
-								{
-									USBERR("failed unnistalling device %s\n",id);
-								}
-							}
 
-							if (SetupDiRemoveDevice(dev_info, &dev_info_data))
-							{
-								usb_registry_restart_all_devices();
-								break;
+								if (SetupDiRemoveDevice(dev_info, &dev_info_data))
+								{
+									usb_reset_required = TRUE;
+									break;
+								}
+								else
+								{
+									USBERR("failed removing device %s\n", p);
+								}
+
 							}
 							else
 							{
-								USBERR("failed removing device %s\n",id);
-							}
+								cr = CM_Get_DevNode_Status(&status,
+									&problem,
+									dev_info_data.DevInst,
+									0);
 
-						}
-						else
-						{
-							cr = CM_Get_DevNode_Status(&status,
-								&problem,
-								dev_info_data.DevInst,
-								0);
-
-							/* is this device disconnected? */
-							if (cr == CR_NO_SUCH_DEVINST)
-							{
-								/* found a device node that represents an unattached */
-								/* device */
-								if (SetupDiGetDeviceRegistryProperty(dev_info,
-									&dev_info_data,
-									SPDRP_CONFIGFLAGS,
-									NULL,
-									(BYTE *)&config_flags,
-									sizeof(config_flags),
-									NULL))
+								/* is this device disconnected? */
+								if (cr == CR_NO_SUCH_DEVINST)
 								{
-									/* mark the device to be reinstalled the next time it is */
-									/* plugged in */
-									config_flags |= CONFIGFLAG_REINSTALL;
-
-									/* write the property back to the registry */
-									SetupDiSetDeviceRegistryProperty(dev_info,
+									/* found a device node that represents an unattached */
+									/* device */
+									if (SetupDiGetDeviceRegistryProperty(dev_info,
 										&dev_info_data,
 										SPDRP_CONFIGFLAGS,
+										NULL,
 										(BYTE *)&config_flags,
-										sizeof(config_flags));
+										sizeof(config_flags),
+										NULL))
+									{
+										/* mark the device to be reinstalled the next time it is */
+										/* plugged in */
+										config_flags |= CONFIGFLAG_REINSTALL;
+
+										/* write the property back to the registry */
+										SetupDiSetDeviceRegistryProperty(dev_info,
+											&dev_info_data,
+											SPDRP_CONFIGFLAGS,
+											(BYTE *)&config_flags,
+											sizeof(config_flags));
+									}
 								}
 							}
+							/* a match was found, skip the rest */
+							break;
 						}
-						/* a match was found, skip the rest */
-						break;
 					}
 				}
+				/* check the next device node */
+				dev_index++;
 			}
-			/* check the next device node */
-			dev_index++;
+
+			SetupDiDestroyDeviceInfoList(dev_info);
+
+			/* get the next device ID from the .inf file */
 		}
-
-		SetupDiDestroyDeviceInfoList(dev_info);
-
-		/* get the next device ID from the .inf file */
 	}
 	while (SetupFindNextLine(&inf_context, &inf_context));
 
 	/* we are done, close the .inf file */
 	SetupCloseInfFile(inf_handle);
 
-	usb_registry_stop_libusb_devices(); /* stop all libusb devices */
-	usb_registry_start_libusb_devices(); /* restart all libusb devices */
+	if (usb_reset_required)
+	{
+		usb_registry_restart_all_devices();
+	}
+	else if (!remove_mode)
+	{
+		usb_registry_stop_libusb_devices(); /* stop all libusb devices */
+		usb_registry_start_libusb_devices(); /* restart all libusb devices */
+	}
+
 
 	return 0;
 }

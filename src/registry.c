@@ -505,7 +505,7 @@ bool_t usb_registry_insert_device_filters(filter_context_t* filter_context)
 
 	while (SetupDiEnumDeviceInfo(dev_info, dev_index, &dev_info_data))
 	{
-		if (usb_registry_is_service_libusb(dev_info, &dev_info_data, &is_libusb_service))
+		if (usb_registry_is_service_or_filter_libusb(dev_info, &dev_info_data, &is_libusb_service))
 		{
 			if (!is_libusb_service)
 			{
@@ -660,6 +660,34 @@ bool_t usb_registry_is_service_libusb(HDEVINFO dev_info,
 	return TRUE;
 }
 
+bool_t usb_registry_is_service_or_filter_libusb(HDEVINFO dev_info,
+												SP_DEVINFO_DATA *dev_info_data,
+												bool_t* is_libusb_service)
+{
+	char service_name[MAX_PATH];
+	const char* driver_name;
+	filter_type_e filter_type;
+
+	driver_name = USB_GET_DRIVER_NAME();
+	*is_libusb_service = FALSE;
+	if (!usb_registry_get_property(SPDRP_SERVICE, dev_info, dev_info_data,
+		service_name, sizeof(service_name)))
+	{
+		return FALSE;
+	}
+
+	if (_stricmp(service_name, driver_name)==0)
+	{
+		*is_libusb_service = TRUE;
+	}
+	else if ((usb_registry_get_device_filter_type(dev_info, dev_info_data, &filter_type)) && filter_type != FT_NONE)
+	{
+		*is_libusb_service = TRUE;
+	}
+
+	return TRUE;
+}
+
 void usb_registry_stop_libusb_devices(void)
 {
 	HDEVINFO dev_info;
@@ -682,7 +710,7 @@ void usb_registry_stop_libusb_devices(void)
 	USBMSG0("stopping devices..\n");
 	while (SetupDiEnumDeviceInfo(dev_info, dev_index, &dev_info_data))
 	{
-		if (usb_registry_is_service_libusb(dev_info, &dev_info_data, &is_libusb_service))
+		if (usb_registry_is_service_or_filter_libusb(dev_info, &dev_info_data, &is_libusb_service))
 		{
 			if (is_libusb_service)
 			{
@@ -717,7 +745,7 @@ void usb_registry_start_libusb_devices(void)
 	USBMSG0("starting devices..\n");
 	while (SetupDiEnumDeviceInfo(dev_info, dev_index, &dev_info_data))
 	{
-		if (usb_registry_is_service_libusb(dev_info, &dev_info_data, &is_libusb_service))
+		if (usb_registry_is_service_or_filter_libusb(dev_info, &dev_info_data, &is_libusb_service))
 		{
 			if (is_libusb_service)
 			{
@@ -1170,7 +1198,7 @@ bool_t usb_registry_get_usb_class_keys(filter_context_t* filter_context, bool_t 
 	filter_device_t* found_device = NULL;
 	bool_t is_libusb_service;
 	bool_t add_device_classes = FALSE;
-
+	bool_t success;
 
 	class_property = SPDRP_CLASSGUID;
 	class_path = CLASS_KEY_PATH_NT;
@@ -1210,7 +1238,12 @@ bool_t usb_registry_get_usb_class_keys(filter_context_t* filter_context, bool_t 
 
 		while (SetupDiEnumDeviceInfo(dev_info, dev_index, &dev_info_data))
 		{
-			if (usb_registry_is_service_libusb(dev_info, &dev_info_data, &is_libusb_service))
+			if (filter_context->active_filter_mode == FM_INSTALL)
+				success = usb_registry_is_service_or_filter_libusb(dev_info, &dev_info_data, &is_libusb_service);
+			else
+				success = usb_registry_is_service_libusb(dev_info, &dev_info_data, &is_libusb_service);
+			
+			if (success)
 			{
 				if (!is_libusb_service)
 				{
