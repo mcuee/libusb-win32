@@ -54,7 +54,7 @@ void usb_log_v	(enum USB_LOG_LEVEL level, const char* function, const char* form
 void _usb_log	(enum USB_LOG_LEVEL level, const char* app_name, const char* function, const char* format, ...);
 void _usb_log_v	(enum USB_LOG_LEVEL level, const char* app_name, const char* function, const char* format, va_list args);
 
-static void usb_log_def_handler(enum USB_LOG_LEVEL level, 
+static int usb_log_def_handler(enum USB_LOG_LEVEL level, 
 								const char* app_name, 
 								const char* prefix, 
 								const char* func, 
@@ -84,6 +84,7 @@ static const char *skipped_function_prefix_list[] =
 };
 
 int usb_error_errno = 0;
+log_hander_t user_log_hander = NULL;
 
 #if (defined(_DEBUG) || defined(DEBUG) || defined(DBG))
 int __usb_log_level = LOG_LEVEL_MAX;
@@ -246,6 +247,9 @@ void _usb_log_v(enum USB_LOG_LEVEL level,
     buffer = local_buffer;
     totalCount = 0;
     count = 0;
+    prefix = log_level_string[masked_level];
+	func = function;
+	app_prefix_func_end = 0;
 
     if (masked_level > LOG_LEVEL_MAX) masked_level = LOG_LEVEL_MAX;
 
@@ -260,7 +264,6 @@ void _usb_log_v(enum USB_LOG_LEVEL level,
     }
     else
     {
-        prefix = log_level_string[masked_level];
 #ifdef LOG_STYLE_SHORT
         if ((prefix) && strlen(prefix))
         {
@@ -328,10 +331,15 @@ void _usb_log_v(enum USB_LOG_LEVEL level,
     }
 #endif
 
-    if (__usb_log_level >= masked_level)
-    {
+	if (user_log_hander)
+	{
+		if (user_log_hander(level, app_name, prefix, func, app_prefix_func_end, local_buffer, totalCount))
+			return;
+	}
+	if (__usb_log_level >= masked_level)
+	{
 		usb_log_def_handler(level, app_name, prefix, func, app_prefix_func_end, local_buffer, totalCount);
-    }
+	}
 }
 
 void usb_log_set_level(enum USB_LOG_LEVEL level)
@@ -353,7 +361,7 @@ int usb_log_get_level()
 
 /* Default log handler
 */
-static void usb_log_def_handler(enum USB_LOG_LEVEL level, 
+static int usb_log_def_handler(enum USB_LOG_LEVEL level, 
 								const char* app_name, 
 								const char* prefix, 
 								const char* func, 
@@ -394,9 +402,15 @@ static void usb_log_def_handler(enum USB_LOG_LEVEL level,
 
 #endif // IS_DRIVER
 
-
+	return 1;
 }
 
-void  _usb_log_do_nothing(void)
+void usb_log_set_handler(log_hander_t log_hander)
 {
+	user_log_hander = log_hander;
+}
+
+log_hander_t usb_log_get_handler(void)
+{
+	return user_log_hander;
 }
