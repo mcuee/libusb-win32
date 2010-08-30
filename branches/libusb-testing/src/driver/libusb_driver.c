@@ -28,6 +28,7 @@
 const char* attached_driver_skip_list[] = 
 {
 	"\\driver\\picopp",
+	"\\driver\\libusb0",
 	NULL
 };
 
@@ -128,8 +129,6 @@ NTSTATUS DDKAPI add_device(DRIVER_OBJECT *driver_object,
 	int i;
 	DEVICE_OBJECT* attached_device;
 
-	attached_device = physical_device_object->AttachedDevice;
-
     /* get the hardware ID from the registry */
     if (!reg_get_hardware_id(physical_device_object, id, sizeof(id)))
     {
@@ -159,11 +158,11 @@ NTSTATUS DDKAPI add_device(DRIVER_OBJECT *driver_object,
         return STATUS_SUCCESS;
     }
 
+	attached_device = physical_device_object->AttachedDevice;
 #ifdef DBG
-	debug_show_devices(physical_device_object, 0, FALSE);
+	debug_show_devices(attached_device, 0, FALSE);
 #endif
-
-	if (attached_device)
+	while (attached_device)
 	{
 		for (i=0; attached_driver_skip_list[i] != NULL; i++)
 		{
@@ -173,6 +172,8 @@ NTSTATUS DDKAPI add_device(DRIVER_OBJECT *driver_object,
 				return STATUS_SUCCESS;
 			}
 		}
+
+		attached_device=attached_device->AttachedDevice;
 	}
 
 	device_object = IoGetAttachedDeviceReference(physical_device_object);
@@ -256,11 +257,11 @@ NTSTATUS DDKAPI add_device(DRIVER_OBJECT *driver_object,
         return STATUS_SUCCESS;
 	}
 
-	if (dev->is_filter && !attached_device)
+	if (dev->is_filter && !physical_device_object->AttachedDevice)
 	{
 		USBWRN("[FILTER-MODE-MISMATCH] device is reporting itself as filter when there are no attached device(s).\n%s\n", id);
 	}
-	else if (!dev->is_filter && attached_device)
+	else if (!dev->is_filter && physical_device_object->AttachedDevice)
 	{
 		USBWRN("[FILTER-MODE-MISMATCH] device is reporting itself as normal when there are already attached device(s).\n%s\n", id);
 		//dev->is_filter = TRUE;
