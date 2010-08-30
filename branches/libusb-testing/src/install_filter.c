@@ -41,7 +41,7 @@ int main()
         goto Done;
     }
 
-    usb_install_np(NULL, command_line_w, 1);
+    usb_install_np(NULL, NULL, command_line_w, 1);
 
 Done:
     return 0;

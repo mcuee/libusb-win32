@@ -1020,6 +1020,7 @@ bool_t usb_registry_restart_all_devices(void)
 	SP_DEVINFO_DATA dev_info_data;
 	int dev_index;
 	char id[MAX_PATH];
+	int hub_index = 0;
 
 	dev_index = 0;
 	dev_info_data.cbSize = sizeof(SP_DEVINFO_DATA);
@@ -1047,6 +1048,7 @@ bool_t usb_registry_restart_all_devices(void)
 		/* restart root hubs */
 		if (usb_registry_mz_string_find_sub(id, "root_hub"))
 		{
+			USBMSG("restarting root hub #%d..\n",++hub_index);
 			usb_registry_restart_device(dev_info, &dev_info_data);
 		}
 
