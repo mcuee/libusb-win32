@@ -386,7 +386,7 @@ extern "C"
     int usb_install_needs_restart_np(void);
 
 #define LIBUSB_HAS_INSTALL_NP 1
-    int usb_install_np(HWND hwnd, LPCWSTR cmd_line, int starg_arg);
+    int usb_install_np(HWND hwnd, HINSTANCE instance, LPCWSTR cmd_line, int starg_arg);
     void CALLBACK usb_install_np_rundll(HWND wnd, HINSTANCE instance, 
             LPSTR cmd_line, int cmd_show);
 
