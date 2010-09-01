@@ -710,7 +710,7 @@ void usb_registry_stop_libusb_devices(void)
 	USBMSG0("stopping devices..\n");
 	while (SetupDiEnumDeviceInfo(dev_info, dev_index, &dev_info_data))
 	{
-		if (usb_registry_is_service_or_filter_libusb(dev_info, &dev_info_data, &is_libusb_service))
+		if (usb_registry_is_service_libusb(dev_info, &dev_info_data, &is_libusb_service))
 		{
 			if (is_libusb_service)
 			{
@@ -745,7 +745,7 @@ void usb_registry_start_libusb_devices(void)
 	USBMSG0("starting devices..\n");
 	while (SetupDiEnumDeviceInfo(dev_info, dev_index, &dev_info_data))
 	{
-		if (usb_registry_is_service_or_filter_libusb(dev_info, &dev_info_data, &is_libusb_service))
+		if (usb_registry_is_service_libusb(dev_info, &dev_info_data, &is_libusb_service))
 		{
 			if (is_libusb_service)
 			{
@@ -1244,7 +1244,7 @@ bool_t usb_registry_get_usb_class_keys(filter_context_t* filter_context, bool_t 
 				success = usb_registry_is_service_or_filter_libusb(dev_info, &dev_info_data, &is_libusb_service);
 			else
 				success = usb_registry_is_service_libusb(dev_info, &dev_info_data, &is_libusb_service);
-			
+
 			if (success)
 			{
 				if (!is_libusb_service)

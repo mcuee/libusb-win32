@@ -109,6 +109,7 @@ struct _filter_context_t
 	filter_class_t*     class_filters;
 	filter_device_t*    device_filters;
 	filter_file_t*      inf_files;
+	bool_t				show_help_only;
 };
 
 bool_t usb_registry_is_nt(void);
