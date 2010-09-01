@@ -79,6 +79,16 @@ LPCWSTR paramcmd_uninstall[] = {
 	0
 };
 
+LPCWSTR paramcmd_help[] = {
+	L"--help",
+	L"help",
+	L"-h",
+	L"/?",
+	L"-?",
+	L"h",
+	0
+};
+
 /* switches */
 LPCWSTR paramsw_all_classes[] = {
 	L"--all-classes",
@@ -138,6 +148,9 @@ void usb_install_report(filter_context_t* filter_context);
 int usb_install(HWND hwnd, HINSTANCE instance, LPCWSTR cmd_line_w, int starg_arg, filter_context_t** out_filter_context);
 void usage(void);
 
+/* kernel32.dll exports */
+typedef BOOL (WINAPI * is_wow64_process_t)(HANDLE, PBOOL);
+
 /* newdev.dll exports */
 typedef BOOL (WINAPI * update_driver_for_plug_and_play_devices_t)(HWND,
 																  LPCSTR,
@@ -196,10 +209,9 @@ static control_service_t control_service = NULL;
 static HFONT (WINAPI *pCreateFontA)(int, int, int, int, int, DWORD, DWORD, DWORD, DWORD, DWORD, DWORD, DWORD, DWORD, LPCSTR) = NULL;
 #define INIT_CREATEFONT if (pCreateFontA== NULL) {	\
 	pCreateFontA = (HFONT (WINAPI *)(int, int, int, int, int, DWORD, DWORD, DWORD, DWORD, DWORD, DWORD, DWORD, DWORD, LPCSTR))	\
-		GetProcAddress(GetModuleHandleA("Gdi32"), "CreateFontA"); \
-	}
+	GetProcAddress(GetModuleHandleA("Gdi32"), "CreateFontA"); \
+}
 #define IS_CREATEFONT_AVAILABLE (pCreateFontA != NULL)
-
 
 static bool_t usb_service_load_dll(void);
 static bool_t usb_service_free_dll(void);
@@ -209,6 +221,48 @@ static bool_t usb_service_create(const char *name, const char *display_name,
 								 unsigned long start_type);
 static bool_t usb_service_stop(const char *name);
 static bool_t usb_service_delete(const char *name);
+static bool_t usb_install_iswow64(void);
+static BOOL usb_install_admin_check(void);
+
+// Detect Windows version
+/*
+ * Windows versions
+ */
+enum windows_version {
+	WINDOWS_UNDEFINED,
+	WINDOWS_UNSUPPORTED,
+	WINDOWS_2K,
+	WINDOWS_XP,
+	WINDOWS_2003_XP64,
+	WINDOWS_VISTA,
+	WINDOWS_7
+};
+enum windows_version windows_version = WINDOWS_UNDEFINED;
+#define GET_WINDOWS_VERSION do{ if (windows_version == WINDOWS_UNDEFINED) detect_version(); } while(0)
+static void detect_version(void)
+{
+	OSVERSIONINFO os_version;
+
+	memset(&os_version, 0, sizeof(OSVERSIONINFO));
+	os_version.dwOSVersionInfoSize = sizeof(OSVERSIONINFO);
+	windows_version = WINDOWS_UNSUPPORTED;
+	if ((GetVersionEx(&os_version) != 0) && (os_version.dwPlatformId == VER_PLATFORM_WIN32_NT)) {
+		if ((os_version.dwMajorVersion == 5) && (os_version.dwMinorVersion == 0)) {
+			windows_version = WINDOWS_2K;
+		} else if ((os_version.dwMajorVersion == 5) && (os_version.dwMinorVersion == 1)) {
+			windows_version = WINDOWS_XP;
+		} else if ((os_version.dwMajorVersion == 5) && (os_version.dwMinorVersion == 2)) {
+			windows_version = WINDOWS_2003_XP64;
+		} else if (os_version.dwMajorVersion >= 6) {
+			if (os_version.dwBuildNumber < 7000) {
+				windows_version = WINDOWS_VISTA;
+			} else {
+				windows_version = WINDOWS_7;
+			}
+		}
+	}
+}
+
 BOOL sem_create_lock(HANDLE* sem_handle_out, LPCSTR unique_name, LONG remaining, LONG max);
 BOOL sem_destroy_lock(HANDLE* sem_handle_in);
 BOOL sem_release_lock(HANDLE sem_handle);
@@ -250,6 +304,7 @@ BOOL sem_try_lock(HANDLE sem_handle, DWORD dwMilliseconds)
 	if (!sem_handle) return FALSE;
 	return WaitForSingleObject(sem_handle, dwMilliseconds) == WAIT_OBJECT_0;
 }
+
 void CALLBACK usb_touch_inf_file_rundll(HWND wnd, HINSTANCE instance,
 										LPSTR cmd_line, int cmd_show);
 
@@ -1298,9 +1353,9 @@ int usb_install_needs_restart_np(void)
 }
 
 bool_t usb_install_get_filter_context(filter_context_t* filter_context, 
-									   LPCWSTR cmd_line, 
-									   int arg_start, 
-									   int* arg_cnt)
+									  LPCWSTR cmd_line, 
+									  int arg_start, 
+									  int* arg_cnt)
 {
 	int arg_pos;
 	LPWSTR* argv = NULL;
@@ -1329,7 +1384,12 @@ bool_t usb_install_get_filter_context(filter_context_t* filter_context,
 
 	for(arg_pos=arg_start; arg_pos < *arg_cnt; arg_pos++)
 	{
-		if (usb_install_get_argument(argv[arg_pos], &arg_param, &arg_value, paramcmd_list))
+		if (usb_install_get_argument(argv[arg_pos], &arg_param, &arg_value, paramcmd_help))
+		{
+			filter_context->show_help_only = TRUE;
+			break;
+		}
+		else if (usb_install_get_argument(argv[arg_pos], &arg_param, &arg_value, paramcmd_list))
 		{
 			filter_context->filter_mode |= FM_LIST;
 			filter_context->filter_mode_main = FM_LIST;
@@ -1353,9 +1413,13 @@ bool_t usb_install_get_filter_context(filter_context_t* filter_context,
 		{
 			filter_context->switches.add_device_classes = TRUE;
 		}
-		else if (usb_install_get_argument(argv[arg_pos], &arg_param, &arg_value, paramsw_device_upper))
+		else if 
+			(
+			usb_install_get_argument(argv[arg_pos], &arg_param, &arg_value, paramsw_device_upper) ||
+			usb_install_get_argument(argv[arg_pos], &arg_param, &arg_value, paramsw_device_lower)
+			)
 		{
-			length = wcstombs(tmp, arg_value, sizeof(tmp));
+			length = wcstombs(tmp, arg_value, MAX_PATH);
 			if (length < 1)
 			{
 				success = FALSE;
@@ -1374,108 +1438,67 @@ bool_t usb_install_get_filter_context(filter_context_t* filter_context,
 			}
 
 			usb_registry_add_filter_device_keys(&filter_context->device_filters, tmp, "", "", &found_device);
-			if (!found_device)
-			{
-				success = FALSE;
-				USBERR("failed adding device upper filter %ls\n",argv[arg_pos]);
-				break;
-			}
-			found_device->filter_type|=FT_DEVICE_UPPERFILTER;
-		}
-		else if (usb_install_get_argument(argv[arg_pos], &arg_param, &arg_value, paramsw_device_lower))
-		{
-			length = wcstombs(tmp, arg_value, sizeof(tmp));
-			if (length < 1)
-			{
-				success = FALSE;
-				USBERR("invalid argument %ls\n",argv[arg_pos]);
-				break;
-			}
-			tmp[length] = 0;
 
-			// replace '.' with '&' for hardware ids
-			next_wild_char = tmp;
-			while(*next_wild_char)
+			if (usb_install_get_argument(argv[arg_pos], &arg_param, &arg_value, paramsw_device_upper))
 			{
-				if (*next_wild_char == '.')
-					*next_wild_char = '&';
-				next_wild_char++;
-			}
-
-			usb_registry_add_filter_device_keys(&filter_context->device_filters, tmp, "", "", &found_device);
-			if (!found_device)
-			{
-				success = FALSE;
-				USBERR("invalid argument %ls\n",argv[arg_pos]);
-				break;
-			}
-			found_device->filter_type|=FT_DEVICE_LOWERFILTER;
-		}
-		else if (usb_install_get_argument(argv[arg_pos], &arg_param, &arg_value, paramsw_class))
-		{
-
-			if ((!arg_value) || wcslen(arg_value) != 38)
-			{
-				success = FALSE;
-			}
-			else if (arg_value[0]!='{' || arg_value[wcslen(arg_value)-1]!='}')
-			{
-				success = FALSE;
-			}
-			if (!success && arg_value && wcslen(arg_value))
-			{
-				// match using the class name
-				success = TRUE;
-				memset(tmp,0,sizeof(tmp));
-				length = WideCharToMultiByte(CP_ACP,0,
-					arg_value,(int)wcslen(arg_value),
-					tmp,MAX_PATH,
-					NULL,NULL);
-
-				if (length != wcslen(arg_value))
+				// upper device filter
+				if (!found_device)
 				{
-					USBERR("failed WideCharToMultiByte %ls\n",argv[arg_pos]);
 					success = FALSE;
+					USBERR("failed adding device upper filter key %ls\n",argv[arg_pos]);
 					break;
 				}
-				usb_registry_add_class_key(&filter_context->class_filters, "", tmp, "", &found_class, FALSE);
-			}
-			else if (success)
-			{
-				// match using the class guid
-				memset(tmp,0,sizeof(tmp));
-				length = WideCharToMultiByte(CP_ACP,0,
-					arg_value,(int)wcslen(arg_value),
-					tmp,MAX_PATH,
-					NULL,NULL);
-
-				if (length != wcslen(arg_value))
+				else
 				{
-					USBERR("failed WideCharToMultiByte %ls\n",argv[arg_pos]);
-					success = FALSE;
-					break;
+					found_device->filter_type |= FT_DEVICE_UPPERFILTER;
 				}
-				usb_registry_add_usb_class_key(filter_context,tmp);
 			}
 			else
 			{
+				// lower device filter
+				if (!found_device)
+				{
+					success = FALSE;
+					USBERR("failed adding device lower filter key %ls\n",argv[arg_pos]);
+					break;
+				}
+				else
+				{
+					found_device->filter_type |= FT_DEVICE_LOWERFILTER;
+				}
+			}
+		}
+		else if (usb_install_get_argument(argv[arg_pos], &arg_param, &arg_value, paramsw_class))
+		{
+			memset(tmp,0,sizeof(tmp));
+			length = wcstombs(tmp, arg_value, MAX_PATH);
+			if (length < 1)
+			{
 				success = FALSE;
 				USBERR("invalid argument %ls\n",argv[arg_pos]);
 				break;
+			}
+
+			if (length != 38 || tmp[0] != '{' || tmp[length-1] != '}')
+			{
+				// assume arg_value is a class name
+				success = usb_registry_add_class_key(&filter_context->class_filters, 
+					"", tmp, "", &found_class, FALSE);
+			}
+			else 
+			{
+				// assume arg_value is a class guid
+				success = usb_registry_add_usb_class_key(filter_context, tmp);
 			}
 		}
 		else if (usb_install_get_argument(argv[arg_pos], &arg_param, &arg_value, paramsw_inf))
 		{
 			memset(tmp,0,sizeof(tmp));
-			length = WideCharToMultiByte(CP_ACP,0,
-				arg_value,(int)wcslen(arg_value),
-				tmp,MAX_PATH,
-				NULL,NULL);
-
-			if (length != wcslen(arg_value))
+			length = wcstombs(tmp, arg_value, MAX_PATH);
+			if (length < 1)
 			{
-				USBERR("failed WideCharToMultiByte %ls\n",argv[arg_pos]);
 				success = FALSE;
+				USBERR("invalid argument %ls\n",argv[arg_pos]);
 				break;
 			}
 
@@ -1498,6 +1521,7 @@ bool_t usb_install_get_filter_context(filter_context_t* filter_context,
 Done:
 	if (success && filter_context->class_filters)
 	{
+		// find class keys (fill in the blanks) 
 		usb_registry_lookup_class_keys_by_name(&filter_context->class_filters);
 	}
 	if (argv)
@@ -1542,13 +1566,13 @@ void usb_install_destroy_filter_context(filter_context_t** filter_context)
 
 static void center_dialog(HWND hWndToCenterOn, HWND hWndSubDialog)
 {
-    RECT rectToCenterOn;
-    RECT rectSubDialog;
+	RECT rectToCenterOn;
+	RECT rectSubDialog;
 	int xLeft, yTop;
 
-    if (hWndToCenterOn == NULL || hWndSubDialog == NULL)
-        return;
- 
+	if (hWndToCenterOn == NULL || hWndSubDialog == NULL)
+		return;
+
 	GetWindowRect(hWndToCenterOn, &rectToCenterOn);
 	GetWindowRect(hWndSubDialog, &rectSubDialog);
 
@@ -1561,20 +1585,20 @@ static void center_dialog(HWND hWndToCenterOn, HWND hWndSubDialog)
 		GetWindowRect(hWndToCenterOn, &rectToCenterOn);
 	}
 
-    xLeft = (rectToCenterOn.left + rectToCenterOn.right) / 2 - (rectSubDialog.right-rectSubDialog.left) / 2;
-    yTop = (rectToCenterOn.top + rectToCenterOn.bottom) / 2 - (rectSubDialog.bottom-rectSubDialog.top) / 2;
+	xLeft = (rectToCenterOn.left + rectToCenterOn.right) / 2 - (rectSubDialog.right-rectSubDialog.left) / 2;
+	yTop = (rectToCenterOn.top + rectToCenterOn.bottom) / 2 - (rectSubDialog.bottom-rectSubDialog.top) / 2;
 
-    // Move the window to the correct coordinates with SetWindowPos()
+	// Move the window to the correct coordinates with SetWindowPos()
 	SetWindowPos(hWndSubDialog, HWND_TOP, xLeft, yTop, -1, -1, SWP_NOSIZE | SWP_SHOWWINDOW);
 }
 
 static BOOL usb_install_log_handler(enum USB_LOG_LEVEL level, 
-								const char* app_name, 
-								const char* prefix, 
-								const char* func, 
-								const int app_prefix_func_end,
-								char* message,
-								const int message_length)
+									const char* app_name, 
+									const char* prefix, 
+									const char* func, 
+									const int app_prefix_func_end,
+									char* message,
+									const int message_length)
 {
 	HANDLE std_handle;
 	DWORD length;
@@ -1922,6 +1946,18 @@ int usb_install(HWND hwnd, HINSTANCE instance,
 	if (out_filter_context)
 		*out_filter_context = NULL;
 
+	if (usb_install_iswow64())
+	{
+		USBERR0("This is a 64bit operating system and requires the 64bit " LOG_APPNAME " application.\n");
+		return -1;
+	}
+
+	if (!usb_install_admin_check())
+	{
+		USBERR0(LOG_APPNAME " requires adminstrator privileges.\n");
+		return -1;
+	}
+
 	// create a named semaphore
 	if (!sem_create_lock(&sem_handle, install_lock_sem_name, 1, 1))
 		return -1;
@@ -1962,6 +1998,13 @@ int usb_install(HWND hwnd, HINSTANCE instance,
 		{
 			usage();
 		}
+		ret = -1;
+		goto Done;
+	}
+
+	if (filter_context->show_help_only)
+	{
+		usage();
 		ret = -1;
 		goto Done;
 	}
@@ -2071,6 +2114,72 @@ void usb_install_report(filter_context_t* filter_context)
 		next_class = next_class->next;
 
 	}
+}
+
+static bool_t usb_install_iswow64(void)
+{
+	HMODULE kernel_dll;
+	is_wow64_process_t IsWow64Process;
+	BOOL IsWow64 = FALSE;
+
+	kernel_dll = GetModuleHandleA("kernel32.dll");
+	if (!kernel_dll)
+	{
+		USBERR0("loading kernel32.dll failed\n");
+		return FALSE;
+	}
+
+	IsWow64Process =(is_wow64_process_t) GetProcAddress(kernel_dll, "IsWow64Process");
+	if (IsWow64Process)
+	{
+		if (!IsWow64Process(GetCurrentProcess(), &IsWow64))
+		{
+			// handle error
+			IsWow64 = FALSE;
+		}
+	}
+	return IsWow64 ? TRUE : FALSE;
+}
+
+static BOOL usb_install_admin_check(void)
+/*++ 
+Routine Description: This routine returns TRUE if the caller's
+process is a member of the Administrators local group. Caller is NOT
+expected to be impersonating anyone and is expected to be able to
+open its own process and process token. 
+Arguments: None. 
+Return Value: 
+TRUE - Caller has Administrators local group. 
+FALSE - Caller does not have Administrators local group. --
+*/ 
+{
+	BOOL b;
+	SID_IDENTIFIER_AUTHORITY NtAuthority = SECURITY_NT_AUTHORITY;
+	PSID AdministratorsGroup; 
+
+	GET_WINDOWS_VERSION;
+	if (windows_version <= WINDOWS_XP)
+	{
+		return TRUE;
+	}
+
+	b = AllocateAndInitializeSid(
+		&NtAuthority,
+		2,
+		SECURITY_BUILTIN_DOMAIN_RID,
+		DOMAIN_ALIAS_RID_ADMINS,
+		0, 0, 0, 0, 0, 0,
+		&AdministratorsGroup); 
+	if(b) 
+	{
+		if (!CheckTokenMembership( NULL, AdministratorsGroup, &b)) 
+		{
+			b = FALSE;
+		} 
+		FreeSid(AdministratorsGroup); 
+	}
+
+	return(b);
 }
 
 void usage(void)
