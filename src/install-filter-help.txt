@@ -6,7 +6,9 @@ Commands:
   uninstall (u/-u)
   list      (l/-l)
 
-NOTE: If no switches are specified, the default class key list is assumed.
+NOTE: 
+  * If no switches are specified, the default class key list is used.
+  * 64bit OSes must use the 64bit version of this application.
 
 Switches For Class Filters:
   --all-classes         (-ac)
@@ -48,7 +50,6 @@ Switches For INF Files:
     uninstall: Attempts to roll back a device driver installation. If 
                rollback fails or is unavailable, the device is removed.
     list     : <NA>
-  NOTE: Only usb devices in a [Devices] models-section-name are used. 
 
 Warning:
   Improper use of the libusb-win32 filter driver can cause devices to

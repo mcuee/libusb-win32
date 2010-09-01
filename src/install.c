@@ -1,5 +1,7 @@
 /* libusb-win32, Generic Windows USB Library
 * Copyright (c) 2002-2005 Stephan Meyer <ste_meyer@web.de>
+* Copyright (c) 2010 Travis Robinson <libusbdotnet@gmail.com>
+* Parts of the code from libwdi by Pete Batard
 *
 * This library is free software; you can redistribute it and/or
 * modify it under the terms of the GNU Lesser General Public
@@ -128,9 +130,14 @@ LPCWSTR paramsw_inf[] = {
 	0
 };
 
+typedef struct _LONGGUID {
+    unsigned int  Data1;
+    unsigned int Data2;
+    unsigned int Data3;
+    unsigned int  Data4[ 8 ];
+} LONGGUID;
 
-typedef struct _install_progress_context_t install_progress_context_t;
-struct _install_progress_context_t
+typedef struct _install_progress_context_t
 {
 	HWND parent;
 	HINSTANCE instance;
@@ -139,7 +146,7 @@ struct _install_progress_context_t
 	filter_context_t* filter_context;
 	uintptr_t thread_id;
 	int ret;
-};
+} install_progress_context_t;
 
 static install_progress_context_t g_install_progress_context = {0};
 
@@ -1357,11 +1364,12 @@ bool_t usb_install_get_filter_context(filter_context_t* filter_context,
 									  int arg_start, 
 									  int* arg_cnt)
 {
+	LONGGUID class_guid;
 	int arg_pos;
 	LPWSTR* argv = NULL;
 	LPCWSTR arg_param, arg_value;
 	bool_t success = TRUE;
-	int length;
+	size_t length;
 	char tmp[MAX_PATH+1];
 	char* next_wild_char;
 	filter_device_t* found_device;
@@ -1478,17 +1486,37 @@ bool_t usb_install_get_filter_context(filter_context_t* filter_context,
 				USBERR("invalid argument %ls\n",argv[arg_pos]);
 				break;
 			}
+			tmp[length] = 0;
 
-			if (length != 38 || tmp[0] != '{' || tmp[length-1] != '}')
+			if ((length != 38 || tmp[0] != '{' || tmp[length-1] != '}') ||
+				sscanf(tmp, "{%08X-%04X-%04X-%02X%02X-%02X%02X%02X%02X%02X%02X}",
+				&class_guid.Data1, &class_guid.Data2, &class_guid.Data3, 
+				&class_guid.Data4[0], &class_guid.Data4[1], &class_guid.Data4[2], &class_guid.Data4[3], 
+				&class_guid.Data4[4], &class_guid.Data4[5], &class_guid.Data4[6], &class_guid.Data4[7]) != 11)
 			{
 				// assume arg_value is a class name
 				success = usb_registry_add_class_key(&filter_context->class_filters, 
 					"", tmp, "", &found_class, FALSE);
+				if (!success)
+				{
+					USBERR("failed adding class name at argument %ls\n",argv[arg_pos]);
+					break;
+				}
 			}
 			else 
 			{
+				sprintf(tmp,"{%08X-%04X-%04X-%02X%02X-%02X%02X%02X%02X%02X%02X}",
+					class_guid.Data1, class_guid.Data2, class_guid.Data3, 
+					class_guid.Data4[0], class_guid.Data4[1], class_guid.Data4[2], class_guid.Data4[3], 
+					class_guid.Data4[4], class_guid.Data4[5], class_guid.Data4[6], class_guid.Data4[7]);
+
 				// assume arg_value is a class guid
 				success = usb_registry_add_usb_class_key(filter_context, tmp);
+				if (!success)
+				{
+					USBERR("failed adding class guid at argument %ls\n",argv[arg_pos]);
+					break;
+				}
 			}
 		}
 		else if (usb_install_get_argument(argv[arg_pos], &arg_param, &arg_value, paramsw_inf))
@@ -1501,6 +1529,7 @@ bool_t usb_install_get_filter_context(filter_context_t* filter_context,
 				USBERR("invalid argument %ls\n",argv[arg_pos]);
 				break;
 			}
+			tmp[length] = 0;
 
 			usb_registry_add_filter_file_keys(&filter_context->inf_files, tmp, &found_inf);
 			if (!found_inf)
@@ -1534,15 +1563,17 @@ Done:
 void CALLBACK usb_install_np_rundll(HWND wnd, HINSTANCE instance, LPSTR cmd_line, int cmd_show)
 {
 	WCHAR cmd_line_w[MAX_PATH+1];
+	size_t length;
 
 	memset(cmd_line_w,0,sizeof(cmd_line_w));
 
 	if (cmd_line && strlen(cmd_line))
 	{
-		if (mbstowcs(cmd_line_w, cmd_line, MAX_PATH) < 1)
+		if ((length = mbstowcs(cmd_line_w, cmd_line, MAX_PATH)) < 1)
 		{
 			return;
 		}
+		cmd_line_w[length] = 0;
 	}
 	usb_install_np(wnd, instance, cmd_line_w, 0);
 }
@@ -2138,7 +2169,7 @@ static bool_t usb_install_iswow64(void)
 			IsWow64 = FALSE;
 		}
 	}
-	return IsWow64 ? TRUE : FALSE;
+	return IsWow64;
 }
 
 static BOOL usb_install_admin_check(void)
@@ -2154,7 +2185,7 @@ FALSE - Caller does not have Administrators local group. --
 */ 
 {
 	BOOL b;
-	SID_IDENTIFIER_AUTHORITY NtAuthority = SECURITY_NT_AUTHORITY;
+	SID_IDENTIFIER_AUTHORITY NtAuthority = {SECURITY_NT_AUTHORITY};
 	PSID AdministratorsGroup; 
 
 	GET_WINDOWS_VERSION;

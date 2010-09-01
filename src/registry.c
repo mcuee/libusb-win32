@@ -1,5 +1,6 @@
 /* libusb-win32, Generic Windows USB Library
 * Copyright (c) 2002-2005 Stephan Meyer <ste_meyer@web.de>
+* Copyright (c) 2010 Travis Robinson <libusbdotnet@gmail.com>
 *
 * This library is free software; you can redistribute it and/or
 * modify it under the terms of the GNU Lesser General Public
@@ -1178,8 +1179,7 @@ bool_t usb_registry_add_usb_class_key(filter_context_t* filter_context, const ch
 	if ((strlen(class_path) + strlen(class_guid)) < sizeof(tmp))
 	{
 		sprintf(tmp, "%s%s", class_path, class_guid);
-		usb_registry_add_class_key(&filter_context->class_filters, tmp, "", class_guid, &found, FALSE);
-		return TRUE;
+		return usb_registry_add_class_key(&filter_context->class_filters, tmp, "", class_guid, &found, FALSE);
 	}
 	return FALSE;
 }
@@ -1441,7 +1441,7 @@ bool_t usb_registry_add_class_key(filter_class_t **head,
 			}
 			else
 			{
-				if (!strcmp(p->name, key))
+				if (!_stricmp(p->name, key))
 				{
 					*found = p;
 				}
