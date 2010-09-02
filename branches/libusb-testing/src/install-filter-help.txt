@@ -1,5 +1,6 @@
 
-USAGE: install-filter [install|uninstall|list] <-ac> <-dc> <-c=> <-d=>
+USAGE: install-filter [install|uninstall|list] <-ac> <-dc> <-rad> 
+                                               <-c=> <-d=> <-f=>
 
 Commands:
   install   (i/-i)
@@ -42,6 +43,12 @@ Switches For Device Filters:
                specified device.
     uninstall: Uninstalls libusb-win32 as an upper device filter for the
                specified device.
+    list     : <NA>
+    
+  --remove-all-devices  (-rad)
+  install
+    install  : <NA>.
+    uninstall: remove all device filters.
     list     : <NA>
 
 Switches For INF Files:
