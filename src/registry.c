@@ -73,6 +73,10 @@ static bool_t usb_registry_get_filter_device_keys(filter_class_t* filter_class,
 												  HDEVINFO dev_info,
 												  SP_DEVINFO_DATA *dev_info_data,
 												  filter_device_t** found);
+
+static bool_t usb_registry_get_class_filter_keys(filter_class_t* filter_class,
+												 HKEY reg_class_hkey);
+
 bool_t usb_registry_is_nt(void)
 {
 	return GetVersion() < 0x80000000 ? TRUE : FALSE;
@@ -180,6 +184,23 @@ bool_t usb_registry_get_property(DWORD which, HDEVINFO dev_info,
 	}
 
 	return TRUE;
+}
+
+bool_t usb_registry_mz_to_sz(char* buf_mz, char new_separator)
+{
+	bool_t success = FALSE;
+
+	while (buf_mz && *buf_mz)
+	{
+		success = TRUE;
+		buf_mz += strlen(buf_mz);
+
+		if (buf_mz[1]) 
+			*buf_mz = new_separator;
+
+		buf_mz++;
+	}
+	return success;
 }
 
 bool_t usb_registry_set_property(DWORD which, HDEVINFO dev_info,
@@ -361,10 +382,7 @@ bool_t usb_registry_remove_device_filter(filter_context_t* filter_context)
 	char filters[MAX_PATH];
 	char hwid[MAX_PATH];
 	const char *driver_name;
-	filter_device_t* found_device;
-
-	if (!filter_context->device_filters)
-		return TRUE;
+	bool_t remove_device_filters;
 
 	driver_name = USB_GET_DRIVER_NAME();
 
@@ -383,7 +401,23 @@ bool_t usb_registry_remove_device_filter(filter_context_t* filter_context)
 	{
 		if (usb_registry_get_hardware_id(dev_info, &dev_info_data, hwid))
 		{
-			if ((found_device=usb_registry_find_filter_device(&filter_context->device_filters, hwid)))
+			if (filter_context->remove_all_device_filters)
+			{
+				// remove all device upper/lower filters.
+				remove_device_filters = TRUE;
+			}
+			else if (usb_registry_find_filter_device(&filter_context->device_filters, hwid))
+			{
+				// if not, remove only the ones specified by the user.
+				remove_device_filters = TRUE;
+			}
+			else
+			{
+				// skip device filter removal for this device.
+				remove_device_filters = FALSE;
+			}
+
+			if (remove_device_filters)
 			{
 				/* remove libusb as a device upper filter */
 				if (usb_registry_get_property(SPDRP_UPPERFILTERS, dev_info,
@@ -773,28 +807,6 @@ bool_t usb_registry_get_hardware_id(HDEVINFO dev_info,
 	return TRUE;
 }
 
-bool_t usb_registry_match(HDEVINFO dev_info,
-						  SP_DEVINFO_DATA *dev_info_data)
-{
-	char tmp[MAX_PATH];
-	if (!usb_registry_get_hardware_id(dev_info, dev_info_data, tmp))
-	{
-		return FALSE;
-	}
-
-	usb_registry_mz_string_lower(tmp);
-
-	/* search for USB devices, skip root hubs and interfaces of composite */
-	/* devices */
-	//    if (usb_registry_mz_string_find_sub(tmp, "&mi_")
-	//            || usb_registry_mz_string_find_sub(tmp, "root_hub"))
-	if (usb_registry_mz_string_find_sub(tmp, "root_hub"))
-	{
-		return FALSE;
-	}
-	return TRUE;
-}
-
 bool_t usb_registry_get_mz_value(const char *key, const char *value,
 								 char *buf, int size)
 {
@@ -1065,6 +1077,8 @@ bool_t usb_registry_add_filter_device_keys(filter_device_t** head,
 										   const char* hwid,
 										   const char* name,
 										   const char* mfg,
+										   const char* uppers_mz,
+										   const char* lowers_mz,
 										   filter_device_t** found)
 {
 	filter_device_t *p = *head;
@@ -1075,25 +1089,37 @@ bool_t usb_registry_add_filter_device_keys(filter_device_t** head,
 		if (_stricmp(p->device_hwid, hwid)==0)
 		{
 			*found = p;
-			return TRUE;
+			break;
 		}
 		p = p->next;
 	}
 
-	p = malloc(sizeof(filter_device_t));
+	if (!(*found))
+	{
+		p = malloc(sizeof(filter_device_t));
+		if (!p)
+			return FALSE;
 
-	if (!p)
-		return FALSE;
+		memset(p, 0, sizeof(filter_device_t));
 
-	memset(p, 0, sizeof(filter_device_t));
+		*found = p;
+		p->next = *head;
+		*head = p;
+	}
 
 	strcpy(p->device_hwid, hwid);
-	strcpy(p->device_name, name);
-	strcpy(p->device_mfg, mfg);
 
-	*found = p;
-	p->next = *head;
-	*head = p;
+	if (strlen(name))
+		strcpy(p->device_name, name);
+
+	if (strlen(mfg))
+		strcpy(p->device_mfg, mfg);
+
+	if (strlen(uppers_mz))
+		memcpy(p->device_uppers, uppers_mz, (size_t)usb_registry_mz_string_size(uppers_mz));
+	
+	if (strlen(lowers_mz))
+		memcpy(p->device_lowers, lowers_mz, (size_t)usb_registry_mz_string_size(lowers_mz));
 
 	return TRUE;
 }
@@ -1140,6 +1166,9 @@ static bool_t usb_registry_get_filter_device_keys(filter_class_t* filter_class,
 	char hwid[MAX_PATH];
 	char name[MAX_PATH];
 	char mfg[MAX_PATH];
+	char lowers_mz[MAX_PATH];
+	char uppers_mz[MAX_PATH];
+
 	*found = NULL;
 	if (dev_info && filter_class)
 	{
@@ -1165,7 +1194,11 @@ static bool_t usb_registry_get_filter_device_keys(filter_class_t* filter_class,
 			USBWRN0("unable to get SPDRP_MFG\n");
 		}
 
-		return usb_registry_add_filter_device_keys(&filter_class->class_filter_devices, hwid, name, mfg, found);
+		usb_registry_get_property(SPDRP_UPPERFILTERS, dev_info, dev_info_data, uppers_mz, sizeof(uppers_mz));
+		usb_registry_get_property(SPDRP_LOWERFILTERS, dev_info, dev_info_data, lowers_mz, sizeof(lowers_mz));
+
+		return usb_registry_add_filter_device_keys(&filter_class->class_filter_devices,
+			hwid, name, mfg, uppers_mz, lowers_mz, found);
 	}
 
 	return FALSE;
@@ -1340,11 +1373,16 @@ bool_t usb_registry_get_all_class_keys(filter_context_t* filter_context, bool_t 
 					{
 						size = sizeof(class_name);
 						RegQueryValueExA(reg_class_key, "Class", NULL, &reg_type, class_name, &size);
+
+						usb_registry_add_class_key(&filter_context->class_filters, tmp, class_name, class, &found,
+							(add_all_classes) ? FALSE : refresh_only);
+
+						if (found)
+						{
+							usb_registry_get_class_filter_keys(found, reg_class_key);
+						}
 						RegCloseKey(reg_class_key);
 					}
-
-					usb_registry_add_class_key(&filter_context->class_filters, tmp, class_name, class, &found, 
-						(add_all_classes) ? FALSE : refresh_only);
 				}
 
 				memset(class, 0, sizeof(class));
@@ -1528,6 +1566,24 @@ bool_t usb_registry_free_filter_devices(filter_device_t **head)
 	}
 
 	*head = NULL;
+
+	return TRUE;
+}
+
+static bool_t usb_registry_get_class_filter_keys(filter_class_t* filter_class, HKEY reg_class_hkey)
+{
+	DWORD reg_type;
+	DWORD size;
+	LSTATUS status;
+
+	// Get the class filters. A non-existent key means no filters
+	size = sizeof(filter_class->class_uppers);
+	memset(filter_class->class_uppers, 0, size--);
+	status = RegQueryValueExA(reg_class_hkey, "UpperFilters", NULL, &reg_type, filter_class->class_uppers, &size);
+
+	size = sizeof(filter_class->class_lowers);
+	memset(filter_class->class_lowers, 0, size--);
+	status = RegQueryValueExA(reg_class_hkey, "LowerFilters", NULL, &reg_type, filter_class->class_lowers, &size);
 
 	return TRUE;
 }

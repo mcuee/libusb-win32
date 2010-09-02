@@ -74,6 +74,9 @@ struct _filter_device_t
 	char device_name[MAX_PATH];
 	char device_hwid[MAX_PATH];
 	char device_mfg[MAX_PATH];
+	char device_uppers[MAX_PATH];
+	char device_lowers[MAX_PATH];
+
 	filter_type_e filter_type;
 };
 
@@ -82,9 +85,12 @@ struct _filter_class_t
 {
 	filter_class_t* next;
 
-	char name[MAX_PATH];
+	char name[MAX_PATH]; // key
+
 	char class_name[MAX_PATH];
 	char class_guid[MAX_PATH];
+	char class_uppers[MAX_PATH];
+	char class_lowers[MAX_PATH];
 
 	filter_device_t* class_filter_devices;
 };
@@ -110,6 +116,7 @@ struct _filter_context_t
 	filter_device_t*    device_filters;
 	filter_file_t*      inf_files;
 	bool_t				show_help_only;
+	bool_t              remove_all_device_filters;
 };
 
 bool_t usb_registry_is_nt(void);
@@ -172,7 +179,10 @@ bool_t usb_registry_add_filter_device_keys(filter_device_t** head,
 										   const char* hwid,
 										   const char* name,
 										   const char* mfg,
+										   const char* uppers_mz,
+										   const char* lowers_mz,
 										   filter_device_t** found);
+
 bool_t usb_registry_add_filter_file_keys(filter_file_t** head,
 										 const char* name,
 										 filter_file_t** found);
@@ -193,6 +203,6 @@ bool_t usb_registry_free_filter_devices(filter_device_t **head);
 bool_t usb_registry_free_filter_files(filter_file_t **head);
 
 filter_device_t* usb_registry_find_filter_device(filter_device_t** head, const char* hwid);
-
+bool_t usb_registry_mz_to_sz(char* buf_mz, char separator);
 
 #endif

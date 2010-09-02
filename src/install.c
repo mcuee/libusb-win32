@@ -98,6 +98,12 @@ LPCWSTR paramsw_all_classes[] = {
 	0
 };
 
+LPCWSTR paramsw_all_devices[] = {
+	L"--remove-all-devices",
+	L"-rad",
+	0
+};
+
 LPCWSTR paramsw_device_classes[] = {
 	L"--device-classes",
 	L"-dc",
@@ -1359,7 +1365,7 @@ int usb_install_needs_restart_np(void)
 	return ret;
 }
 
-bool_t usb_install_get_filter_context(filter_context_t* filter_context, 
+bool_t usb_install_parse_filter_context(filter_context_t* filter_context, 
 									  LPCWSTR cmd_line, 
 									  int arg_start, 
 									  int* arg_cnt)
@@ -1421,6 +1427,10 @@ bool_t usb_install_get_filter_context(filter_context_t* filter_context,
 		{
 			filter_context->switches.add_device_classes = TRUE;
 		}
+		else if (usb_install_get_argument(argv[arg_pos], &arg_param, &arg_value, paramsw_all_devices))
+		{
+			filter_context->remove_all_device_filters = TRUE;
+		}
 		else if 
 			(
 			usb_install_get_argument(argv[arg_pos], &arg_param, &arg_value, paramsw_device_upper) ||
@@ -1445,7 +1455,7 @@ bool_t usb_install_get_filter_context(filter_context_t* filter_context,
 				next_wild_char++;
 			}
 
-			usb_registry_add_filter_device_keys(&filter_context->device_filters, tmp, "", "", &found_device);
+			usb_registry_add_filter_device_keys(&filter_context->device_filters, tmp, "", "", "", "", &found_device);
 
 			if (usb_install_get_argument(argv[arg_pos], &arg_param, &arg_value, paramsw_device_upper))
 			{
@@ -1951,7 +1961,8 @@ int usb_install_window(HWND hWnd, HINSTANCE instance, filter_context_t* filter_c
 		if (bRet == -1) 
 		{
 			//wdi_err("GetMessage error");
-		} else 
+		} 
+		else 
 		{
 			TranslateMessage(&msg);
 			DispatchMessage(&msg);
@@ -1985,7 +1996,7 @@ int usb_install(HWND hwnd, HINSTANCE instance,
 
 	if (!usb_install_admin_check())
 	{
-		USBERR0(LOG_APPNAME " requires adminstrator privileges.\n");
+		USBERR0(LOG_APPNAME " requires administrative privileges.\n");
 		return -1;
 	}
 
@@ -2023,7 +2034,7 @@ int usb_install(HWND hwnd, HINSTANCE instance,
 	memset(filter_context, 0, sizeof(filter_context_t));
 
 	// Fill the filter context from the command line arguments.
-	if (!(usb_install_get_filter_context(filter_context, cmd_line_w, starg_arg, &arg_cnt)))
+	if (!(usb_install_parse_filter_context(filter_context, cmd_line_w, starg_arg, &arg_cnt)))
 	{
 		if (arg_cnt <= starg_arg)
 		{
@@ -2132,6 +2143,21 @@ void usb_install_report(filter_context_t* filter_context)
 
 		fprintf(stdout, "%s (%s)\n",
 			next_class->class_guid, next_class->class_name);
+		
+		if (strlen(next_class->class_uppers))
+		{
+			if (usb_registry_mz_to_sz(next_class->class_uppers,','))
+			{
+				fprintf(stdout, "  class upper filters:%s\n", next_class->class_uppers);
+			}
+		}
+		if (strlen(next_class->class_lowers))
+		{
+			if (usb_registry_mz_to_sz(next_class->class_lowers,','))
+			{
+				fprintf(stdout, "  class lower filters:%s\n", next_class->class_lowers);
+			}
+		}
 
 		next_device = next_class->class_filter_devices;
 		while(next_device)
@@ -2139,6 +2165,21 @@ void usb_install_report(filter_context_t* filter_context)
 
 			fprintf(stdout, "    %s - %s (%s)\n",
 				next_device->device_hwid, next_device->device_name, next_device->device_mfg);
+
+			if (strlen(next_device->device_uppers))
+			{
+				if (usb_registry_mz_to_sz(next_device->device_uppers,','))
+				{
+					fprintf(stdout, "      device upper filters:%s\n", next_device->device_uppers);
+				}
+			}
+			if (strlen(next_device->device_lowers))
+			{
+				if (usb_registry_mz_to_sz(next_device->device_lowers,','))
+				{
+					fprintf(stdout, "      device lower filters:%s\n", next_device->device_lowers);
+				}
+			}
 
 			next_device = next_device->next;
 		}
