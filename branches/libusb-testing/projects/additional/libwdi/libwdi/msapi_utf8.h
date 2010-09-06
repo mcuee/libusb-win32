@@ -23,10 +23,9 @@
 #include <commdlg.h>
 #include <shellapi.h>
 #include <setupapi.h>
-#if defined(_MSC_VER)
-#include <newdev.h>
-#else
-#include <ddk/newdev.h>
+
+#ifdef __cplusplus
+extern "C" {
 #endif
 
 #define wchar_to_utf8_no_alloc(wsrc, dest, dest_size) \
@@ -38,6 +37,9 @@
 #define ComboBox_GetTextU(hCtrl, str, max_str) GetWindowTextU(hCtrl, str, max_str)
 #define GetSaveFileNameU(p) GetOpenSaveFileNameU(p, TRUE)
 #define GetOpenFileNameU(p) GetOpenSaveFileNameU(p, FALSE)
+#define ListView_SetItemTextU(hwndLV,i,iSubItem_,pszText_) { LVITEMW _ms_wlvi; _ms_wlvi.iSubItem = iSubItem_; \
+	_ms_wlvi.pszText = utf8_to_wchar(pszText_); \
+	SNDMSG((hwndLV),LVM_SETITEMTEXTW,(WPARAM)(i),(LPARAM)&_ms_wlvi); sfree(_ms_wlvi.pszText);}
 
 #define sfree(p) do {if (p != NULL) {free((void*)(p)); p = NULL;}} while(0)
 #define wconvert(p)     wchar_t* w ## p = utf8_to_wchar(p)
@@ -134,6 +136,22 @@ static __inline BOOL SHGetPathFromIDListU(LPCITEMIDLIST pidl, char* pszPath)
 		ret = FALSE;
 	}
 	wfree(pszPath);
+	SetLastError(err);
+	return ret;
+}
+
+static __inline HWND CreateWindowU(char* lpClassName, char* lpWindowName,
+	DWORD dwStyle, int x, int y, int nWidth, int nHeight, HWND hWndParent,
+	HMENU hMenu, HINSTANCE hInstance, LPVOID lpParam)
+{
+	HWND ret = NULL;
+	DWORD err = ERROR_INVALID_DATA;
+	wconvert(lpClassName);
+	wconvert(lpWindowName);
+	ret = CreateWindowW(wlpClassName, wlpWindowName, dwStyle, x, y, nWidth, nHeight, hWndParent, hMenu, hInstance, lpParam);
+	err = GetLastError();
+	wfree(lpClassName);
+	wfree(lpWindowName);
 	SetLastError(err);
 	return ret;
 }
@@ -378,6 +396,8 @@ out:
 	return ret;
 }
 
+// NOTE: when used, nFileOffset & nFileExtension MUST be provided
+// in number of Unicode characters, NOT number of UTF-8 bytes
 static __inline BOOL WINAPI GetOpenSaveFileNameU(LPOPENFILENAMEA lpofn, BOOL save)
 {
 	BOOL ret = FALSE;
@@ -389,6 +409,7 @@ static __inline BOOL WINAPI GetOpenSaveFileNameU(LPOPENFILENAMEA lpofn, BOOL sav
 	wofn.hwndOwner = lpofn->hwndOwner;
 	wofn.hInstance = lpofn->hInstance;
 
+	// No support for custom filters
 	if (lpofn->lpstrCustomFilter != NULL) goto out;
 
 	// Count on Microsoft to use an moronic scheme for filters
@@ -420,21 +441,18 @@ static __inline BOOL WINAPI GetOpenSaveFileNameU(LPOPENFILENAMEA lpofn, BOOL sav
 	} else {
 		wofn.lpstrFilter = NULL;
 	}
-//	wofn.lpstrCustomFilter = utf8_to_wchar(lpofn->lpstrCustomFilter);
 	wofn.nMaxCustFilter = lpofn->nMaxCustFilter;
 	wofn.nFilterIndex = lpofn->nFilterIndex;
 	wofn.lpstrFile = calloc(lpofn->nMaxFile, sizeof(wchar_t));
 	utf8_to_wchar_no_alloc(lpofn->lpstrFile, wofn.lpstrFile, lpofn->nMaxFile);
 	wofn.nMaxFile = lpofn->nMaxFile;
-	// TODO: buffer
-	wofn.lpstrFileTitle = utf8_to_wchar(lpofn->lpstrFileTitle);
-	wofn.nMaxFileTitle = lpofn->nMaxFileTitle; // TODO
+	wofn.lpstrFileTitle = calloc(lpofn->nMaxFileTitle, sizeof(wchar_t));
+	utf8_to_wchar_no_alloc(lpofn->lpstrFileTitle, wofn.lpstrFileTitle, lpofn->nMaxFileTitle);
+	wofn.nMaxFileTitle = lpofn->nMaxFileTitle;
 	wofn.lpstrInitialDir = utf8_to_wchar(lpofn->lpstrInitialDir);
 	wofn.lpstrTitle = utf8_to_wchar(lpofn->lpstrTitle);
 	wofn.Flags = lpofn->Flags;
-	// TODO: find the backslash
 	wofn.nFileOffset = lpofn->nFileOffset;
-	// TODO: fidn the dot
 	wofn.nFileExtension = lpofn->nFileExtension;
 	wofn.lpstrDefExt = utf8_to_wchar(lpofn->lpstrDefExt);
 	wofn.lCustData = lpofn->lCustData;
@@ -450,12 +468,13 @@ static __inline BOOL WINAPI GetOpenSaveFileNameU(LPOPENFILENAMEA lpofn, BOOL sav
 		ret = GetOpenFileNameW(&wofn);
 	}
 	err = GetLastError();
-	if ((ret) && (wchar_to_utf8_no_alloc(wofn.lpstrFile, lpofn->lpstrFile, lpofn->nMaxFile) == 0)) {
+	if ( (ret)
+	  && ( (wchar_to_utf8_no_alloc(wofn.lpstrFile, lpofn->lpstrFile, lpofn->nMaxFile) == 0)
+	    || (wchar_to_utf8_no_alloc(wofn.lpstrFileTitle, lpofn->lpstrFileTitle, lpofn->nMaxFileTitle) == 0) ) ) {
 		err = GetLastError();
 		ret = FALSE;
 	}
 out:
-//	ufree(wofn.lpstrCustomFilter);
 	sfree(wofn.lpstrDefExt);
 	sfree(wofn.lpstrFile);
 	sfree(wofn.lpstrFileTitle);
@@ -466,6 +485,9 @@ out:
 	SetLastError(err);
 	return ret;
 }
+
+extern BOOL WINAPI UpdateDriverForPlugAndPlayDevicesW(HWND hwndParent, LPCWSTR HardwareId,
+	LPCWSTR FullInfPath, DWORD InstallFlags, PBOOL bRebootRequired);
 
 static __inline BOOL UpdateDriverForPlugAndPlayDevicesU(HWND hwndParent, const char* HardwareId, const char* FullInfPath,
 														DWORD InstallFlags, PBOOL bRebootRequired)
@@ -508,3 +530,7 @@ out:
 	SetLastError(err);
 	return ret;
 }
+
+#ifdef __cplusplus
+}
+#endif
