@@ -194,22 +194,22 @@ static char err_string[STR_BUFFER_SIZE];
 
 	DWORD size;
 	size_t i;
-	uint32_t errcode, format_errcode;
+	uint32_t error_code, format_error;
 
-	errcode = retval?retval:GetLastError();
+	error_code = retval?retval:GetLastError();
 
-	safe_sprintf(err_string, STR_BUFFER_SIZE, "[%d] ", errcode);
+	safe_sprintf(err_string, STR_BUFFER_SIZE, "[%d] ", error_code);
 
-	size = FormatMessageA(FORMAT_MESSAGE_FROM_SYSTEM, NULL, errcode,
+	size = FormatMessageA(FORMAT_MESSAGE_FROM_SYSTEM, NULL, error_code,
 		MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), (LPTSTR) &err_string[safe_strlen(err_string)],
 		STR_BUFFER_SIZE - (DWORD)safe_strlen(err_string), NULL);
 	if (size == 0) {
-		format_errcode = GetLastError();
-		if (format_errcode)
+		format_error = GetLastError();
+		if (format_error)
 			safe_sprintf(err_string, STR_BUFFER_SIZE,
-				"Windows error code %u (FormatMessage error code %u)", errcode, format_errcode);
+				"Windows error code %u (FormatMessage error code %u)", error_code, format_error);
 		else
-			safe_sprintf(err_string, STR_BUFFER_SIZE, "Unknown error code %u", errcode);
+			safe_sprintf(err_string, STR_BUFFER_SIZE, "Unknown error code %u", error_code);
 	} else {
 		// Remove CR/LF terminators
 		for (i=safe_strlen(err_string)-1; ((err_string[i]==0x0A) || (err_string[i]==0x0D)); i--) {
@@ -403,16 +403,16 @@ static FILE *fcreate(const char *filename, const char *mode)
 /*
  * Find out if the driver selected is actually embedded in this version of the library
  */
-bool LIBWDI_API wdi_is_driver_supported(int driver_type, VS_FIXEDFILEINFO** driver_info)
+bool LIBWDI_API wdi_is_driver_supported(int driver_type, VS_FIXEDFILEINFO* driver_info)
 {
 	if (driver_info != NULL) {
-		*driver_info = NULL;
+		memset(driver_info, 0, sizeof(VS_FIXEDFILEINFO));
 	}
 	switch (driver_type) {
 	case WDI_WINUSB:
 #if defined(DDK_DIR)
 		if (driver_info != NULL) {
-			*driver_info = (VS_FIXEDFILEINFO*)&driver_version[0];
+			memcpy(driver_info, &driver_version[0], sizeof(VS_FIXEDFILEINFO));
 		}
 		// WinUSB is not supported on Win2k/2k3
 		GET_WINDOWS_VERSION;
@@ -427,7 +427,7 @@ bool LIBWDI_API wdi_is_driver_supported(int driver_type, VS_FIXEDFILEINFO** driv
 	case WDI_LIBUSB:
 #if defined(LIBUSB0_DIR)
 		if (driver_info != NULL) {
-			*driver_info = (VS_FIXEDFILEINFO*)&driver_version[1];
+			memcpy(driver_info, &driver_version[1], sizeof(VS_FIXEDFILEINFO));
 		}
 		return true;
 #else
@@ -452,46 +452,47 @@ bool LIBWDI_API wdi_is_driver_supported(int driver_type, VS_FIXEDFILEINFO** driv
  * points to a constant string.
  * The returned string is encoded in ASCII form and always starts with a
  * capital letter and ends without any dot.
- * \param errcode the error code whose description is desired
+ * \param error_code the error code whose description is desired
  * \returns a short description of the error code in English
  */
-const char* LIBWDI_API wdi_strerror(int errcode)
+const char* LIBWDI_API wdi_strerror(int error_code)
 {
-	switch (errcode)
+	static char unknown[] = "Unknown error (-9223372036854775808)";	// min 64 bit int in decimal
+	switch (error_code)
 	{
 	case WDI_SUCCESS:
 		return "Success";
 	case WDI_ERROR_IO:
-		return "Input/output error";
+		return "Input/Output error";
 	case WDI_ERROR_INVALID_PARAM:
 		return "Invalid parameter";
 	case WDI_ERROR_ACCESS:
-		return "Access denied (insufficient permissions)";
+		return "Access denied";
 	case WDI_ERROR_NO_DEVICE:
-		return "No such device (it may have been disconnected)";
+		return "No such device";
 	case WDI_ERROR_NOT_FOUND:
 		return "Requested resource not found";
 	case WDI_ERROR_BUSY:
-		return "Requested resource busy or same function call already in process";
+		return "Requested resource busy or similar call already in progress";
 	case WDI_ERROR_TIMEOUT:
 		return "Operation timed out";
 	case WDI_ERROR_OVERFLOW:
 		return "Overflow";
 	case WDI_ERROR_INTERRUPTED:
-		return "System call interrupted (perhaps due to signal)";
+		return "System call interrupted";
 	case WDI_ERROR_RESOURCE:
-		return "Could not acquire resource (insufficient memory, etc.)";
+		return "Could not allocate resource";
 	case WDI_ERROR_NOT_SUPPORTED:
-		return "Operation not supported or unimplemented on this platform";
+		return "Operation not supported or not implemented";
 	case WDI_ERROR_EXISTS:
 		return "Resource already exists";
 	case WDI_ERROR_USER_CANCEL:
 		return "Cancelled by user";
 	// The errors below are generated during driver installation
 	case WDI_ERROR_PENDING_INSTALLATION:
-		return "Another installer is already running";
+		return "Another installation is detected pending";
 	case WDI_ERROR_NEEDS_ADMIN:
-		return "Unable to run installer process with administrative privileges";
+		return "Unable to run process with required administrative privileges";
 	case WDI_ERROR_WOW64:
 		return "Attempted to use a 32 bit installer on a 64 bit machine";
 	case WDI_ERROR_INF_SYNTAX:
@@ -503,7 +504,8 @@ const char* LIBWDI_API wdi_strerror(int errcode)
 	case WDI_ERROR_OTHER:
 		return "Other error";
 	}
-	return "Unknown error";
+	static_sprintf(unknown, "Unknown Error: %d", error_code);
+	return (const char*)unknown;
 }
 
 // convert a GUID to an hex GUID string
@@ -657,7 +659,7 @@ int LIBWDI_API wdi_create_list(struct wdi_device_info** list,
 			if (!SetupDiGetDeviceRegistryPropertyW(dev_info, &dev_info_data, SPDRP_DEVICEDESC,
 				&reg_type, (BYTE*)desc, 2*MAX_DESC_LENGTH, &size)) {
 				wdi_warn("could not read device description for %d: %s",
-					i, "yorgl"); // windows_error_str(0));
+					i, windows_error_str(0));
 				safe_swprintf(desc, MAX_DESC_LENGTH, L"Unknown Device #%d", unknown_count++);
 			}
 		} else {
@@ -791,19 +793,19 @@ static int extract_binaries(char* path)
 			continue;
 		}
 		safe_strcpy(filename, MAX_PATH_LENGTH, path);
-		safe_strcat(filename, MAX_PATH_LENGTH, (char*)"\\");
+		safe_strcat(filename, MAX_PATH_LENGTH, "\\");
 		safe_strcat(filename, MAX_PATH_LENGTH, resource[i].subdir);
 
 		r = check_dir(filename, true);
 		if (r != WDI_SUCCESS) {
 			return r;
 		}
-		safe_strcat(filename, MAX_PATH_LENGTH, (char*)"\\");
+		safe_strcat(filename, MAX_PATH_LENGTH, "\\");
 		safe_strcat(filename, MAX_PATH_LENGTH, resource[i].name);
 
 		fd = fcreate(filename, "w");
 		if (fd == NULL) {
-			wdi_err("failed to create file: %s", filename);
+			wdi_err("failed to create file '%s' (%s)", filename, windows_error_str(0));
 			return WDI_ERROR_RESOURCE;
 		}
 
@@ -923,7 +925,7 @@ int LIBWDI_API wdi_prepare_driver(struct wdi_device_info* device_info, char* pat
 
 	// Set the inf filename
 	safe_strcpy(filename, MAX_PATH_LENGTH, path);
-	safe_strcat(filename, MAX_PATH_LENGTH, (char*)"\\");
+	safe_strcat(filename, MAX_PATH_LENGTH, "\\");
 	safe_strcat(filename, MAX_PATH_LENGTH, inf_name);
 
 	// Populate the inf and cat names
@@ -1124,7 +1126,7 @@ static int install_driver_internal(void* arglist)
 	HANDLE handle[2] = {INVALID_HANDLE_VALUE, INVALID_HANDLE_VALUE};
 	OVERLAPPED overlapped;
 	int r;
-	DWORD err, rd_count, to_read, offset, bufsize = STR_BUFFER_SIZE;
+	DWORD err, rd_count, to_read, offset, bufsize = LOGBUF_SIZE;
 	BOOL is_x64 = false;
 	char *buffer = NULL, *new_buffer;
 
@@ -1196,9 +1198,9 @@ static int install_driver_internal(void* arglist)
 	// Why do we need two installers? Glad you asked. If you try to run the x86 installer on an x64
 	// system, you will get a "System does not work under WOW64 and requires 64-bit version" message.
 	if (is_x64) {
-		safe_strcat(exename, STR_BUFFER_SIZE, (char*)"\\installer_x64.exe");
+		safe_strcat(exename, STR_BUFFER_SIZE, "\\installer_x64.exe");
 	} else {
-		safe_strcat(exename, STR_BUFFER_SIZE, (char*)"\\installer_x86.exe");
+		safe_strcat(exename, STR_BUFFER_SIZE, "\\installer_x86.exe");
 	}
 	// At this stage, if either the 32 or 64 bit installer version is missing,
 	// it is the application developer's fault...
@@ -1220,6 +1222,7 @@ static int install_driver_internal(void* arglist)
 		shExecInfo.lpFile = exename;
 		shExecInfo.lpParameters = inf_name;
 		shExecInfo.lpDirectory = path;
+		shExecInfo.lpClass = NULL;
 		shExecInfo.nShow = SW_HIDE;
 		shExecInfo.hInstApp = NULL;
 
@@ -1244,7 +1247,7 @@ static int install_driver_internal(void* arglist)
 		si.cb = sizeof(si);
 		memset(&pi, 0, sizeof(pi));
 
-		safe_strcat(exename, STR_BUFFER_SIZE, (char*)" ");
+		safe_strcat(exename, STR_BUFFER_SIZE, " ");
 		safe_strcat(exename, STR_BUFFER_SIZE, inf_name);
 		if (!CreateProcessU(NULL, exename, NULL, NULL, FALSE, CREATE_NO_WINDOW, NULL, path, &si, &pi)) {
 			wdi_err("CreateProcess failed: %s", windows_error_str(0));
@@ -1258,7 +1261,7 @@ static int install_driver_internal(void* arglist)
 	buffer = malloc(bufsize);
 	if (buffer == NULL) {
 		wdi_err("unable to alloc buffer: aborting");
-		r =WDI_ERROR_RESOURCE; goto out;
+		r = WDI_ERROR_RESOURCE; goto out;
 	}
 
 	while (r == WDI_SUCCESS) {
