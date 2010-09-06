@@ -1574,16 +1574,18 @@ static bool_t usb_registry_get_class_filter_keys(filter_class_t* filter_class, H
 {
 	DWORD reg_type;
 	DWORD size;
-	LSTATUS status;
 
 	// Get the class filters. A non-existent key means no filters
-	size = sizeof(filter_class->class_uppers);
-	memset(filter_class->class_uppers, 0, size--);
-	status = RegQueryValueExA(reg_class_hkey, "UpperFilters", NULL, &reg_type, filter_class->class_uppers, &size);
+	size = sizeof(filter_class->class_uppers) - 1;
+	if (RegQueryValueExA(reg_class_hkey, "UpperFilters", NULL, &reg_type, filter_class->class_uppers, &size) != ERROR_SUCCESS)
+	{
+		memset(filter_class->class_uppers, 0, sizeof(filter_class->class_uppers));
+	}
 
-	size = sizeof(filter_class->class_lowers);
-	memset(filter_class->class_lowers, 0, size--);
-	status = RegQueryValueExA(reg_class_hkey, "LowerFilters", NULL, &reg_type, filter_class->class_lowers, &size);
-
+	size = sizeof(filter_class->class_lowers) - 1;
+	if (RegQueryValueExA(reg_class_hkey, "LowerFilters", NULL, &reg_type, filter_class->class_lowers, &size) != ERROR_SUCCESS)
+	{
+		memset(filter_class->class_lowers, 0, sizeof(filter_class->class_lowers));
+	}
 	return TRUE;
 }

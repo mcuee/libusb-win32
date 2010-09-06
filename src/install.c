@@ -26,8 +26,8 @@
 #include <regstr.h>
 #include <wchar.h>
 #include <string.h>
-#include <ShellAPI.h>
 #include <process.h>
+#include <richedit.h>
 
 #ifdef __GNUC__
 #if  defined(_WIN64)
@@ -52,12 +52,69 @@
 
 #define INSTALLFLAG_FORCE 0x00000001
 
-#define IDL_INSTALL_PROGRESS_TEXT 10001
+#define IDC_PROGRESS_TEXT 10001
+#define IDC_PROGRESS_BAR  10002
+// #define IDC_INFO_PANE     10003
+
 #define UM_SET_PROGRESS_TEXT WM_USER+1
 #define UM_PROGRESS_STOP WM_USER+2
 #define UM_PROGRESS_START WM_USER+3
 
-LPCSTR install_lock_sem_name="libusb-win32-installer-{1298B356-F6E3-4455-9FEC-3932714AF49B}";
+#define DISPLAY_NAME "libusb-win32 installer"
+#define DISPLAY_RUNNING "libusb-win32 installer running.."
+#define DISPLAY_DONE "libusb-win32 installer finished"
+#define DISPLAY_DONE_WITH_ERRORS "libusb-win32 installer errors!"
+
+#define MOVE_CONTROL(ParentHwnd, ControlID, Rect, Repaint, TopZOrder) \
+	SetWindowPos(GetDlgItem(ParentHwnd, ControlID), HWND_TOP, Rect.left, Rect.top, abs(Rect.right - Rect.left), abs(Rect.bottom - Rect.top), \
+	             (Repaint ? 0 : SWP_NOREDRAW) | (TopZOrder ? 0 : SWP_NOZORDER))
+
+// transform coordinates in a RECT from client to screen coordiantes
+#define ClientToScreenRC(hwnd, prect) do{ClientToScreen(hwnd,(LPPOINT)&prect->left); ClientToScreen(hwnd,(LPPOINT)&prect->right); }while(0)
+
+// transform coordinates in a RECT from screen to client coordiantes
+#define ScreenToClientRC(hwnd, prect) do{ScreenToClient(hwnd,(LPPOINT)&prect->left); ScreenToClient(hwnd,(LPPOINT)&prect->right); }while(0)
+
+// fiils a pointer to a TRIVERTEX structure
+#define TRIVERTEX_FILL(TriVertex, XPos, YPos, RedC16, GreenC16, BlueC16, AlphaC16) do { \
+		(TriVertex)->x     = XPos; \
+		(TriVertex)->y     = YPos; \
+		(TriVertex)->Red   = RedC16; \
+		(TriVertex)->Green = GreenC16; \
+		(TriVertex)->Blue  = BlueC16; \
+		(TriVertex)->Alpha = AlphaC16; \
+	}while(0)
+
+#define COLOR16_MAX 0xff00
+#define RBG_TO_C16(rgb, add, RField, GField, BField) do { \
+		if (((int)((GetRValue(rgb) + (add)) * 256)) > COLOR16_MAX) \
+			RField = COLOR16_MAX; \
+		else if (((int)((GetRValue(rgb) + (add)) * 256)) < 0) \
+			RField = 0; \
+		else \
+			RField = ((GetRValue(rgb) + (add)) * 256); \
+		\
+		\
+		if (((int)((GetGValue(rgb) + (add)) * 256)) > COLOR16_MAX) \
+			GField = COLOR16_MAX; \
+		else if (((int)((GetGValue(rgb) + (add)) * 256)) < 0) \
+			GField = 0; \
+		else \
+			GField = ((GetGValue(rgb) + (add)) * 256); \
+		\
+		\
+		if (((int)((GetBValue(rgb) + (add)) * 256)) > COLOR16_MAX) \
+			BField = COLOR16_MAX; \
+		else if (((int)((GetBValue(rgb) + (add)) * 256)) < 0) \
+			BField = 0; \
+		else \
+			BField = ((GetBValue(rgb) + (add)) * 256); \
+		\
+		\
+	}while(0)
+
+
+LPCSTR install_lock_sem_name = "libusb-win32-installer-{1298B356-F6E3-4455-9FEC-3932714AF49B}";
 
 /* commands */
 LPCWSTR paramcmd_list[] = {
@@ -99,8 +156,8 @@ LPCWSTR paramsw_all_classes[] = {
 };
 
 LPCWSTR paramsw_all_devices[] = {
-	L"--remove-all-devices",
-	L"-rad",
+	L"--all-devices",
+	L"-ad",
 	0
 };
 
@@ -137,76 +194,118 @@ LPCWSTR paramsw_inf[] = {
 };
 
 typedef struct _LONGGUID {
-    unsigned int  Data1;
-    unsigned int Data2;
-    unsigned int Data3;
-    unsigned int  Data4[ 8 ];
+	unsigned int  Data1;
+	unsigned int Data2;
+	unsigned int Data3;
+	unsigned int  Data4[ 8 ];
 } LONGGUID;
 
 typedef struct _install_progress_context_t
 {
-	HWND parent;
-	HINSTANCE instance;
+	HINSTANCE hInstance;
 	HWND progress_hwnd;
-	HWND hwnd_progress_label;
+	bool_t progress_window_ready;
 	filter_context_t* filter_context;
 	uintptr_t thread_id;
 	int ret;
+	DWORD progress_textlength;
+	LONG progress_ind_ofs;
+	bool_t stopped;
 } install_progress_context_t;
 
-static install_progress_context_t g_install_progress_context = {0};
+static install_progress_context_t g_install_progress_context;
 
 static bool_t usb_install_get_argument(LPWSTR param_value, LPCWSTR* out_param,  LPCWSTR* out_value, LPCWSTR* param_names);
 void usb_install_report(filter_context_t* filter_context);
 int usb_install(HWND hwnd, HINSTANCE instance, LPCWSTR cmd_line_w, int starg_arg, filter_context_t** out_filter_context);
 void usage(void);
 
+/* riched32.dll */
+#define INIT_RICHED32() if (riched32_dll == NULL) riched32_dll = LoadLibrary("riched32")
+
+/* gdi32.dll exports */
+typedef HFONT (WINAPI * create_font_t)(int, int, int, int, int,
+                                       DWORD, DWORD, DWORD, DWORD, DWORD, DWORD, DWORD, DWORD,
+                                       LPCSTR);
+#define INIT_GDI32() if (gdi32_dll == NULL) gdi32_dll = LoadLibrary("gdi32")
+#define INIT_CREATEFONT() if (create_font == NULL) do { \
+			INIT_GDI32(); if (gdi32_dll) create_font = (create_font_t) GetProcAddress(gdi32_dll, "CreateFontA"); \
+		}while(0)
+
+/* msimg32.dll exports */
+typedef BOOL (WINAPI * gradient_fill_t)(HDC,
+                                        PTRIVERTEX,
+                                        ULONG,
+                                        PVOID,
+                                        ULONG,
+                                        ULONG);
+#define INIT_MSIMG32() if (msimg32_dll == NULL) msimg32_dll = LoadLibrary("msimg32")
+#define INIT_GRADIENTFILL() if (gradient_fill == NULL) do { \
+			INIT_MSIMG32(); if (msimg32_dll) gradient_fill = (gradient_fill_t) GetProcAddress(msimg32_dll, "GradientFill"); \
+		}while(0)
+
+/* shell32.dll exports */
+typedef LPWSTR* (WINAPI * commandline_to_argvw_t)(LPCWSTR, int*);
+#define INIT_SHELL32() if (shell32_dll == NULL) shell32_dll = LoadLibrary("shell32")
+#define INIT_COMMANDLINE_TO_ARGVW() if (commandline_to_argvw == NULL) do { \
+			INIT_SHELL32(); if (shell32_dll) commandline_to_argvw = (commandline_to_argvw_t) GetProcAddress(shell32_dll, "CommandLineToArgvW"); \
+		}while(0)
+
 /* kernel32.dll exports */
 typedef BOOL (WINAPI * is_wow64_process_t)(HANDLE, PBOOL);
 
 /* newdev.dll exports */
 typedef BOOL (WINAPI * update_driver_for_plug_and_play_devices_t)(HWND,
-																  LPCSTR,
-																  LPCSTR,
-																  DWORD,
-																  PBOOL);
+        LPCSTR,
+        LPCSTR,
+        DWORD,
+        PBOOL);
 
 typedef BOOL (WINAPI * rollback_driver_t)(HDEVINFO,
-										  PSP_DEVINFO_DATA,
-										  HWND,
-										  DWORD,
-										  PBOOL);
+        PSP_DEVINFO_DATA,
+        HWND,
+        DWORD,
+        PBOOL);
 
 typedef BOOL (WINAPI * uninstall_device_t)(HWND,
-										   HDEVINFO,
-										   PSP_DEVINFO_DATA,
-										   DWORD,
-										   PBOOL);
+        HDEVINFO,
+        PSP_DEVINFO_DATA,
+        DWORD,
+        PBOOL);
 
 /* setupapi.dll exports */
 typedef BOOL (WINAPI * setup_copy_oem_inf_t)(PCSTR, PCSTR, DWORD, DWORD,
-											 PSTR, DWORD, PDWORD, PSTR*);
+        PSTR, DWORD, PDWORD, PSTR*);
 
 
 /* advapi32.dll exports */
 typedef SC_HANDLE (WINAPI * open_sc_manager_t)(LPCTSTR, LPCTSTR, DWORD);
 typedef SC_HANDLE (WINAPI * open_service_t)(SC_HANDLE, LPCTSTR, DWORD);
 typedef BOOL (WINAPI * change_service_config_t)(SC_HANDLE, DWORD, DWORD,
-												DWORD, LPCTSTR, LPCTSTR,
-												LPDWORD, LPCTSTR, LPCTSTR,
-												LPCTSTR, LPCTSTR);
+        DWORD, LPCTSTR, LPCTSTR,
+        LPDWORD, LPCTSTR, LPCTSTR,
+        LPCTSTR, LPCTSTR);
 typedef BOOL (WINAPI * close_service_handle_t)(SC_HANDLE);
 typedef SC_HANDLE (WINAPI * create_service_t)(SC_HANDLE, LPCTSTR, LPCTSTR,
-											  DWORD, DWORD,DWORD, DWORD,
-											  LPCTSTR, LPCTSTR, LPDWORD,
-											  LPCTSTR, LPCTSTR, LPCTSTR);
+        DWORD, DWORD, DWORD, DWORD,
+        LPCTSTR, LPCTSTR, LPDWORD,
+        LPCTSTR, LPCTSTR, LPCTSTR);
 typedef BOOL (WINAPI * delete_service_t)(SC_HANDLE);
 typedef BOOL (WINAPI * start_service_t)(SC_HANDLE, DWORD, LPCTSTR);
 typedef BOOL (WINAPI * query_service_status_t)(SC_HANDLE, LPSERVICE_STATUS);
 typedef BOOL (WINAPI * control_service_t)(SC_HANDLE, DWORD, LPSERVICE_STATUS);
 
 
+static HINSTANCE riched32_dll = NULL;
+static HINSTANCE shell32_dll = NULL;
+static HINSTANCE msimg32_dll = NULL;
+static HINSTANCE gdi32_dll = NULL;
+
 static HINSTANCE advapi32_dll = NULL;
+
+static commandline_to_argvw_t commandline_to_argvw = NULL;
+static gradient_fill_t gradient_fill = NULL;
+static create_font_t create_font = NULL;
 
 static open_sc_manager_t open_sc_manager = NULL;
 static open_service_t open_service = NULL;
@@ -218,29 +317,36 @@ static start_service_t start_service = NULL;
 static query_service_status_t query_service_status = NULL;
 static control_service_t control_service = NULL;
 
-// Work around for CreateFont on DDK (would require end user apps linking with Gdi32 othwerwise)
-static HFONT (WINAPI *pCreateFontA)(int, int, int, int, int, DWORD, DWORD, DWORD, DWORD, DWORD, DWORD, DWORD, DWORD, LPCSTR) = NULL;
-#define INIT_CREATEFONT if (pCreateFontA== NULL) {	\
-	pCreateFontA = (HFONT (WINAPI *)(int, int, int, int, int, DWORD, DWORD, DWORD, DWORD, DWORD, DWORD, DWORD, DWORD, LPCSTR))	\
-	GetProcAddress(GetModuleHandleA("Gdi32"), "CreateFontA"); \
-}
-#define IS_CREATEFONT_AVAILABLE (pCreateFontA != NULL)
-
 static bool_t usb_service_load_dll(void);
 static bool_t usb_service_free_dll(void);
 
 static bool_t usb_service_create(const char *name, const char *display_name,
-								 const char *binary_path, unsigned long type,
-								 unsigned long start_type);
+                                 const char *binary_path, unsigned long type,
+                                 unsigned long start_type);
 static bool_t usb_service_stop(const char *name);
 static bool_t usb_service_delete(const char *name);
+
 static bool_t usb_install_iswow64(void);
 static BOOL usb_install_admin_check(void);
 
+bool_t usb_progress_context_create(install_progress_context_t* install_progress_context,
+                                   HINSTANCE hInstance,
+                                   filter_context_t* filter_context);
+void usb_progress_context_destroy(install_progress_context_t* install_progress_context);
+
+bool_t usb_progress_add_text(HWND hwnd, char* message, COLORREF crNewColor, bool_t bold);
+
+BOOL sem_create_lock(HANDLE* sem_handle_out, LPCSTR unique_name, LONG remaining, LONG max);
+BOOL sem_destroy_lock(HANDLE* sem_handle_in);
+BOOL sem_release_lock(HANDLE sem_handle);
+BOOL sem_try_lock(HANDLE sem_handle, DWORD dwMilliseconds);
+
+static void detect_version(void);
+
 // Detect Windows version
 /*
- * Windows versions
- */
+* Windows versions
+*/
 enum windows_version {
 	WINDOWS_UNDEFINED,
 	WINDOWS_UNSUPPORTED,
@@ -276,16 +382,11 @@ static void detect_version(void)
 	}
 }
 
-BOOL sem_create_lock(HANDLE* sem_handle_out, LPCSTR unique_name, LONG remaining, LONG max);
-BOOL sem_destroy_lock(HANDLE* sem_handle_in);
-BOOL sem_release_lock(HANDLE sem_handle);
-BOOL sem_try_lock(HANDLE sem_handle, DWORD dwMilliseconds);
-
 BOOL sem_create_lock(HANDLE* sem_handle_out, LPCSTR unique_name, LONG remaining, LONG max)
 {
 	SECURITY_ATTRIBUTES sem_attributes;
 
-	memset(&sem_attributes,0,sizeof(sem_attributes));
+	memset(&sem_attributes, 0, sizeof(sem_attributes));
 	sem_attributes.nLength = sizeof(sem_attributes);
 	sem_attributes.bInheritHandle = TRUE;
 
@@ -319,22 +420,22 @@ BOOL sem_try_lock(HANDLE sem_handle, DWORD dwMilliseconds)
 }
 
 void CALLBACK usb_touch_inf_file_rundll(HWND wnd, HINSTANCE instance,
-										LPSTR cmd_line, int cmd_show);
+                                        LPSTR cmd_line, int cmd_show);
 
 void CALLBACK usb_install_service_np_rundll(HWND wnd, HINSTANCE instance,
-											LPSTR cmd_line, int cmd_show)
+        LPSTR cmd_line, int cmd_show)
 {
 	usb_install_service_np();
 }
 
 void CALLBACK usb_uninstall_service_np_rundll(HWND wnd, HINSTANCE instance,
-											  LPSTR cmd_line, int cmd_show)
+        LPSTR cmd_line, int cmd_show)
 {
 	usb_uninstall_service_np();
 }
 
 void CALLBACK usb_install_driver_np_rundll(HWND wnd, HINSTANCE instance,
-										   LPSTR cmd_line, int cmd_show)
+        LPSTR cmd_line, int cmd_show)
 {
 	usb_install_driver_np(cmd_line);
 }
@@ -356,16 +457,16 @@ int usb_install_service(filter_context_t* filter_context)
 
 		/* create the Display Name */
 		_snprintf(display_name, sizeof(display_name) - 1,
-			"libusb-win32 - Kernel Driver, Version %d.%d.%d.%d",
-			VERSION_MAJOR, VERSION_MINOR, VERSION_MICRO, VERSION_NANO);
+		          "libusb-win32 - Kernel Driver, Version %d.%d.%d.%d",
+		          VERSION_MAJOR, VERSION_MINOR, VERSION_MICRO, VERSION_NANO);
 
 		/* create the kernel service */
-		USBMSG("creating %s service..\n",driver_name);
+		USBMSG("creating %s service..\n", driver_name);
 		if (!usb_service_create(driver_name, display_name,
-			LIBUSB_DRIVER_PATH,
-			SERVICE_KERNEL_DRIVER, SERVICE_DEMAND_START))
+		                        LIBUSB_DRIVER_PATH,
+		                        SERVICE_KERNEL_DRIVER, SERVICE_DEMAND_START))
 		{
-			USBERR("failed creating service %s\n",driver_name);
+			USBERR("failed creating service %s\n", driver_name);
 			ret = -1;
 		}
 	}
@@ -427,7 +528,7 @@ BOOL usb_install_find_model_section(HINF inf_handle, PINFCONTEXT inf_context)
 	// first find [Manufacturer].  The models are listeed in this section.
 	if (SetupFindFirstLine(inf_handle, "Manufacturer", NULL, inf_context))
 	{
-		memset(model,0,sizeof(model));
+		memset(model, 0, sizeof(model));
 		for (field_index = 1; field_index < ( sizeof(model) / sizeof(model[0]) ); field_index++)
 		{
 			success = SetupGetStringField(inf_context, field_index, tmp, sizeof(tmp), NULL);
@@ -439,7 +540,7 @@ BOOL usb_install_find_model_section(HINF inf_handle, PINFCONTEXT inf_context)
 			case 1:	// The first field is the base model-section-name, "Devices" for example.
 				USBDBG("model-section-name=%s\n", tmp);
 				break;
-			default: // These are the target OS field(s), "NT" or "NTX86" for example. 
+			default: // These are the target OS field(s), "NT" or "NTX86" for example.
 				USBDBG("target-os-version=%s\n", tmp);
 			}
 		}
@@ -459,7 +560,7 @@ BOOL usb_install_find_model_section(HINF inf_handle, PINFCONTEXT inf_context)
 		}
 
 		// these were allocated with _strdup above.
-		for (field_index=0; model[field_index] != NULL; field_index++)
+		for (field_index = 0; model[field_index] != NULL; field_index++)
 			free(model[field_index]);
 
 		// model-section-name or model-section not found
@@ -535,7 +636,7 @@ int usb_install_inf_np(const char *inf_file, bool_t remove_mode, bool_t copy_oem
 	if (!GetFullPathName(inf_file, MAX_PATH, inf_path, NULL))
 	{
 		USBERR(".inf file %s not found\n",
-			inf_file);
+		       inf_file);
 		return -1;
 	}
 
@@ -545,7 +646,7 @@ int usb_install_inf_np(const char *inf_file, bool_t remove_mode, bool_t copy_oem
 	if (inf_handle == INVALID_HANDLE_VALUE)
 	{
 		USBERR("unable to open .inf file %s\n",
-			inf_file);
+		       inf_file);
 		return -1;
 	}
 
@@ -565,7 +666,7 @@ int usb_install_inf_np(const char *inf_file, bool_t remove_mode, bool_t copy_oem
 			/* convert the string to lowercase */
 			strlwr(id);
 
-			if (strncmp(id,"usb\\", 4) != 0)
+			if (strncmp(id, "usb\\", 4) != 0)
 			{
 				USBERR("invalid hardware id %s\n", id);
 				SetupCloseInfFile(inf_handle);
@@ -573,7 +674,7 @@ int usb_install_inf_np(const char *inf_file, bool_t remove_mode, bool_t copy_oem
 			}
 
 			USBMSG("%s device %s..\n",
-				remove_mode ? "removing" : "installing", id+4);
+			       remove_mode ? "removing" : "installing", id + 4);
 
 			reboot = FALSE;
 
@@ -585,17 +686,17 @@ int usb_install_inf_np(const char *inf_file, bool_t remove_mode, bool_t copy_oem
 					/* when new devices are plugged in */
 					if (SetupCopyOEMInf(inf_path, NULL, SPOST_PATH, 0, NULL, 0, NULL, NULL))
 					{
-						USBDBG("SetupCopyOEMInf failed for %s\n",inf_path);
+						USBDBG("SetupCopyOEMInf failed for %s\n", inf_path);
 					}
 					else
 					{
-						USBDBG(".inf file %s copied to system directory\n",inf_path);
+						USBDBG(".inf file %s copied to system directory\n", inf_path);
 					}
 				}
 				/* update all connected devices matching this ID, but only if this */
 				/* driver is better or newer */
 				UpdateDriverForPlugAndPlayDevices(NULL, id, inf_path, INSTALLFLAG_FORCE,
-					&reboot);
+				                                  &reboot);
 			}
 
 			/* now search the registry for device nodes representing currently  */
@@ -619,9 +720,9 @@ int usb_install_inf_np(const char *inf_file, bool_t remove_mode, bool_t copy_oem
 			{
 				/* get the harware ID from the registry, this is a multi-zero string */
 				if (SetupDiGetDeviceRegistryProperty(dev_info, &dev_info_data,
-					SPDRP_HARDWAREID, NULL,
-					(BYTE *)tmp_id,
-					sizeof(tmp_id), NULL))
+				                                     SPDRP_HARDWAREID, NULL,
+				                                     (BYTE *)tmp_id,
+				                                     sizeof(tmp_id), NULL))
 				{
 					/* check all possible IDs contained in that multi-zero string */
 					for (p = tmp_id; *p; p += (strlen(p) + 1))
@@ -672,9 +773,9 @@ int usb_install_inf_np(const char *inf_file, bool_t remove_mode, bool_t copy_oem
 							else
 							{
 								cr = CM_Get_DevNode_Status(&status,
-									&problem,
-									dev_info_data.DevInst,
-									0);
+								                           &problem,
+								                           dev_info_data.DevInst,
+								                           0);
 
 								/* is this device disconnected? */
 								if (cr == CR_NO_SUCH_DEVINST)
@@ -682,12 +783,12 @@ int usb_install_inf_np(const char *inf_file, bool_t remove_mode, bool_t copy_oem
 									/* found a device node that represents an unattached */
 									/* device */
 									if (SetupDiGetDeviceRegistryProperty(dev_info,
-										&dev_info_data,
-										SPDRP_CONFIGFLAGS,
-										NULL,
-										(BYTE *)&config_flags,
-										sizeof(config_flags),
-										NULL))
+									                                     &dev_info_data,
+									                                     SPDRP_CONFIGFLAGS,
+									                                     NULL,
+									                                     (BYTE *)&config_flags,
+									                                     sizeof(config_flags),
+									                                     NULL))
 									{
 										/* mark the device to be reinstalled the next time it is */
 										/* plugged in */
@@ -695,10 +796,10 @@ int usb_install_inf_np(const char *inf_file, bool_t remove_mode, bool_t copy_oem
 
 										/* write the property back to the registry */
 										SetupDiSetDeviceRegistryProperty(dev_info,
-											&dev_info_data,
-											SPDRP_CONFIGFLAGS,
-											(BYTE *)&config_flags,
-											sizeof(config_flags));
+										                                 &dev_info_data,
+										                                 SPDRP_CONFIGFLAGS,
+										                                 (BYTE *)&config_flags,
+										                                 sizeof(config_flags));
 									}
 								}
 							}
@@ -763,8 +864,8 @@ int usb_install_driver_np(const char *inf_file)
 	}
 
 	UpdateDriverForPlugAndPlayDevices =
-		(update_driver_for_plug_and_play_devices_t)
-		GetProcAddress(newdev_dll, "UpdateDriverForPlugAndPlayDevicesA");
+	    (update_driver_for_plug_and_play_devices_t)
+	    GetProcAddress(newdev_dll, "UpdateDriverForPlugAndPlayDevicesA");
 
 	if (!UpdateDriverForPlugAndPlayDevices)
 	{
@@ -780,7 +881,7 @@ int usb_install_driver_np(const char *inf_file)
 		return -1;
 	}
 	SetupCopyOEMInf = (setup_copy_oem_inf_t)
-		GetProcAddress(setupapi_dll, "SetupCopyOEMInfA");
+	                  GetProcAddress(setupapi_dll, "SetupCopyOEMInfA");
 
 	if (!SetupCopyOEMInf)
 	{
@@ -795,7 +896,7 @@ int usb_install_driver_np(const char *inf_file)
 	if (!GetFullPathName(inf_file, MAX_PATH, inf_path, NULL))
 	{
 		USBERR(".inf file %s not found\n",
-			inf_file);
+		       inf_file);
 		return -1;
 	}
 
@@ -805,7 +906,7 @@ int usb_install_driver_np(const char *inf_file)
 	if (inf_handle == INVALID_HANDLE_VALUE)
 	{
 		USBERR("unable to open .inf file %s\n",
-			inf_file);
+		       inf_file);
 		return -1;
 	}
 
@@ -813,7 +914,7 @@ int usb_install_driver_np(const char *inf_file)
 	if (!SetupFindFirstLine(inf_handle, "Devices", NULL, &inf_context))
 	{
 		USBERR(".inf file %s does not contain "
-			"any device descriptions\n", inf_file);
+		       "any device descriptions\n", inf_file);
 		SetupCloseInfFile(inf_handle);
 		return -1;
 	}
@@ -839,7 +940,7 @@ int usb_install_driver_np(const char *inf_file)
 		/* update all connected devices matching this ID, but only if this */
 		/* driver is better or newer */
 		UpdateDriverForPlugAndPlayDevices(NULL, id, inf_path, INSTALLFLAG_FORCE,
-			&reboot);
+		                                  &reboot);
 
 
 		/* now search the registry for device nodes representing currently  */
@@ -864,9 +965,9 @@ int usb_install_driver_np(const char *inf_file)
 		{
 			/* get the harware ID from the registry, this is a multi-zero string */
 			if (SetupDiGetDeviceRegistryProperty(dev_info, &dev_info_data,
-				SPDRP_HARDWAREID, NULL,
-				(BYTE *)tmp_id,
-				sizeof(tmp_id), NULL))
+			                                     SPDRP_HARDWAREID, NULL,
+			                                     (BYTE *)tmp_id,
+			                                     sizeof(tmp_id), NULL))
 			{
 				/* check all possible IDs contained in that multi-zero string */
 				for (p = tmp_id; *p; p += (strlen(p) + 1))
@@ -878,9 +979,9 @@ int usb_install_driver_np(const char *inf_file)
 					if (strstr(p, id))
 					{
 						cr = CM_Get_DevNode_Status(&status,
-							&problem,
-							dev_info_data.DevInst,
-							0);
+						                           &problem,
+						                           dev_info_data.DevInst,
+						                           0);
 
 						/* is this device disconnected? */
 						if (cr == CR_NO_SUCH_DEVINST)
@@ -888,12 +989,12 @@ int usb_install_driver_np(const char *inf_file)
 							/* found a device node that represents an unattached */
 							/* device */
 							if (SetupDiGetDeviceRegistryProperty(dev_info,
-								&dev_info_data,
-								SPDRP_CONFIGFLAGS,
-								NULL,
-								(BYTE *)&config_flags,
-								sizeof(config_flags),
-								NULL))
+							                                     &dev_info_data,
+							                                     SPDRP_CONFIGFLAGS,
+							                                     NULL,
+							                                     (BYTE *)&config_flags,
+							                                     sizeof(config_flags),
+							                                     NULL))
 							{
 								/* mark the device to be reinstalled the next time it is */
 								/* plugged in */
@@ -901,10 +1002,10 @@ int usb_install_driver_np(const char *inf_file)
 
 								/* write the property back to the registry */
 								SetupDiSetDeviceRegistryProperty(dev_info,
-									&dev_info_data,
-									SPDRP_CONFIGFLAGS,
-									(BYTE *)&config_flags,
-									sizeof(config_flags));
+								                                 &dev_info_data,
+								                                 SPDRP_CONFIGFLAGS,
+								                                 (BYTE *)&config_flags,
+								                                 sizeof(config_flags));
 							}
 						}
 						/* a match was found, skip the rest */
@@ -945,35 +1046,35 @@ bool_t usb_service_load_dll()
 		}
 
 		open_sc_manager = (open_sc_manager_t)
-			GetProcAddress(advapi32_dll, "OpenSCManagerA");
+		                  GetProcAddress(advapi32_dll, "OpenSCManagerA");
 
 		open_service = (open_service_t)
-			GetProcAddress(advapi32_dll, "OpenServiceA");
+		               GetProcAddress(advapi32_dll, "OpenServiceA");
 
 		change_service_config = (change_service_config_t)
-			GetProcAddress(advapi32_dll, "ChangeServiceConfigA");
+		                        GetProcAddress(advapi32_dll, "ChangeServiceConfigA");
 
 		close_service_handle = (close_service_handle_t)
-			GetProcAddress(advapi32_dll, "CloseServiceHandle");
+		                       GetProcAddress(advapi32_dll, "CloseServiceHandle");
 
 		create_service = (create_service_t)
-			GetProcAddress(advapi32_dll, "CreateServiceA");
+		                 GetProcAddress(advapi32_dll, "CreateServiceA");
 
 		delete_service = (delete_service_t)
-			GetProcAddress(advapi32_dll, "DeleteService");
+		                 GetProcAddress(advapi32_dll, "DeleteService");
 
 		start_service = (start_service_t)
-			GetProcAddress(advapi32_dll, "StartServiceA");
+		                GetProcAddress(advapi32_dll, "StartServiceA");
 
 		query_service_status = (query_service_status_t)
-			GetProcAddress(advapi32_dll, "QueryServiceStatus");
+		                       GetProcAddress(advapi32_dll, "QueryServiceStatus");
 
 		control_service = (control_service_t)
-			GetProcAddress(advapi32_dll, "ControlService");
+		                  GetProcAddress(advapi32_dll, "ControlService");
 
 		if (!open_sc_manager || !open_service || !change_service_config
-			|| !close_service_handle || !create_service || !delete_service
-			|| !start_service || !query_service_status || !control_service)
+		        || !close_service_handle || !create_service || !delete_service
+		        || !start_service || !query_service_status || !control_service)
 		{
 			FreeLibrary(advapi32_dll);
 			USBERR0("loading exported functions of advapi32.dll failed");
@@ -994,8 +1095,8 @@ bool_t usb_service_free_dll()
 }
 
 bool_t usb_service_create(const char *name, const char *display_name,
-						  const char *binary_path, unsigned long type,
-						  unsigned long start_type)
+                          const char *binary_path, unsigned long type,
+                          unsigned long start_type)
 {
 	SC_HANDLE scm = NULL;
 	SC_HANDLE service = NULL;
@@ -1009,12 +1110,12 @@ bool_t usb_service_create(const char *name, const char *display_name,
 	do
 	{
 		scm = open_sc_manager(NULL, SERVICES_ACTIVE_DATABASE,
-			SC_MANAGER_ALL_ACCESS);
+		                      SC_MANAGER_ALL_ACCESS);
 
 		if (!scm)
 		{
 			USBERR("opening service control "
-				"manager failed: %s", usb_win_error_to_string());
+			       "manager failed: %s", usb_win_error_to_string());
 			break;
 		}
 
@@ -1023,20 +1124,20 @@ bool_t usb_service_create(const char *name, const char *display_name,
 		if (service)
 		{
 			if (!change_service_config(service,
-				type,
-				start_type,
-				SERVICE_ERROR_NORMAL,
-				binary_path,
-				NULL,
-				NULL,
-				NULL,
-				NULL,
-				NULL,
-				display_name))
+			                           type,
+			                           start_type,
+			                           SERVICE_ERROR_NORMAL,
+			                           binary_path,
+			                           NULL,
+			                           NULL,
+			                           NULL,
+			                           NULL,
+			                           NULL,
+			                           display_name))
 			{
 				USBERR("changing config of "
-					"service '%s' failed: %s",
-					name, usb_win_error_to_string());
+				       "service '%s' failed: %s",
+				       name, usb_win_error_to_string());
 				break;
 			}
 			ret = TRUE;
@@ -1046,20 +1147,20 @@ bool_t usb_service_create(const char *name, const char *display_name,
 		if (GetLastError() == ERROR_SERVICE_DOES_NOT_EXIST)
 		{
 			service = create_service(scm,
-				name,
-				display_name,
-				GENERIC_EXECUTE,
-				type,
-				start_type,
-				SERVICE_ERROR_NORMAL,
-				binary_path,
-				NULL, NULL, NULL, NULL, NULL);
+			                         name,
+			                         display_name,
+			                         GENERIC_EXECUTE,
+			                         type,
+			                         start_type,
+			                         SERVICE_ERROR_NORMAL,
+			                         binary_path,
+			                         NULL, NULL, NULL, NULL, NULL);
 
 			if (!service)
 			{
 				USBERR("creating "
-					"service '%s' failed: %s",
-					name, usb_win_error_to_string());
+				       "service '%s' failed: %s",
+				       name, usb_win_error_to_string());
 			}
 			ret = TRUE;
 		}
@@ -1093,17 +1194,17 @@ bool_t usb_service_stop(const char *name)
 		return FALSE;
 	}
 
-	USBMSG("stopping %s service..\n",name);
+	USBMSG("stopping %s service..\n", name);
 
 	do
 	{
 		scm = open_sc_manager(NULL, SERVICES_ACTIVE_DATABASE,
-			SC_MANAGER_ALL_ACCESS);
+		                      SC_MANAGER_ALL_ACCESS);
 
 		if (!scm)
 		{
 			USBERR("opening service control "
-				"manager failed: %s", usb_win_error_to_string());
+			       "manager failed: %s", usb_win_error_to_string());
 			break;
 		}
 
@@ -1118,8 +1219,8 @@ bool_t usb_service_stop(const char *name)
 		if (!query_service_status(service, &status))
 		{
 			USBERR("getting status of "
-				"service '%s' failed: %s",
-				name, usb_win_error_to_string());
+			       "service '%s' failed: %s",
+			       name, usb_win_error_to_string());
 			break;
 		}
 
@@ -1132,7 +1233,7 @@ bool_t usb_service_stop(const char *name)
 		if (!control_service(service, SERVICE_CONTROL_STOP, &status))
 		{
 			USBERR("stopping service '%s' failed: %s",
-				name, usb_win_error_to_string());
+			       name, usb_win_error_to_string());
 			break;
 		}
 
@@ -1143,8 +1244,8 @@ bool_t usb_service_stop(const char *name)
 			if (!query_service_status(service, &status))
 			{
 				USBERR("getting status of "
-					"service '%s' failed: %s",
-					name, usb_win_error_to_string());
+				       "service '%s' failed: %s",
+				       name, usb_win_error_to_string());
 				break;
 			}
 			Sleep(500);
@@ -1153,7 +1254,7 @@ bool_t usb_service_stop(const char *name)
 			if (wait > 20000)
 			{
 				USBERR("stopping "
-					"service '%s' failed, timeout", name);
+				       "service '%s' failed, timeout", name);
 				ret = FALSE;
 				break;
 			}
@@ -1189,17 +1290,17 @@ bool_t usb_service_delete(const char *name)
 		return FALSE;
 	}
 
-	USBMSG("deleting %s service..\n",name);
+	USBMSG("deleting %s service..\n", name);
 
 	do
 	{
 		scm = open_sc_manager(NULL, SERVICES_ACTIVE_DATABASE,
-			SC_MANAGER_ALL_ACCESS);
+		                      SC_MANAGER_ALL_ACCESS);
 
 		if (!scm)
 		{
 			USBERR("opening service control "
-				"manager failed: %s", usb_win_error_to_string());
+			       "manager failed: %s", usb_win_error_to_string());
 			break;
 		}
 
@@ -1215,8 +1316,8 @@ bool_t usb_service_delete(const char *name)
 		if (!delete_service(service))
 		{
 			USBERR("deleting "
-				"service '%s' failed: %s",
-				name, usb_win_error_to_string());
+			       "service '%s' failed: %s",
+			       name, usb_win_error_to_string());
 			break;
 		}
 		ret = TRUE;
@@ -1239,7 +1340,7 @@ bool_t usb_service_delete(const char *name)
 }
 
 void CALLBACK usb_touch_inf_file_np_rundll(HWND wnd, HINSTANCE instance,
-										   LPSTR cmd_line, int cmd_show)
+        LPSTR cmd_line, int cmd_show)
 {
 	usb_touch_inf_file_np(cmd_line);
 }
@@ -1247,9 +1348,9 @@ void CALLBACK usb_touch_inf_file_np_rundll(HWND wnd, HINSTANCE instance,
 int usb_touch_inf_file_np(const char *inf_file)
 {
 	const char inf_comment[] = ";added by libusb to break this file's digital "
-		"signature";
+	                           "signature";
 	const wchar_t inf_comment_uni[] = L";added by libusb to break this file's "
-		L"digital signature";
+	                                  L"digital signature";
 
 	char buf[1024];
 	wchar_t wbuf[1024];
@@ -1271,7 +1372,7 @@ int usb_touch_inf_file_np(const char *inf_file)
 		if (!f)
 			return -1;
 
-		while (fgetws(wbuf, sizeof(wbuf)/2, f))
+		while (fgetws(wbuf, sizeof(wbuf) / 2, f))
 		{
 			if (wcsstr(wbuf, inf_comment_uni))
 			{
@@ -1332,7 +1433,7 @@ int usb_install_needs_restart_np(void)
 
 	dev_info_data.cbSize = sizeof(SP_DEVINFO_DATA);
 	dev_info = SetupDiGetClassDevs(NULL, NULL, NULL,
-		DIGCF_ALLCLASSES | DIGCF_PRESENT);
+	                               DIGCF_ALLCLASSES | DIGCF_PRESENT);
 
 	SetEnvironmentVariable("LIBUSB_NEEDS_REBOOT", "1");
 
@@ -1348,7 +1449,7 @@ int usb_install_needs_restart_np(void)
 		install_params.cbSize = sizeof(SP_DEVINSTALL_PARAMS);
 
 		if (SetupDiGetDeviceInstallParams(dev_info, &dev_info_data,
-			&install_params))
+		                                  &install_params))
 		{
 			if (install_params.Flags & (DI_NEEDRESTART | DI_NEEDREBOOT))
 			{
@@ -1365,10 +1466,10 @@ int usb_install_needs_restart_np(void)
 	return ret;
 }
 
-bool_t usb_install_parse_filter_context(filter_context_t* filter_context, 
-									  LPCWSTR cmd_line, 
-									  int arg_start, 
-									  int* arg_cnt)
+bool_t usb_install_parse_filter_context(filter_context_t* filter_context,
+                                        LPCWSTR cmd_line,
+                                        int arg_start,
+                                        int* arg_cnt)
 {
 	LONGGUID class_guid;
 	int arg_pos;
@@ -1383,9 +1484,18 @@ bool_t usb_install_parse_filter_context(filter_context_t* filter_context,
 	filter_file_t* found_inf;
 
 	*arg_cnt = 0;
-	if (!(argv = CommandLineToArgvW(cmd_line, arg_cnt)))
+	INIT_COMMANDLINE_TO_ARGVW();
+
+	if (!commandline_to_argvw)
 	{
-		USBERR("failed CommandLineToArgvW:%X",GetLastError());
+		USBERR("failed CommandLineToArgvW:%X", GetLastError());
+		success = FALSE;
+		goto Done;
+	}
+
+	if (!(argv = commandline_to_argvw(cmd_line, arg_cnt)))
+	{
+		USBERR("failed CommandLineToArgvW:%X", GetLastError());
 		success = FALSE;
 		goto Done;
 	}
@@ -1396,7 +1506,7 @@ bool_t usb_install_parse_filter_context(filter_context_t* filter_context,
 		goto Done;
 	}
 
-	for(arg_pos=arg_start; arg_pos < *arg_cnt; arg_pos++)
+	for(arg_pos = arg_start; arg_pos < *arg_cnt; arg_pos++)
 	{
 		if (usb_install_get_argument(argv[arg_pos], &arg_param, &arg_value, paramcmd_help))
 		{
@@ -1431,17 +1541,17 @@ bool_t usb_install_parse_filter_context(filter_context_t* filter_context,
 		{
 			filter_context->remove_all_device_filters = TRUE;
 		}
-		else if 
-			(
-			usb_install_get_argument(argv[arg_pos], &arg_param, &arg_value, paramsw_device_upper) ||
-			usb_install_get_argument(argv[arg_pos], &arg_param, &arg_value, paramsw_device_lower)
-			)
+		else if
+		(
+		    usb_install_get_argument(argv[arg_pos], &arg_param, &arg_value, paramsw_device_upper) ||
+		    usb_install_get_argument(argv[arg_pos], &arg_param, &arg_value, paramsw_device_lower)
+		)
 		{
 			length = wcstombs(tmp, arg_value, MAX_PATH);
 			if (length < 1)
 			{
 				success = FALSE;
-				USBERR("invalid argument %ls\n",argv[arg_pos]);
+				USBERR("invalid argument %ls\n", argv[arg_pos]);
 				break;
 			}
 			tmp[length] = 0;
@@ -1463,7 +1573,7 @@ bool_t usb_install_parse_filter_context(filter_context_t* filter_context,
 				if (!found_device)
 				{
 					success = FALSE;
-					USBERR("failed adding device upper filter key %ls\n",argv[arg_pos]);
+					USBERR("failed adding device upper filter key %ls\n", argv[arg_pos]);
 					break;
 				}
 				else
@@ -1477,7 +1587,7 @@ bool_t usb_install_parse_filter_context(filter_context_t* filter_context,
 				if (!found_device)
 				{
 					success = FALSE;
-					USBERR("failed adding device lower filter key %ls\n",argv[arg_pos]);
+					USBERR("failed adding device lower filter key %ls\n", argv[arg_pos]);
 					break;
 				}
 				else
@@ -1488,55 +1598,55 @@ bool_t usb_install_parse_filter_context(filter_context_t* filter_context,
 		}
 		else if (usb_install_get_argument(argv[arg_pos], &arg_param, &arg_value, paramsw_class))
 		{
-			memset(tmp,0,sizeof(tmp));
+			memset(tmp, 0, sizeof(tmp));
 			length = wcstombs(tmp, arg_value, MAX_PATH);
 			if (length < 1)
 			{
 				success = FALSE;
-				USBERR("invalid argument %ls\n",argv[arg_pos]);
+				USBERR("invalid argument %ls\n", argv[arg_pos]);
 				break;
 			}
 			tmp[length] = 0;
 
 			if ((length != 38 || tmp[0] != '{' || tmp[length-1] != '}') ||
-				sscanf(tmp, "{%08X-%04X-%04X-%02X%02X-%02X%02X%02X%02X%02X%02X}",
-				&class_guid.Data1, &class_guid.Data2, &class_guid.Data3, 
-				&class_guid.Data4[0], &class_guid.Data4[1], &class_guid.Data4[2], &class_guid.Data4[3], 
-				&class_guid.Data4[4], &class_guid.Data4[5], &class_guid.Data4[6], &class_guid.Data4[7]) != 11)
+			        sscanf(tmp, "{%08X-%04X-%04X-%02X%02X-%02X%02X%02X%02X%02X%02X}",
+			               &class_guid.Data1, &class_guid.Data2, &class_guid.Data3,
+			               &class_guid.Data4[0], &class_guid.Data4[1], &class_guid.Data4[2], &class_guid.Data4[3],
+			               &class_guid.Data4[4], &class_guid.Data4[5], &class_guid.Data4[6], &class_guid.Data4[7]) != 11)
 			{
 				// assume arg_value is a class name
-				success = usb_registry_add_class_key(&filter_context->class_filters, 
-					"", tmp, "", &found_class, FALSE);
+				success = usb_registry_add_class_key(&filter_context->class_filters,
+				                                     "", tmp, "", &found_class, FALSE);
 				if (!success)
 				{
-					USBERR("failed adding class name at argument %ls\n",argv[arg_pos]);
+					USBERR("failed adding class name at argument %ls\n", argv[arg_pos]);
 					break;
 				}
 			}
-			else 
+			else
 			{
-				sprintf(tmp,"{%08X-%04X-%04X-%02X%02X-%02X%02X%02X%02X%02X%02X}",
-					class_guid.Data1, class_guid.Data2, class_guid.Data3, 
-					class_guid.Data4[0], class_guid.Data4[1], class_guid.Data4[2], class_guid.Data4[3], 
-					class_guid.Data4[4], class_guid.Data4[5], class_guid.Data4[6], class_guid.Data4[7]);
+				sprintf(tmp, "{%08X-%04X-%04X-%02X%02X-%02X%02X%02X%02X%02X%02X}",
+				        class_guid.Data1, class_guid.Data2, class_guid.Data3,
+				        class_guid.Data4[0], class_guid.Data4[1], class_guid.Data4[2], class_guid.Data4[3],
+				        class_guid.Data4[4], class_guid.Data4[5], class_guid.Data4[6], class_guid.Data4[7]);
 
 				// assume arg_value is a class guid
 				success = usb_registry_add_usb_class_key(filter_context, tmp);
 				if (!success)
 				{
-					USBERR("failed adding class guid at argument %ls\n",argv[arg_pos]);
+					USBERR("failed adding class guid at argument %ls\n", argv[arg_pos]);
 					break;
 				}
 			}
 		}
 		else if (usb_install_get_argument(argv[arg_pos], &arg_param, &arg_value, paramsw_inf))
 		{
-			memset(tmp,0,sizeof(tmp));
+			memset(tmp, 0, sizeof(tmp));
 			length = wcstombs(tmp, arg_value, MAX_PATH);
 			if (length < 1)
 			{
 				success = FALSE;
-				USBERR("invalid argument %ls\n",argv[arg_pos]);
+				USBERR("invalid argument %ls\n", argv[arg_pos]);
 				break;
 			}
 			tmp[length] = 0;
@@ -1545,13 +1655,13 @@ bool_t usb_install_parse_filter_context(filter_context_t* filter_context,
 			if (!found_inf)
 			{
 				success = FALSE;
-				USBERR("failed adding inf %ls\n",argv[arg_pos]);
+				USBERR("failed adding inf %ls\n", argv[arg_pos]);
 				break;
 			}
 		}
 		else
 		{
-			USBERR("invalid argument %ls\n",argv[arg_pos]);
+			USBERR("invalid argument %ls\n", argv[arg_pos]);
 			success = FALSE;
 			break;
 		}
@@ -1560,7 +1670,7 @@ bool_t usb_install_parse_filter_context(filter_context_t* filter_context,
 Done:
 	if (success && filter_context->class_filters)
 	{
-		// find class keys (fill in the blanks) 
+		// find class keys (fill in the blanks)
 		usb_registry_lookup_class_keys_by_name(&filter_context->class_filters);
 	}
 	if (argv)
@@ -1575,7 +1685,7 @@ void CALLBACK usb_install_np_rundll(HWND wnd, HINSTANCE instance, LPSTR cmd_line
 	WCHAR cmd_line_w[MAX_PATH+1];
 	size_t length;
 
-	memset(cmd_line_w,0,sizeof(cmd_line_w));
+	memset(cmd_line_w, 0, sizeof(cmd_line_w));
 
 	if (cmd_line && strlen(cmd_line))
 	{
@@ -1618,59 +1728,86 @@ static void center_dialog(HWND hWndToCenterOn, HWND hWndSubDialog)
 	GetWindowRect(hWndSubDialog, &rectSubDialog);
 
 	if ((rectToCenterOn.right - rectToCenterOn.left) < (rectSubDialog.right - rectSubDialog.left) ||
-		rectToCenterOn.left < 0 || 
-		rectToCenterOn.top < 0 ||
-		(rectToCenterOn.bottom - rectToCenterOn.top) < (rectSubDialog.bottom - rectSubDialog.top))
+	        rectToCenterOn.left < 0 ||
+	        rectToCenterOn.top < 0 ||
+	        (rectToCenterOn.bottom - rectToCenterOn.top) < (rectSubDialog.bottom - rectSubDialog.top))
 	{
 		hWndToCenterOn = GetDesktopWindow();
 		GetWindowRect(hWndToCenterOn, &rectToCenterOn);
 	}
 
-	xLeft = (rectToCenterOn.left + rectToCenterOn.right) / 2 - (rectSubDialog.right-rectSubDialog.left) / 2;
-	yTop = (rectToCenterOn.top + rectToCenterOn.bottom) / 2 - (rectSubDialog.bottom-rectSubDialog.top) / 2;
+	xLeft = (rectToCenterOn.left + rectToCenterOn.right) / 2 - (rectSubDialog.right - rectSubDialog.left) / 2;
+	yTop = (rectToCenterOn.top + rectToCenterOn.bottom) / 2 - (rectSubDialog.bottom - rectSubDialog.top) / 2;
 
 	// Move the window to the correct coordinates with SetWindowPos()
 	SetWindowPos(hWndSubDialog, HWND_TOP, xLeft, yTop, -1, -1, SWP_NOSIZE | SWP_SHOWWINDOW);
 }
 
-static BOOL usb_install_log_handler(enum USB_LOG_LEVEL level, 
-									const char* app_name, 
-									const char* prefix, 
-									const char* func, 
-									const int app_prefix_func_end,
-									char* message,
-									const int message_length)
+static BOOL usb_install_log_handler(enum USB_LOG_LEVEL level,
+                                    const char* app_name,
+                                    const char* prefix,
+                                    const char* func,
+                                    int app_prefix_func_end,
+                                    char* message,
+                                    int message_length)
 {
 	HANDLE std_handle;
-	DWORD length;
+	DWORD req_length;
+	HWND hDlg, hWnd;
 
-	if (g_install_progress_context.progress_hwnd)
+	if (g_install_progress_context.progress_window_ready && g_install_progress_context.progress_hwnd)
 	{
-		SendMessageA(g_install_progress_context.hwnd_progress_label,
-			WM_SETTEXT,0,(LPARAM)(message+app_prefix_func_end));
-		UpdateWindow(g_install_progress_context.progress_hwnd);
-		if ((level & LOG_LEVEL_MASK)==LOG_ERROR)
+		hDlg = g_install_progress_context.progress_hwnd;
+		hWnd = GetDlgItem(hDlg, IDC_PROGRESS_TEXT);
+		if (!hWnd)
 		{
-			Sleep(1500);
+			// use default log handler
+			return FALSE;
 		}
+
+		//strip the app, func, and prefix
+		message += app_prefix_func_end;
+		message_length -= app_prefix_func_end;
+
+		// trim right '\n'
+		while(message_length > 0 && message[message_length-1] == '\n')
+		{
+			message[message_length-1] = 0;
+			message_length--;
+		}
+
+		// trim left '\n'
+		while(message_length > 0 && message[0] == '\n')
+		{
+			message++;
+			message_length--;
+		}
+
+		if ((level & LOG_LEVEL_MASK) == LOG_ERROR)
+			usb_progress_add_text(hWnd, message, RGB(128, 0, 0), TRUE);
+		else if ((level & LOG_LEVEL_MASK) == LOG_WARNING)
+			usb_progress_add_text(hWnd, message, RGB(255, 140, 0), FALSE);
 		else
-		{
-			Sleep(1);
-		}
+			usb_progress_add_text(hWnd, message, GetSysColor(COLOR_BTNTEXT), FALSE);
+
+		return TRUE;
 	}
-	else
+	else if (((std_handle = GetStdHandle(STD_OUTPUT_HANDLE)) != INVALID_HANDLE_VALUE) && std_handle)
 	{
-		if ((level & LOG_LEVEL_MASK)==LOG_ERROR)
+		if ((level & LOG_LEVEL_MASK) == LOG_ERROR)
 			std_handle = GetStdHandle(STD_ERROR_HANDLE);
-		else
-			std_handle = GetStdHandle(STD_OUTPUT_HANDLE);
 
 		if (std_handle && std_handle != INVALID_HANDLE_VALUE)
 		{
-			WriteConsoleA(std_handle,message,(DWORD)message_length,&length,NULL);
+			WriteConsoleA(std_handle, message, (DWORD)message_length, &req_length, NULL);
+			return TRUE;
 		}
+		// use default log handler
+		return FALSE;
 	}
-	return TRUE;
+
+	// use default log handler
+	return FALSE;
 }
 
 int usb_install_console(filter_context_t* filter_context)
@@ -1681,17 +1818,17 @@ int usb_install_console(filter_context_t* filter_context)
 	if (!filter_context->filter_mode)
 	{
 		USBERR("command not specified. Use %ls, %ls, or %ls.\n",
-			paramcmd_list[0], paramcmd_install[0], paramcmd_uninstall[0]);
+		       paramcmd_list[0], paramcmd_install[0], paramcmd_uninstall[0]);
 		ret = -1;
 		goto Done;
 
 	}
 	/* only add the default class keys if there is nothing else to do. */
-	if (filter_context->class_filters || 
-		filter_context->device_filters ||
-		filter_context->inf_files ||
-		filter_context->switches.add_all_classes || 
-		filter_context->switches.add_device_classes)
+	if (filter_context->class_filters ||
+	        filter_context->device_filters ||
+	        filter_context->inf_files ||
+	        filter_context->switches.add_all_classes ||
+	        filter_context->switches.add_device_classes)
 	{
 		filter_context->switches.add_default_classes = FALSE;
 	}
@@ -1700,6 +1837,9 @@ int usb_install_console(filter_context_t* filter_context)
 		filter_context->switches.add_default_classes = TRUE;
 
 	}
+
+	USBRAWMSG("\n" DISPLAY_NAME " (v%u.%u.%u.%u)\n",
+	          VERSION_MAJOR, VERSION_MINOR, VERSION_MICRO, VERSION_NANO);
 
 	while (filter_context->filter_mode)
 	{
@@ -1713,9 +1853,9 @@ int usb_install_console(filter_context_t* filter_context)
 		{
 			filter_context->active_filter_mode = FM_REMOVE;
 
-			if (filter_context->switches.switches_value || 
-				filter_context->class_filters ||
-				filter_context->device_filters)
+			if (filter_context->switches.switches_value ||
+			        filter_context->class_filters ||
+			        filter_context->device_filters)
 			{
 
 				if (filter_context->switches.add_all_classes || filter_context->switches.add_device_classes)
@@ -1745,13 +1885,13 @@ int usb_install_console(filter_context_t* filter_context)
 				filter_file = filter_context->inf_files;
 				while (filter_file)
 				{
-					USBMSG("uninstalling inf %s..\n",filter_file->name);
+					USBMSG("uninstalling inf %s..\n", filter_file->name);
 					if (usb_install_inf_np(filter_file->name, TRUE, FALSE) < 0)
 					{
 						ret = -1;
 						break;
 					}
-					filter_file = filter_file->next; 
+					filter_file = filter_file->next;
 				}
 				if (ret == -1)
 					break;
@@ -1761,9 +1901,9 @@ int usb_install_console(filter_context_t* filter_context)
 		{
 			filter_context->active_filter_mode = FM_INSTALL;
 
-			if (filter_context->switches.switches_value || 
-				filter_context->class_filters ||
-				filter_context->device_filters)
+			if (filter_context->switches.switches_value ||
+			        filter_context->class_filters ||
+			        filter_context->device_filters)
 			{
 
 				if (filter_context->switches.add_all_classes || filter_context->switches.add_device_classes)
@@ -1794,13 +1934,13 @@ int usb_install_console(filter_context_t* filter_context)
 				filter_file = filter_context->inf_files;
 				while (filter_file)
 				{
-					USBMSG("installing inf %s..\n",filter_file->name);
+					USBMSG("installing inf %s..\n", filter_file->name);
 					if (usb_install_inf_np(filter_file->name, FALSE, FALSE) < 0)
 					{
 						ret = -1;
 						break;
 					}
-					filter_file = filter_file->next; 
+					filter_file = filter_file->next;
 				}
 				if (ret == -1)
 					break;
@@ -1843,20 +1983,184 @@ void __cdecl usb_progress_thread(void* param)
 	_endthread();
 }
 
+bool_t usb_progress_add_text(HWND hwnd, char* message, COLORREF crNewColor, bool_t bold)
+{
+	static const char crlf[] = "\r\n";
+	CHARFORMAT cf;
+	char* text = (char *)malloc(strlen(message) + sizeof(crlf));
+	int iTotalTextLength = GetWindowTextLength(hwnd);
+
+	if (!text)
+	{
+		printf("%s\n", "memory allocation failure");
+		return FALSE;
+	}
+
+	if (iTotalTextLength > 0)
+	{
+		strcpy(text, crlf);
+		strcpy(&text[strlen(crlf)], message);
+	}
+	else
+	{
+		strcpy(text, message);
+	}
+
+	// set the selection to the end
+	SendMessage(hwnd, EM_SETSEL, (WPARAM)(int)iTotalTextLength, (LPARAM)(int)iTotalTextLength);
+
+	// set the color
+	cf.cbSize      = sizeof(CHARFORMAT);
+	cf.dwMask      = CFM_COLOR | CFM_UNDERLINE | CFM_BOLD;
+	cf.dwEffects   = (unsigned long)~(CFE_AUTOCOLOR | CFE_UNDERLINE | CFE_BOLD);
+	cf.crTextColor = crNewColor;
+
+	if (bold)
+		cf.dwEffects   |= CFE_BOLD;
+
+	SendMessage(hwnd, EM_SETCHARFORMAT, (WPARAM)(UINT)SCF_SELECTION, (LPARAM)&cf);
+
+	// set the text
+	SendMessage(hwnd, EM_REPLACESEL, (WPARAM)(BOOL)FALSE, (LPARAM)(LPCSTR)text);
+
+	free(text);
+
+	// keep it scrolled to the bottom
+	SendMessage(hwnd, EM_LINESCROLL, (WPARAM)(int)0, (LPARAM)(int)1);
+
+	return TRUE;
+}
+
+bool_t usb_progress_size(HWND hDlg)
+{
+	RECT rect_client, rect_text, rect_bar;
+	int pad_x = GetSystemMetrics(SM_CXEDGE) * 2;
+	int pad_y = GetSystemMetrics(SM_CYEDGE) * 2;
+
+	GetClientRect(hDlg, &rect_client);
+
+	// adjust the bar label
+	rect_bar = rect_client;
+	rect_bar.top = rect_bar.bottom - 4;
+	OffsetRect(&rect_bar, 0, -pad_y);
+	InflateRect(&rect_bar, -pad_x, 0);
+
+	// adjust the textbox
+	rect_text.top = pad_y;
+	rect_text.left = pad_x;
+	rect_text.bottom = rect_bar.top - pad_y;
+	rect_text.right = rect_client.right - pad_y;
+
+	// resize the progress textbox
+	MOVE_CONTROL(hDlg, IDC_PROGRESS_TEXT, rect_text, FALSE, FALSE);
+
+	// resize the bar label
+	MOVE_CONTROL(hDlg, IDC_PROGRESS_BAR, rect_bar, FALSE, FALSE);
+
+	// repaint
+	InvalidateRect(hDlg, NULL, TRUE);
+	PostMessageA(hDlg, WM_PAINT, (WPARAM)NULL, (LPARAM)0);
+
+	return TRUE;
+}
+
+bool_t usb_progress_init_children(HWND hDlg)
+{
+	HWND hWnd;
+	HFONT labelFont = NULL;
+	CHARFORMAT cf;
+
+	// create the font
+	INIT_CREATEFONT();
+	if (create_font)
+	{
+		labelFont = create_font(-11, 0, 0, 0, FW_NORMAL, 0, 0, 0,
+		                        ANSI_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, DEFAULT_QUALITY, DEFAULT_PITCH,
+		                        "Tahoma");
+	}
+
+	// create rich textbox
+	hWnd = CreateWindowEx(WS_EX_STATICEDGE, RICHEDIT_CLASS, NULL,
+	                      WS_CHILD | WS_VISIBLE | WS_CLIPCHILDREN | ES_MULTILINE | ES_LEFT | ES_READONLY | ES_AUTOVSCROLL,
+	                      5, 5, 5, 5,
+	                      hDlg, (HMENU)((UINT_PTR)IDC_PROGRESS_TEXT),
+	                      g_install_progress_context.hInstance, NULL);
+
+	// set rich textbox font
+	memset(&cf, 0 , sizeof(cf));
+	cf.cbSize = sizeof(cf);
+
+	cf.dwMask = CFM_FACE | CFM_SIZE;
+	cf.yHeight = 170;
+	strcpy(cf.szFaceName, "Tahoma");
+
+	SendMessage(hWnd, EM_SETCHARFORMAT, (WPARAM)SCF_ALL, (LPARAM)&cf);
+
+	SendMessage(hWnd, EM_SETWORDBREAKPROCEX, (WPARAM)0, (LPARAM)NULL);
+	SendMessage(hWnd, EM_SETBKGNDCOLOR, (WPARAM)0, (LPARAM)GetSysColor(COLOR_BTNFACE));
+
+	// create custom progress bar
+	hWnd = CreateWindowA("STATIC", NULL,
+	                     WS_CHILD | WS_VISIBLE | SS_OWNERDRAW,
+	                     5, 5, 5, 5,
+	                     hDlg, (HMENU)((UINT_PTR)IDC_PROGRESS_BAR),
+	                     g_install_progress_context.hInstance, NULL);
+
+	usb_progress_size(hDlg);
+	return TRUE;
+}
+
 LRESULT CALLBACK usb_progress_wndproc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
 {
-	switch (message) 
+#define PROGRESS_BLOCK_SIZE 66
+
+	CREATESTRUCT* cs;
+	DRAWITEMSTRUCT* ds;
+	int wmId, wmEvent;
+	MINMAXINFO* minmaxinfo;
+	HWND hwnd;
+
+	switch (message)
 	{
+	case WM_COMMAND:
+		wmId    = LOWORD(wParam);
+		wmEvent = HIWORD(wParam);
+		if ( (wmId == IDCLOSE) && wmEvent == BN_CLICKED)
+		{
+			PostMessageA(hDlg, UM_PROGRESS_STOP, 0, 0);
+		}
+		break;
 
 	case WM_CREATE:
+		cs = (LPCREATESTRUCT)lParam;
 		g_install_progress_context.progress_hwnd = hDlg;
+		g_install_progress_context.hInstance = cs->hInstance;
+
+		usb_progress_init_children(hDlg);
+		center_dialog(GetParent(hDlg), hDlg);
 		PostMessage(hDlg, UM_PROGRESS_START, 0, 0);
+		g_install_progress_context.progress_window_ready = TRUE;
+
+		// Send a WM_TIMER message every 1/10th second
+		SetTimer(hDlg, 1, 10, NULL);
+
 		return (INT_PTR)TRUE;
 
+	case WM_TIMER:
+		InterlockedIncrement(&g_install_progress_context.progress_ind_ofs);
+		InvalidateRect(GetDlgItem(hDlg, IDC_PROGRESS_BAR), NULL, FALSE);
+		return (INT_PTR)TRUE;
+		break;
+
 	case UM_PROGRESS_START:
+		g_install_progress_context.stopped = FALSE;
 		if (g_install_progress_context.thread_id == 0)
 		{
 			// Using a thread prevents application freezout on security warning
+			if ( (hwnd = GetDlgItem(hDlg, IDOK)) != NULL)
+				EnableWindow(hwnd, FALSE);
+
+			SetWindowTextA(hDlg, DISPLAY_RUNNING);
 			g_install_progress_context.thread_id = _beginthread(usb_progress_thread, 0, &g_install_progress_context);
 			if (g_install_progress_context.thread_id != -1L)
 			{
@@ -1864,42 +2168,237 @@ LRESULT CALLBACK usb_progress_wndproc(HWND hDlg, UINT message, WPARAM wParam, LP
 			}
 		}
 		// Fall through and return an error
-		wParam = (WPARAM)-1;
+		wParam = (WPARAM) - 1;
 
 	case UM_PROGRESS_STOP:
+		if (!g_install_progress_context.stopped)
+		{
+			g_install_progress_context.stopped = TRUE;
+			if ( (hwnd = GetDlgItem(hDlg, IDC_PROGRESS_TEXT)) != NULL)
+			{
+				if (g_install_progress_context.ret != ERROR_SUCCESS)
+				{
+					usb_progress_add_text(hwnd, "finished with errors!", RGB(160, 16, 16), TRUE);
+				}
+				else
+				{
+					usb_progress_add_text(hwnd, "finished.", RGB(32, 160, 32), TRUE);
+				}
+			}
+
+			// enable the close button
+			SetWindowLongPtr(hDlg, GWL_STYLE, (GetWindowLongPtr(hDlg, GWL_STYLE) | WS_SYSMENU));
+
+			// enable ok button
+			if ( (hwnd = GetDlgItem(hDlg, IDOK)) != NULL)
+				EnableWindow(hwnd, TRUE);
+
+			if (g_install_progress_context.ret == 0)
+			{
+				SetWindowTextA(hDlg, DISPLAY_DONE);
+			}
+			else
+			{
+				SetWindowTextA(hDlg, DISPLAY_DONE_WITH_ERRORS);
+			}
+
+			// redraw everything
+			RedrawWindow(hDlg, NULL, NULL, RDW_ERASE | RDW_FRAME | RDW_INTERNALPAINT | RDW_INVALIDATE);
+
+			if (g_install_progress_context.ret == ERROR_SUCCESS)
+			{
+				PostQuitMessage((int)wParam);
+				DestroyWindow(hDlg);
+			}
+
+		}
+		else
+		{
+			PostQuitMessage((int)wParam);
+			DestroyWindow(hDlg);
+		}
+		return (INT_PTR)TRUE;
+
+	case WM_CLOSE:
+		if (!g_install_progress_context.stopped)
+		{
+			// prevent closure using Alt-F4 while running
+			return (INT_PTR)TRUE;
+		}
 		PostQuitMessage((int)wParam);
-		DestroyWindow(g_install_progress_context.progress_hwnd);
-		return (INT_PTR)TRUE;
-	case WM_CLOSE:		// prevent closure using Alt-F4
-		return (INT_PTR)TRUE;
+		DestroyWindow(hDlg);
+		break;
 
 	case WM_DESTROY:	// close application
-		memset(&g_install_progress_context,0,sizeof(g_install_progress_context));
+		g_install_progress_context.progress_window_ready = FALSE;
 		return (INT_PTR)FALSE;
 
+	case WM_SIZE:
+		if (wParam == SIZE_RESTORED)
+		{
+			usb_progress_size(hDlg);
+		}
+		break;
+
+	case WM_GETMINMAXINFO:
+		minmaxinfo = (MINMAXINFO*)lParam;
+		if (minmaxinfo != NULL)
+		{
+			// set min extent
+			minmaxinfo->ptMinTrackSize.x = 320;
+			minmaxinfo->ptMinTrackSize.y = 140;
+
+			// set max extent
+			minmaxinfo->ptMaxTrackSize.x = 800;
+			minmaxinfo->ptMaxTrackSize.y = 600;
+		}
+		break;
+
+	case WM_DRAWITEM:
+		wmId = (int)wParam;
+		switch (wmId)
+		{
+		case IDC_PROGRESS_BAR:
+			ds = (DRAWITEMSTRUCT*)lParam;
+			if ( (ds != NULL) )
+			{
+				TRIVERTEX vertex[4] ;
+				GRADIENT_RECT gRect;
+				COLORREF clr, clr2;
+				USHORT r, g, b;
+				WORD offset_pos;
+				DWORD offset;
+				double actual_offset;
+				HDC hdc;
+				HBITMAP memBM;
+				RECT rect;
+
+				rect = ds->rcItem;
+				hdc = CreateCompatibleDC(ds->hDC);
+				memBM = CreateCompatibleBitmap (ds->hDC, rect.right - rect.left, rect.bottom - rect.top );
+				SelectObject(hdc, memBM);
+
+				DrawEdge(hdc, &rect, EDGE_ETCHED, BF_RECT);
+				InflateRect(&rect, -1, -1);
+
+				if (g_install_progress_context.stopped)
+				{
+					FillRect(hdc, &rect, GetSysColorBrush(COLOR_INACTIVEBORDER));
+
+					// Copy back buffer into screen device context for display.
+					BitBlt(ds->hDC, ds->rcItem.left, ds->rcItem.top,
+					       ds->rcItem.right, ds->rcItem.bottom, hdc, 0,  0, SRCCOPY);
+
+					DeleteDC(hdc);       // Free resources.
+					DeleteObject(memBM); // Free resources.
+
+					return (INT_PTR)TRUE;
+
+				}
+
+				offset = (DWORD)g_install_progress_context.progress_ind_ofs;
+				clr = GetSysColor(COLOR_ACTIVECAPTION);
+				clr2 = GetSysColor(COLOR_WINDOW);
+
+				if (offset & 0x40)
+					offset_pos = (WORD)(((64 - (offset & 63))));
+				else
+					offset_pos = (WORD)(offset & 63);
+
+				actual_offset = offset_pos;
+				actual_offset /= 64.0;
+				offset_pos = (WORD)(actual_offset * rect.right);
+
+				RBG_TO_C16(clr2, 0, r, g, b);
+				TRIVERTEX_FILL(&vertex[0], rect.left, rect.top, r, g, b, 0x0000);
+
+				RBG_TO_C16(clr, 0, r, g, b);
+				TRIVERTEX_FILL(&vertex[1], offset_pos, rect.bottom, r, g, b, 0x0000);
+
+				RBG_TO_C16(clr, 0, r, g, b);
+				TRIVERTEX_FILL(&vertex[2], offset_pos, rect.top, r, g, b, 0x0000);
+
+				RBG_TO_C16(clr2, 0, r, g, b);
+				TRIVERTEX_FILL(&vertex[3], rect.right, rect.bottom, r, g, b, 0x0000);
+
+				// Create a GRADIENT_RECT structure that
+				// references the TRIVERTEX vertices.
+				gRect.UpperLeft  = 0;
+				gRect.LowerRight = 1;
+
+				INIT_GRADIENTFILL();
+				if (gradient_fill)
+				{
+					// Draw a shaded rectangle.
+					gradient_fill(hdc, &vertex[0], 2, &gRect, 1, GRADIENT_FILL_RECT_H);
+					gradient_fill(hdc, &vertex[2], 2, &gRect, 1, GRADIENT_FILL_RECT_H);
+
+					// Copy back buffer into screen device context for display.
+					BitBlt(ds->hDC, ds->rcItem.left, ds->rcItem.top, ds->rcItem.right,
+					       ds->rcItem.bottom, hdc, 0,  0, SRCCOPY);
+
+					DeleteDC(hdc);       // Free resources.
+					DeleteObject(memBM); // Free resources.
+
+					return (INT_PTR)TRUE;
+				}
+				else
+				{
+					// fallback for no GradientFill api
+					FillRect(hdc, &rect, GetSysColorBrush(COLOR_ACTIVECAPTION));
+					DeleteDC(hdc);       // Free resources.
+					DeleteObject(memBM); // Free resources.
+					return (INT_PTR)TRUE;
+				}
+
+			}
+			break;
+		}
+		break;
 	}
 	return DefWindowProc(hDlg, message, wParam, lParam);
 }
 
+// initialize progress context
+bool_t usb_progress_context_create(install_progress_context_t* install_progress_context,
+                                   HINSTANCE hInstance,
+                                   filter_context_t* filter_context)
+{
+	memset(install_progress_context, 0, sizeof(*install_progress_context));
+	install_progress_context->hInstance = hInstance;
+	install_progress_context->filter_context = filter_context;
+
+	return TRUE;
+}
+
+// deinitialize progress context
+void usb_progress_context_destroy(install_progress_context_t* install_progress_context)
+{
+	memset(install_progress_context, 0, sizeof(*install_progress_context));
+}
+
+// run the installer through a progress window
 int usb_install_window(HWND hWnd, HINSTANCE instance, filter_context_t* filter_context)
 {
 	MSG msg;
 	WNDCLASSEX wc;
 	BOOL bRet;
-	HFONT labelFont;
+	HWND hDlg;
+	int ret;
 
 	if (!hWnd || !instance)
 		return -1;
 
-	memset(&g_install_progress_context, 0, sizeof(g_install_progress_context));
-	g_install_progress_context.instance = instance;
-	g_install_progress_context.parent = hWnd;
-	g_install_progress_context.filter_context = filter_context;
+	INIT_RICHED32();
 
-	memset(&wc,0,sizeof(wc));
+	if (!usb_progress_context_create(&g_install_progress_context, instance, filter_context))
+	{
+		return -1;
+	}
+	memset(&wc, 0, sizeof(wc));
 
 	// First we create  Window class if it doesn't already exist
-	if (!GetClassInfoExA(instance, "libusbwin32_progress_class", &wc)) 
+	if (!GetClassInfoExA(instance, "libusbwin32_progress_class", &wc))
 	{
 		wc.cbSize        = sizeof(WNDCLASSEX);
 		wc.style         = CS_DBLCLKS | CS_SAVEBITS;
@@ -1912,72 +2411,62 @@ int usb_install_window(HWND hWnd, HINSTANCE instance, filter_context_t* filter_c
 		wc.lpszMenuName  = NULL;
 		wc.hbrBackground = GetSysColorBrush(COLOR_BTNFACE);
 
-		if (!RegisterClassExA(&wc)) 
+		if (!RegisterClassExA(&wc))
 		{
 			USBERR0("can't register class\n");
-			memset(&g_install_progress_context,0,sizeof(g_install_progress_context));
+			usb_progress_context_destroy(&g_install_progress_context);
 			return -1;
 		}
 	}
 
 	// Then we create the dialog base
-	g_install_progress_context.progress_hwnd = CreateWindowExA(WS_EX_WINDOWEDGE | WS_EX_CONTROLPARENT,
-		"libusbwin32_progress_class", "libusb-win32 installer...",
-		WS_CLIPCHILDREN | WS_CLIPSIBLINGS | WS_CAPTION | WS_POPUP | WS_THICKFRAME,
-		100, 100, 287, 102, hWnd, NULL, instance, NULL);
-	if (g_install_progress_context.progress_hwnd == NULL) 
+	hDlg = CreateWindowExA(WS_EX_TOOLWINDOW | WS_EX_CONTROLPARENT,
+	                       "libusbwin32_progress_class", DISPLAY_NAME,
+	                       WS_CLIPCHILDREN | WS_CLIPSIBLINGS | WS_CAPTION | WS_POPUP | WS_THICKFRAME,
+	                       100, 100, 320, 140, hWnd, NULL, instance, NULL);
+	if (hDlg == NULL)
 	{
 		USBERR0("Unable to create progress dialog\n");
-		memset(&g_install_progress_context,0,sizeof(g_install_progress_context));
+		usb_progress_context_destroy(&g_install_progress_context);
 		return -1;
 	}
 
-	g_install_progress_context.hwnd_progress_label = CreateWindowA("Static", "please wait..",
-		WS_CHILD | WS_VISIBLE | SS_CENTER,
-		5, 5, 277, 92,
-		g_install_progress_context.progress_hwnd,
-		(HMENU)((UINT_PTR)IDL_INSTALL_PROGRESS_TEXT),
-		instance, 0);
+	g_install_progress_context.progress_hwnd = hDlg;
 
-	// Set the font to MS Dialog default
-	INIT_CREATEFONT;
-	if (IS_CREATEFONT_AVAILABLE) 
-	{
-		labelFont = pCreateFontA(-11, 0, 0, 0, FW_DONTCARE, 0, 0, 0, ANSI_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
-			DEFAULT_QUALITY, DEFAULT_PITCH, "MS Shell Dlg 2");
-		SendMessage(g_install_progress_context.hwnd_progress_label, WM_SETFONT, (WPARAM)labelFont, (LPARAM)FALSE);
-	}
+	if (GetDesktopWindow() != hWnd)
+		EnableWindow(hWnd, FALSE);	// Start modal (disable main Window)
 
-	center_dialog(hWnd, g_install_progress_context.progress_hwnd);
-
-	if (GetDesktopWindow() != g_install_progress_context.parent)
-		EnableWindow(g_install_progress_context.parent, FALSE);	// Start modal (disable main Window)
-
-	UpdateWindow(g_install_progress_context.progress_hwnd);
+	UpdateWindow(hDlg);
 
 	// ...and handle the message processing loop
-	while( (bRet = GetMessage(&msg, NULL, 0, 0)) != 0) 
+	while( (bRet = GetMessage(&msg, NULL, 0, 0)) != 0)
 	{
-		if (bRet == -1) 
+		if (bRet == -1)
 		{
 			//wdi_err("GetMessage error");
-		} 
-		else 
+		}
+		else
 		{
 			TranslateMessage(&msg);
 			DispatchMessage(&msg);
 		}
 	}
-	if (GetDesktopWindow() != g_install_progress_context.parent)
-		EnableWindow(g_install_progress_context.parent, TRUE);	// Start modal (disable main Window)
+	if (GetDesktopWindow() != hWnd)
+		EnableWindow(hWnd, TRUE);	// end modal (enable main Window)
 
-	return g_install_progress_context.ret;
+	ret = g_install_progress_context.ret;
+	usb_progress_context_destroy(&g_install_progress_context);
+
+	return ret;
 }
 
-int usb_install(HWND hwnd, HINSTANCE instance, 
-				LPCWSTR cmd_line_w, 
-				int starg_arg, 
-				filter_context_t** out_filter_context)
+// performs the pre install checks and calls either usb_install_window() or
+// usb_install_console()
+//
+int usb_install(HWND hwnd, HINSTANCE instance,
+                LPCWSTR cmd_line_w,
+                int starg_arg,
+                filter_context_t** out_filter_context)
 {
 
 	filter_context_t* filter_context;
@@ -1990,13 +2479,13 @@ int usb_install(HWND hwnd, HINSTANCE instance,
 
 	if (usb_install_iswow64())
 	{
-		USBERR0("This is a 64bit operating system and requires the 64bit " LOG_APPNAME " application.\n");
+		USBERR0("This is a 64bit operating system and requires the 64bit " DISPLAY_NAME " application.\n");
 		return -1;
 	}
 
 	if (!usb_install_admin_check())
 	{
-		USBERR0(LOG_APPNAME " requires administrative privileges.\n");
+		USBERR0(DISPLAY_NAME " requires administrative privileges.\n");
 		return -1;
 	}
 
@@ -2004,7 +2493,7 @@ int usb_install(HWND hwnd, HINSTANCE instance,
 	if (!sem_create_lock(&sem_handle, install_lock_sem_name, 1, 1))
 		return -1;
 
-	// lock the semaphore 
+	// lock the semaphore
 	if (!sem_try_lock(sem_handle, 0))
 	{
 		sem_destroy_lock(&sem_handle);
@@ -2041,6 +2530,10 @@ int usb_install(HWND hwnd, HINSTANCE instance,
 			usage();
 		}
 		ret = -1;
+		if (hwnd)
+		{
+			MessageBoxA(hwnd, usb_strerror(), DISPLAY_NAME " error", MB_OK | MB_ICONERROR);
+		}
 		goto Done;
 	}
 
@@ -2102,18 +2595,18 @@ static bool_t usb_install_get_argument(LPWSTR param_value, LPCWSTR* out_param,  
 	*out_param = 0;
 	*out_value = 0;
 
-	while((param_name=param_names[param_name_pos]))
+	while((param_name = param_names[param_name_pos]))
 	{
 		if (!(param_name_length = (int)wcslen(param_name)))
 			return FALSE;
 
-		if (param_name[param_name_length-1]=='=')
+		if (param_name[param_name_length-1] == '=')
 		{
-			ret = _wcsnicmp(param_value,param_name,param_name_length);
+			ret = _wcsnicmp(param_value, param_name, param_name_length);
 		}
 		else
 		{
-			ret = _wcsicmp(param_value,param_name);
+			ret = _wcsicmp(param_value, param_name);
 		}
 		if (ret == 0)
 		{
@@ -2141,19 +2634,18 @@ void usb_install_report(filter_context_t* filter_context)
 			fprintf(stdout, "\n");
 		}
 
-		fprintf(stdout, "%s (%s)\n",
-			next_class->class_guid, next_class->class_name);
-		
+		fprintf(stdout, "%s (%s)\n", next_class->class_guid, next_class->class_name);
+
 		if (strlen(next_class->class_uppers))
 		{
-			if (usb_registry_mz_to_sz(next_class->class_uppers,','))
+			if (usb_registry_mz_to_sz(next_class->class_uppers, ','))
 			{
 				fprintf(stdout, "  class upper filters:%s\n", next_class->class_uppers);
 			}
 		}
 		if (strlen(next_class->class_lowers))
 		{
-			if (usb_registry_mz_to_sz(next_class->class_lowers,','))
+			if (usb_registry_mz_to_sz(next_class->class_lowers, ','))
 			{
 				fprintf(stdout, "  class lower filters:%s\n", next_class->class_lowers);
 			}
@@ -2164,18 +2656,18 @@ void usb_install_report(filter_context_t* filter_context)
 		{
 
 			fprintf(stdout, "    %s - %s (%s)\n",
-				next_device->device_hwid, next_device->device_name, next_device->device_mfg);
+			        next_device->device_hwid, next_device->device_name, next_device->device_mfg);
 
 			if (strlen(next_device->device_uppers))
 			{
-				if (usb_registry_mz_to_sz(next_device->device_uppers,','))
+				if (usb_registry_mz_to_sz(next_device->device_uppers, ','))
 				{
 					fprintf(stdout, "      device upper filters:%s\n", next_device->device_uppers);
 				}
 			}
 			if (strlen(next_device->device_lowers))
 			{
-				if (usb_registry_mz_to_sz(next_device->device_lowers,','))
+				if (usb_registry_mz_to_sz(next_device->device_lowers, ','))
 				{
 					fprintf(stdout, "      device lower filters:%s\n", next_device->device_lowers);
 				}
@@ -2201,7 +2693,7 @@ static bool_t usb_install_iswow64(void)
 		return FALSE;
 	}
 
-	IsWow64Process =(is_wow64_process_t) GetProcAddress(kernel_dll, "IsWow64Process");
+	IsWow64Process = (is_wow64_process_t) GetProcAddress(kernel_dll, "IsWow64Process");
 	if (IsWow64Process)
 	{
 		if (!IsWow64Process(GetCurrentProcess(), &IsWow64))
@@ -2214,20 +2706,20 @@ static bool_t usb_install_iswow64(void)
 }
 
 static BOOL usb_install_admin_check(void)
-/*++ 
+/*++
 Routine Description: This routine returns TRUE if the caller's
 process is a member of the Administrators local group. Caller is NOT
 expected to be impersonating anyone and is expected to be able to
-open its own process and process token. 
-Arguments: None. 
-Return Value: 
-TRUE - Caller has Administrators local group. 
+open its own process and process token.
+Arguments: None.
+Return Value:
+TRUE - Caller has Administrators local group.
 FALSE - Caller does not have Administrators local group. --
-*/ 
+*/
 {
 	BOOL b;
 	SID_IDENTIFIER_AUTHORITY NtAuthority = {SECURITY_NT_AUTHORITY};
-	PSID AdministratorsGroup; 
+	PSID AdministratorsGroup;
 
 	GET_WINDOWS_VERSION;
 	if (windows_version <= WINDOWS_XP)
@@ -2236,19 +2728,19 @@ FALSE - Caller does not have Administrators local group. --
 	}
 
 	b = AllocateAndInitializeSid(
-		&NtAuthority,
-		2,
-		SECURITY_BUILTIN_DOMAIN_RID,
-		DOMAIN_ALIAS_RID_ADMINS,
-		0, 0, 0, 0, 0, 0,
-		&AdministratorsGroup); 
-	if(b) 
+	        &NtAuthority,
+	        2,
+	        SECURITY_BUILTIN_DOMAIN_RID,
+	        DOMAIN_ALIAS_RID_ADMINS,
+	        0, 0, 0, 0, 0, 0,
+	        &AdministratorsGroup);
+	if(b)
 	{
-		if (!CheckTokenMembership( NULL, AdministratorsGroup, &b)) 
+		if (!CheckTokenMembership( NULL, AdministratorsGroup, &b))
 		{
 			b = FALSE;
-		} 
-		FreeSid(AdministratorsGroup); 
+		}
+		FreeSid(AdministratorsGroup);
 	}
 
 	return(b);
@@ -2265,10 +2757,10 @@ void usage(void)
 	HANDLE handle;
 	HRSRC hSrc;
 
-	if ((handle=GetStdHandle(STD_ERROR_HANDLE)) == INVALID_HANDLE_VALUE)
+	if ((handle = GetStdHandle(STD_ERROR_HANDLE)) == INVALID_HANDLE_VALUE)
 		return;
 
-	hSrc = FindResourceA(NULL, MAKEINTRESOURCEA(ID_HELP_TEXT),MAKEINTRESOURCEA(ID_DOS_TEXT));
+	hSrc = FindResourceA(NULL, MAKEINTRESOURCEA(ID_HELP_TEXT), MAKEINTRESOURCEA(ID_DOS_TEXT));
 	if (!hSrc)	return;
 
 	src_count = SizeofResource(NULL, hSrc);

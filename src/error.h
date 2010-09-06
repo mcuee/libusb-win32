@@ -163,8 +163,8 @@ typedef enum
     USB_ERROR_TYPE_ERRNO,
 } usb_error_type_t;
 
-typedef int (*log_hander_t)(enum USB_LOG_LEVEL level, const char*,const char*,const char*,const int,char*,const int);
-
+typedef int (*log_hander_t)(enum USB_LOG_LEVEL level, const char*,const char*,const char*, int, char*, int);
+ 
 #if (!IS_DRIVER)
 	const char *usb_win_error_to_string(void);
 	int usb_win_error_to_errno(void);
