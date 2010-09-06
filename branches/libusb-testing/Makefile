@@ -122,7 +122,7 @@ DLL_LDFLAGS = -s -mdll -mno-cygwin \
 	-Wl,--kill-at \
 	-Wl,--out-implib,$(LIB_TARGET).a \
 	-Wl,--enable-stdcall-fixup \
-	-L. -lcfgmgr32 -lsetupapi 
+	-L. -lcfgmgr32 -lsetupapi -lgdi32
 
 LIBWDI_DLL_LDFLAGS = -s -shared -mno-cygwin \
 	-Wl,--kill-at \
@@ -152,8 +152,9 @@ $(DLL_TARGET).dll: usb.2.o error.2.o descriptors.2.o windows.2.o install.2.o reg
 
 .PHONY: filter
 filter: FILTER_CFLAGS = $(CFLAGS) -DLOG_APPNAME=\"install-filter\" -DTARGETTYPE=PROGRAMconsole -DLOG_STYLE_SHORT
-filter: FILTER_LDFLAGS = -s -mno-cygwin -L. -lgdi32 -luser32 -lcfgmgr32 -lsetupapi -lcomctl32 -lshell32
+filter: FILTER_LDFLAGS = -s -mno-cygwin -L. -lgdi32 -luser32 -lcfgmgr32 -lsetupapi
 filter: install-filter.exe
+
 
 install-filter.exe: install_filter.1.o error.1.o install.1.o registry.1.o install_filter_rc.1.o
 	$(CC) $(FILTER_CFLAGS) -o $@ -I./src  $^ $(FILTER_LDFLAGS)

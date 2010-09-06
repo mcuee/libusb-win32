@@ -58,9 +58,9 @@ static int usb_log_def_handler(enum USB_LOG_LEVEL level,
 								const char* app_name, 
 								const char* prefix, 
 								const char* func, 
-								const int app_prefix_func_end,
+								int app_prefix_func_end,
 								char* message,
-								const int message_length);
+								int message_length);
 
 #define STRIP_PREFIX(stringSrc, stringPrefix) \
 	(strstr(stringSrc,stringPrefix)==stringSrc?stringSrc+strlen(stringPrefix):stringSrc)
@@ -365,9 +365,9 @@ static int usb_log_def_handler(enum USB_LOG_LEVEL level,
 								const char* app_name, 
 								const char* prefix, 
 								const char* func, 
-								const int app_prefix_func_end,
+								int app_prefix_func_end,
 								char* message,
-								const int message_length)
+								int message_length)
 {
 #if IS_DRIVER
 	DbgPrint("%s",message);

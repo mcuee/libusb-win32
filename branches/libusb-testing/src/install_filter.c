@@ -1,6 +1,7 @@
 /* libusb-win32, Generic Windows USB Library
  * Copyright (c) 2002-2005 Stephan Meyer <ste_meyer@web.de>
- *
+ * Copyright (c) 2010 Travis Robinson <libusbdotnet@gmail.com>
+*
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
@@ -17,32 +18,10 @@
  */
 
 #include <stdio.h>
-#include "registry.h"
 #include "usb.h"
-#include "error.h"
-#include "libusb-win32_version.h"
 
 
 int main()
 {
-    LPWSTR command_line_w;
-
-    #ifdef _DEBUG
-	    usb_log_set_level(LOG_DEBUG);
-    #else
-	    usb_log_set_level(LOG_INFO);
-    #endif
-
-	USBRAWMSG("\nlibusb-win32 installer (v%u.%u.%u.%u)\n",VERSION_MAJOR,VERSION_MINOR,VERSION_MICRO,VERSION_NANO);
-
-    if (!(command_line_w = GetCommandLineW()))
-    {
-        USBERR("failed GetCommandLineW:%X",GetLastError());
-        goto Done;
-    }
-
-    usb_install_np(NULL, NULL, command_line_w, 1);
-
-Done:
-    return 0;
+    return usb_install_np(NULL, NULL, GetCommandLineW(), 1);
 }

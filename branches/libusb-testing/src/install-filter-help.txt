@@ -1,11 +1,11 @@
 
-USAGE: install-filter [install|uninstall|list] <-ac> <-dc> <-rad> 
+USAGE: install-filter [install|uninstall|list] <-ac> <-dc> <-ad> 
                                                <-c=> <-d=> <-f=>
 
-Commands:
-  install   (i/-i)
-  uninstall (u/-u)
-  list      (l/-l)
+Commands:             Compatible Switches:
+  install   (i/-i)      <-ac> <-c=> <-d=> <-f=>
+  uninstall (u/-u)      <-ac> <-c=> <-d=> <-f=> <-ad>
+  list      (l/-l)      <-ac> <-dc> <-c=>
 
 NOTE: 
   * If no switches are specified, the default class key list is used.
@@ -13,25 +13,25 @@ NOTE:
 
 Switches For Class Filters:
   --all-classes         (-ac)
-    install  : Installs libusb-win32 as an upper class filter for all
+    install  : Adds libusb-win32 as an upper class filter for all
                classes in the USB enumerator. (Same as -dc in install mode)
-    uninstall: Uninstalls libusb-win32 as an upper class filter for all
+    uninstall: Removes libusb-win32 as an upper class filter for all
                known classes.  This is a FULL class removal.
     list     : Displays all known classes.
     
   --device-classes      (-dc)
-    install  : Installs libusb-win32 as an upper class filter for all
+    install  : Adds libusb-win32 as an upper class filter for all
                classes in the USB enumerator.
-    uninstall: Uninstalls libusb-win32 as an upper class filter for all
+    uninstall: Removes libusb-win32 as an upper class filter for all
                classes in the USB enumerator.
     list     : Displays all classes in the USB enumerator and the devices
                contained within them.
                
   --class=<nameOrGuid>  (-c=)
-    install  : Installs libusb-win32 as an upper class filter for the
+    install  : Adds libusb-win32 as an upper class filter for the
                specified class only.  Classes can be specified by name or
                guid.
-    uninstall: Uninstalls libusb-win32 as an upper class filter for the
+    uninstall: Removes libusb-win32 as an upper class filter for the
                specified class only.  Classes can be specified by name or
                guid.
     list     : Displays information about the specified classes and the
@@ -39,23 +39,25 @@ Switches For Class Filters:
 
 Switches For Device Filters:
   --device=<hwid>       (-d=)
-    install  : Installs libusb-win32 as an upper device filter for the
+    install  : Adds libusb-win32 as an upper device filter for the
                specified device.
-    uninstall: Uninstalls libusb-win32 as an upper device filter for the
+    uninstall: Removes libusb-win32 as an upper device filter for the
                specified device.
     list     : <NA>
     
-  --remove-all-devices  (-rad)
+  --all-devices         (-ad)
   install
-    install  : <NA>.
-    uninstall: remove all device filters.
+    install  : <NA>
+    uninstall: Removes libusb-win32 device filters from all devices is the
+               USB enumerator.
     list     : <NA>
 
 Switches For INF Files:
  --inf=<your_file.inf> (-f=)
     install  : Installs usb device(s) from an inf file. 
     uninstall: Attempts to roll back a device driver installation. If 
-               rollback fails or is unavailable, the device is removed.
+               rollback fails or is unavailable, the device is removed and
+               all root hubs are restarted.
     list     : <NA>
 
 Warning:
