@@ -480,6 +480,21 @@ filter_device_t* usb_registry_find_filter_device(filter_device_t** head, const c
 
 	return NULL;
 }
+bool_t usb_registry_remove_device_regvalue(HDEVINFO dev_info, SP_DEVINFO_DATA *dev_info_data, const char* key_name)
+{
+	HKEY reg_key;
+	reg_key = SetupDiOpenDevRegKey(dev_info, dev_info_data, DICS_FLAG_GLOBAL, 0, DIREG_DEV, KEY_ALL_ACCESS);
+	if (reg_key)
+	{
+		if (RegDeleteValueA(reg_key, key_name) == ERROR_SUCCESS)
+		{
+			USBMSG("removed %s from device registry..\n", key_name);
+		}
+		RegCloseKey(reg_key);
+		return TRUE;
+	}
+	return FALSE;
+}
 
 bool_t usb_registry_insert_device_filter(filter_context_t* filter_context, bool_t upper, 
 										 HDEVINFO dev_info, SP_DEVINFO_DATA *dev_info_data)
@@ -497,6 +512,7 @@ bool_t usb_registry_insert_device_filter(filter_context_t* filter_context, bool_
 	{
 		if (usb_registry_mz_string_find(filters, driver_name, TRUE))
 		{
+			usb_registry_remove_device_regvalue(dev_info, dev_info_data, "SurpriseRemovalOK");
 			return TRUE;
 		}
 	}
@@ -506,7 +522,12 @@ bool_t usb_registry_insert_device_filter(filter_context_t* filter_context, bool_
 	if(usb_registry_mz_string_insert(filters, driver_name))
 	{
 		size = usb_registry_mz_string_size(filters);
-		return usb_registry_set_property(spdrp_filters, dev_info, dev_info_data, filters, size);
+		if (usb_registry_set_property(spdrp_filters, dev_info, dev_info_data, filters, size))
+		{
+
+			usb_registry_remove_device_regvalue(dev_info, dev_info_data, "SurpriseRemovalOK");
+			return TRUE;
+		}
 	}
 
 	return FALSE;
