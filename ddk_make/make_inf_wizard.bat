@@ -55,6 +55,7 @@ POPD
 :: Copy in the inf-wizard sources
 COPY /Y "!LIBWDI_DIR!\libwdi\libwdi.lib" >NUL
 COPY /Y "!LIBWDI_DIR!\libwdi\libwdi.h" >NUL
+COPY /Y "!LIBWDI_DIR!\libwdi\msapi_utf8.h" >NUL
 COPY /Y sources_inf_wizard sources >NUL
 COPY /Y %SRC_DIR%\inf_wizard*.* >NUL
 COPY /Y %SRC_DIR%\libusb-win32_version.* >NUL
