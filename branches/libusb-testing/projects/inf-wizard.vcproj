@@ -204,6 +204,10 @@
 				RelativePath="..\src\libusb-win32_version.h"
 				>
 			</File>
+			<File
+				RelativePath=".\additional\libwdi\libwdi\msapi_utf8.h"
+				>
+			</File>
 		</Filter>
 		<Filter
 			Name="Resource Files"
