@@ -66,6 +66,15 @@ enum _filter_type_e
 	FT_DEVICE_LOWERFILTER = 1 << 3,
 };
 
+typedef struct _filter_hwid_t filter_hwid_t;
+struct _filter_hwid_t
+{
+	int vid;
+	int pid;
+	int mi;
+	int rev;
+};
+
 typedef struct _filter_device_t filter_device_t;
 struct _filter_device_t
 {
@@ -141,8 +150,6 @@ bool_t usb_registry_restart_all_devices(void);
 void usb_registry_stop_libusb_devices(void);
 void usb_registry_start_libusb_devices(void);
 
-bool_t usb_registry_match(HDEVINFO dev_info, SP_DEVINFO_DATA *dev_info_data);
-
 bool_t usb_registry_get_mz_value(const char *key, const char *value,
 								 char *buf, int size);
 bool_t usb_registry_set_mz_value(const char *key, const char *value,
@@ -204,5 +211,6 @@ bool_t usb_registry_free_filter_files(filter_file_t **head);
 
 filter_device_t* usb_registry_find_filter_device(filter_device_t** head, const char* hwid);
 bool_t usb_registry_mz_to_sz(char* buf_mz, char separator);
+bool_t usb_registry_fill_filter_hwid(const char* hwid, filter_hwid_t* filter_hwid);
 
 #endif

@@ -463,23 +463,64 @@ bool_t usb_registry_remove_device_filter(filter_context_t* filter_context)
 	return TRUE;
 }
 
+bool_t usb_registry_fill_filter_hwid(const char* hwid, filter_hwid_t* filter_hwid)
+{
+	const char* hwid_part;
+
+	memset(filter_hwid, -1, sizeof(filter_hwid_t));
+
+	if ((hwid_part = strstr(hwid, "vid_")))
+		sscanf(hwid_part,"vid_%04x",&filter_hwid->vid);
+
+	if ((hwid_part = strstr(hwid, "pid_")))
+		sscanf(hwid_part,"pid_%04x",&filter_hwid->pid);
+
+	if ((hwid_part = strstr(hwid, "mi_")))
+		sscanf(hwid_part,"mi_%02x",&filter_hwid->mi);
+
+	if ((hwid_part = strstr(hwid, "rev_")))
+		sscanf(hwid_part,"rev_%04u",&filter_hwid->rev);
+
+	return (filter_hwid->vid != -1 && filter_hwid->pid != -1);
+}
+
 filter_device_t* usb_registry_find_filter_device(filter_device_t** head, const char* hwid)
 {
 	filter_device_t* p = *head;
-	if (!head)
+	char id_find[MAX_PATH];
+	filter_hwid_t find_hwid;
+	filter_hwid_t search_hwid;
+	char id[MAX_PATH];
+
+	if (!head || !hwid)
+		return NULL;
+
+	strcpy(id, hwid);
+	_strlwr(id);
+
+	if (!usb_registry_fill_filter_hwid(id, &find_hwid))
 		return NULL;
 
 	while(p)
 	{
-		if (_stricmp(p->device_hwid, hwid)==0)
+		strcpy(id_find, p->device_hwid);
+		_strlwr(id_find);
+
+		if (usb_registry_fill_filter_hwid(id_find, &search_hwid))
 		{
-			return p;
+			if (find_hwid.vid == search_hwid.vid && 
+				find_hwid.pid == search_hwid.pid && 
+				((find_hwid.mi == -1) || (find_hwid.mi == search_hwid.mi)))
+			{
+				return p;
+			}
 		}
 		p = p->next;
 	}
 
 	return NULL;
 }
+
 bool_t usb_registry_remove_device_regvalue(HDEVINFO dev_info, SP_DEVINFO_DATA *dev_info_data, const char* key_name)
 {
 	HKEY reg_key;

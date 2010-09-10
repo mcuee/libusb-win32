@@ -75,7 +75,7 @@
 // transform coordinates in a RECT from screen to client coordiantes
 #define ScreenToClientRC(hwnd, prect) do{ScreenToClient(hwnd,(LPPOINT)&prect->left); ScreenToClient(hwnd,(LPPOINT)&prect->right); }while(0)
 
-// fiils a pointer to a TRIVERTEX structure
+// fills a pointer to a TRIVERTEX structure
 #define TRIVERTEX_FILL(TriVertex, XPos, YPos, RedC16, GreenC16, BlueC16, AlphaC16) do { \
 		(TriVertex)->x     = XPos; \
 		(TriVertex)->y     = YPos; \
@@ -223,15 +223,6 @@ void usage(void);
 /* riched32.dll */
 #define INIT_RICHED32() if (riched32_dll == NULL) riched32_dll = LoadLibrary("riched32")
 
-/* gdi32.dll exports */
-typedef HFONT (WINAPI * create_font_t)(int, int, int, int, int,
-                                       DWORD, DWORD, DWORD, DWORD, DWORD, DWORD, DWORD, DWORD,
-                                       LPCSTR);
-#define INIT_GDI32() if (gdi32_dll == NULL) gdi32_dll = LoadLibrary("gdi32")
-#define INIT_CREATEFONT() if (create_font == NULL) do { \
-			INIT_GDI32(); if (gdi32_dll) create_font = (create_font_t) GetProcAddress(gdi32_dll, "CreateFontA"); \
-		}while(0)
-
 /* msimg32.dll exports */
 typedef BOOL (WINAPI * gradient_fill_t)(HDC,
                                         PTRIVERTEX,
@@ -305,7 +296,6 @@ static HINSTANCE advapi32_dll = NULL;
 
 static commandline_to_argvw_t commandline_to_argvw = NULL;
 static gradient_fill_t gradient_fill = NULL;
-static create_font_t create_font = NULL;
 
 static open_sc_manager_t open_sc_manager = NULL;
 static open_service_t open_service = NULL;
@@ -577,7 +567,9 @@ BOOL usb_install_find_model_section(HINF inf_handle, PINFCONTEXT inf_context)
 	return success;
 }
 
-int usb_install_inf_np(const char *inf_file, bool_t remove_mode, bool_t copy_oem_inf_mode)
+int usb_install_inf_np(const char *inf_file, 
+					   bool_t remove_mode, 
+					   bool_t copy_oem_inf_mode)
 {
 	HDEVINFO dev_info;
 	SP_DEVINFO_DATA dev_info_data;
@@ -599,6 +591,12 @@ int usb_install_inf_np(const char *inf_file, bool_t remove_mode, bool_t copy_oem
 	bool_t usb_reset_required = FALSE;
 	int field_index;
 	setup_copy_oem_inf_t SetupCopyOEMInf;
+
+	if (usb_install_iswow64())
+	{
+		USBERR0("This is a 64bit operating system and requires the 64bit " DISPLAY_NAME " application.\n");
+		return -1;
+	}
 
 	newdev_dll = LoadLibrary("newdev.dll");
 	if (!newdev_dll)
@@ -691,12 +689,12 @@ int usb_install_inf_np(const char *inf_file, bool_t remove_mode, bool_t copy_oem
 					else
 					{
 						USBDBG(".inf file %s copied to system directory\n", inf_path);
+						copy_oem_inf_mode = FALSE;
 					}
 				}
-				/* update all connected devices matching this ID, but only if this */
-				/* driver is better or newer */
-				UpdateDriverForPlugAndPlayDevices(NULL, id, inf_path, INSTALLFLAG_FORCE,
-				                                  &reboot);
+
+				/* force an update of all connected devices matching this ID */
+				UpdateDriverForPlugAndPlayDevices(NULL, id, inf_path, INSTALLFLAG_FORCE, &reboot);
 			}
 
 			/* now search the registry for device nodes representing currently  */
@@ -743,7 +741,7 @@ int usb_install_inf_np(const char *inf_file, bool_t remove_mode, bool_t copy_oem
 									}
 									else
 									{
-										USBERR("failed driver rollback for device %s\n", p);
+										USBERR("failed RollBackDriver for device %s\n", p);
 									}
 								}
 								if (UninstallDevice)
@@ -755,7 +753,7 @@ int usb_install_inf_np(const char *inf_file, bool_t remove_mode, bool_t copy_oem
 									}
 									else
 									{
-										USBERR("failed unnistalling device %s\n", p);
+										USBERR("failed UninstallDevice for device %s\n", p);
 									}
 								}
 
@@ -766,7 +764,7 @@ int usb_install_inf_np(const char *inf_file, bool_t remove_mode, bool_t copy_oem
 								}
 								else
 								{
-									USBERR("failed removing device %s\n", p);
+									USBERR("failed RemoveDevice for device %s\n", p);
 								}
 
 							}
@@ -832,204 +830,12 @@ int usb_install_inf_np(const char *inf_file, bool_t remove_mode, bool_t copy_oem
 		usb_registry_start_libusb_devices(); /* restart all libusb devices */
 	}
 
-
 	return 0;
 }
 
 int usb_install_driver_np(const char *inf_file)
 {
-	HDEVINFO dev_info;
-	SP_DEVINFO_DATA dev_info_data;
-	INFCONTEXT inf_context;
-	HINF inf_handle;
-	DWORD config_flags, problem, status;
-	BOOL reboot;
-	char inf_path[MAX_PATH];
-	char id[MAX_PATH];
-	char tmp_id[MAX_PATH];
-	char *p;
-	int dev_index;
-	HINSTANCE newdev_dll = NULL;
-	HMODULE setupapi_dll = NULL;
-	CONFIGRET cr;
-
-	update_driver_for_plug_and_play_devices_t UpdateDriverForPlugAndPlayDevices;
-	setup_copy_oem_inf_t SetupCopyOEMInf;
-	newdev_dll = LoadLibrary("newdev.dll");
-
-	if (!newdev_dll)
-	{
-		USBERR0("loading newdev.dll failed\n");
-		return -1;
-	}
-
-	UpdateDriverForPlugAndPlayDevices =
-	    (update_driver_for_plug_and_play_devices_t)
-	    GetProcAddress(newdev_dll, "UpdateDriverForPlugAndPlayDevicesA");
-
-	if (!UpdateDriverForPlugAndPlayDevices)
-	{
-		USBERR0("loading newdev.dll failed\n");
-		return -1;
-	}
-
-	setupapi_dll = GetModuleHandle("setupapi.dll");
-
-	if (!setupapi_dll)
-	{
-		USBERR0("loading setupapi.dll failed\n");
-		return -1;
-	}
-	SetupCopyOEMInf = (setup_copy_oem_inf_t)
-	                  GetProcAddress(setupapi_dll, "SetupCopyOEMInfA");
-
-	if (!SetupCopyOEMInf)
-	{
-		USBERR0("loading setupapi.dll failed\n");
-		return -1;
-	}
-
-	dev_info_data.cbSize = sizeof(SP_DEVINFO_DATA);
-
-
-	/* retrieve the full .inf file path */
-	if (!GetFullPathName(inf_file, MAX_PATH, inf_path, NULL))
-	{
-		USBERR(".inf file %s not found\n",
-		       inf_file);
-		return -1;
-	}
-
-	/* open the .inf file */
-	inf_handle = SetupOpenInfFile(inf_path, NULL, INF_STYLE_WIN4, NULL);
-
-	if (inf_handle == INVALID_HANDLE_VALUE)
-	{
-		USBERR("unable to open .inf file %s\n",
-		       inf_file);
-		return -1;
-	}
-
-	/* find the .inf file's device description section marked "Devices" */
-	if (!SetupFindFirstLine(inf_handle, "Devices", NULL, &inf_context))
-	{
-		USBERR(".inf file %s does not contain "
-		       "any device descriptions\n", inf_file);
-		SetupCloseInfFile(inf_handle);
-		return -1;
-	}
-
-
-	do
-	{
-		/* get the device ID from the .inf file */
-		if (!SetupGetStringField(&inf_context, 2, id, sizeof(id), NULL))
-		{
-			continue;
-		}
-
-		/* convert the string to lowercase */
-		strlwr(id);
-
-		reboot = FALSE;
-
-		/* copy the .inf file to the system directory so that is will be found */
-		/* when new devices are plugged in */
-		SetupCopyOEMInf(inf_path, NULL, SPOST_PATH, 0, NULL, 0, NULL, NULL);
-
-		/* update all connected devices matching this ID, but only if this */
-		/* driver is better or newer */
-		UpdateDriverForPlugAndPlayDevices(NULL, id, inf_path, INSTALLFLAG_FORCE,
-		                                  &reboot);
-
-
-		/* now search the registry for device nodes representing currently  */
-		/* unattached devices */
-
-
-		/* get all USB device nodes from the registry, present and non-present */
-		/* devices */
-		dev_info = SetupDiGetClassDevs(NULL, "USB", NULL, DIGCF_ALLCLASSES);
-
-		if (dev_info == INVALID_HANDLE_VALUE)
-		{
-			SetupCloseInfFile(inf_handle);
-			break;
-		}
-
-		dev_index = 0;
-
-		/* enumerate the device list to find all attached and unattached */
-		/* devices */
-		while (SetupDiEnumDeviceInfo(dev_info, dev_index, &dev_info_data))
-		{
-			/* get the harware ID from the registry, this is a multi-zero string */
-			if (SetupDiGetDeviceRegistryProperty(dev_info, &dev_info_data,
-			                                     SPDRP_HARDWAREID, NULL,
-			                                     (BYTE *)tmp_id,
-			                                     sizeof(tmp_id), NULL))
-			{
-				/* check all possible IDs contained in that multi-zero string */
-				for (p = tmp_id; *p; p += (strlen(p) + 1))
-				{
-					/* convert the string to lowercase */
-					strlwr(p);
-
-					/* found a match? */
-					if (strstr(p, id))
-					{
-						cr = CM_Get_DevNode_Status(&status,
-						                           &problem,
-						                           dev_info_data.DevInst,
-						                           0);
-
-						/* is this device disconnected? */
-						if (cr == CR_NO_SUCH_DEVINST)
-						{
-							/* found a device node that represents an unattached */
-							/* device */
-							if (SetupDiGetDeviceRegistryProperty(dev_info,
-							                                     &dev_info_data,
-							                                     SPDRP_CONFIGFLAGS,
-							                                     NULL,
-							                                     (BYTE *)&config_flags,
-							                                     sizeof(config_flags),
-							                                     NULL))
-							{
-								/* mark the device to be reinstalled the next time it is */
-								/* plugged in */
-								config_flags |= CONFIGFLAG_REINSTALL;
-
-								/* write the property back to the registry */
-								SetupDiSetDeviceRegistryProperty(dev_info,
-								                                 &dev_info_data,
-								                                 SPDRP_CONFIGFLAGS,
-								                                 (BYTE *)&config_flags,
-								                                 sizeof(config_flags));
-							}
-						}
-						/* a match was found, skip the rest */
-						break;
-					}
-				}
-			}
-			/* check the next device node */
-			dev_index++;
-		}
-
-		SetupDiDestroyDeviceInfoList(dev_info);
-
-		/* get the next device ID from the .inf file */
-	}
-	while (SetupFindNextLine(&inf_context, &inf_context));
-
-	/* we are done, close the .inf file */
-	SetupCloseInfFile(inf_handle);
-
-	usb_registry_stop_libusb_devices(); /* stop all libusb devices */
-	usb_registry_start_libusb_devices(); /* restart all libusb devices */
-
-	return 0;
+	return usb_install_inf_np(inf_file, FALSE, TRUE);
 }
 
 
@@ -1471,6 +1277,8 @@ bool_t usb_install_parse_filter_context(filter_context_t* filter_context,
                                         int arg_start,
                                         int* arg_cnt)
 {
+	#define GET_ARG(Params) usb_install_get_argument(argv[arg_pos], &arg_param, &arg_value, Params)
+
 	LONGGUID class_guid;
 	int arg_pos;
 	LPWSTR* argv = NULL;
@@ -1508,44 +1316,39 @@ bool_t usb_install_parse_filter_context(filter_context_t* filter_context,
 
 	for(arg_pos = arg_start; arg_pos < *arg_cnt; arg_pos++)
 	{
-		if (usb_install_get_argument(argv[arg_pos], &arg_param, &arg_value, paramcmd_help))
+		if (GET_ARG(paramcmd_help))
 		{
 			filter_context->show_help_only = TRUE;
 			break;
 		}
-		else if (usb_install_get_argument(argv[arg_pos], &arg_param, &arg_value, paramcmd_list))
+		else if (GET_ARG(paramcmd_list))
 		{
 			filter_context->filter_mode |= FM_LIST;
 			filter_context->filter_mode_main = FM_LIST;
-
 		}
-		else if (usb_install_get_argument(argv[arg_pos], &arg_param, &arg_value, paramcmd_install))
+		else if (GET_ARG(paramcmd_install))
 		{
 			filter_context->filter_mode_main = FM_INSTALL;
 			filter_context->filter_mode |= FM_REMOVE | FM_INSTALL;
 		}
-		else if (usb_install_get_argument(argv[arg_pos], &arg_param, &arg_value, paramcmd_uninstall))
+		else if (GET_ARG(paramcmd_uninstall))
 		{
 			filter_context->filter_mode_main = FM_REMOVE;
 			filter_context->filter_mode |= FM_REMOVE;
 		}
-		else if (usb_install_get_argument(argv[arg_pos], &arg_param, &arg_value, paramsw_all_classes))
+		else if (GET_ARG(paramsw_all_classes))
 		{
 			filter_context->switches.add_all_classes = TRUE;
 		}
-		else if (usb_install_get_argument(argv[arg_pos], &arg_param, &arg_value, paramsw_device_classes))
+		else if (GET_ARG(paramsw_device_classes))
 		{
 			filter_context->switches.add_device_classes = TRUE;
 		}
-		else if (usb_install_get_argument(argv[arg_pos], &arg_param, &arg_value, paramsw_all_devices))
+		else if (GET_ARG(paramsw_all_devices))
 		{
 			filter_context->remove_all_device_filters = TRUE;
 		}
-		else if
-		(
-		    usb_install_get_argument(argv[arg_pos], &arg_param, &arg_value, paramsw_device_upper) ||
-		    usb_install_get_argument(argv[arg_pos], &arg_param, &arg_value, paramsw_device_lower)
-		)
+		else if ( GET_ARG(paramsw_device_upper) || GET_ARG(paramsw_device_lower) )
 		{
 			length = wcstombs(tmp, arg_value, MAX_PATH);
 			if (length < 1)
@@ -1567,7 +1370,7 @@ bool_t usb_install_parse_filter_context(filter_context_t* filter_context,
 
 			usb_registry_add_filter_device_keys(&filter_context->device_filters, tmp, "", "", "", "", &found_device);
 
-			if (usb_install_get_argument(argv[arg_pos], &arg_param, &arg_value, paramsw_device_upper))
+			if (GET_ARG(paramsw_device_upper))
 			{
 				// upper device filter
 				if (!found_device)
@@ -1596,7 +1399,7 @@ bool_t usb_install_parse_filter_context(filter_context_t* filter_context,
 				}
 			}
 		}
-		else if (usb_install_get_argument(argv[arg_pos], &arg_param, &arg_value, paramsw_class))
+		else if (GET_ARG(paramsw_class))
 		{
 			memset(tmp, 0, sizeof(tmp));
 			length = wcstombs(tmp, arg_value, MAX_PATH);
@@ -1639,7 +1442,7 @@ bool_t usb_install_parse_filter_context(filter_context_t* filter_context,
 				}
 			}
 		}
-		else if (usb_install_get_argument(argv[arg_pos], &arg_param, &arg_value, paramsw_inf))
+		else if (GET_ARG(paramsw_inf))
 		{
 			memset(tmp, 0, sizeof(tmp));
 			length = wcstombs(tmp, arg_value, MAX_PATH);
@@ -1886,7 +1689,7 @@ int usb_install_console(filter_context_t* filter_context)
 				while (filter_file)
 				{
 					USBMSG("uninstalling inf %s..\n", filter_file->name);
-					if (usb_install_inf_np(filter_file->name, TRUE, FALSE) < 0)
+					if (usb_install_inf_np(filter_file->name, TRUE, TRUE) < 0)
 					{
 						ret = -1;
 						break;
@@ -1935,7 +1738,7 @@ int usb_install_console(filter_context_t* filter_context)
 				while (filter_file)
 				{
 					USBMSG("installing inf %s..\n", filter_file->name);
-					if (usb_install_inf_np(filter_file->name, FALSE, FALSE) < 0)
+					if (usb_install_inf_np(filter_file->name, FALSE, TRUE) < 0)
 					{
 						ret = -1;
 						break;
@@ -1967,7 +1770,6 @@ int usb_install_console(filter_context_t* filter_context)
 
 		filter_context->filter_mode ^= filter_context->active_filter_mode;
 		filter_context->active_filter_mode = 0;
-
 	}
 
 Done:
@@ -2067,17 +1869,7 @@ bool_t usb_progress_size(HWND hDlg)
 bool_t usb_progress_init_children(HWND hDlg)
 {
 	HWND hWnd;
-	HFONT labelFont = NULL;
 	CHARFORMAT cf;
-
-	// create the font
-	INIT_CREATEFONT();
-	if (create_font)
-	{
-		labelFont = create_font(-11, 0, 0, 0, FW_NORMAL, 0, 0, 0,
-		                        ANSI_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, DEFAULT_QUALITY, DEFAULT_PITCH,
-		                        "Tahoma");
-	}
 
 	// create rich textbox
 	hWnd = CreateWindowEx(WS_EX_STATICEDGE, RICHEDIT_CLASS, NULL,
@@ -2086,16 +1878,15 @@ bool_t usb_progress_init_children(HWND hDlg)
 	                      hDlg, (HMENU)((UINT_PTR)IDC_PROGRESS_TEXT),
 	                      g_install_progress_context.hInstance, NULL);
 
-	// set rich textbox font
 	memset(&cf, 0 , sizeof(cf));
 	cf.cbSize = sizeof(cf);
 
+	// set rich textbox font and size
 	cf.dwMask = CFM_FACE | CFM_SIZE;
 	cf.yHeight = 170;
 	strcpy(cf.szFaceName, "Tahoma");
 
 	SendMessage(hWnd, EM_SETCHARFORMAT, (WPARAM)SCF_ALL, (LPARAM)&cf);
-
 	SendMessage(hWnd, EM_SETWORDBREAKPROCEX, (WPARAM)0, (LPARAM)NULL);
 	SendMessage(hWnd, EM_SETBKGNDCOLOR, (WPARAM)0, (LPARAM)GetSysColor(COLOR_BTNFACE));
 
@@ -2476,12 +2267,6 @@ int usb_install(HWND hwnd, HINSTANCE instance,
 
 	if (out_filter_context)
 		*out_filter_context = NULL;
-
-	if (usb_install_iswow64())
-	{
-		USBERR0("This is a 64bit operating system and requires the 64bit " DISPLAY_NAME " application.\n");
-		return -1;
-	}
 
 	if (!usb_install_admin_check())
 	{
