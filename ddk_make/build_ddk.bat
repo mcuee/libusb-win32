@@ -19,7 +19,7 @@ SET BUILD_ERRORLEVEL=0
 
 if exist libusb0.lib move /Y libusb0.lib libusb.lib >NUL
 
-build 2>NUL>NUL
+build -cwgZ 2>NUL>NUL
 IF EXIST "build%BUILD_ALT_DIR%.err" TYPE "build%BUILD_ALT_DIR%.err"
 IF EXIST "build%BUILD_ALT_DIR%.wrn" TYPE "build%BUILD_ALT_DIR%.wrn"
 IF EXIST "build%BUILD_ALT_DIR%.err" SET BUILD_ERRORLEVEL=1

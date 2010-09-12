@@ -123,7 +123,7 @@ Name: "{group}\Uninstall LibUsb-Win32"; Filename: "{uninstallexe}"
 Filename: "rundll32"; Parameters: "libusb0.dll,usb_install_service_np_rundll"; StatusMsg: Creating kernel service (this may take a few seconds) ...; Tasks: tasklibusb; 
 
 [UninstallRun]
-Filename: "rundll32"; Parameters: "libusb0.dll,usb_uninstall_service_np_rundll"; 
+Filename: "rundll32"; Parameters: "libusb0.dll,usb_uninstall_service_np_rundll"; Tasks: tasklibusb;
 
 [Messages]
 StatusUninstalling=Uninstalling %1 and removing all device filters...
