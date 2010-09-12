@@ -434,6 +434,12 @@ bool_t usb_registry_remove_device_filter(filter_context_t* filter_context)
 
 						usb_registry_set_property(SPDRP_UPPERFILTERS, dev_info,
 							&dev_info_data, filters, size);
+
+						if (!filter_context->class_filters &&
+							!(filter_context->filter_mode & FM_INSTALL))
+						{
+							usb_registry_restart_device(dev_info, &dev_info_data);
+						}
 					}
 				}
 
@@ -451,6 +457,12 @@ bool_t usb_registry_remove_device_filter(filter_context_t* filter_context)
 
 						usb_registry_set_property(SPDRP_LOWERFILTERS, dev_info,
 							&dev_info_data, filters, size);
+
+						if (!filter_context->class_filters &&
+							!(filter_context->filter_mode & FM_INSTALL))
+						{
+							usb_registry_restart_device(dev_info, &dev_info_data);
+						}
 					}
 				}
 			}
@@ -565,8 +577,12 @@ bool_t usb_registry_insert_device_filter(filter_context_t* filter_context, bool_
 		size = usb_registry_mz_string_size(filters);
 		if (usb_registry_set_property(spdrp_filters, dev_info, dev_info_data, filters, size))
 		{
-
 			usb_registry_remove_device_regvalue(dev_info, dev_info_data, "SurpriseRemovalOK");
+
+			if (!filter_context->class_filters)
+			{
+				usb_registry_restart_device(dev_info, dev_info_data);
+			}
 			return TRUE;
 		}
 	}

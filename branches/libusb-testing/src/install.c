@@ -211,6 +211,7 @@ typedef struct _install_progress_context_t
 	DWORD progress_textlength;
 	LONG progress_ind_ofs;
 	bool_t stopped;
+	int error_count;
 } install_progress_context_t;
 
 static install_progress_context_t g_install_progress_context;
@@ -458,6 +459,7 @@ int usb_install_service(filter_context_t* filter_context)
 		{
 			USBERR("failed creating service %s\n", driver_name);
 			ret = -1;
+			return ret;
 		}
 	}
 	/* restart devices that are handled by libusb's device driver */
@@ -469,9 +471,11 @@ int usb_install_service(filter_context_t* filter_context)
 	/* insert class filter driver */
 	usb_registry_insert_class_filter(filter_context);
 
-	/* restart the whole USB system so that the new drivers will be loaded */
-	usb_registry_restart_all_devices();
-
+	if (filter_context->class_filters)
+	{
+		/* restart the whole USB system so that the new drivers will be loaded */
+		usb_registry_restart_all_devices();
+	}
 	return ret;
 }
 
@@ -488,15 +492,19 @@ int usb_uninstall_service(filter_context_t* filter_context)
 	usb_service_stop(LIBUSB_OLD_SERVICE_NAME_NT);
 	usb_service_delete(LIBUSB_OLD_SERVICE_NAME_NT);
 
-	/* old versions used device filters that have to be removed */
-	usb_registry_remove_device_filter(filter_context);
-
+	/* remove user specified device filters */
+	if (filter_context->device_filters || filter_context->remove_all_device_filters)
+	{
+		usb_registry_remove_device_filter(filter_context);
+	}
 	/* remove class filter driver */
 	usb_registry_remove_class_filter(filter_context);
 
 	/* unload filter drivers */
-	usb_registry_restart_all_devices();
-
+	if (filter_context->class_filters)
+	{
+		usb_registry_restart_all_devices();
+	}
 	return 0;
 }
 
@@ -1587,7 +1595,10 @@ static BOOL usb_install_log_handler(enum USB_LOG_LEVEL level,
 		}
 
 		if ((level & LOG_LEVEL_MASK) == LOG_ERROR)
+		{
+			g_install_progress_context.error_count++;
 			usb_progress_add_text(hWnd, message, RGB(128, 0, 0), TRUE);
+		}
 		else if ((level & LOG_LEVEL_MASK) == LOG_WARNING)
 			usb_progress_add_text(hWnd, message, RGB(255, 140, 0), FALSE);
 		else
@@ -1617,6 +1628,20 @@ int usb_install_console(filter_context_t* filter_context)
 {
 	filter_file_t* filter_file;
 	int ret = 0;
+
+	if (!usb_install_admin_check())
+	{
+		USBERR0(DISPLAY_NAME " requires administrative privileges.\n");
+		ret = -1;
+		goto Done;
+	}
+
+	if (usb_install_iswow64())
+	{
+		USBERR0("This is a 64bit operating system and requires the 64bit " DISPLAY_NAME " application.\n");
+		ret = -1;
+		goto Done;
+	}
 
 	if (!filter_context->filter_mode)
 	{
@@ -1854,14 +1879,14 @@ bool_t usb_progress_size(HWND hDlg)
 	rect_text.right = rect_client.right - pad_y;
 
 	// resize the progress textbox
-	MOVE_CONTROL(hDlg, IDC_PROGRESS_TEXT, rect_text, FALSE, FALSE);
+	MOVE_CONTROL(hDlg, IDC_PROGRESS_TEXT, rect_text, TRUE, FALSE);
 
 	// resize the bar label
-	MOVE_CONTROL(hDlg, IDC_PROGRESS_BAR, rect_bar, FALSE, FALSE);
+	MOVE_CONTROL(hDlg, IDC_PROGRESS_BAR, rect_bar, TRUE, FALSE);
 
 	// repaint
-	InvalidateRect(hDlg, NULL, TRUE);
-	PostMessageA(hDlg, WM_PAINT, (WPARAM)NULL, (LPARAM)0);
+	// InvalidateRect(hDlg, NULL, TRUE);
+	// PostMessageA(hDlg, WM_PAINT, (WPARAM)NULL, (LPARAM)0);
 
 	return TRUE;
 }
@@ -1952,6 +1977,7 @@ LRESULT CALLBACK usb_progress_wndproc(HWND hDlg, UINT message, WPARAM wParam, LP
 				EnableWindow(hwnd, FALSE);
 
 			SetWindowTextA(hDlg, DISPLAY_RUNNING);
+			g_install_progress_context.error_count = 0;
 			g_install_progress_context.thread_id = _beginthread(usb_progress_thread, 0, &g_install_progress_context);
 			if (g_install_progress_context.thread_id != -1L)
 			{
@@ -1967,7 +1993,7 @@ LRESULT CALLBACK usb_progress_wndproc(HWND hDlg, UINT message, WPARAM wParam, LP
 			g_install_progress_context.stopped = TRUE;
 			if ( (hwnd = GetDlgItem(hDlg, IDC_PROGRESS_TEXT)) != NULL)
 			{
-				if (g_install_progress_context.ret != ERROR_SUCCESS)
+				if (g_install_progress_context.error_count != 0)
 				{
 					usb_progress_add_text(hwnd, "finished with errors!", RGB(160, 16, 16), TRUE);
 				}
@@ -1984,7 +2010,7 @@ LRESULT CALLBACK usb_progress_wndproc(HWND hDlg, UINT message, WPARAM wParam, LP
 			if ( (hwnd = GetDlgItem(hDlg, IDOK)) != NULL)
 				EnableWindow(hwnd, TRUE);
 
-			if (g_install_progress_context.ret == 0)
+			if (g_install_progress_context.error_count == 0)
 			{
 				SetWindowTextA(hDlg, DISPLAY_DONE);
 			}
@@ -1996,7 +2022,7 @@ LRESULT CALLBACK usb_progress_wndproc(HWND hDlg, UINT message, WPARAM wParam, LP
 			// redraw everything
 			RedrawWindow(hDlg, NULL, NULL, RDW_ERASE | RDW_FRAME | RDW_INTERNALPAINT | RDW_INVALIDATE);
 
-			if (g_install_progress_context.ret == ERROR_SUCCESS)
+			if (g_install_progress_context.error_count == 0)
 			{
 				PostQuitMessage((int)wParam);
 				DestroyWindow(hDlg);
@@ -2267,12 +2293,6 @@ int usb_install(HWND hwnd, HINSTANCE instance,
 
 	if (out_filter_context)
 		*out_filter_context = NULL;
-
-	if (!usb_install_admin_check())
-	{
-		USBERR0(DISPLAY_NAME " requires administrative privileges.\n");
-		return -1;
-	}
 
 	// create a named semaphore
 	if (!sem_create_lock(&sem_handle, install_lock_sem_name, 1, 1))
