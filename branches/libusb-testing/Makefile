@@ -88,7 +88,7 @@ LIBWDI_OBJECTS = $(LIBWDI_DIR)/logging.5.o \
 
 INCLUDES = -I./src -I./src/driver -I.
 
-CFLAGS = -O2 -Wall -mno-cygwin -DWINVER=0x500 $(DBG_DEFINE)
+CFLAGS = -O2 -Wall -DWINVER=0x500 $(DBG_DEFINE)
 WIN_CFLAGS = $(CFLAGS) -mwindows
 
 WINDRES_FLAGS = -I$(SRC_DIR)
@@ -106,16 +106,16 @@ STDC_LD_LIBS=-lkernel32 \
 	-lodbc32 \
 	-lodbccp32
 
-LDFLAGS = -s -mno-cygwin -L. -lusb -lgdi32 -luser32 -lcfgmgr32 -lsetupapi -lcomctl32
-TEST_WIN_LDFLAGS = -s -mno-cygwin -L. -lusb -lkernel32 -lgdi32 -luser32 -lnewdev -lsetupapi -lcomctl32 -lole32 -mwindows
-WIN_LDFLAGS = -s -mno-cygwin -L. -lkernel32 -lgdi32 -luser32 -lnewdev -lsetupapi -lcomctl32 -lole32 -mwindows
-DLL_LDFLAGS = -s -mdll -mno-cygwin \
+LDFLAGS = -s -L. -lusb -lgdi32 -luser32 -lcfgmgr32 -lsetupapi -lcomctl32
+TEST_WIN_LDFLAGS = -s -L. -lusb -lkernel32 -lgdi32 -luser32 -lnewdev -lsetupapi -lcomctl32 -lole32 -mwindows
+WIN_LDFLAGS = -s -L. -lkernel32 -lgdi32 -luser32 -lnewdev -lsetupapi -lcomctl32 -lole32 -mwindows
+DLL_LDFLAGS = -s -mdll \
 	-Wl,--kill-at \
 	-Wl,--out-implib,$(LIB_TARGET).a \
 	-Wl,--enable-stdcall-fixup \
 	-L. -lcfgmgr32 -lsetupapi -lgdi32
 
-LIBWDI_DLL_LDFLAGS = -s -shared -mno-cygwin \
+LIBWDI_DLL_LDFLAGS = -s -shared \
 	-Wl,--kill-at \
 	-Wl,--out-implib,libwdi.a \
 	-Wl,--enable-stdcall-fixup \
@@ -143,7 +143,7 @@ $(DLL_TARGET).dll: usb.2.o error.2.o descriptors.2.o windows.2.o install.2.o reg
 
 .PHONY: filter
 filter: FILTER_CFLAGS = $(CFLAGS) -DLOG_APPNAME=\"install-filter\" -DTARGETTYPE=PROGRAMconsole -DLOG_STYLE_SHORT
-filter: FILTER_LDFLAGS = -s -mno-cygwin -L. -lgdi32 -luser32 -lcfgmgr32 -lsetupapi
+filter: FILTER_LDFLAGS = -s -L. -lgdi32 -luser32 -lcfgmgr32 -lsetupapi
 filter: install-filter.exe
 
 
@@ -186,7 +186,7 @@ testlibusb-win.exe: testlibusb_win.4.o testlibusb_win_rc.4.o
 #
 .PHONY: installer_x86
 installer_x86: INSTALLER_CFLAGS = $(CFLAGS) -DLOG_APPNAME=\"installer_x86\" -DTARGETTYPE=PROGRAMconsole $(LIBWDI_CONFIG_H)
-installer_x86: INSTALLER_LDFLAGS = -s -mno-cygwin -L. -ladvapi32 -lnewdev -lsetupapi
+installer_x86: INSTALLER_LDFLAGS = -s -L. -ladvapi32 -lnewdev -lsetupapi
 installer_x86: installer_x86.exe
 
 installer_x86.exe: $(LIBWDI_DIR)/installer.6.o
@@ -202,7 +202,7 @@ installer_x86.exe: $(LIBWDI_DIR)/installer.6.o
 .PHONY: embedder
 embedder: installer_x86
 embedder: EMBEDDER_CFLAGS = $(CFLAGS) -DLOG_APPNAME=\"embedder\" -DTARGETTYPE=PROGRAMconsole $(LIBWDI_CONFIG_H)
-embedder: EMBEDDER_LDFLAGS = -s -mno-cygwin -L. -luser32 -lversion
+embedder: EMBEDDER_LDFLAGS = -s -L. -luser32 -lversion
 embedder: embedder.exe
 
 embedder.exe: $(LIBWDI_DIR)/embedder.7.o
