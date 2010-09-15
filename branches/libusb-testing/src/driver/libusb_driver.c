@@ -557,23 +557,33 @@ bool_t update_pipe_info(libusb_device_t *dev,
             dev->config.interfaces[number].endpoints[i].pipe_type = interface_info->Pipes[i].PipeType;
  			dev->config.interfaces[number].endpoints[i].pipe_flags = interface_info->Pipes[i].PipeFlags;
           
-			// max the maximum transfer size default an interval of max packet size.
-			//
-			maxTransferSize = maxTransferSize - (maxTransferSize % maxPacketSize);
-			if (maxTransferSize < maxPacketSize) 
+			if (maxPacketSize)
 			{
-				maxTransferSize = LIBUSB_MAX_READ_WRITE;
-			}
-			else if (maxTransferSize > LIBUSB_MAX_READ_WRITE)
-			{
-				maxTransferSize = LIBUSB_MAX_READ_WRITE - (LIBUSB_MAX_READ_WRITE % maxPacketSize);
-			}
+				// set max the maximum transfer size default to an interval of max packet size.
+				maxTransferSize = maxTransferSize - (maxTransferSize % maxPacketSize);
+				if (maxTransferSize < maxPacketSize) 
+				{
+					maxTransferSize = LIBUSB_MAX_READ_WRITE;
+				}
+				else if (maxTransferSize > LIBUSB_MAX_READ_WRITE)
+				{
+					maxTransferSize = LIBUSB_MAX_READ_WRITE - (LIBUSB_MAX_READ_WRITE % maxPacketSize);
+				}
 
-			if (maxTransferSize != interface_info->Pipes[i].MaximumTransferSize)
+				if (maxTransferSize != interface_info->Pipes[i].MaximumTransferSize)
+				{
+					USBWRN("overriding EP%02Xh maximum-transfer-size=%d\n",
+						dev->config.interfaces[number].endpoints[i].address,
+						maxTransferSize);
+				}
+			}
+			else
 			{
-				USBWRN("overriding EP%02Xh maximum-transfer-size=%d\n",
-					dev->config.interfaces[number].endpoints[i].address,
-					maxTransferSize);
+				if (!maxTransferSize)
+				{
+					// use the libusb-win32 default
+					maxTransferSize = LIBUSB_MAX_READ_WRITE;
+				}
 			}
 			dev->config.interfaces[number].endpoints[i].maximum_transfer_size = maxTransferSize;
 		}
