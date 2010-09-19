@@ -23,5 +23,5 @@
 
 int main()
 {
-    return usb_install_np(NULL, NULL, GetCommandLineW(), 1);
+    return usb_install_npW(NULL, NULL, GetCommandLineW(), 1);
 }
