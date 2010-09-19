@@ -1,0 +1,93 @@
+
+#ifdef __GNUC__
+#define _WIN32_IE 0x0501
+#endif
+
+#include <windows.h>
+#include <commctrl.h>
+
+#define IDR_MAIN_ICON 128
+
+#define ID_DIALOG_0 10000
+#define ID_DIALOG_1 10001
+
+#define ID_BUTTON_CANCEL 10010
+#define ID_BUTTON_NEXT 10011
+#define ID_BUTTON_BACK 10012
+
+#define ID_INFO_TEXT 10020
+
+#define ID_LIST 10021
+#define ID_LIST_HEADER_TEXT 10022
+
+#define IDC_SHOW_CONNECTED_DEVICES 10100
+#define IDC_SHOW_ALL_DEVICES 10101
+
+#define IDC_INSTALL_DEVICE_FILTER 10102
+#define IDC_REMOVE_DEVICE_FILTER 10103
+#define IDC_REMOVE_DEVICE_FILTERS 10104
+
+#define IDG_MAIN 11000
+#define IDG_DEVICES 11001
+#define IDG_CLASSES 11002
+
+//#define DIALOG_FONT "MS Sans Serif"
+#define DIALOG_FONT "Tahoma"
+#define DIALOG_FONT_SIZE 8
+#define DIALOG_CAPTION "libusb-win32 filter installer\0"
+
+#ifndef __INSTALL_FILTER_WIN_C__
+
+
+#define RC_FILE_TYPE      VFT_APP
+#define RC_FILE_SUB_TYPE  VFT2_UNKNOWN
+#define RC_PRODUCT_STR    DIALOG_CAPTION
+#define RC_FILE_NAME_STR  "install-filter-win.exe"
+
+#include "libusb-win32_version.rc"
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Icon
+//
+
+// Icon with lowest ID value placed first to ensure application icon
+// remains consistent on all systems.
+IDR_MAIN_ICON           ICON                    "install_filter_win.ico"
+
+ID_DIALOG_0 DIALOG DISCARDABLE  0,0,310,200 
+STYLE DS_MODALFRAME | DS_SETFOREGROUND | DS_CENTER | 
+    WS_MINIMIZEBOX | WS_POPUP | WS_VISIBLE | WS_CAPTION | WS_SYSMENU
+CAPTION DIALOG_CAPTION
+FONT DIALOG_FONT_SIZE, DIALOG_FONT
+BEGIN
+    DEFPUSHBUTTON   "Next >",ID_BUTTON_NEXT,190,175,50,15
+    PUSHBUTTON      "Cancel",ID_BUTTON_CANCEL,250,175,50,15
+    GROUPBOX        "Information",IDG_MAIN,10,10,290,70
+    LTEXT           0,ID_INFO_TEXT,20,20,270,50
+    GROUPBOX        "Install/Remove Device Filter(s)",IDG_DEVICES,10,90,130,65
+    CONTROL         "Install a device filter",IDC_INSTALL_DEVICE_FILTER,"Button",WS_GROUP|BS_AUTORADIOBUTTON,15,105,120,10
+    CONTROL         "Remove a device filter",IDC_REMOVE_DEVICE_FILTER,"Button",BS_AUTORADIOBUTTON,15,120,120,10
+    CONTROL         "Remove all device filters",IDC_REMOVE_DEVICE_FILTERS,"Button",BS_AUTORADIOBUTTON,15,135,120,10
+END
+
+ID_DIALOG_1 DIALOG DISCARDABLE  0, 0, 310, 200
+STYLE DS_MODALFRAME | DS_SETFOREGROUND | DS_CENTER | 
+    WS_MINIMIZEBOX | WS_POPUP | WS_VISIBLE | WS_CAPTION | WS_SYSMENU
+CAPTION DIALOG_CAPTION
+FONT DIALOG_FONT_SIZE, DIALOG_FONT
+BEGIN
+    DEFPUSHBUTTON   "Next >",ID_BUTTON_NEXT,190,175,50,15
+    PUSHBUTTON      "< Back",ID_BUTTON_BACK,130,175,50,15
+    PUSHBUTTON      "Cancel",ID_BUTTON_CANCEL,250,175,50,15
+    GROUPBOX        "Device Selection",IDG_MAIN,10,10,290,155
+    LTEXT           0,ID_LIST_HEADER_TEXT,20,25,270,30
+    CONTROL         "List2",ID_LIST,WC_LISTVIEW, 
+                    WS_BORDER | WS_TABSTOP | LVS_REPORT | LVS_SINGLESEL 
+                    | LVS_SHOWSELALWAYS, 20,60,270,95
+END
+
+ID_MANIFEST RT_MANIFEST "common_controls_admin.manifest"
+
+#endif
+

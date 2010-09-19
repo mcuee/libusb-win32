@@ -64,6 +64,8 @@
 #define DISPLAY_RUNNING "libusb-win32 installer running.."
 #define DISPLAY_DONE "libusb-win32 installer finished"
 #define DISPLAY_DONE_WITH_ERRORS "libusb-win32 installer errors!"
+#define COLOR_RED RGB(128,0,0)
+#define COLOR_LTRED RGB(255,64,64)
 
 #define MOVE_CONTROL(ParentHwnd, ControlID, Rect, Repaint, TopZOrder) \
 	SetWindowPos(GetDlgItem(ParentHwnd, ControlID), HWND_TOP, Rect.left, Rect.top, abs(Rect.right - Rect.left), abs(Rect.bottom - Rect.top), \
@@ -336,7 +338,7 @@ bool_t usb_progress_context_create(install_progress_context_t* install_progress_
                                    filter_context_t* filter_context);
 void usb_progress_context_destroy(install_progress_context_t* install_progress_context);
 
-bool_t usb_progress_add_text(HWND hwnd, char* message, COLORREF crNewColor, bool_t bold);
+bool_t usb_progress_add_text(HWND hwnd, char* message, COLORREF crNewColor, bool_t bold, bool_t italic);
 
 BOOL sem_create_lock(HANDLE* sem_handle_out, LPCSTR unique_name, LONG remaining, LONG max);
 BOOL sem_destroy_lock(HANDLE* sem_handle_in);
@@ -1705,15 +1707,19 @@ static BOOL usb_install_log_handler(enum USB_LOG_LEVEL level,
 			message_length--;
 		}
 
-		if ((level & LOG_LEVEL_MASK) == LOG_ERROR)
+		switch(level & LOG_LEVEL_MASK)
 		{
+		case LOG_ERROR:
 			g_install_progress_context.error_count++;
-			usb_progress_add_text(hWnd, message, RGB(128, 0, 0), TRUE);
+			usb_progress_add_text(hWnd, message, COLOR_RED, FALSE, FALSE);
+			break;
+		case LOG_WARNING:
+			usb_progress_add_text(hWnd, message, GetSysColor(COLOR_BTNTEXT), FALSE, TRUE);
+			break;
+		default:
+			usb_progress_add_text(hWnd, message, GetSysColor(COLOR_BTNTEXT), FALSE, FALSE);
+			break;
 		}
-		else if ((level & LOG_LEVEL_MASK) == LOG_WARNING)
-			usb_progress_add_text(hWnd, message, RGB(255, 140, 0), FALSE);
-		else
-			usb_progress_add_text(hWnd, message, GetSysColor(COLOR_BTNTEXT), FALSE);
 
 		return TRUE;
 	}
@@ -1921,7 +1927,7 @@ void __cdecl usb_progress_thread(void* param)
 	_endthread();
 }
 
-bool_t usb_progress_add_text(HWND hwnd, char* message, COLORREF crNewColor, bool_t bold)
+bool_t usb_progress_add_text(HWND hwnd, char* message, COLORREF crNewColor, bool_t bold, bool_t italic)
 {
 	static const char crlf[] = "\r\n";
 	CHARFORMAT cf;
@@ -2106,11 +2112,12 @@ LRESULT CALLBACK usb_progress_wndproc(HWND hDlg, UINT message, WPARAM wParam, LP
 			{
 				if (g_install_progress_context.error_count != 0)
 				{
-					usb_progress_add_text(hwnd, "finished with errors!", RGB(160, 16, 16), TRUE);
+					usb_progress_add_text(hwnd,"", COLOR_RED, TRUE, FALSE);
+					usb_progress_add_text(hwnd, "Operation completed with errors!", COLOR_RED, TRUE, FALSE);
 				}
 				else
 				{
-					usb_progress_add_text(hwnd, "finished.", RGB(32, 160, 32), TRUE);
+					usb_progress_add_text(hwnd, "Operation completed successfuly.", GetSysColor(COLOR_BTNTEXT), TRUE, FALSE);
 				}
 			}
 
@@ -2211,7 +2218,16 @@ LRESULT CALLBACK usb_progress_wndproc(HWND hDlg, UINT message, WPARAM wParam, LP
 
 				if (g_install_progress_context.stopped)
 				{
-					FillRect(hdc, &rect, GetSysColorBrush(COLOR_INACTIVEBORDER));
+					if (g_install_progress_context.error_count)
+					{
+						HBRUSH hbr_fill = CreateSolidBrush(COLOR_LTRED);
+						FillRect(hdc, &rect, hbr_fill);
+						DeleteObject(hbr_fill);
+					}
+					else
+					{
+						FillRect(hdc, &rect, GetSysColorBrush(COLOR_INACTIVEBORDER));
+					}
 
 					// Copy back buffer into screen device context for display.
 					BitBlt(ds->hDC, ds->rcItem.left, ds->rcItem.top,
