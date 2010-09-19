@@ -218,7 +218,6 @@ static install_progress_context_t g_install_progress_context;
 
 static bool_t usb_install_get_argument(LPWSTR param_value, LPCWSTR* out_param,  LPCWSTR* out_value, LPCWSTR* param_names);
 void usb_install_report(filter_context_t* filter_context);
-int usb_install(HWND hwnd, HINSTANCE instance, LPCWSTR cmd_line_w, int starg_arg, filter_context_t** out_filter_context);
 void usage(void);
 
 /* riched32.dll */
@@ -319,6 +318,18 @@ static bool_t usb_service_delete(const char *name);
 
 static bool_t usb_install_iswow64(void);
 static BOOL usb_install_admin_check(void);
+
+static BOOL usb_install_log_handler(enum USB_LOG_LEVEL level,
+                                    const char* app_name,
+                                    const char* prefix,
+                                    const char* func,
+                                    int app_prefix_func_end,
+                                    char* message,
+                                    int message_length);
+
+int usb_install_window(HWND hWnd, HINSTANCE instance, filter_context_t* filter_context);
+int usb_install_console(filter_context_t* filter_context);
+void usb_install_destroy_filter_context(filter_context_t** filter_context);
 
 bool_t usb_progress_context_create(install_progress_context_t* install_progress_context,
                                    HINSTANCE hInstance,
@@ -481,7 +492,7 @@ int usb_install_service(filter_context_t* filter_context)
 
 int usb_install_service_np(void)
 {
-	return usb_install_np(NULL, NULL, L"install", 0);
+	return usb_install_npA(NULL, NULL, "install", 0);
 }
 
 int usb_uninstall_service(filter_context_t* filter_context)
@@ -510,7 +521,7 @@ int usb_uninstall_service(filter_context_t* filter_context)
 
 int usb_uninstall_service_np(void)
 {
-	return usb_install_np(NULL, NULL, L"uninstall", 0);
+	return usb_install_npA(NULL, NULL, "uninstall", 0);
 }
 
 BOOL usb_install_find_model_section(HINF inf_handle, PINFCONTEXT inf_context)
@@ -1491,28 +1502,128 @@ Done:
 	return success;
 }
 
+int usb_install_npA(HWND hwnd, HINSTANCE instance, LPCSTR cmd_line, int starg_arg)
+{
+	WCHAR* cmd_line_w;
+	size_t length;
+	int ret;
+	
+	if (!cmd_line || !strlen(cmd_line))
+	{
+		return -1;
+	}
+
+	length = (strlen(cmd_line) * sizeof(WCHAR)) + sizeof(WCHAR);
+	cmd_line_w = malloc(length);
+	if (!cmd_line_w)
+		return -1;
+
+	memset(cmd_line_w, 0, length);
+	if ((length = mbstowcs(cmd_line_w, cmd_line, length / sizeof(WCHAR))) < 1)
+	{
+		free(cmd_line_w);
+		return -1;
+	}
+	cmd_line_w[length] = 0;
+
+	ret = usb_install_npW(hwnd, instance, cmd_line_w, starg_arg);
+
+	free(cmd_line_w);
+
+	return ret;
+}
+
+int usb_install_npW(HWND hwnd, HINSTANCE instance, LPCWSTR cmd_line_w, int starg_arg)
+{
+	filter_context_t* filter_context;
+	int ret = ERROR_SUCCESS;
+	HANDLE sem_handle = NULL;
+	int arg_cnt;
+
+	// create a named semaphore
+	if (!sem_create_lock(&sem_handle, install_lock_sem_name, 1, 1))
+		return -1;
+
+	// lock the semaphore
+	if (!sem_try_lock(sem_handle, 0))
+	{
+		sem_destroy_lock(&sem_handle);
+		return -1;
+	}
+
+	// use the log handler to report progress status
+	if (!usb_log_get_handler())
+	{
+		usb_log_set_handler(usb_install_log_handler);
+		usb_log_set_level(LOG_DEBUG);
+	}
+	else
+	{
+		ret = -1;
+		goto Done;
+	}
+
+	// allocate the filter context
+	filter_context = (filter_context_t*)malloc(sizeof(filter_context_t));
+	if (!filter_context)
+	{
+		USBERR0("memory allocation failure\n");
+		ret = -1;
+		goto Done;
+	}
+	memset(filter_context, 0, sizeof(filter_context_t));
+
+	// Fill the filter context from the command line arguments.
+	if (!(usb_install_parse_filter_context(filter_context, cmd_line_w, starg_arg, &arg_cnt)))
+	{
+		if (arg_cnt <= starg_arg)
+		{
+			usage();
+		}
+		ret = -1;
+		if (hwnd)
+		{
+			MessageBoxA(hwnd, usb_strerror(), DISPLAY_NAME " error", MB_OK | MB_ICONERROR);
+		}
+		goto Done;
+	}
+
+	if (filter_context->show_help_only)
+	{
+		usage();
+		ret = -1;
+		goto Done;
+	}
+
+	if (hwnd && instance)
+	{
+		// Using windowed install mode.
+		ret = usb_install_window(hwnd, instance, filter_context);
+	}
+	else
+	{
+		// Using console install mode.
+		ret = usb_install_console(filter_context);
+	}
+
+Done:
+	// Free the filter context.
+	usb_install_destroy_filter_context(&filter_context);
+
+	// Restore the default log handler.
+	usb_log_set_handler(NULL);
+
+	// Close (release) the semaphore lock.
+	sem_destroy_lock(&sem_handle);
+
+	return ret;
+}
+
 void CALLBACK usb_install_np_rundll(HWND wnd, HINSTANCE instance, LPSTR cmd_line, int cmd_show)
 {
-	WCHAR cmd_line_w[MAX_PATH+1];
-	size_t length;
-
-	memset(cmd_line_w, 0, sizeof(cmd_line_w));
-
-	if (cmd_line && strlen(cmd_line))
-	{
-		if ((length = mbstowcs(cmd_line_w, cmd_line, MAX_PATH)) < 1)
-		{
-			return;
-		}
-		cmd_line_w[length] = 0;
-	}
-	usb_install_np(wnd, instance, cmd_line_w, 0);
+	usb_install_npA(wnd, instance, cmd_line, 0);
 }
 
-int usb_install_np(HWND hwnd, HINSTANCE instance, LPCWSTR cmd_line_w, int starg_arg)
-{
-	return usb_install(hwnd, instance, cmd_line_w, starg_arg, NULL);
-}
 
 void usb_install_destroy_filter_context(filter_context_t** filter_context)
 {
@@ -2275,116 +2386,6 @@ int usb_install_window(HWND hWnd, HINSTANCE instance, filter_context_t* filter_c
 	usb_progress_context_destroy(&g_install_progress_context);
 
 	return ret;
-}
-
-// performs the pre install checks and calls either usb_install_window() or
-// usb_install_console()
-//
-int usb_install(HWND hwnd, HINSTANCE instance,
-                LPCWSTR cmd_line_w,
-                int starg_arg,
-                filter_context_t** out_filter_context)
-{
-
-	filter_context_t* filter_context;
-	int ret = ERROR_SUCCESS;
-	HANDLE sem_handle = NULL;
-	int arg_cnt;
-
-	if (out_filter_context)
-		*out_filter_context = NULL;
-
-	// create a named semaphore
-	if (!sem_create_lock(&sem_handle, install_lock_sem_name, 1, 1))
-		return -1;
-
-	// lock the semaphore
-	if (!sem_try_lock(sem_handle, 0))
-	{
-		sem_destroy_lock(&sem_handle);
-		return -1;
-	}
-
-	// use the log handler to report progress status
-	if (!usb_log_get_handler())
-	{
-		usb_log_set_handler(usb_install_log_handler);
-		usb_log_set_level(LOG_DEBUG);
-	}
-	else
-	{
-		ret = -1;
-		goto Done;
-	}
-
-	// allocate the filter context
-	filter_context = (filter_context_t*)malloc(sizeof(filter_context_t));
-	if (!filter_context)
-	{
-		USBERR0("memory allocation failure\n");
-		ret = -1;
-		goto Done;
-	}
-	memset(filter_context, 0, sizeof(filter_context_t));
-
-	// Fill the filter context from the command line arguments.
-	if (!(usb_install_parse_filter_context(filter_context, cmd_line_w, starg_arg, &arg_cnt)))
-	{
-		if (arg_cnt <= starg_arg)
-		{
-			usage();
-		}
-		ret = -1;
-		if (hwnd)
-		{
-			MessageBoxA(hwnd, usb_strerror(), DISPLAY_NAME " error", MB_OK | MB_ICONERROR);
-		}
-		goto Done;
-	}
-
-	if (filter_context->show_help_only)
-	{
-		usage();
-		ret = -1;
-		goto Done;
-	}
-
-	if (hwnd && instance)
-	{
-		// Using windowed install mode.
-		ret = usb_install_window(hwnd, instance, filter_context);
-	}
-	else
-	{
-		// Using console install mode.
-		ret = usb_install_console(filter_context);
-	}
-
-Done:
-	if (out_filter_context && ret == ERROR_SUCCESS)
-	{
-		// If an out filter context was specified, return it.
-		// The use is responsible for freeing.
-		*out_filter_context = filter_context;
-	}
-	else
-	{
-		// Free the filter context.
-		usb_install_destroy_filter_context(&filter_context);
-		if (out_filter_context)
-		{
-			*out_filter_context = NULL;
-		}
-	}
-
-	// Restore the default log handler.
-	usb_log_set_handler(NULL);
-
-	// Close (release) the semaphore lock.
-	sem_destroy_lock(&sem_handle);
-
-	return ret;
-
 }
 
 static bool_t usb_install_get_argument(LPWSTR param_value, LPCWSTR* out_param,  LPCWSTR* out_value, LPCWSTR* param_names)

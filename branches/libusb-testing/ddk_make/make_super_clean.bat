@@ -17,8 +17,9 @@ RMDIR /S /Q .\Debug 2>NUL>NUL
 RMDIR /S /Q .\Release 2>NUL>NUL
 RMDIR /S /Q .\Win32 2>NUL>NUL
 RMDIR /S /Q .\x64 2>NUL>NUL
+RMDIR /S /Q .\_ReSharper.libusb-win32 2>NUL>NUL
 
-DEL /S /Q *.gitignore *.log  *.user *.ncb 2>NUL>NUL
+DEL /S /Q *.gitignore *.log  *.user *.ncb *.resharper 2>NUL>NUL
 DEL /S /Q /AH *.suo 2>NUL>NUL
 DEL /S /Q .\additional\libwdi\*.exe 2>NUL>NUL
 DEL /S /Q .\additional\libwdi\*.lib 2>NUL>NUL
