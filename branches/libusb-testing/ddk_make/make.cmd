@@ -23,7 +23,9 @@ IF /I "%~1" EQU "help" GOTO ShowHelp
 :BEGIN
 CALL :ClearError
 
-ECHO Libusb-Win32 ddk directory = !DIR_LIBUSB_DDK!
+CALL :ToAbsoluteDirs CMDVAR_LIBUSB_DIR "!DIR_LIBUSB_DDK!..\"
+
+ECHO Libusb-Win32 directory = !CMDVAR_LIBUSB_DIR!
 
 SET MAKE_CFG=!DIR_LIBUSB_DDK!make.cfg
 IF NOT EXIST "!MAKE_CFG!" (
