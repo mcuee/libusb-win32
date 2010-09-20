@@ -28,8 +28,8 @@
 // DEVICE SETUP (User configurable)
 
 // Device vendor and product id.
-#define MY_VID 1234
-#define MY_PID 5678
+#define MY_VID 0x0666
+#define MY_PID 0x0001
 
 // Device configuration and interface id.
 #define MY_CONFIG 1
