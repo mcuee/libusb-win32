@@ -28,7 +28,6 @@
 
 #define INITGUID
 #include "libusb-win32_version.h"
-#include "msapi_utf8.h"
 #include "registry.h"
 
 #include <windows.h>
@@ -140,13 +139,6 @@ HINSTANCE g_hInst = NULL;
 extern int usb_install_npA(HWND hwnd, HINSTANCE instance, LPCSTR cmd_line, int starg_arg);
 
 HWND create_tooltip(HWND hMain, HINSTANCE hInstance, UINT max_tip_width, create_tooltip_t tool_tips[]);
-HWND create_label(char* text, HWND hParent, HINSTANCE hInstance, UINT x, UINT y, UINT cx, UINT cy, DWORD dwStyle, UINT uID);
-HWND create_labeled_text(char* label, char* text,
-						 HWND hParent, HINSTANCE hInstance,
-						 UINT left, UINT top, UINT height,
-						 UINT label_width, UINT text_width,
-						 UINT uIDLabel, UINT uIDText);
-
 BOOL CALLBACK dialog_proc_0(HWND dialog, UINT message,
 							WPARAM wParam, LPARAM lParam);
 BOOL CALLBACK dialog_proc_1(HWND dialog, UINT message,
@@ -182,9 +174,14 @@ int APIENTRY WinMain(HINSTANCE instance, HINSTANCE prev_instance,
 	install_filter_win_t context;
 	int next_dialog;
 
+
 	LoadLibrary("comctl32.dll");
 	InitCommonControls();
-
+	if (cmd_line && strlen(cmd_line))
+	{
+		HWND hwnd = GetDesktopWindow();
+		return usb_install_npA(hwnd, instance, cmd_line, 0);
+	}
 	init_install_filter_context(&context);
 
 	next_dialog = ID_DIALOG_0;
@@ -483,63 +480,6 @@ BOOL CALLBACK dialog_proc_1(HWND dialog, UINT message,
 	}
 
 	return FALSE;
-}
-
-HWND create_label(char* text, HWND hParent, HINSTANCE hInstance, UINT x, UINT y, UINT cx, UINT cy, DWORD dwStyle, UINT uID)
-{
-	return CreateWindowU("Static", text, WS_CHILD | WS_VISIBLE | dwStyle,
-		x, y, cx, cy,
-		hParent, (HMENU)((UINT_PTR)uID), hInstance, 0);
-}
-
-HWND create_labeled_text(char* label, char* text,
-						 HWND hParent, HINSTANCE hInstance,
-						 UINT left, UINT top, UINT height,
-						 UINT label_width, UINT text_width,
-						 UINT uIDLabel, UINT uIDText)
-{
-	HWND hwnd = NULL;
-	HFONT dlgFont;
-	LOGFONT logFont;
-	HFONT labelFont;
-
-	// Get the font from the parent dialog
-	dlgFont = (HFONT)SendMessage(hParent,WM_GETFONT,0,0);
-
-	if (label)
-	{
-		// convert it to a logfont
-		GetObject(dlgFont,sizeof(logFont),&logFont);
-
-		// make it bold
-		logFont.lfWeight*=2;
-
-		// convert it back to HFONT
-		labelFont = CreateFontIndirectA(&logFont);
-	}
-	else
-	{
-		labelFont = dlgFont;
-	}
-
-	if (label)
-	{
-		// create the label text and set the label (bold) font
-		hwnd = create_label(label, hParent, hInstance, left, top, label_width, height, SS_LEFT, uIDLabel);
-		SendMessage(hwnd, WM_SETFONT, (WPARAM)labelFont, TRUE);
-	}
-	if (text)
-	{
-		if (label)
-		{
-			text_width-=5;
-			left+=label_width+5;
-		}
-		// create the label text and set the dialog font
-		hwnd = create_label(text, hParent, hInstance, left, top, text_width, height, SS_LEFT, uIDText);
-		SendMessage(hwnd,WM_SETFONT, (WPARAM)dlgFont, TRUE);
-	}
-	return hwnd;
 }
 
 static void device_list_init(pinstall_filter_win_t context, HWND list)
