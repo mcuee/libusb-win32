@@ -1,3 +1,15 @@
+WARNING:
+  Improper use of libusb-win32 install-filter can cause devices to
+  malfunction and in some cases complete system failure.
+
+DISCLAIMER:
+  THIS SOFTWARE IS PROVIDED IN AN "AS IS" CONDITION. NO WARRANTIES,
+  WHETHER EXPRESS, IMPLIED OR STATUTORY, INCLUDING, BUT NOT LIMITED
+  TO, IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A
+  PARTICULAR PURPOSE APPLY TO THIS SOFTWARE. THE ORGANIZATION SHALL
+  NOT, IN ANY CIRCUMSTANCES, BE LIABLE FOR SPECIAL, INCIDENTAL OR
+  CONSEQUENTIAL DAMAGES, FOR ANY REASON WHATSOEVER.
+  
 
 USAGE: install-filter [install|uninstall|list] <-ac> <-dc> <-ad> 
                                                <-c=> <-d=> <-f=>
@@ -60,17 +72,6 @@ Switches For INF Files:
                all root hubs are restarted.
     list     : <NA>
 
-Warning:
-  Improper use of the libusb-win32 filter driver can cause devices to
-  malfunction and in some cases complete system failure.
-
-Disclaimer:
-  THIS SOFTWARE IS PROVIDED IN AN "AS IS" CONDITION. NO WARRANTIES,
-  WHETHER EXPRESS, IMPLIED OR STATUTORY, INCLUDING, BUT NOT LIMITED
-  TO, IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A
-  PARTICULAR PURPOSE APPLY TO THIS SOFTWARE. THE COMPANY SHALL NOT,
-  IN ANY CIRCUMSTANCES, BE LIABLE FOR SPECIAL, INCIDENTAL OR
-  CONSEQUENTIAL DAMAGES, FOR ANY REASON WHATSOEVER.
 
 Examples:
   install-filter install --device-classes
