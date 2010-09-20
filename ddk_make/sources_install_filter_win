@@ -1,0 +1,22 @@
+TARGETNAME = install-filter-win
+TARGETPATH = output
+TARGETTYPE = PROGRAM
+UMTYPE = windows
+UMENTRY = winmain
+USE_MSVCRT = 1
+386_STDCALL = 0
+USER_C_FLAGS = /Gd /O2
+C_DEFINES = $(COMMON_C_DEFINES) /Dstricmp=_stricmp /DTARGETTYPE=PROGRAMwindows /DLOG_APPNAME="\"$(TARGETNAME)\""
+
+TARGETLIBS =  $(SDK_LIB_PATH)\setupapi.lib \
+              $(SDK_LIB_PATH)\kernel32.lib \
+              $(SDK_LIB_PATH)\advapi32.lib \
+              $(SDK_LIB_PATH)\user32.lib \
+              $(SDK_LIB_PATH)\comctl32.lib \
+              $(SDK_LIB_PATH)\comdlg32.lib \
+              $(SDK_LIB_PATH)\shell32.lib \
+              $(SDK_LIB_PATH)\ole32.lib
+ 
+INCLUDES=$(INCLUDES);$(DDK_INC_PATH);
+
+SOURCES = install_filter_win.c install.c registry.c error.c install_filter_win_rc.rc

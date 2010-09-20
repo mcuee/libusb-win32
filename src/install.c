@@ -1645,8 +1645,11 @@ static void center_dialog(HWND hWndToCenterOn, HWND hWndSubDialog)
 	RECT rectSubDialog;
 	int xLeft, yTop;
 
-	if (hWndToCenterOn == NULL || hWndSubDialog == NULL)
+	if (hWndSubDialog == NULL)
 		return;
+
+	if (hWndToCenterOn == NULL)
+		hWndToCenterOn = GetDesktopWindow();
 
 	GetWindowRect(hWndToCenterOn, &rectToCenterOn);
 	GetWindowRect(hWndSubDialog, &rectSubDialog);
