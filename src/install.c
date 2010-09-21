@@ -56,9 +56,8 @@
 #define IDC_PROGRESS_BAR  10002
 // #define IDC_INFO_PANE     10003
 
-#define UM_SET_PROGRESS_TEXT WM_USER+1
-#define UM_PROGRESS_STOP WM_USER+2
-#define UM_PROGRESS_START WM_USER+3
+#define UM_PROGRESS_STOP (0x7000 - 1)
+#define UM_PROGRESS_START (0x7000 - 2)
 
 #define DISPLAY_NAME "libusb-win32 installer"
 #define DISPLAY_RUNNING "libusb-win32 installer running.."
@@ -2061,7 +2060,7 @@ LRESULT CALLBACK usb_progress_wndproc(HWND hDlg, UINT message, WPARAM wParam, LP
 	case WM_COMMAND:
 		wmId    = LOWORD(wParam);
 		wmEvent = HIWORD(wParam);
-		if ( (wmId == IDCLOSE) && wmEvent == BN_CLICKED)
+		if (g_install_progress_context.stopped && wmId == IDCLOSE && wmEvent == BN_CLICKED)
 		{
 			PostMessageA(hDlg, UM_PROGRESS_STOP, 0, 0);
 		}
@@ -2074,13 +2073,17 @@ LRESULT CALLBACK usb_progress_wndproc(HWND hDlg, UINT message, WPARAM wParam, LP
 
 		usb_progress_init_children(hDlg);
 		center_dialog(GetParent(hDlg), hDlg);
-		PostMessage(hDlg, UM_PROGRESS_START, 0, 0);
-		g_install_progress_context.progress_window_ready = TRUE;
 
-		// Send a WM_TIMER message every 1/10th second
-		SetTimer(hDlg, 1, 10, NULL);
+		if (InterlockedIncrement(&g_install_progress_context.progress_ind_ofs) ==  1)
+		{
+			PostMessage(hDlg, UM_PROGRESS_START, 0, 0);
+			g_install_progress_context.progress_window_ready = TRUE;
 
-		return (INT_PTR)TRUE;
+			// Send a WM_TIMER message every 1/10th second
+			SetTimer(hDlg, 1, 10, NULL);
+		}
+
+		return (INT_PTR)0;
 
 	case WM_TIMER:
 		InterlockedIncrement(&g_install_progress_context.progress_ind_ofs);
