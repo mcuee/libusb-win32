@@ -28,6 +28,8 @@
 #include <string.h>
 #include <process.h>
 #include <richedit.h>
+#include <conio.h>
+#include <ctype.h>
 
 #ifdef __GNUC__
 #if  defined(_WIN64)
@@ -65,6 +67,9 @@
 #define DISPLAY_DONE_WITH_ERRORS "libusb-win32 installer errors!"
 #define COLOR_RED RGB(128,0,0)
 #define COLOR_LTRED RGB(255,64,64)
+
+#define safe_free(p) do { if (p) free(p); p = NULL; }while(0)
+#define safe_strlen(p) (p ? strlen(p) : 0)
 
 #define MOVE_CONTROL(ParentHwnd, ControlID, Rect, Repaint, TopZOrder) \
 	SetWindowPos(GetDlgItem(ParentHwnd, ControlID), HWND_TOP, Rect.left, Rect.top, abs(Rect.right - Rect.left), abs(Rect.bottom - Rect.top), \
@@ -116,6 +121,13 @@
 
 
 LPCSTR install_lock_sem_name = "libusb-win32-installer-{1298B356-F6E3-4455-9FEC-3932714AF49B}";
+
+LPCSTR install_warning = "This will add libusb-win32 as a driver for all usb devices on the PC. "
+						 "This function is for development purposes only. Improper use of the "
+						 "libusb-win32 filter driver can cause devices to  malfunction and in some "
+						 "cases complete system failure.";
+
+LPCSTR install_wait = "Press any key to exit..";
 
 /* commands */
 LPCWSTR paramcmd_list[] = {
@@ -177,20 +189,32 @@ LPCWSTR paramsw_class[] = {
 LPCWSTR paramsw_device_upper[] = {
 	L"--device=",
 	L"-d=",
-	L"--device-upper=",
-	L"-duf=",
 	0
 };
 
-LPCWSTR paramsw_device_lower[] = {
-	L"--device-lower=",
-	L"-dlf=",
+LPCWSTR paramsw_device_upper_by_devinst[] = {
+	L"--device-id=",
+	L"-di=",
 	0
 };
 
 LPCWSTR paramsw_inf[] = {
 	L"--inf=",
 	L"-f=",
+	0
+};
+
+LPCWSTR paramsw_prompt[] = {
+	L"--prompt=",
+	L"-p=",
+	L"-p",
+	0
+};
+
+LPCWSTR paramsw_wait[] = {
+	L"--wait=",
+	L"-w=",
+	L"-w",
 	0
 };
 
@@ -483,10 +507,11 @@ int usb_install_service(filter_context_t* filter_context)
 	/* insert class filter driver */
 	usb_registry_insert_class_filter(filter_context);
 
-	if (filter_context->class_filters)
+	if (filter_context->class_filters_modified)
 	{
 		/* restart the whole USB system so that the new drivers will be loaded */
 		usb_registry_restart_all_devices();
+		filter_context->class_filters_modified = FALSE;
 	}
 	return ret;
 }
@@ -513,9 +538,10 @@ int usb_uninstall_service(filter_context_t* filter_context)
 	usb_registry_remove_class_filter(filter_context);
 
 	/* unload filter drivers */
-	if (filter_context->class_filters)
+	if (filter_context->class_filters_modified)
 	{
 		usb_registry_restart_all_devices();
+		filter_context->class_filters_modified = FALSE;
 	}
 	return 0;
 }
@@ -1306,7 +1332,6 @@ bool_t usb_install_parse_filter_context(filter_context_t* filter_context,
 	bool_t success = TRUE;
 	size_t length;
 	char tmp[MAX_PATH+1];
-	char* next_wild_char;
 	filter_device_t* found_device;
 	filter_class_t* found_class;
 	filter_file_t* found_inf;
@@ -1343,18 +1368,33 @@ bool_t usb_install_parse_filter_context(filter_context_t* filter_context,
 		}
 		else if (GET_ARG(paramcmd_list))
 		{
-			filter_context->filter_mode |= FM_LIST;
-			filter_context->filter_mode_main = FM_LIST;
+			if (filter_context->filter_mode)
+			{
+				USBERR("multiple commands not allowed: %ls\n", argv[arg_pos]);
+				success = FALSE;
+				break;
+			}
+			filter_context->filter_mode = FM_LIST;
 		}
 		else if (GET_ARG(paramcmd_install))
 		{
-			filter_context->filter_mode_main = FM_INSTALL;
-			filter_context->filter_mode |= FM_REMOVE | FM_INSTALL;
+			if (filter_context->filter_mode)
+			{
+				USBERR("multiple commands not allowed: %ls\n", argv[arg_pos]);
+				success = FALSE;
+				break;
+			}
+			filter_context->filter_mode = FM_INSTALL;
 		}
 		else if (GET_ARG(paramcmd_uninstall))
 		{
-			filter_context->filter_mode_main = FM_REMOVE;
-			filter_context->filter_mode |= FM_REMOVE;
+			if (filter_context->filter_mode)
+			{
+				USBERR("multiple commands not allowed: %ls\n", argv[arg_pos]);
+				success = FALSE;
+				break;
+			}
+			filter_context->filter_mode = FM_REMOVE;
 		}
 		else if (GET_ARG(paramsw_all_classes))
 		{
@@ -1368,7 +1408,7 @@ bool_t usb_install_parse_filter_context(filter_context_t* filter_context,
 		{
 			filter_context->remove_all_device_filters = TRUE;
 		}
-		else if ( GET_ARG(paramsw_device_upper) || GET_ARG(paramsw_device_lower) )
+		else if ( GET_ARG(paramsw_device_upper) || GET_ARG(paramsw_device_upper_by_devinst) )
 		{
 			length = wcstombs(tmp, arg_value, MAX_PATH);
 			if (length < 1)
@@ -1379,44 +1419,24 @@ bool_t usb_install_parse_filter_context(filter_context_t* filter_context,
 			}
 			tmp[length] = 0;
 
-			// replace '.' with '&' for hardware ids
-			next_wild_char = tmp;
-			while(*next_wild_char)
-			{
-				if (*next_wild_char == '.')
-					*next_wild_char = '&';
-				next_wild_char++;
-			}
-
-			usb_registry_add_filter_device_keys(&filter_context->device_filters, tmp, "", "", "", "", &found_device);
-
 			if (GET_ARG(paramsw_device_upper))
 			{
-				// upper device filter
-				if (!found_device)
-				{
-					success = FALSE;
-					USBERR("failed adding device upper filter key %ls\n", argv[arg_pos]);
-					break;
-				}
-				else
-				{
-					found_device->filter_type |= FT_DEVICE_UPPERFILTER;
-				}
+				usb_registry_add_filter_device_keys(&filter_context->device_filters, "", tmp, "", "", "", "", &found_device);
+			}
+			else if (GET_ARG(paramsw_device_upper_by_devinst))
+			{
+				usb_registry_add_filter_device_keys(&filter_context->device_filters, tmp, "", "", "", "", "", &found_device);
+			}
+			// upper device filter
+			if (!found_device)
+			{
+				success = FALSE;
+				USBERR("failed adding device upper filter key %ls\n", argv[arg_pos]);
+				break;
 			}
 			else
 			{
-				// lower device filter
-				if (!found_device)
-				{
-					success = FALSE;
-					USBERR("failed adding device lower filter key %ls\n", argv[arg_pos]);
-					break;
-				}
-				else
-				{
-					found_device->filter_type |= FT_DEVICE_LOWERFILTER;
-				}
+				found_device->action |= FT_DEVICE_UPPERFILTER;
 			}
 		}
 		else if (GET_ARG(paramsw_class))
@@ -1480,6 +1500,62 @@ bool_t usb_install_parse_filter_context(filter_context_t* filter_context,
 				success = FALSE;
 				USBERR("failed adding inf %ls\n", argv[arg_pos]);
 				break;
+			}
+		}
+		else if (GET_ARG(paramsw_prompt))
+		{
+			if (arg_value && wcslen(arg_value))
+			{
+				length = wcstombs(NULL, arg_value, 4096);
+				if (length < 1)
+				{
+					success = FALSE;
+					USBERR("failed wcstombs %ls\n", argv[arg_pos]);
+					break;
+				}
+				length+=3;
+				filter_context->prompt_string = (char*)malloc(length);
+				length = wcstombs(filter_context->prompt_string, arg_value, length);
+				if (length < 1)
+				{
+					success = FALSE;
+					USBERR("failed wcstombs %ls\n", argv[arg_pos]);
+					break;
+				}
+				filter_context->prompt_string[length] = 0;
+			}
+			else
+			{
+				filter_context->prompt_string = (char*)malloc(strlen(install_warning)+1);
+				strcpy(filter_context->prompt_string, install_warning);
+			}
+		}
+		else if (GET_ARG(paramsw_wait))
+		{
+			if (arg_value && wcslen(arg_value))
+			{
+				length = wcstombs(NULL, arg_value, 4096);
+				if (length < 1)
+				{
+					success = FALSE;
+					USBERR("failed wcstombs %ls\n", argv[arg_pos]);
+					break;
+				}
+				length+=3;
+				filter_context->wait_string = (char*)malloc(length);
+				length = wcstombs(filter_context->wait_string, arg_value, length);
+				if (length < 1)
+				{
+					success = FALSE;
+					USBERR("failed wcstombs %ls\n", argv[arg_pos]);
+					break;
+				}
+				filter_context->wait_string[length] = 0;
+			}
+			else
+			{
+				filter_context->wait_string = (char*)malloc(strlen(install_wait)+1);
+				strcpy(filter_context->wait_string, install_wait);
 			}
 		}
 		else
@@ -1599,12 +1675,32 @@ int usb_install_npW(HWND hwnd, HINSTANCE instance, LPCWSTR cmd_line_w, int starg
 	if (hwnd && instance)
 	{
 		// Using windowed install mode.
-		ret = usb_install_window(hwnd, instance, filter_context);
+		if (safe_strlen(filter_context->prompt_string))
+		{
+			const char* msg_title = DISPLAY_NAME;
+			if (MessageBox(hwnd, filter_context->prompt_string, msg_title, MB_OKCANCEL) != IDOK)
+			{
+				ret = -1;
+			}
+		}
+		if (ret == ERROR_SUCCESS)
+		{
+			ret = usb_install_window(hwnd, instance, filter_context);
+		}
 	}
 	else
 	{
 		// Using console install mode.
-		ret = usb_install_console(filter_context);
+		if (ret == ERROR_SUCCESS)
+		{
+			ret = usb_install_console(filter_context);
+			if (safe_strlen(filter_context->wait_string))
+			{
+				printf(filter_context->wait_string);
+				_getch();
+			}
+
+		}
 	}
 
 Done:
@@ -1625,15 +1721,18 @@ void CALLBACK usb_install_np_rundll(HWND wnd, HINSTANCE instance, LPSTR cmd_line
 	usb_install_npA(wnd, instance, cmd_line, 0);
 }
 
-
 void usb_install_destroy_filter_context(filter_context_t** filter_context)
 {
-	if ((filter_context) && *filter_context)
+
+	filter_context_t* p = *filter_context;
+	if (filter_context && p)
 	{
-		usb_registry_free_class_keys(&(*filter_context)->class_filters);
-		usb_registry_free_filter_devices(&(*filter_context)->device_filters);
-		usb_registry_free_filter_files(&(*filter_context)->inf_files);
-		free(*filter_context);
+		usb_registry_free_class_keys(&p->class_filters);
+		usb_registry_free_filter_devices(&p->device_filters);
+		usb_registry_free_filter_files(&p->inf_files);
+		safe_free(p->prompt_string);
+		safe_free(p->wait_string);
+		free(p);
 		*filter_context = NULL;
 	}
 }
@@ -1788,18 +1887,20 @@ int usb_install_console(filter_context_t* filter_context)
 	USBRAWMSG("\n" DISPLAY_NAME " (v%u.%u.%u.%u)\n",
 	          VERSION_MAJOR, VERSION_MINOR, VERSION_MICRO, VERSION_NANO);
 
-	while (filter_context->filter_mode)
+
+	do
 	{
 		bool_t refresh_only;
+
+		// if the user specified class keys and the -ac or -dc switch, remove the users keys.
 		if (filter_context->class_filters && (filter_context->switches.add_all_classes || filter_context->switches.add_device_classes))
 		{
+			USBWRN0("-ac and -dc switches are incompatible with -c=<class> switch\n");
 			usb_registry_free_class_keys(&filter_context->class_filters);
 		}
 
-		if (filter_context->filter_mode & FM_REMOVE)
+		if (filter_context->filter_mode == FM_REMOVE)
 		{
-			filter_context->active_filter_mode = FM_REMOVE;
-
 			if (filter_context->switches.switches_value ||
 			        filter_context->class_filters ||
 			        filter_context->device_filters)
@@ -1821,33 +1922,32 @@ int usb_install_console(filter_context_t* filter_context)
 					ret = -1;
 					break;
 				}
+
+				// uninstall class & device filters
 				ret = usb_uninstall_service(filter_context);
 				if (ret < 0)
 				{
 					break;
 				}
 			}
-			if (filter_context->filter_mode_main == FM_REMOVE)
-			{
-				filter_file = filter_context->inf_files;
-				while (filter_file)
-				{
-					USBMSG("uninstalling inf %s..\n", filter_file->name);
-					if (usb_install_inf_np(filter_file->name, TRUE, TRUE) < 0)
-					{
-						ret = -1;
-						break;
-					}
-					filter_file = filter_file->next;
-				}
-				if (ret == -1)
-					break;
-			}
-		}
-		else if (filter_context->filter_mode & FM_INSTALL)
-		{
-			filter_context->active_filter_mode = FM_INSTALL;
 
+			// rollback/uninstall devices using inf files
+			filter_file = filter_context->inf_files;
+			while (filter_file)
+			{
+				USBMSG("uninstalling inf %s..\n", filter_file->name);
+				if (usb_install_inf_np(filter_file->name, TRUE, TRUE) < 0)
+				{
+					ret = -1;
+					break;
+				}
+				filter_file = filter_file->next;
+			}
+			if (ret == -1)
+				break;
+		}
+		else if (filter_context->filter_mode == FM_INSTALL)
+		{
 			if (filter_context->switches.switches_value ||
 			        filter_context->class_filters ||
 			        filter_context->device_filters)
@@ -1876,27 +1976,23 @@ int usb_install_console(filter_context_t* filter_context)
 					break;
 				}
 			}
-			if (filter_context->filter_mode_main == FM_INSTALL)
-			{
-				filter_file = filter_context->inf_files;
-				while (filter_file)
-				{
-					USBMSG("installing inf %s..\n", filter_file->name);
-					if (usb_install_inf_np(filter_file->name, FALSE, TRUE) < 0)
-					{
-						ret = -1;
-						break;
-					}
-					filter_file = filter_file->next;
-				}
-				if (ret == -1)
-					break;
-			}
-		}
-		else if (filter_context->filter_mode & FM_LIST)
-		{
-			filter_context->active_filter_mode = FM_LIST;
 
+			filter_file = filter_context->inf_files;
+			while (filter_file)
+			{
+				USBMSG("installing inf %s..\n", filter_file->name);
+				if (usb_install_inf_np(filter_file->name, FALSE, TRUE) < 0)
+				{
+					ret = -1;
+					break;
+				}
+				filter_file = filter_file->next;
+			}
+			if (ret == -1)
+				break;
+		}
+		else if (filter_context->filter_mode == FM_LIST)
+		{
 			if (!usb_registry_get_usb_class_keys(filter_context, TRUE))
 			{
 				ret = -1;
@@ -1911,10 +2007,11 @@ int usb_install_console(filter_context_t* filter_context)
 
 			usb_install_report(filter_context);
 		}
-
-		filter_context->filter_mode ^= filter_context->active_filter_mode;
-		filter_context->active_filter_mode = 0;
-	}
+		else
+		{
+			USBERR0("unknown filter_mode command\n");
+		}
+	}while(FALSE);
 
 Done:
 	return ret;
@@ -1964,6 +2061,9 @@ bool_t usb_progress_add_text(HWND hwnd, char* message, COLORREF crNewColor, bool
 	if (bold)
 		cf.dwEffects   |= CFE_BOLD;
 
+	if (italic)
+		cf.dwEffects   |= CFE_ITALIC;
+
 	SendMessage(hwnd, EM_SETCHARFORMAT, (WPARAM)(UINT)SCF_SELECTION, (LPARAM)&cf);
 
 	// set the text
@@ -1972,7 +2072,7 @@ bool_t usb_progress_add_text(HWND hwnd, char* message, COLORREF crNewColor, bool
 	free(text);
 
 	// keep it scrolled to the bottom
-	SendMessage(hwnd, EM_LINESCROLL, (WPARAM)(int)0, (LPARAM)(int)1);
+	SendMessage(hwnd, WM_VSCROLL, (WPARAM)LOWORD(SB_BOTTOM), (LPARAM)0);
 
 	return TRUE;
 }
@@ -2003,6 +2103,9 @@ bool_t usb_progress_size(HWND hDlg)
 	// resize the bar label
 	MOVE_CONTROL(hDlg, IDC_PROGRESS_BAR, rect_bar, TRUE, FALSE);
 
+	// keep it scrolled to the bottom
+	SendMessage(GetDlgItem(hDlg, IDC_PROGRESS_TEXT), WM_VSCROLL, (WPARAM)LOWORD(SB_BOTTOM), (LPARAM)0);
+
 	// repaint
 	// InvalidateRect(hDlg, NULL, TRUE);
 	// PostMessageA(hDlg, WM_PAINT, (WPARAM)NULL, (LPARAM)0);
@@ -2010,14 +2113,20 @@ bool_t usb_progress_size(HWND hDlg)
 	return TRUE;
 }
 
-bool_t usb_progress_init_children(HWND hDlg)
+bool_t usb_progress_init_children(install_progress_context_t* progress_context, HWND hDlg)
 {
 	HWND hWnd;
 	CHARFORMAT cf;
+	DWORD style;
 
+	style = WS_CHILD | WS_VISIBLE | WS_CLIPCHILDREN | ES_MULTILINE | ES_LEFT | ES_READONLY | ES_AUTOVSCROLL | ES_AUTOHSCROLL;
+	if (progress_context->filter_context->filter_mode == FM_LIST)
+	{
+		style |= WS_VSCROLL | WS_HSCROLL;
+	}
 	// create rich textbox
 	hWnd = CreateWindowEx(WS_EX_STATICEDGE, RICHEDIT_CLASS, NULL,
-	                      WS_CHILD | WS_VISIBLE | WS_CLIPCHILDREN | ES_MULTILINE | ES_LEFT | ES_READONLY | ES_AUTOVSCROLL,
+	                      style,
 	                      5, 5, 5, 5,
 	                      hDlg, (HMENU)((UINT_PTR)IDC_PROGRESS_TEXT),
 	                      g_install_progress_context.hInstance, NULL);
@@ -2071,7 +2180,7 @@ LRESULT CALLBACK usb_progress_wndproc(HWND hDlg, UINT message, WPARAM wParam, LP
 		g_install_progress_context.progress_hwnd = hDlg;
 		g_install_progress_context.hInstance = cs->hInstance;
 
-		usb_progress_init_children(hDlg);
+		usb_progress_init_children(&g_install_progress_context, hDlg);
 		center_dialog(GetParent(hDlg), hDlg);
 
 		if (InterlockedIncrement(&g_install_progress_context.progress_ind_ofs) ==  1)
@@ -2143,14 +2252,28 @@ LRESULT CALLBACK usb_progress_wndproc(HWND hDlg, UINT message, WPARAM wParam, LP
 				SetWindowTextA(hDlg, DISPLAY_DONE_WITH_ERRORS);
 			}
 
-			// redraw everything
-			RedrawWindow(hDlg, NULL, NULL, RDW_ERASE | RDW_FRAME | RDW_INTERNALPAINT | RDW_INVALIDATE);
+			if (safe_strlen(g_install_progress_context.filter_context->wait_string))
+			{
+				const char* wait_string = g_install_progress_context.filter_context->wait_string;
+				if (strcmp(install_wait, wait_string) == 0)
+				{
+					wait_string = "Click the [X] close button to exit.";
+				}
 
-			if (g_install_progress_context.error_count == 0)
+				usb_progress_add_text(GetDlgItem(hDlg, IDC_PROGRESS_TEXT), 
+					wait_string, 
+					GetSysColor(COLOR_BTNTEXT), TRUE, FALSE);
+			}
+			else if (g_install_progress_context.error_count == 0)
 			{
 				PostQuitMessage((int)wParam);
 				DestroyWindow(hDlg);
+				return (INT_PTR)TRUE;
 			}
+
+			// redraw everything
+			RedrawWindow(hDlg, NULL, NULL, RDW_ERASE | RDW_FRAME | RDW_INTERNALPAINT | RDW_INVALIDATE);
+
 
 		}
 		else
@@ -2459,23 +2582,23 @@ void usb_install_report(filter_context_t* filter_context)
 	{
 		if (next_class->class_filter_devices)
 		{
-			fprintf(stdout, "\n");
+			USBRAWMSG0("\n");
 		}
 
-		fprintf(stdout, "%s (%s)\n", next_class->class_guid, next_class->class_name);
+		USBRAWMSG("%s (%s)\n", next_class->class_guid, next_class->class_name);
 
 		if (strlen(next_class->class_uppers))
 		{
 			if (usb_registry_mz_to_sz(next_class->class_uppers, ','))
 			{
-				fprintf(stdout, "  class upper filters:%s\n", next_class->class_uppers);
+				USBRAWMSG("  class upper filters:%s\n", next_class->class_uppers);
 			}
 		}
 		if (strlen(next_class->class_lowers))
 		{
 			if (usb_registry_mz_to_sz(next_class->class_lowers, ','))
 			{
-				fprintf(stdout, "  class lower filters:%s\n", next_class->class_lowers);
+				USBRAWMSG("  class lower filters:%s\n", next_class->class_lowers);
 			}
 		}
 
@@ -2483,21 +2606,23 @@ void usb_install_report(filter_context_t* filter_context)
 		while(next_device)
 		{
 
-			fprintf(stdout, "    %s - %s (%s)\n",
+			USBRAWMSG("    %s - %s (%s)\n",
 			        next_device->device_hwid, next_device->device_name, next_device->device_mfg);
+			
+			USBRAWMSG("    %s\n", next_device->device_id);
 
 			if (strlen(next_device->device_uppers))
 			{
 				if (usb_registry_mz_to_sz(next_device->device_uppers, ','))
 				{
-					fprintf(stdout, "      device upper filters:%s\n", next_device->device_uppers);
+					USBRAWMSG("      device upper filters:%s\n", next_device->device_uppers);
 				}
 			}
 			if (strlen(next_device->device_lowers))
 			{
 				if (usb_registry_mz_to_sz(next_device->device_lowers, ','))
 				{
-					fprintf(stdout, "      device lower filters:%s\n", next_device->device_lowers);
+					USBRAWMSG("      device lower filters:%s\n", next_device->device_lowers);
 				}
 			}
 

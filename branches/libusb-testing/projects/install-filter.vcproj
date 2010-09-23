@@ -68,6 +68,8 @@
 				Name="VCLinkerTool"
 				AdditionalDependencies="setupapi.lib kernel32.lib user32.lib gdi32.lib advapi32.lib $(NOINHERIT)"
 				AdditionalLibraryDirectories=""
+				GenerateManifest="false"
+				UACExecutionLevel="0"
 				GenerateDebugInformation="true"
 				TargetMachine="1"
 			/>
@@ -76,7 +78,6 @@
 			/>
 			<Tool
 				Name="VCManifestTool"
-				EmbedManifest="true"
 			/>
 			<Tool
 				Name="VCXDCMakeTool"
@@ -145,7 +146,8 @@
 				Name="VCLinkerTool"
 				AdditionalDependencies="setupapi.lib kernel32.lib user32.lib gdi32.lib advapi32.lib $(NOINHERIT)"
 				AdditionalLibraryDirectories=""
-				UACExecutionLevel="2"
+				GenerateManifest="false"
+				UACExecutionLevel="0"
 				GenerateDebugInformation="true"
 				TargetMachine="17"
 			/>
@@ -154,7 +156,6 @@
 			/>
 			<Tool
 				Name="VCManifestTool"
-				EmbedManifest="true"
 			/>
 			<Tool
 				Name="VCXDCMakeTool"
@@ -223,6 +224,8 @@
 				Name="VCLinkerTool"
 				AdditionalDependencies="setupapi.lib kernel32.lib user32.lib gdi32.lib advapi32.lib $(NOINHERIT)"
 				AdditionalLibraryDirectories=""
+				GenerateManifest="false"
+				UACExecutionLevel="0"
 				GenerateDebugInformation="true"
 				OptimizeReferences="2"
 				EnableCOMDATFolding="2"
@@ -233,7 +236,6 @@
 			/>
 			<Tool
 				Name="VCManifestTool"
-				EmbedManifest="true"
 				VerboseOutput="false"
 			/>
 			<Tool
@@ -304,7 +306,8 @@
 				Name="VCLinkerTool"
 				AdditionalDependencies="setupapi.lib kernel32.lib user32.lib gdi32.lib advapi32.lib $(NOINHERIT)"
 				AdditionalLibraryDirectories=""
-				UACExecutionLevel="2"
+				GenerateManifest="false"
+				UACExecutionLevel="0"
 				GenerateDebugInformation="true"
 				OptimizeReferences="2"
 				EnableCOMDATFolding="2"
@@ -315,7 +318,6 @@
 			/>
 			<Tool
 				Name="VCManifestTool"
-				EmbedManifest="true"
 				VerboseOutput="false"
 			/>
 			<Tool
