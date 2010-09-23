@@ -67,6 +67,7 @@
 #define DISPLAY_DONE_WITH_ERRORS "libusb-win32 installer errors!"
 #define COLOR_RED RGB(128,0,0)
 #define COLOR_LTRED RGB(255,64,64)
+#define COLOR_ORANGE RGB(255, 102, 0)
 
 #define safe_free(p) do { if (p) free(p); p = NULL; }while(0)
 #define safe_strlen(p) (p ? strlen(p) : 0)
@@ -1815,7 +1816,7 @@ static BOOL usb_install_log_handler(enum USB_LOG_LEVEL level,
 			usb_progress_add_text(hWnd, message, COLOR_RED, FALSE, FALSE);
 			break;
 		case LOG_WARNING:
-			usb_progress_add_text(hWnd, message, GetSysColor(COLOR_BTNTEXT), FALSE, TRUE);
+			usb_progress_add_text(hWnd, message, COLOR_ORANGE, FALSE, TRUE);
 			break;
 		default:
 			usb_progress_add_text(hWnd, message, GetSysColor(COLOR_BTNTEXT), FALSE, FALSE);
@@ -1874,7 +1875,8 @@ int usb_install_console(filter_context_t* filter_context)
 	        filter_context->device_filters ||
 	        filter_context->inf_files ||
 	        filter_context->switches.add_all_classes ||
-	        filter_context->switches.add_device_classes)
+	        filter_context->switches.add_device_classes || 
+			filter_context->remove_all_device_filters)
 	{
 		filter_context->switches.add_default_classes = FALSE;
 	}
@@ -1948,6 +1950,10 @@ int usb_install_console(filter_context_t* filter_context)
 		}
 		else if (filter_context->filter_mode == FM_INSTALL)
 		{
+			if (filter_context->remove_all_device_filters)
+			{
+				USBWRN("invalid switch for install operation (%ls)\n",paramsw_all_devices[0]);
+			}
 			if (filter_context->switches.switches_value ||
 			        filter_context->class_filters ||
 			        filter_context->device_filters)
