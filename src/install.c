@@ -1925,12 +1925,13 @@ int usb_install_console(filter_context_t* filter_context)
 					break;
 				}
 
-				// uninstall class & device filters
-				ret = usb_uninstall_service(filter_context);
-				if (ret < 0)
-				{
-					break;
-				}
+			}
+
+			// uninstall class & device filters
+			ret = usb_uninstall_service(filter_context);
+			if (ret < 0)
+			{
+				break;
 			}
 
 			// rollback/uninstall devices using inf files
