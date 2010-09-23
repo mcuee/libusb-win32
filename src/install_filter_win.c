@@ -17,20 +17,21 @@
 * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 */
 
-#ifdef __GNUC__
-	#if !defined(WINVER)
-		#define WINVER 0x0500
-	#endif
-	#if !defined(_WIN32_IE)
-		#define _WIN32_IE 0x0501
-	#endif
-#endif
-
 #define INITGUID
-#include "libusb-win32_version.h"
-#include "registry.h"
 
 #include <windows.h>
+
+#ifdef __GNUC__
+	#if  defined(_WIN64)
+		#include <cfgmgr32.h>
+	#else
+		#include <ddk/cfgmgr32.h>
+	#endif
+#else
+	#include <cfgmgr32.h>
+	#define strlwr(p) _strlwr(p)
+#endif
+
 #include <commdlg.h>
 #include <dbt.h>
 #include <stdio.h>
@@ -40,6 +41,9 @@
 #include <commctrl.h>
 #include <setupapi.h>
 #include <time.h>
+
+#include "libusb-win32_version.h"
+#include "registry.h"
 
 #define __INSTALL_FILTER_WIN_C__
 #include "install_filter_win_rc.rc"
@@ -145,7 +149,7 @@ BOOL CALLBACK dialog_proc_1(HWND dialog, UINT message,
 							WPARAM wParam, LPARAM lParam);
 
 static void device_list_init(pinstall_filter_win_t context, HWND list);
-static bool_t device_list_refresh(pinstall_filter_win_t context, HWND list, DWORD flags, bool_t remove);
+static bool_t device_list_refresh(pinstall_filter_win_t context, HWND list);
 static void device_list_add(pinstall_filter_win_t context, HWND list, filter_device_t* device);
 static void device_list_clean(pinstall_filter_win_t context, HWND list);
 
@@ -363,15 +367,14 @@ BOOL CALLBACK dialog_proc_1(HWND dialog, UINT message,
 		case FM_INSTALL:
 			SetWindowText(GetDlgItem(dialog, ID_LIST_HEADER_TEXT), list_header_text_install);
 			SetWindowText(GetDlgItem(dialog, ID_BUTTON_NEXT), "Install");
-			device_list_refresh(context, list, DIGCF_ALLCLASSES | DIGCF_PRESENT, FALSE);
 			break;
 		case FM_REMOVE:
 			SetWindowText(GetDlgItem(dialog, ID_LIST_HEADER_TEXT), list_header_text_remove);
 			SetWindowText(GetDlgItem(dialog, ID_BUTTON_NEXT), "Remove");
-			device_list_refresh(context, list, DIGCF_ALLCLASSES, TRUE);
 			break;
 		}
 		EnableWindow(GetDlgItem(dialog, ID_BUTTON_NEXT), FALSE);
+		device_list_refresh(context, list);
 
 		device_notification_register(dialog, context);
 
@@ -382,14 +385,19 @@ BOOL CALLBACK dialog_proc_1(HWND dialog, UINT message,
 		{
 		case DBT_DEVICEREMOVECOMPLETE:
 			if (hdr->dbch_devicetype == DBT_DEVTYP_DEVICEINTERFACE)
-				device_list_refresh(context, list, DIGCF_ALLCLASSES, FALSE);
+			{
+				EnableWindow(GetDlgItem(dialog, ID_BUTTON_NEXT), FALSE);
+				device_list_refresh(context, list);
+			}
 			break;
 		case DBT_DEVICEARRIVAL:
 			if (hdr->dbch_devicetype == DBT_DEVTYP_DEVICEINTERFACE)
-				device_list_refresh(context, list, DIGCF_ALLCLASSES, FALSE);
+			{
+				EnableWindow(GetDlgItem(dialog, ID_BUTTON_NEXT), FALSE);
+				device_list_refresh(context, list);
+			}
 			break;
-		default:
-			;
+		default:;
 		}
 		return TRUE;
 
@@ -411,9 +419,9 @@ BOOL CALLBACK dialog_proc_1(HWND dialog, UINT message,
 					if (selected_device)
 					{
 						char tmp[MAX_PATH];
-						sprintf(tmp,"%s \"-d=%s\"",
+						sprintf(tmp,"%s \"-di=%s\"",
 							(context->mode == FM_INSTALL) ? "i":"u",
-							selected_device->device_hwid);
+							selected_device->device_id);
 
 						if (usb_install_npA(dialog, g_hInst, tmp, 0) == 0)
 						{
@@ -513,7 +521,7 @@ static void device_list_init(pinstall_filter_win_t context, HWND list)
 
 }
 
-static bool_t device_list_refresh(pinstall_filter_win_t context, HWND list, DWORD flags, bool_t remove)
+static bool_t device_list_refresh(pinstall_filter_win_t context, HWND list)
 {
 	HDEVINFO dev_info;
 	SP_DEVINFO_DATA dev_info_data;
@@ -523,9 +531,15 @@ static bool_t device_list_refresh(pinstall_filter_win_t context, HWND list, DWOR
 	int dev_index = -1;
 	bool_t is_service_libusb;
 	filter_type_e filter_type;
+	DWORD flags;
+	bool_t remove;
+
+	if (!context) return FALSE;
 
 	device_list_clean(context, list);
-	if (!flags) flags = DIGCF_ALLCLASSES;
+
+	flags = context->mode == FM_INSTALL ? (DIGCF_ALLCLASSES | DIGCF_PRESENT) : DIGCF_ALLCLASSES;
+	remove = context->mode == FM_INSTALL ? FALSE : TRUE;
 
 	dev_info_data.cbSize = sizeof(SP_DEVINFO_DATA);
 	dev_info = SetupDiGetClassDevs(NULL, "USB", NULL, flags);
@@ -549,14 +563,28 @@ static bool_t device_list_refresh(pinstall_filter_win_t context, HWND list, DWOR
 
 		memset(&temp, 0, sizeof(temp));
 
-		// get the hardware id
-		if (!usb_registry_get_hardware_id(dev_info, &dev_info_data, temp.device_hwid))
+		// get the compatible ids
+		if (!usb_registry_get_property(SPDRP_COMPATIBLEIDS, dev_info, &dev_info_data, 
+			temp.device_hwid, sizeof(temp.device_hwid)))
 			continue;
 
 		usb_registry_mz_string_lower(temp.device_hwid);
 
+		// don't list usb hubs
+		if (usb_registry_mz_string_find_sub(temp.device_hwid, "class_09"))
+			continue;
+
+		// get the hardware ids
+		if (!usb_registry_get_hardware_id(dev_info, &dev_info_data, temp.device_hwid))
+			continue;
+		usb_registry_mz_string_lower(temp.device_hwid);
+
 		// don't list root hubs
 		if (usb_registry_mz_string_find_sub(temp.device_hwid, "root_hub"))
+			continue;
+
+		// get the device instance id
+		if (CM_Get_Device_ID(dev_info_data.DevInst, temp.device_id, sizeof(temp.device_id), 0) != CR_SUCCESS)
 			continue;
 
 		// get the libusb0 device upper/lower filter type

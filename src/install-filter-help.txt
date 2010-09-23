@@ -13,11 +13,12 @@ DISCLAIMER:
 
 USAGE: install-filter [install|uninstall|list] <-ac> <-dc> <-ad> 
                                                <-c=> <-d=> <-f=>
+                                               <-p=> <-w=>
 
 Commands:             Compatible Switches:
-  install   (i/-i)      <-ac> <-c=> <-d=> <-f=>
-  uninstall (u/-u)      <-ac> <-c=> <-d=> <-f=> <-ad>
-  list      (l/-l)      <-ac> <-dc> <-c=>
+  install   (i/-i)      <-ac> <-c=> <-d=> <-f=> <-p=> <-w=>
+  uninstall (u/-u)      <-ac> <-c=> <-d=> <-f=> <-p=> <-w=> <-ad>
+  list      (l/-l)      <-ac> <-dc> <-c=> <-p=> <-w=>
 
 NOTE: 
   * If no switches are specified, the default class key list is used.
@@ -71,6 +72,18 @@ Switches For INF Files:
                rollback fails or is unavailable, the device is removed and
                all root hubs are restarted.
     list     : <NA>
+
+Common Switches:
+ --prompt=<your_prompt_string> (-p=)
+   Prompts the user with the specified string before running. To include
+   spaces in the prompt string, place the entire switch in double quotes.
+   Example: "-p=Are you sure?"
+   
+ --wait=<your_wait_string>     (-w=)
+   After the operation completes, displays the specified string and waits for
+   user input. To include spaces in the prompt string, place the entire
+   switch in double quotes.
+   Example: "-w=Press any key.."
 
 
 Examples:

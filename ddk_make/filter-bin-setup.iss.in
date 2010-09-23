@@ -116,13 +116,19 @@ Source: *.cer; DestDir: {app}; Flags: ignoreversion skipifsourcedoesntexist; Che
 Source: @PACKAGE_ROOT_DIR@additional\dbgview.*; DestDir: {app}\additional; Flags: ignoreversion skipifsourcedoesntexist;
 
 [Icons]
+; these icons are only used in debug builds
 Name: "{group}\Libusb-Win32 Test Certificate"; Filename: {app}\LibusbWin32TestCert.cer; Flags: createonlyiffileexists; 
+Name: "{group}\DebugView\DebugView"; Filename: {app}\additional\Dbgview.exe; Flags: createonlyiffileexists; 
+Name: "{group}\DebugView\DebugView Help"; Filename: {app}\additional\dbgview.chm; Flags: createonlyiffileexists; 
+
+; libusb-win32 icons
 Name: "{group}\Test (Win) Program"; Filename: {app}\bin\testlibusb-win.exe; 
 Name: "{group}\Inf Wizard"; Filename: {app}\bin\inf-wizard.exe;
 Name: "{group}\Filter Wizard"; Filename: {app}\bin\install-filter-win.exe; 
+Name: "{group}\Class Filter\Install for all device classes"; Filename: {app}\bin\install-filter-win.exe; Parameters:"i -ac -p -w"; Comment: "Install all libusb-win32 class filters."
+Name: "{group}\Class Filter\Remove all device classes";  Filename: {app}\bin\install-filter-win.exe; Parameters:"u -ac -w"; Comment: "Removes all libusb-win32 class filters."
+Name: "{group}\Filter Wizard"; Filename: {app}\bin\install-filter-win.exe; 
 Name: "{group}\Filter Console Help"; Filename: {app}\install-filter-help.txt; 
-Name: "{group}\DebugView\DebugView"; Filename: {app}\additional\Dbgview.exe; Flags: createonlyiffileexists; 
-Name: "{group}\DebugView\DebugView Help"; Filename: {app}\additional\dbgview.chm; Flags: createonlyiffileexists; 
 Name: "{group}\License\GPL License"; Filename: {app}\COPYING_GPL.txt; 
 Name: "{group}\License\LGPL License"; Filename: {app}\COPYING_LGPL.txt; 
 Name: "{group}\Uninstall LibUsb-Win32"; Filename: {uninstallexe}; 
@@ -131,7 +137,7 @@ Name: "{group}\Uninstall LibUsb-Win32"; Filename: {uninstallexe};
 Filename: "{app}\bin\install-filter-win.exe"; Description: "Launch filter installer wizard"; Flags: postinstall nowait runascurrentuser; Check: not WizardNoIcons; 
 
 [UninstallRun]
-Filename: "{app}\bin\install-filter-win.exe"; Parameters: "u -ac";
+Filename: "rundll32.exe"; RunOnceID:"FilterAllDeviceClasses"; Parameters: "libusb0,usb_install_np_rundll u -ac";
 
 [Messages]
-StatusUninstalling=Uninstalling %1 and removing all device filters...
+StatusUninstalling=Uninstalling %1 and removing all class filters..
