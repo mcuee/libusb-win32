@@ -125,10 +125,9 @@ Name: "{group}\DebugView\DebugView Help"; Filename: {app}\additional\dbgview.chm
 Name: "{group}\Test (Win) Program"; Filename: {app}\bin\testlibusb-win.exe; 
 Name: "{group}\Inf Wizard"; Filename: {app}\bin\inf-wizard.exe;
 Name: "{group}\Filter Wizard"; Filename: {app}\bin\install-filter-win.exe; 
-Name: "{group}\Class Filter\Install for all device classes"; Filename: {app}\bin\install-filter-win.exe; Parameters:"i -ac -p -w"; Comment: "Install all libusb-win32 class filters."
-Name: "{group}\Class Filter\Remove all device classes";  Filename: {app}\bin\install-filter-win.exe; Parameters:"u -ac -w"; Comment: "Removes all libusb-win32 class filters."
-Name: "{group}\Filter Wizard"; Filename: {app}\bin\install-filter-win.exe; 
 Name: "{group}\Filter Console Help"; Filename: {app}\install-filter-help.txt; 
+Name: "{group}\Class Filter\Install all class filters"; Filename: {app}\bin\install-filter-win.exe; Parameters:"i -ac -p -w"; Comment: "Installs all libusb-win32 class filters."
+Name: "{group}\Class Filter\Remove all class filters";  Filename: {app}\bin\install-filter-win.exe; Parameters:"u -ac -w"; Comment: "Removes all libusb-win32 class filters."
 Name: "{group}\License\GPL License"; Filename: {app}\COPYING_GPL.txt; 
 Name: "{group}\License\LGPL License"; Filename: {app}\COPYING_LGPL.txt; 
 Name: "{group}\Uninstall LibUsb-Win32"; Filename: {uninstallexe}; 

@@ -369,8 +369,7 @@ bool_t usb_registry_remove_device_filter(filter_context_t* filter_context)
 						usb_registry_set_property(SPDRP_UPPERFILTERS, dev_info,
 							&dev_info_data, filters, size);
 
-						if (!filter_context->class_filters &&
-							!(filter_context->filter_mode & FM_INSTALL))
+						if (!filter_context->class_filters)
 						{
 							usb_registry_restart_device(dev_info, &dev_info_data);
 						}
@@ -392,8 +391,7 @@ bool_t usb_registry_remove_device_filter(filter_context_t* filter_context)
 						usb_registry_set_property(SPDRP_LOWERFILTERS, dev_info,
 							&dev_info_data, filters, size);
 
-						if (!filter_context->class_filters &&
-							!(filter_context->filter_mode & FM_INSTALL))
+						if (!filter_context->class_filters)
 						{
 							usb_registry_restart_device(dev_info, &dev_info_data);
 						}
