@@ -361,7 +361,7 @@ bool_t usb_registry_remove_device_filter(filter_context_t* filter_context)
 					if (usb_registry_mz_string_find(filters, driver_name, TRUE))
 					{
 						int size;
-						USBMSG("removing device upper filter %s..\n", (char*)driver_name);
+						USBMSG("removing device upper filter %s..\n", hwid+4);
 
 						usb_registry_mz_string_remove(filters, driver_name, TRUE);
 						size = usb_registry_mz_string_size(filters);
@@ -371,6 +371,7 @@ bool_t usb_registry_remove_device_filter(filter_context_t* filter_context)
 
 						if (!filter_context->class_filters)
 						{
+							USBMSG("restarting device %s..\n", hwid+4);
 							usb_registry_restart_device(dev_info, &dev_info_data);
 						}
 					}
@@ -384,7 +385,7 @@ bool_t usb_registry_remove_device_filter(filter_context_t* filter_context)
 					if (usb_registry_mz_string_find(filters, driver_name, TRUE))
 					{
 						int size;
-						USBMSG("removing device lower filter %s..\n", (char*)driver_name);
+						USBMSG("removing device lower filter %s..\n", hwid+4);
 						usb_registry_mz_string_remove(filters, driver_name, TRUE);
 						size = usb_registry_mz_string_size(filters);
 
@@ -393,6 +394,7 @@ bool_t usb_registry_remove_device_filter(filter_context_t* filter_context)
 
 						if (!filter_context->class_filters)
 						{
+							USBMSG("restarting device %s..\n", hwid+4);
 							usb_registry_restart_device(dev_info, &dev_info_data);
 						}
 					}
@@ -510,7 +512,7 @@ bool_t usb_registry_remove_device_regvalue(HDEVINFO dev_info, SP_DEVINFO_DATA *d
 	return FALSE;
 }
 
-bool_t usb_registry_insert_device_filter(filter_context_t* filter_context, bool_t upper, 
+bool_t usb_registry_insert_device_filter(filter_context_t* filter_context, char* hwid, bool_t upper, 
 										 HDEVINFO dev_info, SP_DEVINFO_DATA *dev_info_data)
 {
 
@@ -530,6 +532,7 @@ bool_t usb_registry_insert_device_filter(filter_context_t* filter_context, bool_
 			{
 				if (!filter_context->class_filters)
 				{
+					USBMSG("restarting device %s..\n", hwid+4);
 					usb_registry_restart_device(dev_info, dev_info_data);
 				}
 			}
@@ -537,7 +540,7 @@ bool_t usb_registry_insert_device_filter(filter_context_t* filter_context, bool_
 		}
 	}
 	USBMSG("inserting device %s filter %s..\n",
-		upper?"upper":"lower",driver_name);
+		upper ? "upper" : "lower",  hwid+4);
 
 	if(usb_registry_mz_string_insert(filters, driver_name))
 	{
@@ -548,6 +551,7 @@ bool_t usb_registry_insert_device_filter(filter_context_t* filter_context, bool_
 
 			if (!filter_context->class_filters)
 			{
+				USBMSG("restarting device %s..\n", hwid+4);
 				usb_registry_restart_device(dev_info, dev_info_data);
 			}
 			return TRUE;
@@ -608,14 +612,14 @@ bool_t usb_registry_insert_device_filters(filter_context_t* filter_context)
 
 						if (found->action & FT_DEVICE_UPPERFILTER)
 						{
-							if (!usb_registry_insert_device_filter(filter_context, TRUE, dev_info, &dev_info_data))
+							if (!usb_registry_insert_device_filter(filter_context, hwid, TRUE, dev_info, &dev_info_data))
 							{
 								USBERR("failed adding upper device filter for %s\n",found->device_hwid);
 							}
 						}
 						if (found->action & FT_DEVICE_LOWERFILTER)
 						{
-							if (!usb_registry_insert_device_filter(filter_context, FALSE, dev_info, &dev_info_data))
+							if (!usb_registry_insert_device_filter(filter_context, hwid, FALSE, dev_info, &dev_info_data))
 							{
 								USBERR("failed adding lower device filter for %s\n",found->device_hwid);
 							}
