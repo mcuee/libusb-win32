@@ -206,7 +206,7 @@ bool_t usb_registry_add_class_key(filter_class_t **head,
 								  bool_t update_only);
 
 bool_t usb_registry_insert_device_filters(filter_context_t* filter_context);
-bool_t usb_registry_insert_device_filter(filter_context_t* filter_context, bool_t upper, 
+bool_t usb_registry_insert_device_filter(filter_context_t* filter_context, char* hwid, bool_t upper, 
 										 HDEVINFO dev_info, SP_DEVINFO_DATA *dev_info_data);
 
 bool_t usb_registry_free_filter_devices(filter_device_t **head);

@@ -362,7 +362,7 @@ bool_t usb_progress_context_create(install_progress_context_t* install_progress_
                                    filter_context_t* filter_context);
 void usb_progress_context_destroy(install_progress_context_t* install_progress_context);
 
-bool_t usb_progress_add_text(HWND hwnd, char* message, COLORREF crNewColor, bool_t bold, bool_t italic);
+bool_t usb_progress_add_text(HWND hwnd, const char* message, COLORREF crNewColor, bool_t bold, bool_t italic);
 
 BOOL sem_create_lock(HANDLE* sem_handle_out, LPCSTR unique_name, LONG remaining, LONG max);
 BOOL sem_destroy_lock(HANDLE* sem_handle_in);
@@ -519,7 +519,7 @@ int usb_install_service(filter_context_t* filter_context)
 
 int usb_install_service_np(void)
 {
-	return usb_install_npA(NULL, NULL, "install", 0);
+	return usb_install_npA(NULL, NULL, "i -dc", 0);
 }
 
 int usb_uninstall_service(filter_context_t* filter_context)
@@ -549,7 +549,7 @@ int usb_uninstall_service(filter_context_t* filter_context)
 
 int usb_uninstall_service_np(void)
 {
-	return usb_install_npA(NULL, NULL, "uninstall", 0);
+	return usb_install_npA(NULL, NULL, "u -ac", 0);
 }
 
 BOOL usb_install_find_model_section(HINF inf_handle, PINFCONTEXT inf_context)
@@ -2033,7 +2033,7 @@ void __cdecl usb_progress_thread(void* param)
 	_endthread();
 }
 
-bool_t usb_progress_add_text(HWND hwnd, char* message, COLORREF crNewColor, bool_t bold, bool_t italic)
+bool_t usb_progress_add_text(HWND hwnd, const char* message, COLORREF crNewColor, bool_t bold, bool_t italic)
 {
 	static const char crlf[] = "\r\n";
 	CHARFORMAT cf;
