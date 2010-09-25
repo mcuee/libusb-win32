@@ -32,6 +32,17 @@ const char* attached_driver_skip_list[] =
 	NULL
 };
 
+// Device objects with an attached device using the 
+// driver names listed here have wdf below them.  Special
+// restrictions apply to these devices.
+//
+const char* attached_driver_wdf_list[] = 
+{
+	"\\driver\\winusb",
+	"\\driver\\wudfrd",
+	NULL
+};
+
 static bool_t match_driver(PDEVICE_OBJECT deviceObject, const char* driverString);
 
 
@@ -76,9 +87,11 @@ static bool_t match_driver(PDEVICE_OBJECT deviceObject, const char* driverString
 			{
 				_strlwr(driverName.Buffer);
 
-				if (strstr(driverName.Buffer,driverString))
+				if (strstr(driverName.Buffer,driverString) == driverName.Buffer &&
+					strlen(driverName.Buffer) == strlen(driverString))
+				{
 					ret = TRUE;
-
+				}
 				RtlFreeAnsiString(&driverName);
 			}
 		}
@@ -119,7 +132,6 @@ NTSTATUS DDKAPI add_device(DRIVER_OBJECT *driver_object,
     DEVICE_OBJECT *device_object = NULL;
     libusb_device_t *dev;
     ULONG device_type;
-
     UNICODE_STRING nt_device_name;
     UNICODE_STRING symbolic_link_name;
     WCHAR tmp_name_0[128];
@@ -128,6 +140,7 @@ NTSTATUS DDKAPI add_device(DRIVER_OBJECT *driver_object,
     char compat_id[256];
 	int i;
 	DEVICE_OBJECT* attached_device;
+	bool_t has_wdf = FALSE;
 
     /* get the hardware ID from the registry */
     if (!reg_get_hardware_id(physical_device_object, id, sizeof(id)))
@@ -158,18 +171,30 @@ NTSTATUS DDKAPI add_device(DRIVER_OBJECT *driver_object,
         return STATUS_SUCCESS;
     }
 
-	attached_device = physical_device_object->AttachedDevice;
 #ifdef DBG
-	debug_show_devices(attached_device, 0, FALSE);
+	debug_show_devices(physical_device_object->AttachedDevice, 0, FALSE);
 #endif
+
+	attached_device = physical_device_object->AttachedDevice;
 	while (attached_device)
 	{
+		// make sure this device isn't already using a driver that is
+		// incompatible with libusb-win32.
 		for (i=0; attached_driver_skip_list[i] != NULL; i++)
 		{
 			if (match_driver(attached_device, attached_driver_skip_list[i]))
 			{
 				USBDBG("skipping device %s\n", id);
 				return STATUS_SUCCESS;
+			}
+		}
+
+		// look for wdf
+		for (i=0; attached_driver_wdf_list[i] != NULL; i++)
+		{
+			if (match_driver(attached_device, attached_driver_wdf_list[i]))
+			{
+				has_wdf = TRUE;
 			}
 		}
 
@@ -240,13 +265,15 @@ NTSTATUS DDKAPI add_device(DRIVER_OBJECT *driver_object,
 	dev->self = device_object;
 	dev->physical_device_object = physical_device_object;
 	dev->id = i;
-
+	
 	// store the device id in the device extentions
 	RtlCopyMemory(dev->device_id, id, sizeof(dev->device_id));
 
 	/* set initial power states */
 	dev->power_state.DeviceState = PowerDeviceD0;
 	dev->power_state.SystemState = PowerSystemWorking;
+
+	dev->disallow_power_control = has_wdf;
 
 	/* get device properties from the registry */
 	if (!reg_get_properties(dev))
