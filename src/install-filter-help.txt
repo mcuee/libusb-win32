@@ -61,7 +61,7 @@ Switches For Device Filters:
   --all-devices         (-ad)
   install
     install  : <NA>
-    uninstall: Removes libusb-win32 device filters from all devices is the
+    uninstall: Removes libusb-win32 device filters from all devices in the
                USB enumerator.
     list     : <NA>
 

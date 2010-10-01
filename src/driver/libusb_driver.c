@@ -87,8 +87,7 @@ static bool_t match_driver(PDEVICE_OBJECT deviceObject, const char* driverString
 			{
 				_strlwr(driverName.Buffer);
 
-				if (strstr(driverName.Buffer,driverString) == driverName.Buffer &&
-					strlen(driverName.Buffer) == strlen(driverString))
+				if (strstr(driverName.Buffer,driverString))
 				{
 					ret = TRUE;
 				}
