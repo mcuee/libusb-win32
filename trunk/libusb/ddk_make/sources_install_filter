@@ -5,13 +5,14 @@ UMTYPE = console
 USE_MSVCRT = 1
 386_STDCALL = 0
 USER_C_FLAGS = /Gd /O2
-C_DEFINES = $(COMMON_C_DEFINES) /DTARGETTYPE=PROGRAMconsole /DLOG_APPNAME="\"$(TARGETNAME)\""
+C_DEFINES = $(COMMON_C_DEFINES) /DLOG_STYLE_SHORT /DTARGETTYPE=PROGRAMconsole /DLOG_APPNAME="\"$(TARGETNAME)\""
 
-TARGETLIBS=$(SDK_LIB_PATH)\kernel32.lib \
-           $(SDK_LIB_PATH)\advapi32.lib \
-           $(SDK_LIB_PATH)\user32.lib \
-           $(SDK_LIB_PATH)\shell32.lib \
-           $(SDK_LIB_PATH)\setupapi.lib \
-           $(SDK_LIB_PATH)\ole32.lib
+TARGETLIBS = $(SDK_LIB_PATH)\setupapi.lib \
+             $(SDK_LIB_PATH)\kernel32.lib \
+             $(SDK_LIB_PATH)\advapi32.lib \
+             $(SDK_LIB_PATH)\user32.lib \
+             $(SDK_LIB_PATH)\gdi32.lib
+
+INCLUDES=$(INCLUDES);$(DDK_INC_PATH);
            
 SOURCES = install_filter.c install.c registry.c error.c install_filter_rc.rc

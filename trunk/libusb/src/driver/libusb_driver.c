@@ -20,7 +20,7 @@
 #define __LIBUSB_DRIVER_C__
 
 #include "libusb_driver.h"
-#include "libusb_version.h"
+#include "libusb-win32_version.h"
 
 // Device objects with an attached device using the 
 // driver names listed here skipped in the add_device() routine.
@@ -28,6 +28,18 @@
 const char* attached_driver_skip_list[] = 
 {
 	"\\driver\\picopp",
+	"\\driver\\libusb0",
+	NULL
+};
+
+// Device objects with an attached device using the 
+// driver names listed here have wdf below them.  Special
+// restrictions apply to these devices.
+//
+const char* attached_driver_wdf_list[] = 
+{
+	"\\driver\\winusb",
+	"\\driver\\wudfrd",
 	NULL
 };
 
@@ -76,8 +88,9 @@ static bool_t match_driver(PDEVICE_OBJECT deviceObject, const char* driverString
 				_strlwr(driverName.Buffer);
 
 				if (strstr(driverName.Buffer,driverString))
+				{
 					ret = TRUE;
-
+				}
 				RtlFreeAnsiString(&driverName);
 			}
 		}
@@ -118,7 +131,6 @@ NTSTATUS DDKAPI add_device(DRIVER_OBJECT *driver_object,
     DEVICE_OBJECT *device_object = NULL;
     libusb_device_t *dev;
     ULONG device_type;
-
     UNICODE_STRING nt_device_name;
     UNICODE_STRING symbolic_link_name;
     WCHAR tmp_name_0[128];
@@ -127,8 +139,7 @@ NTSTATUS DDKAPI add_device(DRIVER_OBJECT *driver_object,
     char compat_id[256];
 	int i;
 	DEVICE_OBJECT* attached_device;
-
-	attached_device = physical_device_object->AttachedDevice;
+	bool_t has_wdf = FALSE;
 
     /* get the hardware ID from the registry */
     if (!reg_get_hardware_id(physical_device_object, id, sizeof(id)))
@@ -160,11 +171,14 @@ NTSTATUS DDKAPI add_device(DRIVER_OBJECT *driver_object,
     }
 
 #ifdef DBG
-	debug_show_devices(physical_device_object, 0, FALSE);
+	debug_show_devices(physical_device_object->AttachedDevice, 0, FALSE);
 #endif
 
-	if (attached_device)
+	attached_device = physical_device_object->AttachedDevice;
+	while (attached_device)
 	{
+		// make sure this device isn't already using a driver that is
+		// incompatible with libusb-win32.
 		for (i=0; attached_driver_skip_list[i] != NULL; i++)
 		{
 			if (match_driver(attached_device, attached_driver_skip_list[i]))
@@ -173,6 +187,17 @@ NTSTATUS DDKAPI add_device(DRIVER_OBJECT *driver_object,
 				return STATUS_SUCCESS;
 			}
 		}
+
+		// look for wdf
+		for (i=0; attached_driver_wdf_list[i] != NULL; i++)
+		{
+			if (match_driver(attached_device, attached_driver_wdf_list[i]))
+			{
+				has_wdf = TRUE;
+			}
+		}
+
+		attached_device=attached_device->AttachedDevice;
 	}
 
 	device_object = IoGetAttachedDeviceReference(physical_device_object);
@@ -239,13 +264,15 @@ NTSTATUS DDKAPI add_device(DRIVER_OBJECT *driver_object,
 	dev->self = device_object;
 	dev->physical_device_object = physical_device_object;
 	dev->id = i;
-
+	
 	// store the device id in the device extentions
 	RtlCopyMemory(dev->device_id, id, sizeof(dev->device_id));
 
 	/* set initial power states */
 	dev->power_state.DeviceState = PowerDeviceD0;
 	dev->power_state.SystemState = PowerSystemWorking;
+
+	dev->disallow_power_control = has_wdf;
 
 	/* get device properties from the registry */
 	if (!reg_get_properties(dev))
@@ -256,14 +283,14 @@ NTSTATUS DDKAPI add_device(DRIVER_OBJECT *driver_object,
         return STATUS_SUCCESS;
 	}
 
-	if (dev->is_filter && !attached_device)
+	if (dev->is_filter && !physical_device_object->AttachedDevice)
 	{
 		USBWRN("[FILTER-MODE-MISMATCH] device is reporting itself as filter when there are no attached device(s).\n%s\n", id);
 	}
-	else if (!dev->is_filter && attached_device)
+	else if (!dev->is_filter && physical_device_object->AttachedDevice)
 	{
 		USBWRN("[FILTER-MODE-MISMATCH] device is reporting itself as normal when there are already attached device(s).\n%s\n", id);
-		dev->is_filter = TRUE;
+		//dev->is_filter = TRUE;
 	}
 
 	clear_pipe_info(dev);
@@ -556,23 +583,33 @@ bool_t update_pipe_info(libusb_device_t *dev,
             dev->config.interfaces[number].endpoints[i].pipe_type = interface_info->Pipes[i].PipeType;
  			dev->config.interfaces[number].endpoints[i].pipe_flags = interface_info->Pipes[i].PipeFlags;
           
-			// max the maximum transfer size default an interval of max packet size.
-			//
-			maxTransferSize = maxTransferSize - (maxTransferSize % maxPacketSize);
-			if (maxTransferSize < maxPacketSize) 
+			if (maxPacketSize)
 			{
-				maxTransferSize = LIBUSB_MAX_READ_WRITE;
-			}
-			else if (maxTransferSize > LIBUSB_MAX_READ_WRITE)
-			{
-				maxTransferSize = LIBUSB_MAX_READ_WRITE - (LIBUSB_MAX_READ_WRITE % maxPacketSize);
-			}
+				// set max the maximum transfer size default to an interval of max packet size.
+				maxTransferSize = maxTransferSize - (maxTransferSize % maxPacketSize);
+				if (maxTransferSize < maxPacketSize) 
+				{
+					maxTransferSize = LIBUSB_MAX_READ_WRITE;
+				}
+				else if (maxTransferSize > LIBUSB_MAX_READ_WRITE)
+				{
+					maxTransferSize = LIBUSB_MAX_READ_WRITE - (LIBUSB_MAX_READ_WRITE % maxPacketSize);
+				}
 
-			if (maxTransferSize != interface_info->Pipes[i].MaximumTransferSize)
+				if (maxTransferSize != interface_info->Pipes[i].MaximumTransferSize)
+				{
+					USBWRN("overriding EP%02Xh maximum-transfer-size=%d\n",
+						dev->config.interfaces[number].endpoints[i].address,
+						maxTransferSize);
+				}
+			}
+			else
 			{
-				USBWRN("overriding EP%02Xh maximum-transfer-size=%d\n",
-					dev->config.interfaces[number].endpoints[i].address,
-					maxTransferSize);
+				if (!maxTransferSize)
+				{
+					// use the libusb-win32 default
+					maxTransferSize = LIBUSB_MAX_READ_WRITE;
+				}
 			}
 			dev->config.interfaces[number].endpoints[i].maximum_transfer_size = maxTransferSize;
 		}

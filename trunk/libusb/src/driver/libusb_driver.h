@@ -172,6 +172,7 @@ typedef struct
     DEVICE_POWER_STATE device_power_states[PowerSystemMaximum];
 	int initial_config_value;
 	char device_id[256];
+	bool_t disallow_power_control;
 } libusb_device_t, DEVICE_EXTENSION, *PDEVICE_EXTENSION;
 
 

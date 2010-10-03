@@ -3,7 +3,7 @@ Microsoft Visual Studio Solution File, Format Version 10.00
 # Visual Studio 2008
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "install-filter", "install-filter.vcproj", "{ED3B338F-9A7E-4136-A98D-E00771622E7B}"
 EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "libusb-dll", "libusb-dll.vcproj", "{C52E6FA6-AFF5-468D-A82F-E9932E8203D4}"
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "libusb0", "libusb-dll.vcproj", "{C52E6FA6-AFF5-468D-A82F-E9932E8203D4}"
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "inf-wizard", "inf-wizard.vcproj", "{040945A3-5236-4F2E-A726-58FB98576E7B}"
 	ProjectSection(ProjectDependencies) = postProject
@@ -46,6 +46,8 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "libwdi (static)", "addition
 		{792D44D5-28A7-4EB3-B84B-8021FE3189F9} = {792D44D5-28A7-4EB3-B84B-8021FE3189F9}
 		{E5A56EE0-182F-470F-8CDC-8C1B7B86EE26} = {E5A56EE0-182F-470F-8CDC-8C1B7B86EE26}
 	EndProjectSection
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "install-filter-win", "install-filter-win.vcproj", "{0EABF109-6EC7-4478-9985-8357D3237873}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -192,6 +194,16 @@ Global
 		{9AA0E745-1A0A-4700-8ECB-6A6DE9DBF8B9}.Release|Win32.ActiveCfg = Release|Win32
 		{9AA0E745-1A0A-4700-8ECB-6A6DE9DBF8B9}.Release|Win32.Build.0 = Release|Win32
 		{9AA0E745-1A0A-4700-8ECB-6A6DE9DBF8B9}.Release|x64.ActiveCfg = Release|Win32
+		{0EABF109-6EC7-4478-9985-8357D3237873}.Debug|Mixed Platforms.ActiveCfg = Debug|Win32
+		{0EABF109-6EC7-4478-9985-8357D3237873}.Debug|Mixed Platforms.Build.0 = Debug|Win32
+		{0EABF109-6EC7-4478-9985-8357D3237873}.Debug|Win32.ActiveCfg = Debug|Win32
+		{0EABF109-6EC7-4478-9985-8357D3237873}.Debug|Win32.Build.0 = Debug|Win32
+		{0EABF109-6EC7-4478-9985-8357D3237873}.Debug|x64.ActiveCfg = Debug|x64
+		{0EABF109-6EC7-4478-9985-8357D3237873}.Release|Mixed Platforms.ActiveCfg = Release|Win32
+		{0EABF109-6EC7-4478-9985-8357D3237873}.Release|Mixed Platforms.Build.0 = Release|Win32
+		{0EABF109-6EC7-4478-9985-8357D3237873}.Release|Win32.ActiveCfg = Release|Win32
+		{0EABF109-6EC7-4478-9985-8357D3237873}.Release|Win32.Build.0 = Release|Win32
+		{0EABF109-6EC7-4478-9985-8357D3237873}.Release|x64.ActiveCfg = Release|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

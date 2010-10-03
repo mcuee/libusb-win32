@@ -28,16 +28,23 @@
 #include <setupapi.h>
 #include <process.h>
 #include <sddl.h>
-#if defined(_MSC_VER)
-#include <newdev.h>
-#else
-#include <ddk/newdev.h>
-#endif
+
 #include "installer.h"
 #include "libwdi.h"
 #include "msapi_utf8.h"
 
+// DDK complains about checking a const string against NULL
+#if defined(DDKBUILD)
+#pragma warning(disable:4130)
+#endif
+
 #define REQUEST_TIMEOUT 5000
+
+// UpdateDriverForPlugAndPlayDevices.InstallFlags constants
+#define INSTALLFLAG_FORCE                 0x00000001
+#define INSTALLFLAG_READONLY              0x00000002
+#define INSTALLFLAG_NONINTERACTIVE        0x00000004
+#define INSTALLFLAG_BITS                  0x00000007
 
 /*
  * Cfgmgr32.dll interface
@@ -273,23 +280,69 @@ void check_removed(char* device_hardware_id)
 }
 
 /*
+ * Converts a default system locate string to UTF-8
+ * (allocate returned string with 1 extra leading byte)
+ * Returns NULL on error
+ */
+static __inline char* xlocale_to_utf8(const char* str)
+{
+	int size = 0;
+	wchar_t* wstr = NULL;
+	char* ustr = NULL;
+
+	// locale -> unicode
+	size = MultiByteToWideChar(CP_ACP, 0, str, -1, NULL, 0);
+	if (size <= 1)
+		return NULL;
+
+	if ((wstr = (wchar_t*)calloc(size, sizeof(wchar_t))) == NULL)
+		return NULL;
+
+	if (MultiByteToWideChar(CP_ACP, 0, str, -1, wstr, size) != size) {
+		free(wstr);
+		return NULL;
+	}
+
+	// unicode -> UTF-8
+	size = WideCharToMultiByte(CP_UTF8, 0, wstr, -1, NULL, 0, NULL, NULL);
+	if (size <= 1) {
+		free(wstr);
+		return NULL;
+	}
+
+	// +1 for extra leading byte
+	if ((ustr = (char*)calloc(size+1, 1)) == NULL) {
+		free(wstr);
+		return NULL;
+	}
+
+	if (wchar_to_utf8_no_alloc(wstr, ustr+1, size) != size) {
+		free(ustr);
+		free(wstr);
+		return NULL;
+	}
+	free(wstr);
+
+	return ustr;
+}
+
+/*
  * Send individual lines of the syslog section pointed by buffer back to the main application
  * xbuffer's payload MUST start at byte 1 to accomodate the SYSLOG_MESSAGE prefix
  */
-DWORD process_syslog(char* xbuffer, DWORD size)
+DWORD process_syslog(char* buffer, DWORD size)
 {
 	DWORD i, write_size, junk, start = 0;
-	char* buffer;
+	char* xbuffer;
 	char* ins_string = "<ins>";
+	char conversion_error[] = " ERROR: Unable to convert log entry to UTF-8";
 
-	if (xbuffer == NULL) return 0;
-	// xbuffer has an extra 1 byte at the beginning
-	buffer = xbuffer+1;
+	if (buffer == NULL) return 0;
 
 	// CR/LF breakdown
 	for (i=0; i<size; i++) {
 		if ((buffer[i] == 0x0D) || (buffer[i] == 0x0A)) {
-			write_size = i-start + 2;	// extra preceding byte + 0 terminator => +2
+			write_size = i-start + 1;
 			do {
 				buffer[i++] = 0;
 			} while ( ((buffer[i] == 0x0D) || (buffer[i] == 0x0A)) && (i <= size) );
@@ -300,9 +353,18 @@ DWORD process_syslog(char* xbuffer, DWORD size)
 				return start;
 			}
 
+			// The logs are using the system locale. Convert to UTF8 (with extra leading byte)
+			xbuffer = xlocale_to_utf8(&buffer[start]);
+			if (xbuffer == NULL) {
+				xbuffer = conversion_error;
+			}
+
 			// This is where we use the extra start byte
-			xbuffer[start] = IC_SYSLOG_MESSAGE;
-			WriteFile(pipe_handle, &xbuffer[start], write_size, &junk, NULL);
+			xbuffer[0] = IC_SYSLOG_MESSAGE;
+			WriteFile(pipe_handle, xbuffer, (DWORD)safe_strlen(&xbuffer[1])+2, &junk, NULL);
+			if (xbuffer != conversion_error) {
+				free(xbuffer);
+			}
 			start = i;
 		}
 	}
@@ -363,19 +425,18 @@ void __cdecl syslog_reader_thread(void* param)
 		size -= last_offset;
 
 		if (size != 0) {
-
 			// Read from file and add a zero terminator
-			buffer = malloc(size+2);
+			buffer = malloc(size+1);
 			if (buffer == NULL) {
-				plog("could not alloc buffer to read syslog");
+				plog("could not allocate buffer to read syslog");
 				goto out;
 			}
 			// Keep an extra spare byte at the beginning
-			if (!ReadFile(log_handle, buffer+1, size, &read_size, NULL)) {
+			if (!ReadFile(log_handle, buffer, size, &read_size, NULL)) {
 				plog("failed to read syslog");
 				goto out;
 			}
-			buffer[read_size+1] = 0;
+			buffer[read_size] = 0;
 
 			// Send all the complete lines through the pipe
 			processed_size = process_syslog(buffer, read_size);
@@ -503,8 +564,10 @@ int __cdecl main(int argc_ansi, char** argv_ansi)
 	pipe_handle = CreateFileA(INSTALLER_PIPE_NAME, GENERIC_READ|GENERIC_WRITE, 0, NULL, OPEN_EXISTING,
 		FILE_ATTRIBUTE_NORMAL|FILE_FLAG_OVERLAPPED, NULL);
 	if (pipe_handle == INVALID_HANDLE_VALUE) {
-		printf("could not open pipe for writing: errcode %d\n", (int)GetLastError());
-		return WDI_ERROR_RESOURCE;
+		// If we can't connect to the pipe, someone is probably trying to run us standalone
+		printf("This application can not be run from the command line.\n");
+		printf("Please use your initial installer application if you want to install the driver.\n");
+		return WDI_ERROR_NOT_SUPPORTED;
 	}
 
 	if (init_dlls()) {

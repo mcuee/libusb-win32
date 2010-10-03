@@ -19,7 +19,7 @@
 
 
 #include "libusb_driver.h"
-#include "libusb_version.h"
+#include "libusb-win32_version.h"
 
 // used but all transfer functions to get a valid libusb_endpoint_t *
 // for the request.
@@ -510,7 +510,7 @@ NTSTATUS dispatch_ioctl(libusb_device_t *dev, IRP *irp)
 			break;
 		}
 		status = reg_get_device_property(
-			dev->target_device,
+			dev->physical_device_object,
 			request->device_property.property,
 			output_buffer, 
 			output_buffer_length, &ret);
@@ -524,7 +524,7 @@ NTSTATUS dispatch_ioctl(libusb_device_t *dev, IRP *irp)
 			break;
 		}
 		status=reg_get_custom_property(
-			dev->target_device, 
+			dev->physical_device_object,
 			input_buffer, 
 			output_buffer_length, 
 			request->device_registry_key.name_offset, 

@@ -1,6 +1,11 @@
 
+
+#ifndef __INSTALL_FILTER_RC__
+#define ID_HELP_TEXT  10020
+#define ID_DOS_TEXT   300
+
 #ifdef __GNUC__
-#define _WIN32_IE 0x0400
+#define _WIN32_IE 0x0501
 #endif
 
 #include <windows.h>
@@ -10,4 +15,7 @@
 #define RC_PRODUCT_STR    "libusb-win32 - Install-Filter"
 #define RC_FILE_NAME_STR  "install-filter.exe"
 
-#include "common.rc"
+#include "libusb-win32_version.rc"
+
+ID_HELP_TEXT ID_DOS_TEXT "install-filter-help.txt"
+#endif

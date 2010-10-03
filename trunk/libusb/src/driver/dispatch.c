@@ -60,10 +60,11 @@ NTSTATUS DDKAPI dispatch(DEVICE_OBJECT *device_object, IRP *irp)
 
             if (dev->is_started)
             {
-				// TODO: a filter driver cannot act as the power policy owner.
+				// only one driver can act as power policy owner and 
 				// power_set_device_state() can only be issued by the PPO.
-				//
-                if (dev->power_state.DeviceState != PowerDeviceD0 /* && !dev->is_filter */)
+				// disallow_power_control is set to true for drivers which 
+				// we know cause a BSOD on any attempt to request power irps.
+                if (dev->power_state.DeviceState != PowerDeviceD0 && !dev->disallow_power_control)
                 {
                     /* power up the device, block until the call */
                     /* completes */

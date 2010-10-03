@@ -22,8 +22,8 @@ Commands:
                         each byte that fails validation.
                         
 Switches:
-         vid        : Vendor id of device. (hex)  (Default=1234)
-         pid        : Product id of device. (hex) (Default=5678)
+         vid        : Vendor id of device. (hex)  (Default=0x0666)
+         pid        : Product id of device. (hex) (Default=0x0001)
          retry      : Number of times to retry a transfer that timeout.
                       (Default = 0)
          timeout    : Transfer timeout value. (milliseconds) (Default=5000)
@@ -59,7 +59,7 @@ WARNING:
           
 Examples:
 
-benchmark vid=1234 pid=5678
+benchmark vid=0x0666 pid=0x0001
 benchmark vid=0x4D2 pid=0x162E
 benchmark vid=0x4D2 pid=0x162E buffersize=65536
 benchmark read vid=0x4D2 pid=0x162E

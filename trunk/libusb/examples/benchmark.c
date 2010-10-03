@@ -211,8 +211,8 @@ void SetTestDefaults(struct BENCHMARK_TEST_PARAM* test)
     memset(test,0,sizeof(struct BENCHMARK_TEST_PARAM));
 
     test->Ep			= 0x00;
-    test->Vid			= 1234;
-    test->Pid			= 5678;
+    test->Vid			= 0x0666;
+    test->Pid			= 0x0001;
     test->Refresh		= 1000;
     test->Timeout		= 5000;
     test->TestType		= TestTypeLoop;
