@@ -42,6 +42,9 @@ EXPORTS
     usb_cancel_async
     usb_free_async  
     usb_install_needs_restart_np
+    usb_install_npW
+    usb_install_npA
+    usb_install_np_rundll
 
 
 

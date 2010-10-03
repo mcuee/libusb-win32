@@ -224,6 +224,10 @@
 				>
 			</File>
 			<File
+				RelativePath="..\src\libusb-win32_version.h"
+				>
+			</File>
+			<File
 				RelativePath="..\src\driver\libusb_driver.h"
 				>
 			</File>

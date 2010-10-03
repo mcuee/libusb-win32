@@ -19,7 +19,9 @@
 
 
 #ifdef __GNUC__
-#define WINVER 0x0500
+    #ifndef WINVER
+        #define WINVER 0x0500
+    #endif
 #endif
 
 #define INITGUID

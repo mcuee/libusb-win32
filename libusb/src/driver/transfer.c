@@ -106,25 +106,26 @@ static NTSTATUS create_urb(libusb_device_t *dev,
 						   MDL *buffer,
 						   int size);
 
-VOID large_transfer_cancel(IN PDEVICE_OBJECT DeviceObject, IN PIRP irp);
+VOID large_transfer_cancel_routine(IN PDEVICE_OBJECT DeviceObject, IN PIRP irp);
+VOID large_transfer_cancel(IN PIRP irp, BOOLEAN releaseCancelSpinlock);
 
 NTSTATUS large_transfer_complete(IN PDEVICE_OBJECT DeviceObjectIsNULL,
-							IN PIRP irp,
-							IN PVOID Context);
+								 IN PIRP irp,
+								 IN PVOID Context);
 
 static int get_iso_stagesize(int totalLength, int packetSize, int maxTransferSize);
 
 static NTSTATUS allocate_suburb(USHORT urbFunction,
-							   int stageSize,
-							   int packetSize,
-							   ULONG* nPackets,
-							   PURB* subUrbRef);
+								int stageSize,
+								int packetSize,
+								ULONG* nPackets,
+								PURB* subUrbRef);
 
 void set_urb_transfer_flags(libusb_device_t* dev,
-						   PIRP irp,
-						   PURB subUrb,
-						   int transfer_flags,
-						   int isoLatency);
+							PIRP irp,
+							PURB subUrb,
+							int transfer_flags,
+							int isoLatency);
 
 NTSTATUS transfer(libusb_device_t* dev,
 				  IN PIRP irp,
@@ -141,9 +142,9 @@ NTSTATUS transfer(libusb_device_t* dev,
 	IO_STACK_LOCATION *stack_location = NULL;
 	context_t *context;
 	NTSTATUS status = STATUS_SUCCESS;
-	int sequenceID  = sequence++;
+	int sequenceID  = InterlockedIncrement(&sequence);
 	const char* dispTransfer = GetPipeDisplayName(endpoint);
-	
+
 	// TODO: reset pipe flag 
 	// status = reset_endpoint(dev,endpoint->address, LIBUSB_DEFAULT_TIMEOUT);
 	//
@@ -380,16 +381,16 @@ Return Value:
 NT status value
 */
 NTSTATUS large_transfer(IN libusb_device_t* dev,
-							IN PIRP irp,
-							IN int direction,
-							IN int urbFunction,
-							IN libusb_endpoint_t* endpoint,
-							IN int packetSize,
-							IN int maxTransferSize,
-							IN int transferFlags,
-							IN int isoLatency,
-							IN PMDL mdlAddress,
-							IN int totalLength)
+						IN PIRP irp,
+						IN int direction,
+						IN int urbFunction,
+						IN libusb_endpoint_t* endpoint,
+						IN int packetSize,
+						IN int maxTransferSize,
+						IN int transferFlags,
+						IN int isoLatency,
+						IN PMDL mdlAddress,
+						IN int totalLength)
 {
 	PIO_STACK_LOCATION      irpStack;
 	BOOLEAN                 read;
@@ -480,6 +481,13 @@ NTSTATUS large_transfer(IN libusb_device_t* dev,
 	stackSize = dev->target_device->StackSize;
 
 	virtualAddress = (PUCHAR) MmGetMdlVirtualAddress(mdlAddress);
+	if (!virtualAddress)
+	{
+		USBERR("[%s #%d] MmGetMdlVirtualAddress failed\n",
+			dispTransfer, sequenceID);
+		ntStatus = STATUS_INSUFFICIENT_RESOURCES;
+		goto transfer_Free;
+	}
 
 	// Allocate an array to keep track of the sub requests that will be
 	// allocated below.  This array exists only during the execution of
@@ -730,8 +738,7 @@ NTSTATUS large_transfer(IN libusb_device_t* dev,
 
 		nextStack->Parameters.Others.Argument1 = (PVOID) subUrb;
 
-		nextStack->Parameters.DeviceIoControl.IoControlCode =
-			IOCTL_INTERNAL_USB_SUBMIT_URB;
+		nextStack->Parameters.DeviceIoControl.IoControlCode = IOCTL_INTERNAL_USB_SUBMIT_URB;
 
 		IoSetCompletionRoutine(subIrp,
 			(PIO_COMPLETION_ROUTINE)large_transfer_complete,
@@ -783,7 +790,7 @@ NTSTATUS large_transfer(IN libusb_device_t* dev,
 		// committed to calling each of the sub requests down the
 		// driver stack.
 		//
-		IoSetCancelRoutine(irp, large_transfer_cancel);
+		IoSetCancelRoutine(irp, large_transfer_cancel_routine);
 
 		for (i = 0; i < numIrps; i++)
 		{
@@ -796,7 +803,7 @@ NTSTATUS large_transfer(IN libusb_device_t* dev,
 			// to get the start frame and set latency.
 			//
 			set_urb_transfer_flags(dev,irp, subRequestContext->SubUrb, transferFlags, isoLatency);
-			
+
 			IoCallDriver(dev->target_device, subRequestContext->SubIrp);
 		}
 
@@ -906,8 +913,8 @@ large_transfer_cancel()
 
 */
 NTSTATUS large_transfer_complete(IN PDEVICE_OBJECT DeviceObjectIsNULL,
-							IN PIRP irp,
-							IN PVOID Context)
+								 IN PIRP irp,
+								 IN PVOID Context)
 {
 	PSUB_REQUEST_CONTEXT    subRequestContext;
 	PURB                    subUrb;
@@ -925,6 +932,7 @@ NTSTATUS large_transfer_complete(IN PDEVICE_OBJECT DeviceObjectIsNULL,
 	LONG					sequenceID;
 	const char*				dispTransfer;
 	PUCHAR					outBuffer;
+	BOOLEAN					needs_cancelled = FALSE;
 
 	UNREFERENCED_PARAMETER( DeviceObjectIsNULL );
 	subRequestContext = (PSUB_REQUEST_CONTEXT)Context;
@@ -940,7 +948,7 @@ NTSTATUS large_transfer_complete(IN PDEVICE_OBJECT DeviceObjectIsNULL,
 
 	sequenceID = mainRequestContext->sequenceID;
 	dispTransfer = mainRequestContext->dispTransfer;
-	
+
 	subRequestByteCount = 0;
 
 	deviceObject = IoGetCurrentIrpStackLocation(mainIrp)->DeviceObject;
@@ -1031,32 +1039,43 @@ NTSTATUS large_transfer_complete(IN PDEVICE_OBJECT DeviceObjectIsNULL,
 		//
 		if ((mainIrp->MdlAddress) &&
 			((subUrb->UrbBulkOrInterruptTransfer.TransferFlags & USBD_TRANSFER_DIRECTION_IN) == USBD_TRANSFER_DIRECTION_IN) &&
-			(information > 0) &&
-			mainIrp->IoStatus.Information < subRequestContext->startOffset)
+			(information > 0))
 		{
-			// Translate a virtual address range described in the MDL for a user buffer
-			// to a system-space address range.
-			//
-			outBuffer = MmGetSystemAddressForMdlSafe(mainIrp->MdlAddress, HighPagePriority);
-
-			if (!outBuffer)
+			if (mainIrp->IoStatus.Information < subRequestContext->startOffset)
 			{
-				USBERR("[%s #%d] failed translating a virtual address range\n",
-					dispTransfer,sequenceID);
-			}
-			USBDBG("[%s #%d] adjusting outBuffer old-offset %d to new-offset %d (length=%d)\n",
-				dispTransfer,
-				sequenceID, 
-				subRequestContext->startOffset,
-				mainIrp->IoStatus.Information,
-				information);
+				// Translate a virtual address range described in the MDL for a user buffer
+				// to a system-space address range.
+				//
+				outBuffer = MmGetSystemAddressForMdlSafe(mainIrp->MdlAddress, HighPagePriority);
 
-			// move the data this subirp just put in the output buffer to the correct
-			// location.
-			//
-			RtlMoveMemory(outBuffer+mainIrp->IoStatus.Information,
-				outBuffer+subRequestContext->startOffset,
-				information);
+				if (!outBuffer)
+				{
+					information = 0;
+
+					USBERR("[%s #%d] failed translating a virtual address range\n",
+						dispTransfer,sequenceID);
+				}
+				else
+				{
+					USBDBG("[%s #%d] adjusting outBuffer old-offset %d to new-offset %d (length=%d)\n",
+						dispTransfer,
+						sequenceID,
+						subRequestContext->startOffset,
+						mainIrp->IoStatus.Information,
+						information);
+
+					// move the data this subirp just put in the output buffer to the correct
+					// location.
+					//
+					RtlMoveMemory(outBuffer+mainIrp->IoStatus.Information,
+						outBuffer+subRequestContext->startOffset,
+						information);
+				}
+			}
+			else if (information < (ULONG)subRequestByteCount)
+			{
+				needs_cancelled = TRUE;
+			}
 		}
 	}
 
@@ -1075,25 +1094,27 @@ NTSTATUS large_transfer_complete(IN PDEVICE_OBJECT DeviceObjectIsNULL,
 	if (IsListEmpty(&mainRequestContext->SubRequestList))
 	{
 		completeMainRequest = TRUE;
-
+		needs_cancelled = FALSE;
 		IoSetCancelRoutine(mainIrp, NULL);
 	}
 	else
 	{
-		// We have pending subIrps.
-		if (subUrb->UrbHeader.Function == URB_FUNCTION_BULK_OR_INTERRUPT_TRANSFER)
-		{
-			if (!mainIrp->Cancel && (information < (ULONG)subRequestByteCount))
-			{
-				// If this is a bulk/interrupt transfer and we transmit less
-				// bytes then what we requested, cancel the pending subIrps.
-				// If the subirp(s) cannot be cancelled, any data they return
-				// must be moved to the correct location in the output buffer.
-				//
-				IoCancelIrp(mainIrp);
-			}
-		}
 		completeMainRequest = FALSE;
+
+		// If this is a bulk/interrupt transfer and we transmit less
+		// bytes then what we requested, cancel the pending subIrps.
+		// If the subirp(s) cannot be cancelled, any data they return
+		// must be moved to the correct location in the output buffer.
+		//
+		if (needs_cancelled)
+		{
+			// IoSetCancelRoutine returns the previous value of 
+			// mainIrp->CancelRoutine. If no Cancel routine was previously
+			// set, or if IRP cancellation is already in progress, 
+			// IoSetCancelRoutine returns NULL.
+			needs_cancelled = (IoSetCancelRoutine(mainIrp, NULL) == NULL) ? FALSE : TRUE;
+		}
+
 	}
 
 	// The cancel routine may now execute simultaneously, unless of
@@ -1104,6 +1125,15 @@ NTSTATUS large_transfer_complete(IN PDEVICE_OBJECT DeviceObjectIsNULL,
 	// request completion routine which will complete the main irp.
 	//
 	IoReleaseCancelSpinLock(irql);
+
+	// needs_cancelled is set for the first subrequest that returns "short".
+	// provided it is not the final subrequest.
+	if (needs_cancelled)
+	{
+		// we can only do this (after IoReleaseCancelSpinLock) because the 
+		// cancel routine for mainIrp was removed above.
+		large_transfer_cancel(mainIrp, FALSE);
+	}
 
 	if (InterlockedDecrement(&subRequestContext->ReferenceCount) == 0)
 	{
@@ -1172,7 +1202,28 @@ Return Value:
 None
 
 --*/
-VOID large_transfer_cancel(IN PDEVICE_OBJECT DeviceObject, IN PIRP irp)
+VOID large_transfer_cancel_routine(IN PDEVICE_OBJECT DeviceObject, IN PIRP irp)
+{
+	large_transfer_cancel(irp, TRUE);
+}
+
+/*++
+
+Routine Description:
+
+Cancels all currently outstanding sub requests for the main
+request.
+
+Completing the main request is the responsibility of the sub
+request completion routine after all outstanding sub requests have
+completed.
+
+Return Value:
+
+None
+
+--*/
+VOID large_transfer_cancel(IN PIRP irp, BOOLEAN releaseCancelSpinlock)
 {
 	PMAIN_REQUEST_CONTEXT   mainRequestContext;
 	LIST_ENTRY              cancelList;
@@ -1215,14 +1266,21 @@ VOID large_transfer_cancel(IN PDEVICE_OBJECT DeviceObject, IN PIRP irp)
 		subRequestEntry = subRequestEntry->Flink;
 	}
 
-	// The main read/write irp can be completed immediately after
-	// releasing the cancel spin lock.  Do not access the main
-	// read/write irp or the mainRequestContext in any way beyond this
-	// point.
-	//
-	IoReleaseCancelSpinLock(irp->CancelIrql);
+	USBDBG("[%s #%d] cancel-reason=%s\n",
+		mainRequestContext->dispTransfer,
+		mainRequestContext->sequenceID,
+		releaseCancelSpinlock?"User":"ShortTransfer");
 
+	if (releaseCancelSpinlock)
+	{
 
+		// The main read/write irp can be completed immediately after
+		// releasing the cancel spin lock.  Do not access the main
+		// read/write irp or the mainRequestContext in any way beyond this
+		// point.
+		//
+		IoReleaseCancelSpinLock(irp->CancelIrql);
+	}
 
 	// Iterate over the list that was built of sub requests to cancel
 	// and cancel each sub request.
@@ -1235,12 +1293,10 @@ VOID large_transfer_cancel(IN PDEVICE_OBJECT DeviceObject, IN PIRP irp)
 			SUB_REQUEST_CONTEXT,
 			CancelListEntry);
 
-		USBDBG("[%s #%d] cancelling sub-irp\n",
-			mainRequestContext->dispTransfer, 
-			mainRequestContext->sequenceID);
-
-		IoCancelIrp(subRequestContext->SubIrp);
-
+		if (!subRequestContext->SubIrp->Cancel)
+		{
+			IoCancelIrp(subRequestContext->SubIrp);
+		}
 
 		if (InterlockedDecrement(&subRequestContext->ReferenceCount) == 0)
 		{
@@ -1276,7 +1332,7 @@ static int get_iso_stagesize(int totalLength, int packetSize, int maxTransferSiz
 		if (stageSize > maxTransferSize)
 			stageSize = maxTransferSize;
 
-//		stageSize = stageSize - (stageSize % packetSize);
+		//		stageSize = stageSize - (stageSize % packetSize);
 
 	}
 	else
@@ -1288,10 +1344,10 @@ static int get_iso_stagesize(int totalLength, int packetSize, int maxTransferSiz
 }
 
 static NTSTATUS allocate_suburb(USHORT urbFunction,
-							   int stageSize,
-							   int packetSize,
-							   ULONG* nPackets,
-							   PURB* subUrbRef)
+								int stageSize,
+								int packetSize,
+								ULONG* nPackets,
+								PURB* subUrbRef)
 {
 	int urbSize;
 	//

@@ -47,7 +47,7 @@
 				PreprocessorDefinitions="_WIN32_WINNT=0x0500;TARGETTYPE=PROGRAMconsole;LOG_APPNAME=&quot;\&quot;$(ProjectName)\&quot;&quot;"
 				MinimalRebuild="true"
 				BasicRuntimeChecks="3"
-				RuntimeLibrary="3"
+				RuntimeLibrary="1"
 				WarningLevel="3"
 				DebugInformationFormat="4"
 				CompileAs="1"
@@ -66,8 +66,10 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="setupapi.lib"
+				AdditionalDependencies="setupapi.lib kernel32.lib user32.lib gdi32.lib advapi32.lib $(NOINHERIT)"
 				AdditionalLibraryDirectories=""
+				GenerateManifest="false"
+				UACExecutionLevel="0"
 				GenerateDebugInformation="true"
 				TargetMachine="1"
 			/>
@@ -76,7 +78,6 @@
 			/>
 			<Tool
 				Name="VCManifestTool"
-				EmbedManifest="true"
 			/>
 			<Tool
 				Name="VCXDCMakeTool"
@@ -121,10 +122,10 @@
 				Name="VCCLCompilerTool"
 				Optimization="0"
 				AdditionalIncludeDirectories="..\src;..\src\driver"
-				PreprocessorDefinitions="_WIN32_WINNT=0x0501;TARGETTYPE=PROGRAMconsole;LOG_APPNAME=&quot;\&quot;$(ProjectName)\&quot;&quot;"
+				PreprocessorDefinitions="_WIN32_WINNT=0x0501;TARGETTYPE=PROGRAMconsole;LOG_APPNAME=&quot;\&quot;$(ProjectName)\&quot;&quot;;LOG_STYLE_SHORT"
 				MinimalRebuild="true"
 				BasicRuntimeChecks="3"
-				RuntimeLibrary="3"
+				RuntimeLibrary="1"
 				WarningLevel="3"
 				DebugInformationFormat="3"
 				CompileAs="1"
@@ -143,9 +144,10 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="setupapi.lib"
+				AdditionalDependencies="setupapi.lib kernel32.lib user32.lib gdi32.lib advapi32.lib $(NOINHERIT)"
 				AdditionalLibraryDirectories=""
-				UACExecutionLevel="2"
+				GenerateManifest="false"
+				UACExecutionLevel="0"
 				GenerateDebugInformation="true"
 				TargetMachine="17"
 			/>
@@ -154,7 +156,6 @@
 			/>
 			<Tool
 				Name="VCManifestTool"
-				EmbedManifest="true"
 			/>
 			<Tool
 				Name="VCXDCMakeTool"
@@ -200,8 +201,8 @@
 				Optimization="2"
 				EnableIntrinsicFunctions="true"
 				AdditionalIncludeDirectories="..\src;..\src\driver"
-				PreprocessorDefinitions="_WIN32_WINNT=0x0500;TARGETTYPE=PROGRAMconsole;LOG_APPNAME=&quot;\&quot;$(ProjectName)\&quot;&quot;"
-				RuntimeLibrary="2"
+				PreprocessorDefinitions="_WIN32_WINNT=0x0500;TARGETTYPE=PROGRAMconsole;LOG_APPNAME=&quot;\&quot;$(ProjectName)\&quot;&quot;;LOG_STYLE_SHORT"
+				RuntimeLibrary="0"
 				EnableFunctionLevelLinking="true"
 				WarningLevel="3"
 				DebugInformationFormat="3"
@@ -221,8 +222,10 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="setupapi.lib"
+				AdditionalDependencies="setupapi.lib kernel32.lib user32.lib gdi32.lib advapi32.lib $(NOINHERIT)"
 				AdditionalLibraryDirectories=""
+				GenerateManifest="false"
+				UACExecutionLevel="0"
 				GenerateDebugInformation="true"
 				OptimizeReferences="2"
 				EnableCOMDATFolding="2"
@@ -233,7 +236,6 @@
 			/>
 			<Tool
 				Name="VCManifestTool"
-				EmbedManifest="true"
 				VerboseOutput="false"
 			/>
 			<Tool
@@ -281,8 +283,8 @@
 				Optimization="2"
 				EnableIntrinsicFunctions="true"
 				AdditionalIncludeDirectories="..\src;..\src\driver"
-				PreprocessorDefinitions="_WIN32_WINNT=0x0501;TARGETTYPE=PROGRAMconsole;LOG_APPNAME=&quot;\&quot;$(ProjectName)\&quot;&quot;"
-				RuntimeLibrary="2"
+				PreprocessorDefinitions="_WIN32_WINNT=0x0501;TARGETTYPE=PROGRAMconsole;LOG_APPNAME=&quot;\&quot;$(ProjectName)\&quot;&quot;;LOG_STYLE_SHORT"
+				RuntimeLibrary="0"
 				EnableFunctionLevelLinking="true"
 				WarningLevel="3"
 				DebugInformationFormat="3"
@@ -302,9 +304,10 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="setupapi.lib"
+				AdditionalDependencies="setupapi.lib kernel32.lib user32.lib gdi32.lib advapi32.lib $(NOINHERIT)"
 				AdditionalLibraryDirectories=""
-				UACExecutionLevel="2"
+				GenerateManifest="false"
+				UACExecutionLevel="0"
 				GenerateDebugInformation="true"
 				OptimizeReferences="2"
 				EnableCOMDATFolding="2"
@@ -315,7 +318,6 @@
 			/>
 			<Tool
 				Name="VCManifestTool"
-				EmbedManifest="true"
 				VerboseOutput="false"
 			/>
 			<Tool
@@ -370,7 +372,7 @@
 				>
 			</File>
 			<File
-				RelativePath="..\src\libusb_version.h"
+				RelativePath="..\src\libusb-win32_version.h"
 				>
 			</File>
 			<File
@@ -392,6 +394,10 @@
 				>
 			</File>
 		</Filter>
+		<File
+			RelativePath="..\src\install-filter-help.txt"
+			>
+		</File>
 	</Files>
 	<Globals>
 	</Globals>

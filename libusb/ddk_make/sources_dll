@@ -4,12 +4,15 @@ TARGETTYPE = DYNLINK
 USE_MSVCRT = 1
 386_STDCALL = 0
 USER_C_FLAGS = /Gd /O2
-C_DEFINES = $(COMMON_C_DEFINES) /DTARGETTYPE=DYNLINK /DLOG_APPNAME="\"$(TARGETNAME)-dll\""
+C_DEFINES = $(COMMON_C_DEFINES) /Dwcsicmp=_wcsicmp /Dstricmp=_stricmp /DTARGETTYPE=DYNLINK /DLOG_APPNAME="\"$(TARGETNAME)-dll\""
 
 TARGETLIBS = $(SDK_LIB_PATH)\setupapi.lib \
              $(SDK_LIB_PATH)\kernel32.lib \
              $(SDK_LIB_PATH)\advapi32.lib \
-             $(SDK_LIB_PATH)\user32.lib
+             $(SDK_LIB_PATH)\user32.lib \
+             $(SDK_LIB_PATH)\gdi32.lib
+
+INCLUDES=$(INCLUDES);$(DDK_INC_PATH);
 
 SOURCES = windows.c usb.c error.c install.c descriptors.c registry.c \
           resource.rc

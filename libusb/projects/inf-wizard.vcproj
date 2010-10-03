@@ -124,7 +124,7 @@
 				Optimization="2"
 				EnableIntrinsicFunctions="true"
 				AdditionalIncludeDirectories="..\src;.\additional\libwdi\libwdi"
-				PreprocessorDefinitions="_WIN32_WINNT=0x0500;LIBWDI_INSTALLER_PATH_PREFX=&quot;..\\..\\..\\&quot;"
+				PreprocessorDefinitions="_WIN32_WINNT=0x0500"
 				RuntimeLibrary="0"
 				EnableFunctionLevelLinking="true"
 				WarningLevel="3"
@@ -201,11 +201,11 @@
 			UniqueIdentifier="{93995380-89BD-4b04-88EB-625FBE52EBFB}"
 			>
 			<File
-				RelativePath="..\src\libusb_version.h"
+				RelativePath="..\src\libusb-win32_version.h"
 				>
 			</File>
 			<File
-				RelativePath="..\src\usb.h"
+				RelativePath=".\additional\libwdi\libwdi\msapi_utf8.h"
 				>
 			</File>
 		</Filter>

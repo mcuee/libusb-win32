@@ -54,13 +54,13 @@ void usb_log_v	(enum USB_LOG_LEVEL level, const char* function, const char* form
 void _usb_log	(enum USB_LOG_LEVEL level, const char* app_name, const char* function, const char* format, ...);
 void _usb_log_v	(enum USB_LOG_LEVEL level, const char* app_name, const char* function, const char* format, va_list args);
 
-static void usb_log_def_handler(enum USB_LOG_LEVEL level, 
+static int usb_log_def_handler(enum USB_LOG_LEVEL level, 
 								const char* app_name, 
 								const char* prefix, 
 								const char* func, 
-								const int app_prefix_func_end,
+								int app_prefix_func_end,
 								char* message,
-								const int message_length);
+								int message_length);
 
 #define STRIP_PREFIX(stringSrc, stringPrefix) \
 	(strstr(stringSrc,stringPrefix)==stringSrc?stringSrc+strlen(stringPrefix):stringSrc)
@@ -70,7 +70,7 @@ static const char *log_level_string[LOG_LEVEL_MAX+1] =
     "off",
     "err",
     "wrn",
-    "nfo",
+    "",
     "dbg",
 
     "unknown",
@@ -84,6 +84,7 @@ static const char *skipped_function_prefix_list[] =
 };
 
 int usb_error_errno = 0;
+log_hander_t user_log_hander = NULL;
 
 #if (defined(_DEBUG) || defined(DEBUG) || defined(DBG))
 int __usb_log_level = LOG_LEVEL_MAX;
@@ -236,7 +237,9 @@ void _usb_log_v(enum USB_LOG_LEVEL level,
     char* buffer;
     int masked_level;
 	int app_prefix_func_end;
+#ifndef LOG_STYLE_SHORT
 	const char** skip_list = NULL;
+#endif
 
 	masked_level = GetLogLevel(level);
 
@@ -244,6 +247,9 @@ void _usb_log_v(enum USB_LOG_LEVEL level,
     buffer = local_buffer;
     totalCount = 0;
     count = 0;
+    prefix = log_level_string[masked_level];
+	func = function;
+	app_prefix_func_end = 0;
 
     if (masked_level > LOG_LEVEL_MAX) masked_level = LOG_LEVEL_MAX;
 
@@ -258,9 +264,15 @@ void _usb_log_v(enum USB_LOG_LEVEL level,
     }
     else
     {
-        prefix = log_level_string[masked_level];
 #ifdef LOG_STYLE_SHORT
-		count = _snprintf(buffer, (LOGBUF_SIZE-1), "%s: ",  prefix);
+        if ((prefix) && strlen(prefix))
+        {
+		    count = _snprintf(buffer, (LOGBUF_SIZE-1), "%s: ",  prefix);
+        }
+        else
+        {
+		    count = 0;
+        }
 		func = "";
 #else
 		func = function;
@@ -279,10 +291,17 @@ void _usb_log_v(enum USB_LOG_LEVEL level,
 		if(!func) func="none";
 
         // print app name, level string and short function name
-        count = _snprintf(buffer, (LOGBUF_SIZE-1), "%s:%s [%s] ", app_name, prefix, func);
+        if ((prefix) && strlen(prefix))
+        {
+            count = _snprintf(buffer, (LOGBUF_SIZE-1), "%s:%s [%s] ", app_name, prefix, func);
+        }
+        else
+        {
+            count = _snprintf(buffer, (LOGBUF_SIZE-1), "%s:[%s] ", app_name, func);
+        }
 #endif
 
-        if (count > 0)
+        if (count >= 0)
         {
 			app_prefix_func_end = count;
             buffer += count;
@@ -312,10 +331,15 @@ void _usb_log_v(enum USB_LOG_LEVEL level,
     }
 #endif
 
-    if (__usb_log_level >= masked_level)
-    {
+	if (user_log_hander)
+	{
+		if (user_log_hander(level, app_name, prefix, func, app_prefix_func_end, local_buffer, totalCount))
+			return;
+	}
+	if (__usb_log_level >= masked_level)
+	{
 		usb_log_def_handler(level, app_name, prefix, func, app_prefix_func_end, local_buffer, totalCount);
-    }
+	}
 }
 
 void usb_log_set_level(enum USB_LOG_LEVEL level)
@@ -337,13 +361,13 @@ int usb_log_get_level()
 
 /* Default log handler
 */
-static void usb_log_def_handler(enum USB_LOG_LEVEL level, 
+static int usb_log_def_handler(enum USB_LOG_LEVEL level, 
 								const char* app_name, 
 								const char* prefix, 
 								const char* func, 
-								const int app_prefix_func_end,
+								int app_prefix_func_end,
 								char* message,
-								const int message_length)
+								int message_length)
 {
 #if IS_DRIVER
 	DbgPrint("%s",message);
@@ -378,9 +402,15 @@ static void usb_log_def_handler(enum USB_LOG_LEVEL level,
 
 #endif // IS_DRIVER
 
-
+	return 1;
 }
 
-void  _usb_log_do_nothing(void)
+void usb_log_set_handler(log_hander_t log_hander)
 {
+	user_log_hander = log_hander;
+}
+
+log_hander_t usb_log_get_handler(void)
+{
+	return user_log_hander;
 }

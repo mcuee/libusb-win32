@@ -22,13 +22,14 @@
 		#define WINVER 0x0500
 	#endif
 	#if !defined(_WIN32_IE)
-		#define _WIN32_IE 0x0400
+		#define _WIN32_IE 0x0501
 	#endif
 #endif
 
 #define INITGUID
-#include "libusb_version.h"
+#include "libusb-win32_version.h"
 #include "libwdi.h"
+#include "msapi_utf8.h"
 
 #include <windows.h>
 #include <commdlg.h>
@@ -47,15 +48,18 @@
 #define MAX_TEXT_LENGTH 256
 
 // Copied from libwdi
-#define safe_free(p) do {if (p != NULL) {free(p); p = NULL;}} while(0)
-#define safe_strncpy(dst, dst_max, src, count) strncpy(dst, src, min(count, dst_max - 1))
-#define safe_strcpy(dst, dst_max, src) safe_strncpy(dst, dst_max, src, strlen(src)+1)
-#define safe_strncat(dst, dst_max, src, count) strncat(dst, src, min(count, dst_max - strlen(dst) - 1))
-#define safe_strcat(dst, dst_max, src) safe_strncat(dst, dst_max, src, strlen(src)+1)
+#define safe_free(p) do {if (p != NULL) {free((void*)p); p = NULL;}} while(0)
+#define safe_min(a, b) min((size_t)(a), (size_t)(b))
+#define safe_strcp(dst, dst_max, src, count) do {memcpy(dst, src, safe_min(count, dst_max)); \
+	((char*)dst)[safe_min(count, dst_max)-1] = 0;} while(0)
+#define safe_strcpy(dst, dst_max, src) safe_strcp(dst, dst_max, src, safe_strlen(src)+1)
+#define safe_strncat(dst, dst_max, src, count) strncat(dst, src, safe_min(count, dst_max - safe_strlen(dst) - 1))
+#define safe_strcat(dst, dst_max, src) safe_strncat(dst, dst_max, src, safe_strlen(src)+1)
 #define safe_strcmp(str1, str2) strcmp(((str1==NULL)?"<NULL>":str1), ((str2==NULL)?"<NULL>":str2))
 #define safe_strncmp(str1, str2, count) strncmp(((str1==NULL)?"<NULL>":str1), ((str2==NULL)?"<NULL>":str2), count)
 #define safe_closehandle(h) do {if (h != INVALID_HANDLE_VALUE) {CloseHandle(h); h = INVALID_HANDLE_VALUE;}} while(0)
 #define safe_sprintf _snprintf
+#define safe_strlen(str) ((((char*)str)==NULL)?0:strlen(str))
 #define safe_swprintf _snwprintf
 #define safe_strdup _strdup
 
@@ -84,7 +88,7 @@ typedef struct
 	BOOL user_allocated_wdi;
 	BOOL modified; // unused
 
-	VS_FIXEDFILEINFO* driver_info;
+	VS_FIXEDFILEINFO driver_info;
 } device_context_t;
 
 typedef struct
@@ -171,10 +175,10 @@ HWND create_tooltip(HWND hMain, HINSTANCE hInstance, UINT max_tip_width, create_
 HWND CreateTrackingToolTip(HWND hDlg, TCHAR* pText);
 
 HWND create_label(char* text, HWND hParent, HINSTANCE hInstance, UINT x, UINT y, UINT cx, UINT cy, DWORD dwStyle, UINT uID);
-HWND create_labeled_text(char* label, char* text, 
-						 HWND hParent, HINSTANCE hInstance, 
+HWND create_labeled_text(char* label, char* text,
+						 HWND hParent, HINSTANCE hInstance,
 						 UINT left, UINT top, UINT height,
-						 UINT label_width, UINT text_width, 
+						 UINT label_width, UINT text_width,
 						 UINT uIDLabel, UINT uIDText);
 
 BOOL CALLBACK dialog_proc_0(HWND dialog, UINT message,
@@ -323,6 +327,7 @@ INT_PTR CALLBACK device_list_wndproc(HWND hDlg, UINT message, WPARAM wParam, LPA
 	LVHITTESTINFO hitTestInfo;
 	LVITEM lvitem;
 	device_context_t* dev_context;
+	BOOL ignored;
 
 	switch(message)
 	{
@@ -346,7 +351,7 @@ INT_PTR CALLBACK device_list_wndproc(HWND hDlg, UINT message, WPARAM wParam, LPA
 			TrackMouseEvent(&tme);
 
 			// Activate the tooltip.
-			SendMessage(g_hwndTrackingTT, TTM_TRACKACTIVATE, 
+			SendMessage(g_hwndTrackingTT, TTM_TRACKACTIVATE,
 				(WPARAM)TRUE, (LPARAM)&g_toolItem);
 			g_TrackingMouse = TRUE;
 		}
@@ -354,7 +359,7 @@ INT_PTR CALLBACK device_list_wndproc(HWND hDlg, UINT message, WPARAM wParam, LPA
 		newX = LOWORD(lParam);
 		newY = HIWORD(lParam);
 
-		// Make sure the mouse has actually moved. The presence of the tooltip 
+		// Make sure the mouse has actually moved. The presence of the tooltip
 		// causes Windows to send the message continuously.
 		if ((newX != oldX) || (newY != oldY))
 		{
@@ -368,28 +373,28 @@ INT_PTR CALLBACK device_list_wndproc(HWND hDlg, UINT message, WPARAM wParam, LPA
 			if ((ListView_HitTest(hDlg, &hitTestInfo) == -1) || newX > ListView_GetColumnWidth(hDlg, 0))
 			{
 				safe_sprintf(tipText, sizeof(tipText) - 1, TEXT("%s"), TEXT(""));
-		        SendMessage(g_hwndTrackingTT, TTM_TRACKACTIVATE,FALSE, (LPARAM)&g_toolItem);
+				SendMessage(g_hwndTrackingTT, TTM_TRACKACTIVATE,FALSE, (LPARAM)&g_toolItem);
 			}
 			else
 			{
-		        SendMessage(g_hwndTrackingTT, TTM_SETDELAYTIME,TTDT_INITIAL, 1000);
+				SendMessage(g_hwndTrackingTT, TTM_SETDELAYTIME,TTDT_INITIAL, 1000);
 
 				memset(&lvitem, 0 , sizeof(lvitem));
 
 				lvitem.iItem = hitTestInfo.iItem;
 				lvitem.mask =  LVIF_PARAM;
-				ListView_GetItem(hDlg,&lvitem);
+				ignored = ListView_GetItem(hDlg,&lvitem);
 
 				dev_context = (device_context_t*)lvitem.lParam;
 				// Update the text.
 				safe_sprintf(tipText, sizeof(tipText)-1 , TEXT("%s"), wdi_get_vendor_name(dev_context->wdi->vid));
-		        SendMessage(g_hwndTrackingTT, TTM_TRACKACTIVATE,TRUE, (LPARAM)&g_toolItem);
+				SendMessage(g_hwndTrackingTT, TTM_TRACKACTIVATE,TRUE, (LPARAM)&g_toolItem);
 
 			}
 			g_toolItem.lpszText = tipText;
 			SendMessage(g_hwndTrackingTT, TTM_SETTOOLINFO, 0, (LPARAM)&g_toolItem);
 
-			// Position the tooltip. 
+			// Position the tooltip.
 			// The coordinates are adjusted so that the tooltip does not
 			// overlap the mouse pointer.
 			pt.x = newX;
@@ -433,7 +438,11 @@ BOOL CALLBACK dialog_proc_1(HWND dialog, UINT message,
 		}
 		g_hwndTrackingTT = CreateTrackingToolTip(list, TEXT(" "));
 
+#if defined(_WIN64)
+		device_list_wndproc_orig = (WNDPROC)SetWindowLongPtr(list, GWLP_WNDPROC, (UINT_PTR)device_list_wndproc);
+#else
 		device_list_wndproc_orig = (WNDPROC)SetWindowLongPtr(list, GWL_WNDPROC, (UINT_PTR)device_list_wndproc);
+#endif
 
 		memset(device, 0, sizeof(*device));
 
@@ -581,10 +590,10 @@ BOOL CALLBACK dialog_proc_2(HWND dialog, UINT message,
 				safe_sprintf(tmp,sizeof(tmp) - 1, "0x%02X", device->wdi->mi);
 			SetWindowText(GetDlgItem(dialog, ID_TEXT_MI), tmp);
 
-			SetWindowText(GetDlgItem(dialog, ID_TEXT_MANUFACTURER),
+			SetWindowTextU(GetDlgItem(dialog, ID_TEXT_MANUFACTURER),
 				device->manufacturer);
 
-			SetWindowText(GetDlgItem(dialog, ID_TEXT_DEV_NAME),
+			SetWindowTextU(GetDlgItem(dialog, ID_TEXT_DEV_NAME),
 				device->description);
 		}
 		return TRUE;
@@ -596,18 +605,18 @@ BOOL CALLBACK dialog_proc_2(HWND dialog, UINT message,
 			//memset(device, 0, sizeof(*device));
 			device->wdi->is_composite=false;
 
-			GetWindowText(GetDlgItem(dialog, ID_TEXT_MANUFACTURER),
+			GetWindowTextU(GetDlgItem(dialog, ID_TEXT_MANUFACTURER),
 				device->manufacturer, sizeof(tmp));
 
-			GetWindowText(GetDlgItem(dialog, ID_TEXT_DEV_NAME),
+			GetWindowTextU(GetDlgItem(dialog, ID_TEXT_DEV_NAME),
 				device->description, sizeof(tmp));
 
 			GetWindowText(GetDlgItem(dialog, ID_TEXT_VID), tmp, sizeof(tmp));
-			if(sscanf(tmp, "0x%04x", &val) == 1) 
+			if(sscanf(tmp, "0x%04x", &val) == 1)
 				device->wdi->vid = (WORD)val;
 
 			GetWindowText(GetDlgItem(dialog, ID_TEXT_PID), tmp, sizeof(tmp));
-			if(sscanf(tmp, "0x%04x", &val) == 1) 
+			if(sscanf(tmp, "0x%04x", &val) == 1)
 				device->wdi->pid = (WORD)val;
 
 			GetWindowText(GetDlgItem(dialog, ID_TEXT_MI), tmp, sizeof(tmp));
@@ -634,15 +643,15 @@ BOOL CALLBACK dialog_proc_2(HWND dialog, UINT message,
 }
 HWND create_label(char* text, HWND hParent, HINSTANCE hInstance, UINT x, UINT y, UINT cx, UINT cy, DWORD dwStyle, UINT uID)
 {
-	return CreateWindowA("Static", text, WS_CHILD | WS_VISIBLE | dwStyle,
+	return CreateWindowU("Static", text, WS_CHILD | WS_VISIBLE | dwStyle,
 		x, y, cx, cy,
-		hParent, (HMENU) uID, hInstance, 0);
+		hParent, (HMENU)((UINT_PTR)uID), hInstance, 0);
 }
 
-HWND create_labeled_text(char* label, char* text, 
-						 HWND hParent, HINSTANCE hInstance, 
+HWND create_labeled_text(char* label, char* text,
+						 HWND hParent, HINSTANCE hInstance,
 						 UINT left, UINT top, UINT height,
-						 UINT label_width, UINT text_width, 
+						 UINT label_width, UINT text_width,
 						 UINT uIDLabel, UINT uIDText)
 {
 	HWND hwnd = NULL;
@@ -757,11 +766,11 @@ BOOL CALLBACK dialog_proc_3(HWND dialog, UINT message,
 			create_labeled_text(bufferLabel,bufferText,dialog,g_hInst,x,y,LBL_HEIGHT,LBL_WIDTH,TXT_WIDTH, ID_INFO_TEXT, ID_INFO_TEXT);
 
 			y += LBL_HEIGHT+LBL_SEP*2;
-			if  (device->driver_info)
+			if (device->driver_info.dwSignature)
 			{
 				safe_sprintf(bufferLabel, MAX_TEXT_LENGTH, package_contents_fmt_0, "libusb-win32",
-					(int)device->driver_info->dwFileVersionMS>>16, (int)device->driver_info->dwFileVersionMS&0xFFFF,
-					(int)device->driver_info->dwFileVersionLS>>16, (int)device->driver_info->dwFileVersionLS&0xFFFF,
+					(int)device->driver_info.dwFileVersionMS>>16, (int)device->driver_info.dwFileVersionMS&0xFFFF,
+					(int)device->driver_info.dwFileVersionLS>>16, (int)device->driver_info.dwFileVersionLS&0xFFFF,
 					"x86, x64, ia64");
 
 			}
@@ -774,7 +783,7 @@ BOOL CALLBACK dialog_proc_3(HWND dialog, UINT message,
 			free(bufferLabel);
 
 		}
-		if ((device->driver_info) && GetFileAttributesA(device->inf_path)!=INVALID_FILE_ATTRIBUTES)
+		if ((device->driver_info.dwSignature) && GetFileAttributesU(device->inf_path)!=INVALID_FILE_ATTRIBUTES)
 			EnableWindow(GetDlgItem(dialog, ID_BUTTON_INSTALLNOW), TRUE);
 		else
 			EnableWindow(GetDlgItem(dialog, ID_BUTTON_INSTALLNOW), FALSE);
@@ -803,7 +812,7 @@ BOOL CALLBACK dialog_proc_3(HWND dialog, UINT message,
 					hBrushStatic = CreateSolidBrush( (COLORREF) GetSysColor(COLOR_BTNFACE));
 				}
 
-				return (UINT) hBrushStatic;
+				return PtrToUlong(hBrushStatic);
 			}
 
 			// Let Windows do default handling
@@ -823,14 +832,14 @@ BOOL CALLBACK dialog_proc_3(HWND dialog, UINT message,
 			// Install the driver
 			ret = infwizard_install_driver(dialog, device);
 
-			// Clear installing text and restore the arrow cursor 
+			// Clear installing text and restore the arrow cursor
 			SetWindowText(GetDlgItem(dialog, IDL_INSTALLING_TEXT), "");
 			SetCursor(LoadCursor(NULL,IDC_ARROW));
 
 			// infwizard_install_driver() will display a message if it fails
 			if (ret == ERROR_SUCCESS)
 			{
-				MessageBoxA(dialog,"Installation successful.", 
+				MessageBoxA(dialog,"Installation successful.",
 					"Driver Install Complete", MB_OK | MB_APPLMODAL);
 
 				// Close the wizard
@@ -850,8 +859,9 @@ BOOL CALLBACK dialog_proc_3(HWND dialog, UINT message,
 static void device_list_init(HWND list)
 {
 	LVCOLUMN lvc;
+	int ignored;
 
-	ListView_SetExtendedListViewStyle(list, LVS_EX_FULLROWSELECT);
+	ignored = (int)ListView_SetExtendedListViewStyle(list, LVS_EX_FULLROWSELECT);
 
 	memset(&lvc, 0, sizeof(lvc));
 
@@ -861,22 +871,22 @@ static void device_list_init(HWND list)
 	lvc.cx = 70;
 	lvc.iSubItem = 0;
 	lvc.pszText = "Vendor ID";
-	ListView_InsertColumn(list, 1, &lvc);
+	ignored = ListView_InsertColumn(list, 1, &lvc);
 
 	lvc.cx = 70;
 	lvc.iSubItem = 1;
 	lvc.pszText = "Product ID";
-	ListView_InsertColumn(list, 2, &lvc);
+	ignored = ListView_InsertColumn(list, 2, &lvc);
 
 	lvc.cx = 260;
 	lvc.iSubItem = 2;
 	lvc.pszText = "Description";
-	ListView_InsertColumn(list, 3, &lvc);
+	ignored = ListView_InsertColumn(list, 3, &lvc);
 
 	lvc.cx = 40;
 	lvc.iSubItem = 3;
 	lvc.pszText = "MI";
-	ListView_InsertColumn(list, 4, &lvc);
+	ignored = ListView_InsertColumn(list, 4, &lvc);
 }
 
 static void device_list_refresh(HWND list)
@@ -923,6 +933,7 @@ static void device_list_add(HWND list, device_context_t *device)
 	char vid[32];
 	char pid[32];
 	char mi[32];
+	int ignored;
 
 	memset(&item, 0, sizeof(item));
 	memset(vid, 0, sizeof(vid));
@@ -939,17 +950,18 @@ static void device_list_add(HWND list, device_context_t *device)
 	item.mask = LVIF_TEXT | LVIF_PARAM;
 	item.lParam = (LPARAM)device;
 
-	ListView_InsertItem(list, &item);
+	ignored = ListView_InsertItem(list, &item);
 
 	ListView_SetItemText(list, 0, 0, vid);
 	ListView_SetItemText(list, 0, 1, pid);
-	ListView_SetItemText(list, 0, 2, device->description);
+	ListView_SetItemTextU(list, 0, 2, device->description);
 	ListView_SetItemText(list, 0, 3, mi);
 }
 
 static void device_list_clean(HWND list)
 {
 	LVITEM item;
+	BOOL ignored;
 
 	memset(&item, 0, sizeof(LVITEM));
 
@@ -958,16 +970,77 @@ static void device_list_clean(HWND list)
 		if (item.lParam)
 			free((void *)item.lParam);
 
-		ListView_DeleteItem(list, 0);
+		ignored = ListView_DeleteItem(list, 0);
 		memset(&item, 0, sizeof(LVITEM));
 	}
+}
+
+/*
+ * Converts a name + ext UTF-8 pair to a valid MS filename.
+ * Returned string is allocated and needs to be freed manually
+ */
+static char* to_valid_filename(char* name, char* ext)
+{
+	size_t i, j, k;
+	bool found;
+	char* ret;
+	wchar_t unauthorized[] = L"\x0001\x0002\x0003\x0004\x0005\x0006\x0007\x0008\x000a"
+		L"\x000b\x000c\x000d\x000e\x000f\x0010\x0011\x0012\x0013\x0014\x0015\x0016\x0017"
+		L"\x0018\x0019\x001a\x001b\x001c\x001d\x001e\x001f\x007f\"<>|:*";
+	wchar_t to_underscore[] = L" \t";
+	wchar_t *wname, *wext, *wret;
+
+	if ((name == NULL) || (ext == NULL)) {
+		return NULL;
+	}
+
+	// Convert to UTF-16
+	wname = utf8_to_wchar(name);
+	wext = utf8_to_wchar(ext);
+	if ((wname == NULL) || (wext == NULL)) {
+		safe_free(wname); safe_free(wext); return NULL;
+	}
+
+	// The returned UTF-8 string will never be larger than the sum of its parts
+	wret = calloc(2*(wcslen(wname) + wcslen(wext) + 2), 1);
+	if (wret == NULL) {
+		safe_free(wname); safe_free(wext); return NULL;
+	}
+	wcscpy(wret, wname);
+	safe_free(wname);
+	wcscat(wret, wext);
+	safe_free(wext);
+
+	for (i=0, k=0; i<wcslen(wret); i++) {
+		found = false;
+		for (j=0; j<wcslen(unauthorized); j++) {
+			if (wret[i] == unauthorized[j]) {
+				found = true; break;
+			}
+		}
+		if (found) continue;
+		found = false;
+		for (j=0; j<wcslen(to_underscore); j++) {
+			if (wret[i] == to_underscore[j]) {
+				wret[k++] = '_';
+				found = true; break;
+			}
+		}
+		if (found) continue;
+		wret[k++] = wret[i];
+	}
+	wret[k] = 0;
+	ret = wchar_to_utf8(wret);
+	safe_free(wret);
+	return ret;
 }
 
 static int save_file(HWND dialog, device_context_t *device)
 {
 	OPENFILENAME open_file;
-	char* c;
+	char* valid_name;
 	int length;
+	char ofd_filter[MAX_PATH];
 
 	memset(&open_file, 0, sizeof(open_file));
 	memset(device->inf_path, 0, sizeof(device->inf_path));
@@ -976,43 +1049,28 @@ static int save_file(HWND dialog, device_context_t *device)
 
 	if (strlen(device->description))
 	{
-		if (stricmp(device->description,"Insert device description")!=0)
+		if (_stricmp(device->description,"Insert device description")!=0)
 		{
-			strcpy(device->inf_path, device->description);
-			c=device->inf_path;
-			while(c[0])
+			valid_name = to_valid_filename(device->description, ".inf");
+			if (valid_name != NULL)
 			{
-				if (c[0]>='A' && c[0]<='Z') { c++; continue;}
-				if (c[0]>='a' && c[0]<='z') { c++; continue;}
-				if (c[0]>='0' && c[0]<='9') { c++; continue;}
-
-				switch(c[0])
-				{
-				case '_':
-				case ' ':
-				case '.':
-					c[0]='_';
-					break;
-				default: // remove
-					if (!c[1])
-						c[0]='\0';
-					else
-						memmove(c,c+1,strlen(c+1)+1);
-					break;
-				}
-
-				c++;
+				strncpy(device->inf_path, valid_name, MAX_PATH);
+				free(valid_name);
 			}
 		}
 	}
 	if (!strlen(device->inf_path))
 		strcpy(device->inf_path, "your_file.inf");
 
+	memcpy(ofd_filter, 
+		"inf files (*.inf)\0*.inf\0\0", 
+		sizeof("inf files (*.inf)\0*.inf\0\0"));
+
 	open_file.lStructSize = sizeof(OPENFILENAME);
 	open_file.hwndOwner = dialog;
 	open_file.lpstrFile = device->inf_path;
 	open_file.nMaxFile = sizeof(device->inf_path);
-	open_file.lpstrFilter = "*.inf\0*.inf\0";
+	open_file.lpstrFilter = ofd_filter;
 	open_file.nFilterIndex = 1;
 	open_file.lpstrFileTitle = device->inf_name;
 	open_file.nMaxFileTitle = sizeof(device->inf_name);
@@ -1020,12 +1078,12 @@ static int save_file(HWND dialog, device_context_t *device)
 	open_file.Flags = OFN_PATHMUSTEXIST;
 	open_file.lpstrDefExt = "inf";
 
-	if (GetSaveFileName(&open_file))
+	if (GetSaveFileNameU(&open_file))
 	{
 		safe_strcpy(device->inf_dir, MAX_PATH, device->inf_path);
 
 		// strip the filename
-		length = strlen(device->inf_dir);
+		length = (int)strlen(device->inf_dir);
 		while (length)
 		{
 			length--;
@@ -1071,7 +1129,7 @@ int infwizard_install_driver(HWND dialog, device_context_t *device)
 
 	memset(&options,0,sizeof(options));
 	options.hWnd = dialog;
-	if ((ret = wdi_install_driver(device->wdi, device->inf_dir, device->inf_name, &options) != WDI_SUCCESS))
+	if ((ret = wdi_install_driver(device->wdi, device->inf_dir, device->inf_name, &options)) != WDI_SUCCESS)
 	{
 		MessageBoxA(dialog, wdi_strerror(ret),"Error Installing Driver", MB_OK|MB_ICONWARNING);
 	}
@@ -1118,13 +1176,13 @@ HWND CreateTrackingToolTip(HWND hDlg, TCHAR* pText)
 	// Create a tooltip.
 	HWND hwndTT = CreateWindowEx(WS_EX_TOPMOST,
 		TOOLTIPS_CLASS, NULL,
-		WS_POPUP | TTS_NOPREFIX | TTS_ALWAYSTIP,		
+		WS_POPUP | TTS_NOPREFIX | TTS_ALWAYSTIP,
 		CW_USEDEFAULT, CW_USEDEFAULT,
 		CW_USEDEFAULT, CW_USEDEFAULT,
 		hDlg, NULL, g_hInst,NULL);
 
 	if (!hwndTT)
-	{   
+	{
 		return NULL;
 	}
 
@@ -1139,7 +1197,7 @@ HWND CreateTrackingToolTip(HWND hDlg, TCHAR* pText)
 	GetClientRect (hDlg, &g_toolItem.rect);
 
 	// Associate the tooltip with the tool window.
-	SendMessage(hwndTT, TTM_ADDTOOL, 0, (LPARAM) (LPTOOLINFO) &g_toolItem);	
+	SendMessage(hwndTT, TTM_ADDTOOL, 0, (LPARAM) (LPTOOLINFO) &g_toolItem);
 	SendMessage(hwndTT, TTM_SETMAXTIPWIDTH, 0, 300);
 
 	return hwndTT;

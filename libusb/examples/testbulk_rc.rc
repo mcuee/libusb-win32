@@ -22,4 +22,4 @@
 #define RC_PRODUCT_STR    "libusb-win32 - Test Program"
 #define RC_FILE_NAME_STR  "testbulk.exe"
 
-#include "common.rc"
+#include "libusb-win32_version.rc"

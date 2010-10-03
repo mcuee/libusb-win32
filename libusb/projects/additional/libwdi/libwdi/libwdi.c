@@ -194,25 +194,25 @@ static char err_string[STR_BUFFER_SIZE];
 
 	DWORD size;
 	size_t i;
-	uint32_t errcode, format_errcode;
+	uint32_t error_code, format_error;
 
-	errcode = retval?retval:GetLastError();
+	error_code = retval?retval:GetLastError();
 
-	safe_sprintf(err_string, STR_BUFFER_SIZE, "[%d] ", errcode);
+	safe_sprintf(err_string, STR_BUFFER_SIZE, "[%d] ", error_code);
 
-	size = FormatMessageA(FORMAT_MESSAGE_FROM_SYSTEM, NULL, errcode,
-		MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), (LPTSTR) &err_string[strlen(err_string)],
-		STR_BUFFER_SIZE - (DWORD)strlen(err_string), NULL);
+	size = FormatMessageA(FORMAT_MESSAGE_FROM_SYSTEM, NULL, error_code,
+		MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), (LPTSTR) &err_string[safe_strlen(err_string)],
+		STR_BUFFER_SIZE - (DWORD)safe_strlen(err_string), NULL);
 	if (size == 0) {
-		format_errcode = GetLastError();
-		if (format_errcode)
+		format_error = GetLastError();
+		if (format_error)
 			safe_sprintf(err_string, STR_BUFFER_SIZE,
-				"Windows error code %u (FormatMessage error code %u)", errcode, format_errcode);
+				"Windows error code %u (FormatMessage error code %u)", error_code, format_error);
 		else
-			safe_sprintf(err_string, STR_BUFFER_SIZE, "Unknown error code %u", errcode);
+			safe_sprintf(err_string, STR_BUFFER_SIZE, "Unknown error code %u", error_code);
 	} else {
 		// Remove CR/LF terminators
-		for (i=strlen(err_string)-1; ((err_string[i]==0x0A) || (err_string[i]==0x0D)); i--) {
+		for (i=safe_strlen(err_string)-1; ((err_string[i]==0x0A) || (err_string[i]==0x0D)); i--) {
 			err_string[i] = 0;
 		}
 	}
@@ -362,7 +362,7 @@ static FILE *fcreate(const char *filename, const char *mode)
 	}
 
 	// Simple mode handling.
-	for (i=0; i<strlen(mode); i++) {
+	for (i=0; i<safe_strlen(mode); i++) {
 		if (mode[i] == 'r') {
 			access_mode |= GENERIC_READ;
 		} else if (mode[i] == 'w') {
@@ -403,16 +403,16 @@ static FILE *fcreate(const char *filename, const char *mode)
 /*
  * Find out if the driver selected is actually embedded in this version of the library
  */
-bool LIBWDI_API wdi_is_driver_supported(int driver_type, VS_FIXEDFILEINFO** driver_info)
+bool LIBWDI_API wdi_is_driver_supported(int driver_type, VS_FIXEDFILEINFO* driver_info)
 {
 	if (driver_info != NULL) {
-		*driver_info = NULL;
+		memset(driver_info, 0, sizeof(VS_FIXEDFILEINFO));
 	}
 	switch (driver_type) {
 	case WDI_WINUSB:
 #if defined(DDK_DIR)
 		if (driver_info != NULL) {
-			*driver_info = (VS_FIXEDFILEINFO*)&driver_version[0];
+			memcpy(driver_info, &driver_version[0], sizeof(VS_FIXEDFILEINFO));
 		}
 		// WinUSB is not supported on Win2k/2k3
 		GET_WINDOWS_VERSION;
@@ -427,7 +427,7 @@ bool LIBWDI_API wdi_is_driver_supported(int driver_type, VS_FIXEDFILEINFO** driv
 	case WDI_LIBUSB:
 #if defined(LIBUSB0_DIR)
 		if (driver_info != NULL) {
-			*driver_info = (VS_FIXEDFILEINFO*)&driver_version[1];
+			memcpy(driver_info, &driver_version[1], sizeof(VS_FIXEDFILEINFO));
 		}
 		return true;
 #else
@@ -452,46 +452,47 @@ bool LIBWDI_API wdi_is_driver_supported(int driver_type, VS_FIXEDFILEINFO** driv
  * points to a constant string.
  * The returned string is encoded in ASCII form and always starts with a
  * capital letter and ends without any dot.
- * \param errcode the error code whose description is desired
+ * \param error_code the error code whose description is desired
  * \returns a short description of the error code in English
  */
-const char* LIBWDI_API wdi_strerror(int errcode)
+const char* LIBWDI_API wdi_strerror(int error_code)
 {
-	switch (errcode)
+	static char unknown[] = "Unknown error (-9223372036854775808)";	// min 64 bit int in decimal
+	switch (error_code)
 	{
 	case WDI_SUCCESS:
 		return "Success";
 	case WDI_ERROR_IO:
-		return "Input/output error";
+		return "Input/Output error";
 	case WDI_ERROR_INVALID_PARAM:
 		return "Invalid parameter";
 	case WDI_ERROR_ACCESS:
-		return "Access denied (insufficient permissions)";
+		return "Access denied";
 	case WDI_ERROR_NO_DEVICE:
-		return "No such device (it may have been disconnected)";
+		return "No such device";
 	case WDI_ERROR_NOT_FOUND:
 		return "Requested resource not found";
 	case WDI_ERROR_BUSY:
-		return "Requested resource busy or same function call already in process";
+		return "Requested resource busy or similar call already in progress";
 	case WDI_ERROR_TIMEOUT:
 		return "Operation timed out";
 	case WDI_ERROR_OVERFLOW:
 		return "Overflow";
 	case WDI_ERROR_INTERRUPTED:
-		return "System call interrupted (perhaps due to signal)";
+		return "System call interrupted";
 	case WDI_ERROR_RESOURCE:
-		return "Could not acquire resource (insufficient memory, etc.)";
+		return "Could not allocate resource";
 	case WDI_ERROR_NOT_SUPPORTED:
-		return "Operation not supported or unimplemented on this platform";
+		return "Operation not supported or not implemented";
 	case WDI_ERROR_EXISTS:
 		return "Resource already exists";
 	case WDI_ERROR_USER_CANCEL:
 		return "Cancelled by user";
 	// The errors below are generated during driver installation
 	case WDI_ERROR_PENDING_INSTALLATION:
-		return "Another installer is already running";
+		return "Another installation is detected pending";
 	case WDI_ERROR_NEEDS_ADMIN:
-		return "Unable to run installer process with administrative privileges";
+		return "Unable to run process with required administrative privileges";
 	case WDI_ERROR_WOW64:
 		return "Attempted to use a 32 bit installer on a 64 bit machine";
 	case WDI_ERROR_INF_SYNTAX:
@@ -503,7 +504,8 @@ const char* LIBWDI_API wdi_strerror(int errcode)
 	case WDI_ERROR_OTHER:
 		return "Other error";
 	}
-	return "Unknown error";
+	static_sprintf(unknown, "Unknown Error: %d", error_code);
+	return (const char*)unknown;
 }
 
 // convert a GUID to an hex GUID string
@@ -657,7 +659,7 @@ int LIBWDI_API wdi_create_list(struct wdi_device_info** list,
 			if (!SetupDiGetDeviceRegistryPropertyW(dev_info, &dev_info_data, SPDRP_DEVICEDESC,
 				&reg_type, (BYTE*)desc, 2*MAX_DESC_LENGTH, &size)) {
 				wdi_warn("could not read device description for %d: %s",
-					i, "yorgl"); // windows_error_str(0));
+					i, windows_error_str(0));
 				safe_swprintf(desc, MAX_DESC_LENGTH, L"Unknown Device #%d", unknown_count++);
 			}
 		} else {
@@ -684,7 +686,7 @@ int LIBWDI_API wdi_create_list(struct wdi_device_info** list,
 		has_vid = false;
 		while(token != NULL) {
 			for (j = 0; j < 3; j++) {
-				if (safe_strncmp(token, prefix[j], strlen(prefix[j])) == 0) {
+				if (safe_strncmp(token, prefix[j], safe_strlen(prefix[j])) == 0) {
 					switch(j) {
 					case 0:
 						if (sscanf(token, "VID_%04X", &tmp) != 1) {
@@ -738,7 +740,7 @@ int LIBWDI_API wdi_create_list(struct wdi_device_info** list,
 
 		// Remove trailing whitespaces
 		if ((options != NULL) && (options->trim_whitespaces)) {
-			end = device_info->desc + strlen(device_info->desc);
+			end = device_info->desc + safe_strlen(device_info->desc);
 			while ((end != device_info->desc) && isspace(*(end-1))) {
 				--end;
 			}
@@ -803,7 +805,7 @@ static int extract_binaries(char* path)
 
 		fd = fcreate(filename, "w");
 		if (fd == NULL) {
-			wdi_err("failed to create file: %s", filename);
+			wdi_err("failed to create file '%s' (%s)", filename, windows_error_str(0));
 			return WDI_ERROR_RESOURCE;
 		}
 
@@ -838,6 +840,7 @@ static long tokenize_internal(char* resource_name, char** dst, const token_entit
 int LIBWDI_API wdi_prepare_driver(struct wdi_device_info* device_info, char* path,
 								  char* inf_name, struct wdi_options_prepare_driver* options)
 {
+	const wchar_t bom = 0xFEFF;
 	char filename[MAX_PATH_LENGTH];
 	FILE* fd;
 	GUID guid;
@@ -863,7 +866,7 @@ int LIBWDI_API wdi_prepare_driver(struct wdi_device_info* device_info, char* pat
 	}
 
 	// Check the inf file provided and create the cat file name
-	if (strcmp(inf_name+strlen(inf_name)-4, inf_ext) != 0) {
+	if (strcmp(inf_name+safe_strlen(inf_name)-4, inf_ext) != 0) {
 		wdi_err("inf name provided must have a '.inf' extension");
 		MUTEX_RETURN WDI_ERROR_INVALID_PARAM;
 	}
@@ -931,9 +934,9 @@ int LIBWDI_API wdi_prepare_driver(struct wdi_device_info* device_info, char* pat
 	if (cat_name == NULL) {
 		MUTEX_RETURN WDI_ERROR_RESOURCE;
 	}
-	cat_name[strlen(inf_name)-3] = 'c';
-	cat_name[strlen(inf_name)-2] = 'a';
-	cat_name[strlen(inf_name)-1] = 't';
+	cat_name[safe_strlen(inf_name)-3] = 'c';
+	cat_name[safe_strlen(inf_name)-2] = 'a';
+	cat_name[safe_strlen(inf_name)-1] = 't';
 	static_strcpy(inf_entities[CAT_FILENAME].replace, cat_name);
 	safe_free(cat_name);
 
@@ -992,6 +995,7 @@ int LIBWDI_API wdi_prepare_driver(struct wdi_device_info* device_info, char* pat
 		// Converting to UTF-16 is the only way to get devices using a
 		// non-english locale to display properly in device manager. UTF-8 will not do.
 		wdst = utf8_to_wchar(dst);
+		fwrite(&bom, 2, 1, fd);	// Write the BOM
 		fwrite(wdst, 2, wcslen(wdst), fd);
 		fclose(fd);
 		safe_free(wdst);
@@ -1002,9 +1006,9 @@ int LIBWDI_API wdi_prepare_driver(struct wdi_device_info* device_info, char* pat
 	}
 
 	// Create a blank cat file
-	filename[strlen(filename)-3] = 'c';
-	filename[strlen(filename)-2] = 'a';
-	filename[strlen(filename)-1] = 't';
+	filename[safe_strlen(filename)-3] = 'c';
+	filename[safe_strlen(filename)-2] = 'a';
+	filename[safe_strlen(filename)-1] = 't';
 	fd = fcreate(filename, "w");
 	if (fd == NULL) {
 		wdi_err("failed to create file: %s", filename);
@@ -1015,9 +1019,9 @@ int LIBWDI_API wdi_prepare_driver(struct wdi_device_info* device_info, char* pat
 	fclose(fd);
 
 	// Restore extension for debug output
-	filename[strlen(filename)-3] = 'i';
-	filename[strlen(filename)-2] = 'n';
-	filename[strlen(filename)-1] = 'f';
+	filename[safe_strlen(filename)-3] = 'i';
+	filename[safe_strlen(filename)-2] = 'n';
+	filename[safe_strlen(filename)-1] = 'f';
 	wdi_info("succesfully created %s", filename);
 	MUTEX_RETURN WDI_SUCCESS;
 }
@@ -1043,7 +1047,7 @@ static int process_message(char* buffer, DWORD size)
 	case IC_GET_DEVICE_ID:
 		wdi_dbg("got request for device_id");
 		if (current_device->device_id != NULL) {
-			WriteFile(pipe_handle, current_device->device_id, (DWORD)strlen(current_device->device_id), &tmp, NULL);
+			WriteFile(pipe_handle, current_device->device_id, (DWORD)safe_strlen(current_device->device_id), &tmp, NULL);
 		} else {
 			wdi_warn("no device_id - sending empty string");
 			WriteFile(pipe_handle, "\0", 1, &tmp, NULL);
@@ -1052,7 +1056,7 @@ static int process_message(char* buffer, DWORD size)
 	case IC_GET_HARDWARE_ID:
 		wdi_dbg("got request for hardware_id");
 		if (current_device->hardware_id != NULL) {
-			WriteFile(pipe_handle, current_device->hardware_id, (DWORD)strlen(current_device->hardware_id), &tmp, NULL);
+			WriteFile(pipe_handle, current_device->hardware_id, (DWORD)safe_strlen(current_device->hardware_id), &tmp, NULL);
 		} else {
 			wdi_warn("no hardware_id - sending empty string");
 			WriteFile(pipe_handle, "\0", 1, &tmp, NULL);
@@ -1093,7 +1097,7 @@ static int process_message(char* buffer, DWORD size)
 		break;
 	case IC_GET_USER_SID:
 		if (ConvertSidToStringSidA(get_sid(), &sid_str)) {
-			WriteFile(pipe_handle, sid_str, (DWORD)strlen(sid_str), &tmp, NULL);
+			WriteFile(pipe_handle, sid_str, (DWORD)safe_strlen(sid_str), &tmp, NULL);
 			LocalFree(sid_str);
 		} else {
 			wdi_warn("no user_sid - sending empty string");
@@ -1122,7 +1126,7 @@ static int install_driver_internal(void* arglist)
 	HANDLE handle[2] = {INVALID_HANDLE_VALUE, INVALID_HANDLE_VALUE};
 	OVERLAPPED overlapped;
 	int r;
-	DWORD err, rd_count, to_read, offset, bufsize = STR_BUFFER_SIZE;
+	DWORD err, rd_count, to_read, offset, bufsize = LOGBUF_SIZE;
 	BOOL is_x64 = false;
 	char *buffer = NULL, *new_buffer;
 
@@ -1218,6 +1222,7 @@ static int install_driver_internal(void* arglist)
 		shExecInfo.lpFile = exename;
 		shExecInfo.lpParameters = inf_name;
 		shExecInfo.lpDirectory = path;
+		shExecInfo.lpClass = NULL;
 		shExecInfo.nShow = SW_HIDE;
 		shExecInfo.hInstApp = NULL;
 
@@ -1256,7 +1261,7 @@ static int install_driver_internal(void* arglist)
 	buffer = malloc(bufsize);
 	if (buffer == NULL) {
 		wdi_err("unable to alloc buffer: aborting");
-		r =WDI_ERROR_RESOURCE; goto out;
+		r = WDI_ERROR_RESOURCE; goto out;
 	}
 
 	while (r == WDI_SUCCESS) {

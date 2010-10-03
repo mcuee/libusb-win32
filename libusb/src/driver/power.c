@@ -84,7 +84,7 @@ NTSTATUS dispatch_power(libusb_device_t *dev, IRP *irp)
         PoStartNextPowerIrp(irp);
 
         IoCopyCurrentIrpStackLocationToNext(irp);
-        if (!dev->is_filter)
+        if (!dev->is_filter && !dev->disallow_power_control)
         {
             IoSetCompletionRoutine(irp,
                                    on_power_state_complete,
@@ -142,10 +142,6 @@ on_power_state_complete(DEVICE_OBJECT *device_object,
 
             /* save current system state */
             dev->power_state.SystemState = power_state.SystemState;
-
-            /* set device power status correctly */
-            /* dev_power_state = power_state.SystemState == PowerSystemWorking ? */
-            /* PowerDeviceD0 : PowerDeviceD3; */
 
             /* get supported device power state from the array reported by */
             /* IRP_MN_QUERY_CAPABILITIES */

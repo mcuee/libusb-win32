@@ -23,7 +23,9 @@ IF /I "%~1" EQU "help" GOTO ShowHelp
 :BEGIN
 CALL :ClearError
 
-ECHO Libusb-Win32 ddk directory = !DIR_LIBUSB_DDK!
+CALL :ToAbsoluteDirs CMDVAR_LIBUSB_DIR "!DIR_LIBUSB_DDK!..\"
+
+ECHO Libusb-Win32 directory = !CMDVAR_LIBUSB_DIR!
 
 SET MAKE_CFG=!DIR_LIBUSB_DDK!make.cfg
 IF NOT EXIST "!MAKE_CFG!" (
@@ -186,7 +188,10 @@ SET _LIBUSB_APP=!CMDVAR_APP!
 IF EXIST "build!BUILD_ALT_DIR!.err" DEL /Q "build!BUILD_ALT_DIR!.err"
 CALL :Build
 IF !BUILD_ERRORLEVEL! NEQ 0 GOTO CMDERROR
-IF EXIST "build!BUILD_ALT_DIR!.err" GOTO CMDERROR
+IF EXIST "build!BUILD_ALT_DIR!.err" (
+	SET BUILD_ERRORLEVEL=1
+	GOTO CMDERROR
+)
 
 :: 
 :: Copy binaries to the output directory
@@ -227,13 +232,11 @@ GOTO CMDEXIT
 	)
 	
 	CALL make_!_LIBUSB_APP!.bat !_ADD_C_DEFINES!
-	IF !ERRORLEVEL! NEQ 0 SET BUILD_ERRORLEVEL=!ERRORLEVEL!
+	IF !ERRORLEVEL! NEQ 0 SET BUILD_ERRORLEVEL=1
 	IF !BUILD_ERRORLEVEL! NEQ 0 (
-		SET BUILD_ERRORLEVEL=!ERRORLEVEL!
-		IF !BUILD_ERRORLEVEL! EQU 0 SET BUILD_ERRORLEVEL=1
-		GOTO :EOF
+		GOTO CMDERROR
 	)
-		
+
 	IF /I "!CMDVAR_DIR_INTERMEDIATE!" NEQ "" (
 		CALL :SafeCopyDir "!DIR_LIBUSB_DDK!obj!BUILD_ALT_DIR!\*" "!CMDVAR_DIR_INTERMEDIATE!"
 	)
@@ -303,7 +306,7 @@ GOTO :EOF
 	)
 	ECHO.
 		
-	SET _OUTDIR_=!PACKAGE_BIN_DIR!x86\
+	SET _OUTDIR_=!PACKAGE_BIN_DIR!
 	CALL :CmdExe make.cmd !_ARG_LINE! "arch=x86" "app=inf_wizard" "outdir=!_OUTDIR_!"
 	IF !BUILD_ERRORLEVEL! NEQ 0 GOTO CMDERROR
 	
@@ -466,7 +469,6 @@ GOTO :EOF
 		RMDIR /S /Q "%~1"
 		GOTO :EOF
 	)
-	ECHO [SafeCleanDir] nothing to do.
 GOTO :EOF
 
 :SafeCopyDir
@@ -494,7 +496,6 @@ GOTO :EOF
 		MKDIR "%~1"
 		GOTO :EOF
 	)
-	ECHO [SafeCreateDir] nothing to do.
 GOTO :EOF
 
 :SafeDeleteDir
@@ -503,7 +504,6 @@ GOTO :EOF
 		RMDIR /S /Q "%~1"
 		GOTO :EOF
 	)
-	ECHO [SafeDeleteDir] nothing to do.
 GOTO :EOF
 
 
@@ -513,7 +513,6 @@ GOTO :EOF
 		DEL /Q "%~1"
 		GOTO :EOF
 	)
-	ECHO [SafeDelete] nothing to do.
 GOTO :EOF
 
 :SafeCopy
@@ -527,7 +526,6 @@ GOTO :EOF
 		COPY /Y "%~1" "%~2" 2>NUL>NUL
 		GOTO :EOF
 	)
-	ECHO [SafeCopy] nothing to do.
 GOTO :EOF
 
 :SafeMove
@@ -537,7 +535,6 @@ GOTO :EOF
 		MOVE /Y "%~1" "%~2"
 		GOTO :EOF
 	)
-	ECHO [SafeMove] nothing to do.
 GOTO :EOF
 
 :DeleteAllDirectories
@@ -615,8 +612,11 @@ GOTO :EOF
 	:BinariesNotBuilt
 	ECHO Binaries not found.  Building binaries first..
 	CALL :CmdExe make.cmd bin
-	IF !BUILD_ERRORLEVEL! NEQ 0 GOTO CMDERROR
-	
+	IF NOT !BUILD_ERRORLEVEL!==0 (
+		ECHO [CheckOrBuildBinaries] Failed.
+		pause
+	)
+
 GOTO :EOF
 
 :CheckPackaging
@@ -713,8 +713,8 @@ GOTO :EOF
 
 :: params = no_overwrite
 :TokenizeLibusbVersionH
-	CALL :ToAbsolutePaths _H_IN  "!DIR_LIBUSB_DDK!..\src\libusb_version_h.in"
-	CALL :ToAbsolutePaths _H_OUT "!DIR_LIBUSB_DDK!..\src\libusb_version.h"
+	CALL :ToAbsolutePaths _H_IN  "!DIR_LIBUSB_DDK!..\src\libusb-win32_version_h.in"
+	CALL :ToAbsolutePaths _H_OUT "!DIR_LIBUSB_DDK!..\src\libusb-win32_version.h"
 	IF /I "%~1" EQU "true" IF EXIST "!_H_OUT!" GOTO :EOF
 	CALL :SafeDelete "!_H_OUT!"
 	CALL :TagEnv "!_H_IN!" "!_H_OUT!"
@@ -915,8 +915,12 @@ GOTO :EOF
 :CmdExe
 	CALL :CreateErrorMarker
 	CMD /C %*
+	IF NOT !ERRORLEVEL!==0 SET BUILD_ERRORLEVEL=1
 	CALL :DestroyErrorMarker
-	IF DEFINED _EMARKER GOTO CMDERROR
+	IF DEFINED _EMARKER! (
+		SET BUILD_ERRORLEVEL=1
+		ECHO [CmdExe] Last build did not complete.
+	)
 GOTO :EOF
 
 
@@ -946,7 +950,7 @@ ECHO.
 ECHO BUILD USAGE: CMD /C make.cmd "Option=Value"
 ECHO Options: 
 ECHO [req] ARCH      w2k/x86/x64/i64
-ECHO APP		  all/dll/driver/install_filter/inf_wizard/test/testwin
+ECHO APP		  all/dll/driver/install_filter/install_filter_win/inf_wizard/test/testwin
 ECHO              [Default = all]
 ECHO OUTDIR		  Directory that will contain the compiled binaries
 ECHO              [Default = .\ARCH]
@@ -990,7 +994,7 @@ ECHO Additional Commands:
 ECHO CLEAN        Cleans all temporary files.
 ECHO CLEANPACKAGE Cleans root package directory.
 ECHO SIGNFILE     Signs a dll or sys file with a test certificate.
-ECHO MAKEVER      Re/creates libusb_version.h from the template.
+ECHO MAKEVER      Re/creates libusb-win32_version.h from the template.
 ECHO.
 ECHO [Note: See make.cfg for options that can be used when packaging]
 ECHO.

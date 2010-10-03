@@ -42,6 +42,7 @@ PrivilegesRequired=admin
 ; native 64-bit Program Files directory and the 64-bit view of the
 ; registry. On all other architectures it will install in "32-bit mode".
 ArchitecturesInstallIn64BitMode=x64 ia64
+AllowNoIcons=yes
 
 [Code]
 function IsX64: Boolean;
@@ -64,14 +65,17 @@ begin
   Result := IsX64 or IsI64;
 end;
 
-[Tasks]
-Name: tasklibusb; Flags:unchecked; Description: Enable libusb-win32 filter service? This allows access to USB devices without an INF file.  This can be loaded/unloaded at anytime from the libusb-win32 start menu; GroupDescription: libusb-win32;
+function IsNormalInstall: Boolean;
+begin
+  Result := not IsTaskSelected('installmode_upgade');
+end;
 
 [Files]
 ; LibUsb-win32 x86 (Windows 2000/XP and greater)
 Source: @PACKAGE_BIN_DIR@x86\libusb0_x86.dll; DestName: libusb0.dll; DestDir: {sys}; Flags: uninsneveruninstall replacesameversion restartreplace promptifolder; Check: IsX86;
 Source: @PACKAGE_BIN_DIR@x86\libusb0.sys; DestDir: {sys}\drivers; Flags: uninsneveruninstall replacesameversion restartreplace promptifolder; Check: IsX86;
 Source: @PACKAGE_BIN_DIR@x86\install-filter.exe; DestDir: {app}\bin; Flags: ignoreversion; Check: IsX86;
+Source: @PACKAGE_BIN_DIR@x86\install-filter-win.exe; DestDir: {app}\bin; Flags: ignoreversion; Check: IsX86;
 Source: @PACKAGE_BIN_DIR@x86\testlibusb-win.exe; DestDir: {app}\bin; Flags: ignoreversion; Check: IsX86;
 Source: @PACKAGE_BIN_DIR@x86\testlibusb.exe; DestDir: {app}\bin; Flags: ignoreversion; Check: IsX86;
 
@@ -80,6 +84,7 @@ Source: @PACKAGE_BIN_DIR@x86\libusb0_x86.dll; DestName: libusb0.dll; DestDir: {s
 Source: @PACKAGE_BIN_DIR@amd64\libusb0.sys; DestDir: {sys}\drivers; Flags: uninsneveruninstall replacesameversion restartreplace promptifolder; Check: IsX64;
 Source: @PACKAGE_BIN_DIR@amd64\libusb0.dll; DestDir: {sys}; Flags: uninsneveruninstall replacesameversion restartreplace promptifolder; Check: IsX64;
 Source: @PACKAGE_BIN_DIR@amd64\install-filter.exe; DestDir: {app}\bin; Flags: ignoreversion; Check: IsX64;
+Source: @PACKAGE_BIN_DIR@amd64\install-filter-win.exe; DestDir: {app}\bin; Flags: ignoreversion; Check: IsX64;
 Source: @PACKAGE_BIN_DIR@amd64\testlibusb-win.exe; DestDir: {app}\bin; Flags: ignoreversion; Check: IsX64;
 Source: @PACKAGE_BIN_DIR@amd64\testlibusb.exe; DestDir: {app}\bin; Flags: ignoreversion; Check: IsX64;
 
@@ -88,11 +93,14 @@ Source: @PACKAGE_BIN_DIR@x86\libusb0_x86.dll; DestName: libusb0.dll; DestDir: {s
 Source: @PACKAGE_BIN_DIR@ia64\libusb0.sys; DestDir: {sys}\drivers; Flags: uninsneveruninstall replacesameversion restartreplace promptifolder; Check: IsI64;
 Source: @PACKAGE_BIN_DIR@ia64\libusb0.dll; DestDir: {sys}; Flags: uninsneveruninstall replacesameversion restartreplace promptifolder; Check: IsI64;
 Source: @PACKAGE_BIN_DIR@ia64\install-filter.exe; DestDir: {app}\bin; Flags: ignoreversion; Check: IsI64;
+Source: @PACKAGE_BIN_DIR@ia64\install-filter-win.exe; DestDir: {app}\bin; Flags: ignoreversion; Check: IsI64;
 Source: @PACKAGE_BIN_DIR@ia64\testlibusb-win.exe; DestDir: {app}\bin; Flags: ignoreversion; Check: IsI64;
 Source: @PACKAGE_BIN_DIR@ia64\testlibusb.exe; DestDir: {app}\bin; Flags: ignoreversion; Check: IsI64;
 
 ;inf-wizard (x86 only)
-Source: @PACKAGE_BIN_DIR@x86\inf-wizard.exe; DestDir: {app}\bin; Flags: ignoreversion;
+Source: @PACKAGE_BIN_DIR@inf-wizard.exe; DestDir: {app}\bin; Flags: ignoreversion;
+
+Source: @LIBUSB_DIR@src\install-filter-help.txt; DestDir: {app}; Flags: ignoreversion;
 
 ; test applications(x86 runtimes for 64bit machines)
 Source: @PACKAGE_BIN_DIR@x86\testlibusb-win.exe; DestDir: {app}\bin\x86; Flags: ignoreversion; Check: Is64;
@@ -108,22 +116,27 @@ Source: *.cer; DestDir: {app}; Flags: ignoreversion skipifsourcedoesntexist; Che
 Source: @PACKAGE_ROOT_DIR@additional\dbgview.*; DestDir: {app}\additional; Flags: ignoreversion skipifsourcedoesntexist;
 
 [Icons]
-Name: "{group}\Libusb-Win32 Test Certificate"; Filename: {app}\LibusbWin32TestCert.cer; Flags: createonlyiffileexists
-Name: "{group}\Enable filter (admin only)"; Filename: {app}\bin\install-filter.exe; Parameters: -i; Flags: createonlyiffileexists
-Name: "{group}\Disable filter (admin only)"; Filename: {app}\bin\install-filter.exe; Parameters: -u; Flags: createonlyiffileexists
-Name: "{group}\Test (Win) Program"; Filename: "{app}\bin\testlibusb-win.exe"; 
-Name: "{group}\INF Wizard"; Filename: "{app}\bin\inf-wizard.exe"; 
-Name: "{group}\DebugView\DebugView"; Filename: {app}\additional\Dbgview.exe; Flags: createonlyiffileexists
-Name: "{group}\DebugView\DebugView Help"; Filename: {app}\additional\dbgview.chm; Flags: createonlyiffileexists
-Name: "{group}\License\GPL License"; Filename: "{app}\COPYING_GPL.txt"
-Name: "{group}\License\LGPL License"; Filename: "{app}\COPYING_LGPL.txt"
-Name: "{group}\Uninstall LibUsb-Win32"; Filename: "{uninstallexe}"
+; these icons are only used in debug builds
+Name: "{group}\Libusb-Win32 Test Certificate"; Filename: {app}\LibusbWin32TestCert.cer; Flags: createonlyiffileexists; 
+Name: "{group}\DebugView\DebugView"; Filename: {app}\additional\Dbgview.exe; Flags: createonlyiffileexists; 
+Name: "{group}\DebugView\DebugView Help"; Filename: {app}\additional\dbgview.chm; Flags: createonlyiffileexists; 
+
+; libusb-win32 icons
+Name: "{group}\Test (Win) Program"; Filename: {app}\bin\testlibusb-win.exe; 
+Name: "{group}\Inf Wizard"; Filename: {app}\bin\inf-wizard.exe;
+Name: "{group}\Filter Wizard"; Filename: {app}\bin\install-filter-win.exe; 
+Name: "{group}\Filter Console Help"; Filename: {app}\install-filter-help.txt; 
+Name: "{group}\Class Filter\Install all class filters"; Filename: {app}\bin\install-filter-win.exe; Parameters:"i -ac -p -w"; Comment: "Installs all libusb-win32 class filters."
+Name: "{group}\Class Filter\Remove all class filters";  Filename: {app}\bin\install-filter-win.exe; Parameters:"u -ac -w"; Comment: "Removes all libusb-win32 class filters."
+Name: "{group}\License\GPL License"; Filename: {app}\COPYING_GPL.txt; 
+Name: "{group}\License\LGPL License"; Filename: {app}\COPYING_LGPL.txt; 
+Name: "{group}\Uninstall LibUsb-Win32"; Filename: {uninstallexe}; 
 
 [Run]
-Filename: "rundll32"; Parameters: "libusb0.dll,usb_install_service_np_rundll"; StatusMsg: Creating kernel service (this may take a few seconds) ...; Tasks: tasklibusb; 
+Filename: "{app}\bin\install-filter-win.exe"; Description: "Launch filter installer wizard"; Flags: postinstall nowait runascurrentuser; Check: not WizardNoIcons; 
 
 [UninstallRun]
-Filename: "rundll32"; Parameters: "libusb0.dll,usb_uninstall_service_np_rundll"; 
+Filename: "rundll32.exe"; RunOnceID:"FilterAllDeviceClasses"; Parameters: "libusb0,usb_install_np_rundll u -ac";
 
 [Messages]
-StatusUninstalling=Uninstalling %1 and removing all device filters...
+StatusUninstalling=Uninstalling %1 and removing all class filters..

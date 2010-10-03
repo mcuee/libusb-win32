@@ -99,6 +99,7 @@ enum USB_LOG_LEVEL
 	#define DEF_LOG_OUTPUT_TYPE LOG_OUTPUT_TYPE_STDERR
 #endif
 
+#define _usb_log_do_nothing() while(0)
 // Default logging output
 #ifdef LOG_OUTPUT_TYPE
 	// all log messages (except errors) are stripped
@@ -162,13 +163,17 @@ typedef enum
     USB_ERROR_TYPE_ERRNO,
 } usb_error_type_t;
 
+typedef int (*log_hander_t)(enum USB_LOG_LEVEL level, const char*,const char*,const char*, int, char*, int);
+ 
 #if (!IS_DRIVER)
 	const char *usb_win_error_to_string(void);
 	int usb_win_error_to_errno(void);
 #endif
 
 void usb_log_set_level(enum USB_LOG_LEVEL level);
-int usb_log_get_level();
+int usb_log_get_level(void);
+void usb_log_set_handler(log_hander_t log_hander);
+log_hander_t usb_log_get_handler(void);
 
 // these are the core logging functions used by the logging macros
 // (not used directly)
@@ -177,8 +182,6 @@ void usb_wrn	(const char* function, const char* format, ...);
 void usb_msg	(const char* function, const char* format, ...);
 void usb_dbg	(const char* function, const char* format, ...);
 void usb_log	(enum USB_LOG_LEVEL level, const char* function, const char* format, ...);
-
-void  _usb_log_do_nothing(void);
 
 #endif /* _ERROR_H_ */
 
