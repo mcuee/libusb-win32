@@ -1,7 +1,7 @@
 #ifndef _USBI_H_
 #define _USBI_H_
 
-#include "usb.h"
+#include "usb_private.h"
 
 #include "error.h"
 

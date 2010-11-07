@@ -20,6 +20,9 @@ extern "C"
         PUSBD_INTERFACE_INFORMATION Interface;
     } USBD_INTERFACE_LIST_ENTRY, *PUSBD_INTERFACE_LIST_ENTRY;
 
+#if !defined(DDKAPI)
+#define DDKAPI NTAPI
+#endif
 
 #define URB_STATUS(urb) ((urb)->UrbHeader.Status)
 
