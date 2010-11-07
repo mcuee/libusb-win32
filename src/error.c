@@ -24,13 +24,23 @@
 
 #if IS_DRIVER
 	#ifdef __GNUC__
-		#define OBJ_KERNEL_HANDLE       0x00000200L
-		#include <ntddk.h>
-		#include <usb100.h>
-		#include <usbdi.h>
+		#ifdef __MINGW64_VERSION_MAJOR
+			#include <ntddk.h>
+			#if !defined(DDKAPI)
+				#define DDKAPI NTAPI
+			#endif
+			#include <usb100.h>
+			#include <usbdi.h>
+		#else // __MINGW64_VERSION_MAJOR
+	#include <ddk/usb100.h>
+	#include <ddk/usbdi.h>
+	#include <ddk/winddk.h>
+		#endif
 		#include "usbdlib_gcc.h"
 	#else
-		#include <ntddk.h>
+		#include <wdm.h>
+		#include "usbdi.h"
+		#include "usbdlib.h"
 	#endif
 #else
 	#include <windows.h>
