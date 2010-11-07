@@ -25,9 +25,12 @@
 //#define SKIP_DEVICES_PICOPP
 
 #ifdef __GNUC__
-#include <ddk/usb100.h>
-#include <ddk/usbdi.h>
-#include <ddk/winddk.h>
+#include <ntddk.h>
+#if !defined(DDKAPI)
+#define DDKAPI NTAPI
+#endif
+#include <usb100.h>
+#include <usbdi.h>
 #include "usbdlib_gcc.h"
 #else
 #include <wdm.h>
@@ -45,7 +48,7 @@
 #include "driver_api.h"
 
 /* some missing defines */
-#ifdef __GNUC__
+#if defined(__GNUC__) && !defined(__MINGW64_VERSION_MAJOR)
 
 #define USBD_TRANSFER_DIRECTION_OUT       0
 #define USBD_TRANSFER_DIRECTION_BIT       0
