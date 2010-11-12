@@ -24,18 +24,18 @@
 //#define SKIP_DEVICES_WINUSB
 //#define SKIP_DEVICES_PICOPP
 
-#ifdef __GNUC__
-	#ifdef __MINGW64_VERSION_MAJOR
+#if defined(__GNUC__)
+	#if defined(__MINGW64__)
 		#include <ntddk.h>
 		#if !defined(DDKAPI)
 			#define DDKAPI NTAPI
 		#endif
 		#include <usb100.h>
 		#include <usbdi.h>
-	#else // __MINGW64_VERSION_MAJOR
-#include <ddk/usb100.h>
-#include <ddk/usbdi.h>
-#include <ddk/winddk.h>
+	#else
+		#include <ddk/usb100.h>
+		#include <ddk/usbdi.h>
+		#include <ddk/winddk.h>
 	#endif
 	#include "usbdlib_gcc.h"
 #else
