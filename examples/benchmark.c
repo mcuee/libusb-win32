@@ -22,7 +22,7 @@
 #include <stdlib.h>
 #include <conio.h>
 
-#include "usb.h"
+#include "libusb-win32-include/usb.h"
 
 #define _BENCHMARK_VER_ONLY
 #include "benchmark_rc.rc"

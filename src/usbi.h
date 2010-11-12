@@ -1,8 +1,7 @@
 #ifndef _USBI_H_
 #define _USBI_H_
 
-#include "usb_private.h"
-
+#include "libusb-win32-include/usb.h"
 #include "error.h"
 
 typedef unsigned char uint8_t;
