@@ -369,8 +369,8 @@ NTSTATUS complete_irp(IRP *irp, NTSTATUS status, ULONG info)
 }
 
 
-NTSTATUS call_usbd(libusb_device_t *dev, void *urb, ULONG control_code,
-                   int timeout)
+NTSTATUS call_usbd_ex(libusb_device_t *dev, void *urb, ULONG control_code,
+                   int timeout, int max_timeout)
 {
     KEVENT event;
     NTSTATUS status;
@@ -379,9 +379,9 @@ NTSTATUS call_usbd(libusb_device_t *dev, void *urb, ULONG control_code,
     LARGE_INTEGER _timeout;
     IO_STATUS_BLOCK io_status;
 
-    if (timeout > LIBUSB_MAX_CONTROL_TRANSFER_TIMEOUT)
+    if (max_timeout > 0 && timeout > max_timeout)
     {
-        timeout = LIBUSB_MAX_CONTROL_TRANSFER_TIMEOUT;
+        timeout = max_timeout;
     }
 
     KeInitializeEvent(&event, NotificationEvent, FALSE);
