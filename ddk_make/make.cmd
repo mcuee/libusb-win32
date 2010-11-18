@@ -386,7 +386,7 @@ GOTO :EOF
 	
 	CALL :SafeCopyDir "..\examples\*" "!_WORKING_DIR!examples\"
 	
-	CALL :SafeCopy "..\src\usb.h" "!_WORKING_DIR!include\"
+	CALL :SafeCopy "..\src\libusb-win32-include\usb.h" "!_WORKING_DIR!include\usb.h"
 
 	CALL :SafeCopy "!PACKAGE_ROOT_DIR!gcc\*" "!_WORKING_DIR!lib\gcc\"
 	CALL :SafeCopy "!PACKAGE_ROOT_DIR!bcc\*" "!_WORKING_DIR!lib\bcc\"
