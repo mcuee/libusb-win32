@@ -14,4 +14,6 @@ TARGETLIBS = $(SDK_LIB_PATH)\setupapi.lib \
              $(SDK_LIB_PATH)\user32.lib \
              libusb.lib 
 
+INCLUDES=$(INCLUDES);..\src;
+
 SOURCES = testlibusb_win.c testlibusb_win_rc.rc 

@@ -12,7 +12,7 @@ TARGETLIBS = $(SDK_LIB_PATH)\setupapi.lib \
              $(SDK_LIB_PATH)\user32.lib \
              $(SDK_LIB_PATH)\gdi32.lib
 
-INCLUDES=$(INCLUDES);$(DDK_INC_PATH);
+INCLUDES=$(INCLUDES);$(DDK_INC_PATH);..\src;
 
 SOURCES = windows.c usb.c error.c install.c descriptors.c registry.c \
           resource.rc
