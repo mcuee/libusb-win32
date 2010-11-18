@@ -34,9 +34,7 @@
 		goto IOCTL_Done;													\
 	}
 
-// used but all READ (OUT_DIRECT) transfer functions verify the transfer
-// buffer size is an interfal of the maximum packet size.
-//
+// warns if receive buffer is not an interval of the maximum packet size.
 #define TRANSFER_IOCTL_CHECK_READ_BUFFER()									\
 	/* read buffer lengthd must be equal to or an interval of the max */	\
 	/* packet size */														\
