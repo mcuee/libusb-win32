@@ -38,7 +38,14 @@
 #define TRANSFER_IOCTL_CHECK_READ_BUFFER()									\
 	/* read buffer lengthd must be equal to or an interval of the max */	\
 	/* packet size */														\
-	if (transfer_buffer_length % pipe_info->maximum_packet_size)			\
+	if (!pipe_info->maximum_packet_size)									\
+	{																		\
+		USBWRN("%s: wMaxPacketSize=0 for endpoint %02Xh.\n",				\
+		dispCtlCode, request->endpoint.endpoint);							\
+		status = STATUS_INVALID_PARAMETER;									\
+		goto IOCTL_Done;													\
+	}																		\
+	else if (transfer_buffer_length % pipe_info->maximum_packet_size)		\
 	{																		\
 		USBWRN("%s: buffer length %d is not an interval wMaxPacketSize "	\
 			   "for endpoint %02Xh.\n",										\
