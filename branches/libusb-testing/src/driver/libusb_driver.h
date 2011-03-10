@@ -39,6 +39,7 @@
 	#endif
 	#include "usbdlib_gcc.h"
 #else
+	#include <Ntifs.h>
 	#include <wdm.h>
 	#include "usbdi.h"
 	#include "usbdlib.h"
@@ -46,6 +47,7 @@
 
 #include <wchar.h>
 #include <initguid.h>
+
 
 #undef interface
 
