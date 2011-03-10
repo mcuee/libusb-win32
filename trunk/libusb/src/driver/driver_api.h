@@ -123,6 +123,14 @@ enum
 0x902, METHOD_BUFFERED, FILE_ANY_ACCESS)
 /////////////////////////////////////////////////////////////////////////////
 
+/////////////////////////////////////////////////////////////////////////////
+// supported after 1.2.2.0
+/////////////////////////////////////////////////////////////////////////////
+#define LIBUSB_IOCTL_GET_OBJECT_NAME CTL_CODE(FILE_DEVICE_UNKNOWN,\
+0x8FF, METHOD_BUFFERED, FILE_ANY_ACCESS)
+/////////////////////////////////////////////////////////////////////////////
+
+
 #include <pshpack1.h>
 
 enum LIBUSB0_TRANSFER_FLAGS
@@ -206,6 +214,11 @@ typedef struct
 			unsigned int value_offset;
 			unsigned int value_length;
 		} device_registry_key;
+		struct
+		{
+			// 0 - device plug and play registry key pathname
+			unsigned int objname_index;
+		} objname;
     };
 } libusb_request;
 

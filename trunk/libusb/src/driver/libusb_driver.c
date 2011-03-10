@@ -382,6 +382,8 @@ NTSTATUS call_usbd_ex(libusb_device_t *dev, void *urb, ULONG control_code,
 	{
 		timeout = max_timeout;
 	}
+	if (timeout <= 0)
+		timeout = LIBUSB_MAX_CONTROL_TRANSFER_TIMEOUT;
 
 	KeInitializeEvent(&event, NotificationEvent, FALSE);
 
@@ -412,10 +414,6 @@ NTSTATUS call_usbd_ex(libusb_device_t *dev, void *urb, ULONG control_code,
 			IoCancelIrp(irp);
 		}
 	}
-	else
-	{
-		USBWRN("status = %08Xh\n",status);
-	}
 
 	/* wait until completion routine is called */
 	KeWaitForSingleObject(&event, Executive, KernelMode, FALSE, NULL);
@@ -424,7 +422,8 @@ NTSTATUS call_usbd_ex(libusb_device_t *dev, void *urb, ULONG control_code,
 
 	/* complete the request */
 	IoCompleteRequest(irp, IO_NO_INCREMENT);
-
+	
+	USBDBG("status = %08Xh\n",status);
 	return status;
 }
 

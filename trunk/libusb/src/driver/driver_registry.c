@@ -149,7 +149,7 @@ bool_t reg_get_properties(libusb_device_t *dev)
 			if (NT_SUCCESS(status))
 			{
 				PWSTR nameW =((POBJECT_NAME_INFORMATION)info)->Name.Buffer;
-				PSTR  nameA = (PSTR)nameW;
+				PSTR  nameA = dev->objname_plugplay_registry_key;
 
 				val=0;
 				while (nameW[val] && val < (length/2))
@@ -159,9 +159,8 @@ bool_t reg_get_properties(libusb_device_t *dev)
 					val++;
 				}
 				*nameA='\0';
-				nameA = (PSTR)((POBJECT_NAME_INFORMATION)info)->Name.Buffer;
 
-				USBMSG("reg-key-name=%s\n",nameA);
+				USBDBG("reg-key-name=%s\n",dev->objname_plugplay_registry_key);
 			}
 			else
 			{

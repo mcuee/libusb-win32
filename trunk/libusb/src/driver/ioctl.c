@@ -534,6 +534,26 @@ NTSTATUS dispatch_ioctl(libusb_device_t *dev, IRP *irp)
 			&ret);
 		break;
 
+	case LIBUSB_IOCTL_GET_OBJECT_NAME:
+		if (!request || output_buffer_length < 2)
+		{
+			USBERR0("get_object_name: invalid output buffer\n");
+			status = STATUS_INVALID_PARAMETER;
+			break;
+		}
+		switch (request->objname.objname_index)
+		{
+		case 0:
+			ret = (int)strlen(dev->objname_plugplay_registry_key)+1;
+			ret = ret > (int)output_buffer_length ? (int)output_buffer_length : ret;
+			RtlCopyMemory(output_buffer, dev->objname_plugplay_registry_key,(SIZE_T) (ret-1));
+			output_buffer[ret-1]='\0';
+			break;
+		default:
+			status = STATUS_INVALID_PARAMETER;
+		}
+		break;
+
 	default:
 
         status = STATUS_INVALID_PARAMETER;
