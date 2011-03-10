@@ -69,6 +69,7 @@ static bool_t reg_get_property(DEVICE_OBJECT *physical_device_object,
 bool_t reg_get_properties(libusb_device_t *dev)
 {
     HANDLE key = NULL;
+	PVOID keyObject = NULL;
     NTSTATUS status;
     UNICODE_STRING surprise_removal_ok_name;
     UNICODE_STRING initial_config_value_name;
@@ -138,6 +139,41 @@ bool_t reg_get_properties(libusb_device_t *dev)
             val = *((ULONG *)(((char *)info) + info->DataOffset));
             dev->initial_config_value = (int)val;
         }
+
+		status = ObReferenceObjectByHandle(key, KEY_READ, NULL, KernelMode, &keyObject, NULL);
+		if (NT_SUCCESS(status))
+		{
+			length = pool_length;
+			memset(info, 0, length);
+			status = ObQueryNameString(keyObject, (POBJECT_NAME_INFORMATION)info, length, &length);
+			if (NT_SUCCESS(status))
+			{
+				PWSTR nameW =((POBJECT_NAME_INFORMATION)info)->Name.Buffer;
+				PSTR  nameA = (PSTR)nameW;
+
+				val=0;
+				while (nameW[val] && val < (length/2))
+				{
+					*nameA=(char)nameW[val];
+					nameA++;
+					val++;
+				}
+				*nameA='\0';
+				nameA = (PSTR)((POBJECT_NAME_INFORMATION)info)->Name.Buffer;
+
+				USBMSG("reg-key-name=%s\n",nameA);
+			}
+			else
+			{
+				USBERR("ObQueryNameString failed. status=%Xh\n",status);
+			}
+
+			ObDereferenceObject(keyObject);
+		}
+		else
+		{
+			USBERR("ObReferenceObjectByHandle failed. status=%Xh\n",status);
+		}
         ExFreePool(info);
 
         ZwClose(key);

@@ -35,10 +35,11 @@
 
 // All output is directed through these macros.
 //
-#define CONERR(format,...) printf("err : [" __FUNCTION__ "] " format, __VA_ARGS__)
-#define CONMSG(format,...) printf(format,__VA_ARGS__)
-#define CONWRN(format,...) printf("wrn : "format,__VA_ARGS__)
-#define CONDBG(format,...) printf("dbg : "format,__VA_ARGS__)
+#define LOG(LogTypeString,format,...)  printf("%s[" __FUNCTION__ "] "format, LogTypeString, __VA_ARGS__)
+#define CONERR(format,...) LOG("Error:",format,__VA_ARGS__)
+#define CONMSG(format,...) LOG("",format,__VA_ARGS__)
+#define CONWRN(format,...) LOG("Warn:",format,__VA_ARGS__)
+#define CONDBG(format,...) LOG("",format,__VA_ARGS__)
 
 #define CONERR0(message) CONERR("%s", message)
 #define CONMSG0(message) CONMSG("%s", message)
@@ -85,6 +86,7 @@ struct BENCHMARK_TEST_PARAM
     INT Vid;			// Vendor ID
     INT Pid;			// Porduct ID
     INT Intf;			// Interface number
+	INT	Altf;			// Alt Interface number
     INT Ep;				// Endpoint number (1-15)
     INT Refresh;		// Refresh interval (ms)
     INT Timeout;		// Transfer timeout (ms)
@@ -161,7 +163,7 @@ struct BENCHMARK_TRANSFER_PARAM
 };
 
 // Benchmark device api.
-struct usb_dev_handle* Bench_Open(WORD vid,	WORD pid, INT interfaceNumber, struct usb_device** deviceForHandle);
+struct usb_dev_handle* Bench_Open(WORD vid,	WORD pid, INT interfaceNumber, INT altInterfaceNumber, struct usb_device** deviceForHandle);
 int Bench_SetTestType(struct usb_dev_handle* dev, enum BENCHMARK_DEVICE_TEST_TYPE testType, int intf);
 int Bench_GetTestType(struct usb_dev_handle* dev, enum BENCHMARK_DEVICE_TEST_TYPE* testType, int intf);
 
@@ -173,6 +175,7 @@ CRITICAL_SECTION DisplayCriticalSection;
 //
 struct usb_interface_descriptor* usb_find_interface(struct usb_config_descriptor* config_descriptor,
 	INT interface_number,
+	INT alt_interface_number,
 	struct usb_interface_descriptor** first_interface);
 
 // Internal function used by the benchmark application.
@@ -223,6 +226,7 @@ void SetTestDefaults(struct BENCHMARK_TEST_PARAM* test)
 
 struct usb_interface_descriptor* usb_find_interface(struct usb_config_descriptor* config_descriptor,
 	INT interface_number,
+	INT alt_interface_number,
 	struct usb_interface_descriptor** first_interface)
 {
 	struct usb_interface_descriptor* intf;
@@ -241,14 +245,17 @@ struct usb_interface_descriptor* usb_find_interface(struct usb_config_descriptor
 			if ((first_interface) && *first_interface == NULL)
 				*first_interface = intf;
 
-			if (intf->bInterfaceNumber == interface_number)
+			if (intf->bInterfaceNumber == interface_number && 
+				(alt_interface_number==-1 || intf->bAlternateSetting==alt_interface_number))
+			{
 				return intf;
+			}
 		}
 	}
 
 	return NULL;
 }
-struct usb_dev_handle* Bench_Open(WORD vid, WORD pid, INT interfaceNumber, struct usb_device** deviceForHandle)
+struct usb_dev_handle* Bench_Open(WORD vid, WORD pid, INT interfaceNumber, INT altInterfaceNumber, struct usb_device** deviceForHandle)
 {
     struct usb_bus* bus;
     struct usb_device* dev;
@@ -264,7 +271,7 @@ struct usb_dev_handle* Bench_Open(WORD vid, WORD pid, INT interfaceNumber, struc
 				{
 					if (dev->descriptor.bNumConfigurations)
 					{
-						if (usb_find_interface(&dev->config[0], interfaceNumber, NULL) != NULL)
+						if (usb_find_interface(&dev->config[0], interfaceNumber, altInterfaceNumber, NULL) != NULL)
 						{
 							if (deviceForHandle) *deviceForHandle = dev;
 							return udev;
@@ -721,6 +728,7 @@ int ParseBenchmarkArgs(struct BENCHMARK_TEST_PARAM* testParams, int argc, char *
         else if (GetParamIntValue(arg, "size=", &testParams->BufferSize)) {}
         else if (GetParamIntValue(arg, "timeout=", &testParams->Timeout)) {}
         else if (GetParamIntValue(arg, "intf=", &testParams->Intf)) {}
+        else if (GetParamIntValue(arg, "altf=", &testParams->Altf)) {}
         else if (GetParamIntValue(arg, "ep=", &testParams->Ep)) 
 		{
 			testParams->Ep &= 0xf;
@@ -864,7 +872,7 @@ struct BENCHMARK_TRANSFER_PARAM* CreateTransferParam(struct BENCHMARK_TEST_PARAM
     {
         memset(transferParam, 0, allocSize);
         transferParam->Test = test;
-		if (!(testInterface = usb_find_interface(&test->Device->config[0], test->Intf, NULL)))
+		if (!(testInterface = usb_find_interface(&test->Device->config[0], test->Intf, test->Altf, NULL)))
 		{
             CONERR("failed locating interface %02Xh!\n", test->Intf);
             FreeTransferParam(&transferParam);
@@ -1259,7 +1267,7 @@ int GetTestDeviceFromList(struct BENCHMARK_TEST_PARAM* testParam)
 			testParam->Device = validDevices[userInput];
             testParam->Vid = testParam->Device->descriptor.idVendor;
             testParam->Pid = testParam->Device->descriptor.idProduct;
-			if (usb_find_interface(&validDevices[userInput]->config[0],testParam->Intf,&firstInterface) == NULL)
+			if (usb_find_interface(&validDevices[userInput]->config[0],testParam->Intf, testParam->Altf, &firstInterface) == NULL)
 			{
 				// the specified (or default) interface didn't exist, use the first one.
 				if (firstInterface != NULL)
@@ -1336,13 +1344,14 @@ int main(int argc, char** argv)
     else
     {
         // Open a benchmark device. see Bench_Open().
-        Test.DeviceHandle = Bench_Open(Test.Vid, Test.Pid, Test.Intf, &Test.Device);
+        Test.DeviceHandle = Bench_Open(Test.Vid, Test.Pid, Test.Intf, Test.Altf, &Test.Device);
     }
     if (!Test.DeviceHandle || !Test.Device)
     {
         CONERR("device %04X:%04X not found!\n",Test.Vid, Test.Pid);
         goto Done;
     }
+
     // If "NoTestSelect" appears in the command line then don't send the control
     // messages for selecting the test type.
     //
@@ -1388,6 +1397,20 @@ int main(int argc, char** argv)
         CONERR("claiming interface #%d!\n%s\n", Test.Intf, usb_strerror());
         goto Done;
     }
+
+    // Set the alternate setting (Default is #0)
+	if (usb_set_altinterface(Test.DeviceHandle, Test.Altf) < 0)
+	{
+		CONERR("selecting alternate setting #%d on interface #%d!\n%s\n", Test.Altf,  Test.Intf, usb_strerror());
+        goto Done;
+	}
+	else
+	{
+		if (Test.Altf > 0)
+		{
+			CONDBG("selected alternate setting #%d on interface #%d\n",Test.Altf,  Test.Intf);
+		}
+	}
 
 	if (Test.Verify)
 	{

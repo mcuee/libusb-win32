@@ -30,6 +30,7 @@
 #include <ddk/winddk.h>
 #include "usbdlib_gcc.h"
 #else
+#include <ntifs.h>
 #include <wdm.h>
 #include "usbdi.h"
 #include "usbdlib.h"
@@ -186,8 +187,15 @@ NTSTATUS dispatch_ioctl(libusb_device_t *dev, IRP *irp);
 
 NTSTATUS complete_irp(IRP *irp, NTSTATUS status, ULONG info);
 
-NTSTATUS call_usbd(libusb_device_t *dev, void *urb,
-                   ULONG control_code, int timeout);
+#define call_usbd(dev, urb, control_code, timeout) \
+	call_usbd_ex(dev, urb, control_code, timeout, LIBUSB_MAX_CONTROL_TRANSFER_TIMEOUT)
+
+NTSTATUS call_usbd_ex(libusb_device_t *dev, 
+					  void *urb, 
+					  ULONG control_code, 
+					  int timeout,
+					  int max_timeout);
+
 NTSTATUS pass_irp_down(libusb_device_t *dev, IRP *irp,
                        PIO_COMPLETION_ROUTINE completion_routine,
                        void *context);

@@ -123,7 +123,8 @@ NTSTATUS vendor_class_request(libusb_device_t *dev,
     urb.UrbControlVendorClassRequest.Value = (USHORT)value;
     urb.UrbControlVendorClassRequest.Index = (USHORT)index;
 
-    status = call_usbd(dev, &urb, IOCTL_INTERNAL_USB_SUBMIT_URB, timeout);
+	// no maximum timeout check for vendor request.
+    status = call_usbd_ex(dev, &urb, IOCTL_INTERNAL_USB_SUBMIT_URB, timeout, 0);
 
     if (!NT_SUCCESS(status) || !USBD_SUCCESS(urb.UrbHeader.Status))
     {
