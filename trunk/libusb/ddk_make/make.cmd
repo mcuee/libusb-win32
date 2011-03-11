@@ -238,7 +238,7 @@ GOTO CMDEXIT
 	)
 
 	IF /I "!CMDVAR_DIR_INTERMEDIATE!" NEQ "" (
-		CALL :SafeCopyDir "!DIR_LIBUSB_DDK!obj!BUILD_ALT_DIR!\*" "!CMDVAR_DIR_INTERMEDIATE!"
+		CALL :SafeCopyDir "!DIR_LIBUSB_DDK!obj!BUILD_ALT_DIR!\" "!CMDVAR_DIR_INTERMEDIATE!"
 	)
 
 	IF /I "!CMDVAR_NOCLEAN" NEQ "true" CALL make_clean.bat %1
@@ -381,10 +381,10 @@ GOTO :EOF
 	
 	CALL :SafeReCreateDir "!_WORKING_DIR!"
 		
-	CALL :SafeCopyDir "!PACKAGE_BIN_DIR!*" "!_WORKING_DIR!bin\"
-	CALL :SafeCopyDir "!PACKAGE_LIB_DIR!*" "!_WORKING_DIR!lib\"
+	CALL :SafeCopyDir "!PACKAGE_BIN_DIR!" "!_WORKING_DIR!bin\"
+	CALL :SafeCopyDir "!PACKAGE_LIB_DIR!" "!_WORKING_DIR!lib\"
 	
-	CALL :SafeCopyDir "..\examples\*" "!_WORKING_DIR!examples\"
+	CALL :SafeCopyDir "..\examples\" "!_WORKING_DIR!examples\"
 	
 	CALL :SafeCopy "..\src\usb.h" "!_WORKING_DIR!include\"
 
@@ -409,13 +409,14 @@ GOTO :EOF
 	CALL :SetPackage "!PACKAGE_SRC_NAME!"
 	SET _WORKING_DIR=!PACKAGE_WORKING!!CMDVAR_PCKGNAME!\
 	CALL :SafeReCreateDir "!_WORKING_DIR!"
-
-	CALL :SafeCopyDir "..\*" "!_WORKING_DIR!"
+	
+	CALL :SafeCopyDir "..\" "!_WORKING_DIR!"
 	
 	CALL :PackageText src "!_WORKING_DIR!"
 
 	PUSHD "!CD!"
 	CD /D "!PACKAGE_WORKING!"
+	
 	CALL :DeleteAllDirectories ".svn"
 	"!ZIP!" -tzip a -r "!PACKAGE_SAVE_DIR!!CMDVAR_PCKGNAME!.zip" ".\!CMDVAR_PCKGNAME!"
 	CALL :SafeDeleteDir ".\!CMDVAR_PCKGNAME!\"
@@ -472,17 +473,28 @@ GOTO :EOF
 GOTO :EOF
 
 :SafeCopyDir
-	IF NOT EXIST "%~1" (
+	SET __SafeCopyDir_Src=%~dp1
+	SET __SafeCopyDir_Dst=%~dp2
+	IF NOT EXIST "!__SafeCopyDir_Src!" (
 		ECHO [SafeCopyDir] %~1 does not exists.
 		GOTO :EOF
 	)
-	CALL :SafeCreateDir "%~dp2"
-	ECHO [SafeCopyDir] %~1 %~p2
-	XCOPY /I /S /Y "%~1" "%~p2" 2>NUL>NUL
-	IF !ERRORLEVEL! NEQ 0 (
-		ECHO Error copying "%~1" "%~p2"
-		SET BUILD_ERRORLEVEL=!ERRORLEVEL!
+
+	IF "!__SafeCopyDir_Dst:~-1!" EQU "\" SET __SafeCopyDir_Dst=!__SafeCopyDir_Dst:~0,-1!
+	FOR /F "usebackq eol=; tokens=* delims=" %%A IN (`DIR /S /B /A-H-S-R-D "!__SafeCopyDir_Src!\*.*"`) DO (
+		CALL :StrRemove "%%~A" "!__SafeCopyDir_Src!"
+		SET __SafeCopyDir_File=!__SafeCopyDir_Dst!\!StrRemove!
+		CALL :ToAbsoluteDirs __SafeCopyDir_Dir "!__SafeCopyDir_File!"		
+		IF NOT EXIST "!__SafeCopyDir_Dir!" MKDIR "!__SafeCopyDir_Dir!"
+		ECHO [SafeCopyDir] File = !__SafeCopyDir_Dir!%%~nxA
+		COPY /Y "%%~A" "!__SafeCopyDir_Dir!" >NUL
+		
 	)
+GOTO :EOF
+
+:StrRemove
+	SET StrRemove=%~1
+	SET StrRemove=!StrRemove:%~2=!
 GOTO :EOF
 
 :SafeReCreateDir
