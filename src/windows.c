@@ -27,7 +27,7 @@
 #include <winioctl.h>
 #include <setupapi.h>
 
-#include "libusb-win32-include/usb.h"
+#include "usb.h"
 #include "error.h"
 #include "usbi.h"
 #include "driver_api.h"

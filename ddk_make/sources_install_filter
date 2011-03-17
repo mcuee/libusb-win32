@@ -13,6 +13,6 @@ TARGETLIBS = $(SDK_LIB_PATH)\setupapi.lib \
              $(SDK_LIB_PATH)\user32.lib \
              $(SDK_LIB_PATH)\gdi32.lib
 
-INCLUDES=$(INCLUDES);$(DDK_INC_PATH);../src;
+INCLUDES=$(INCLUDES);$(DDK_INC_PATH);
            
 SOURCES = install_filter.c install.c registry.c error.c install_filter_rc.rc

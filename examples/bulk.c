@@ -1,5 +1,5 @@
+#include <usb.h>
 #include <stdio.h>
-#include "libusb-win32-include/usb.h"
 
 // Enables this example to work with a device running the
 // libusb-win32 PIC Benchmark Firmware.

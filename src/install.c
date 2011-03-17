@@ -42,7 +42,7 @@
 #define strlwr(p) _strlwr(p)
 #endif
 
-#include "libusb-win32-include/usb.h"
+#include "usb.h"
 #include "registry.h"
 #include "error.h"
 #include "driver_api.h"
