@@ -24,30 +24,20 @@
 //#define SKIP_DEVICES_WINUSB
 //#define SKIP_DEVICES_PICOPP
 
-#if defined(__GNUC__)
-	#if defined(__MINGW64__)
-		#include <ntddk.h>
-		#if !defined(DDKAPI)
-			#define DDKAPI NTAPI
-		#endif
-		#include <usb100.h>
-		#include <usbdi.h>
-	#else
-		#include <ddk/usb100.h>
-		#include <ddk/usbdi.h>
-		#include <ddk/winddk.h>
-	#endif
-	#include "usbdlib_gcc.h"
+#ifdef __GNUC__
+#include <ddk/usb100.h>
+#include <ddk/usbdi.h>
+#include <ddk/winddk.h>
+#include "usbdlib_gcc.h"
 #else
-	#include <Ntifs.h>
-	#include <wdm.h>
-	#include "usbdi.h"
-	#include "usbdlib.h"
+#include <ntifs.h>
+#include <wdm.h>
+#include "usbdi.h"
+#include "usbdlib.h"
 #endif
 
 #include <wchar.h>
 #include <initguid.h>
-
 
 #undef interface
 
@@ -56,7 +46,7 @@
 #include "driver_api.h"
 
 /* some missing defines */
-#if defined(__GNUC__) && !defined(__MINGW64_VERSION_MAJOR)
+#ifdef __GNUC__
 
 #define USBD_TRANSFER_DIRECTION_OUT       0
 #define USBD_TRANSFER_DIRECTION_BIT       0
@@ -184,6 +174,8 @@ typedef struct
 	int initial_config_value;
 	char device_id[256];
 	bool_t disallow_power_control;
+	char objname_plugplay_registry_key[512];
+
 } libusb_device_t, DEVICE_EXTENSION, *PDEVICE_EXTENSION;
 
 

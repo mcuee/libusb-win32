@@ -18,7 +18,7 @@
  */
 
 #include <stdio.h>
-#include "libusb-win32-include/usb.h"
+#include "usb.h"
 
 
 int main()
