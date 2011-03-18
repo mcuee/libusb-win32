@@ -297,6 +297,22 @@ NTSTATUS DDKAPI add_device(DRIVER_OBJECT *driver_object,
 
 	remove_lock_initialize(dev);
 	
+	if (dev->device_interface_in_use)
+	{
+		status = IoRegisterDeviceInterface(physical_device_object,
+			(LPGUID)&dev->device_interface_guid,
+			NULL,
+			&dev->device_interface_name);
+		if (!NT_SUCCESS (status))
+		{
+			dev->device_interface_name.Buffer = NULL;
+
+			USBERR0("add_device(): creating device interface failed\n");
+			IoDeleteSymbolicLink(&symbolic_link_name);
+			IoDeleteDevice(device_object);
+			return status;
+		}
+	}
 	// make sure the the devices can't be removed
 	// before we are done adding it.
 	if (!NT_SUCCESS(remove_lock_acquire(dev)))
@@ -456,16 +472,23 @@ NTSTATUS pass_irp_down(libusb_device_t *dev, IRP *irp,
 
 bool_t accept_irp(libusb_device_t *dev, IRP *irp)
 {
-    /* check if the IRP is sent to libusb's device object or to */
-    /* the lower one. This check is neccassary since the device object */
-    /* might be a filter */
-    if (irp->Tail.Overlay.OriginalFileObject)
-    {
-        return irp->Tail.Overlay.OriginalFileObject->DeviceObject
-               == dev->self ? TRUE : FALSE;
-    }
+	/* check if the IRP is sent to libusb's device object or to */
+	/* the lower one. This check is necessary since the device object */
+	/* might be a filter */
+	if(!irp->Tail.Overlay.OriginalFileObject)
+	{
+		return FALSE;
+	}
 
-    return FALSE;
+	/* cover the cases when access is made by using device interfaces */
+	if (irp->Tail.Overlay.OriginalFileObject->DeviceObject == dev->self ||
+		(irp->Tail.Overlay.OriginalFileObject->DeviceObject == dev->physical_device_object && dev->device_interface_in_use)
+		) 
+	{
+		return TRUE;
+	}
+
+	return FALSE;
 }
 
 bool_t get_pipe_handle(libusb_device_t *dev, int endpoint_address,
