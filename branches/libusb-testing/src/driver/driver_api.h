@@ -130,8 +130,60 @@ enum
 0x8FF, METHOD_BUFFERED, FILE_ANY_ACCESS)
 /////////////////////////////////////////////////////////////////////////////
 
+/////////////////////////////////////////////////////////////////////////////
+// supported after 1.2.3.0
+/////////////////////////////////////////////////////////////////////////////
+#define LIBUSB_IOCTL_QUERY_INTERFACE_SETTINGS CTL_CODE(FILE_DEVICE_UNKNOWN,\
+        0x903, METHOD_BUFFERED, FILE_ANY_ACCESS)
+
+#define LIBUSB_IOCTL_QUERY_DEVICE_INFORMATION CTL_CODE(FILE_DEVICE_UNKNOWN,\
+        0x904, METHOD_BUFFERED, FILE_ANY_ACCESS)
+
+#define LIBUSB_IOCTL_QUERY_PIPE CTL_CODE(FILE_DEVICE_UNKNOWN,\
+        0x905, METHOD_BUFFERED, FILE_ANY_ACCESS)
+
+#define LIBUSB_IOCTL_SET_PIPE_POLICY CTL_CODE(FILE_DEVICE_UNKNOWN,\
+        0x906, METHOD_BUFFERED, FILE_ANY_ACCESS)
+
+#define LIBUSB_IOCTL_GET_PIPE_POLICY CTL_CODE(FILE_DEVICE_UNKNOWN,\
+        0x907, METHOD_BUFFERED, FILE_ANY_ACCESS)
+
+#define LIBUSB_IOCTL_SET_POWER_POLICY CTL_CODE(FILE_DEVICE_UNKNOWN,\
+        0x908, METHOD_BUFFERED, FILE_ANY_ACCESS)
+
+#define LIBUSB_IOCTL_GET_POWER_POLICY CTL_CODE(FILE_DEVICE_UNKNOWN,\
+        0x909, METHOD_BUFFERED, FILE_ANY_ACCESS)
+
+#define LIBUSB_IOCTL_CONTROL_WRITE CTL_CODE(FILE_DEVICE_UNKNOWN,\
+        0x90A, METHOD_IN_DIRECT, FILE_ANY_ACCESS)
+
+#define LIBUSB_IOCTL_CONTROL_READ CTL_CODE(FILE_DEVICE_UNKNOWN,\
+        0x90B, METHOD_OUT_DIRECT, FILE_ANY_ACCESS)
+
+#define LIBUSB_IOCTL_FLUSH_PIPE CTL_CODE(FILE_DEVICE_UNKNOWN,\
+        0x90C, METHOD_BUFFERED, FILE_ANY_ACCESS)
+
+#define LIBUSBK_IOCTL_CLAIM_INTERFACE CTL_CODE(FILE_DEVICE_UNKNOWN,\
+        0x90D, METHOD_BUFFERED, FILE_ANY_ACCESS)
+
+#define LIBUSBK_IOCTL_RELEASE_INTERFACE CTL_CODE(FILE_DEVICE_UNKNOWN,\
+        0x90E, METHOD_BUFFERED, FILE_ANY_ACCESS)
+
+#define LIBUSBK_IOCTL_SET_INTERFACE CTL_CODE(FILE_DEVICE_UNKNOWN,\
+        0x910, METHOD_BUFFERED, FILE_ANY_ACCESS)
+
+#define LIBUSBK_IOCTL_GET_INTERFACE CTL_CODE(FILE_DEVICE_UNKNOWN,\
+        0x911, METHOD_BUFFERED, FILE_ANY_ACCESS)
 
 #include <pshpack1.h>
+
+typedef struct _PIPE_INFORMATION
+{
+	USBD_PIPE_TYPE  PipeType;
+	UCHAR           PipeId;
+	USHORT          MaximumPacketSize;
+	UCHAR           Interval;
+} PIPE_INFORMATION, *PPIPE_INFORMATION;
 
 enum LIBUSB0_TRANSFER_FLAGS
 {
@@ -140,6 +192,7 @@ enum LIBUSB0_TRANSFER_FLAGS
 	TRANSFER_FLAGS_ISO_ADD_LATENCY = 1 << 31,
 };
 
+/*
 typedef struct
 {
     unsigned int timeout;
@@ -221,6 +274,128 @@ typedef struct
 		} objname;
     };
 } libusb_request;
+*/
+
+#pragma warning(disable:4201)
+typedef struct
+{
+	unsigned int timeout;
+	union
+	{
+		struct
+		{
+			unsigned int configuration;
+		} configuration;
+
+		struct
+		{
+			unsigned int interface_number;
+			unsigned int altsetting_number;
+
+			unsigned char useInterfaceIndex;	// libusbK Only
+			unsigned char useAltSettingIndex;	// libusbK Only
+			unsigned char interfaceIndex;		// libusbK Only
+			unsigned char altsettingIndex;		// libusbK Only
+		} intf;
+
+		struct
+		{
+			unsigned int endpoint;
+			unsigned int packet_size;
+
+			// TODO: max_transfer_size, short transfer not ok, use iso_start_frame
+			unsigned int max_transfer_size;
+			unsigned int transfer_flags;
+			unsigned int iso_start_frame_latency;
+		} endpoint;
+		struct
+		{
+			unsigned int type;
+			unsigned int recipient;
+			unsigned int request;
+			unsigned int value;
+			unsigned int index;
+		} vendor;
+		struct
+		{
+			unsigned int recipient;
+			unsigned int feature;
+			unsigned int index;
+		} feature;
+		struct
+		{
+			unsigned int recipient;
+			unsigned int index;
+			unsigned int status;
+		} status;
+		struct
+		{
+			unsigned int type;
+			unsigned int index;
+			unsigned int language_id;
+			unsigned int recipient;
+		} descriptor;
+		struct
+		{
+			unsigned int level;
+		} debug;
+		struct
+		{
+			unsigned int major;
+			unsigned int minor;
+			unsigned int micro;
+			unsigned int nano;
+			unsigned int mod_value;
+		} version;
+		struct
+		{
+			unsigned int property;
+		} device_property;
+		struct
+		{
+			unsigned int key_type;
+			unsigned int name_offset;
+			unsigned int value_offset;
+			unsigned int value_length;
+		} device_registry_key;
+		struct
+		{
+			// 0 - device plug and play registry key pathname
+			unsigned int objname_index;
+		} objname;
+		struct
+		{
+			ULONG information_type;
+		} query_device;
+		struct
+		{
+			unsigned int interface_index;
+			unsigned int altsetting_index;
+			unsigned int pipe_index;
+		} query_pipe;
+		struct
+		{
+			unsigned int interface_index;
+			unsigned int pipe_id;
+			unsigned int policy_type;
+		} pipe_policy;
+		struct
+		{
+			unsigned int policy_type;
+		} power_policy;
+
+		// WDF_USB_CONTROL_SETUP_PACKET control;
+		struct
+		{
+			UCHAR   RequestType;
+			UCHAR   Request;
+			USHORT  Value;
+			USHORT  Index;
+			USHORT  Length;
+		} control;
+	};
+} libusb_request;
+#pragma warning(default:4201)
 
 #include <poppack.h>
 
