@@ -555,7 +555,22 @@ NTSTATUS dispatch_ioctl(libusb_device_t *dev, IRP *irp)
 		break;
 
 	case LIBUSB_IOCTL_QUERY_INTERFACE_SETTINGS:	// METHOD_BUFFERED (QUERY_INTERFACE_SETTINGS)
-		status = STATUS_NOT_IMPLEMENTED;
+		if (!request || output_buffer_length < sizeof(USB_INTERFACE_DESCRIPTOR))
+		{
+			USBERR0("query_interface_settings: invalid output buffer\n");
+			status = STATUS_BUFFER_TOO_SMALL;
+			break;
+		}
+
+		status = interface_query_settings(
+		             dev,
+		             request->intf.interfaceIndex,
+		             request->intf.altsettingIndex,
+		             (PUSB_INTERFACE_DESCRIPTOR)output_buffer);
+
+		if (NT_SUCCESS(status))
+			ret = sizeof(USB_INTERFACE_DESCRIPTOR);
+
 		break;
 
 	case LIBUSB_IOCTL_QUERY_DEVICE_INFORMATION:	// METHOD_BUFFERED (QUERY_DEVICE_INFORMATION)
@@ -603,6 +618,7 @@ NTSTATUS dispatch_ioctl(libusb_device_t *dev, IRP *irp)
 		break;
 
 	case LIBUSBK_IOCTL_SET_INTERFACE:			// METHOD_BUFFERED (SET_INTERFACE)
+		status = STATUS_NOT_IMPLEMENTED;
 		break;
 
 	case LIBUSBK_IOCTL_GET_INTERFACE:			// METHOD_BUFFERED (GET_INTERFACE)
