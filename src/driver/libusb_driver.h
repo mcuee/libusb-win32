@@ -235,6 +235,12 @@ NTSTATUS set_interface(libusb_device_t *dev,
 NTSTATUS get_interface(libusb_device_t *dev,
                        int interface, unsigned char *altsetting,
                        int *ret, int timeout);
+
+NTSTATUS interface_query_settings(libusb_device_t *dev,
+								  int interface_index, 
+								  int alt_index, 
+								  PUSB_INTERFACE_DESCRIPTOR interface_descriptor);
+
 NTSTATUS set_feature(libusb_device_t *dev,
                      int recipient, int index, int feature, int timeout);
 NTSTATUS clear_feature(libusb_device_t *dev,
@@ -287,6 +293,10 @@ void power_set_device_state(libusb_device_t *dev,
 USB_INTERFACE_DESCRIPTOR *
 find_interface_desc(USB_CONFIGURATION_DESCRIPTOR *config_desc,
                     unsigned int size, int interface_number, int altsetting);
+
+USB_INTERFACE_DESCRIPTOR *
+find_interface_desc_by_index(USB_CONFIGURATION_DESCRIPTOR *config_desc,
+                    unsigned int size, int interface_index, int alt_index);
 
 /*
 Gets a device property for the device_object.

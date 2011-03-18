@@ -709,6 +709,59 @@ find_interface_desc(USB_CONFIGURATION_DESCRIPTOR *config_desc,
 
     return NULL;
 }
+
+USB_INTERFACE_DESCRIPTOR *
+find_interface_desc_by_index(USB_CONFIGURATION_DESCRIPTOR *config_desc,
+                    unsigned int size, int interface_index, int alt_index)
+{
+    usb_descriptor_header_t *desc = (usb_descriptor_header_t *)config_desc;
+    char *p = (char *)desc;
+	int lastInfNumber, lastAltNumber;
+	int currentInfIndex, currentAltIndex;
+	int interface_numbers[32][2]={0};
+
+    USB_INTERFACE_DESCRIPTOR *if_desc = NULL;
+
+    if (!config_desc || (size < config_desc->wTotalLength))
+        return NULL;
+
+	currentInfIndex=0;
+	currentAltIndex=0;
+	lastInfNumber=-1;
+	lastAltNumber=-1;
+    while (size && desc->length <= size)
+    {
+        if (desc->type == USB_INTERFACE_DESCRIPTOR_TYPE)
+        {
+            if_desc = (USB_INTERFACE_DESCRIPTOR *)desc;
+
+			if (currentInfIndex==interface_index && 
+				currentAltIndex == alt_index)
+				return if_desc;
+
+			if ((int)if_desc->bInterfaceNumber!=lastInfNumber)
+			{
+				currentInfIndex++;
+				lastInfNumber=(int)if_desc->bInterfaceNumber;
+				currentAltIndex=0;
+				lastAltNumber=-1;
+				continue;
+			} 
+			if ((int)if_desc->bAlternateSetting!=lastAltNumber)
+			{
+				currentAltIndex++;
+				lastAltNumber=(int)if_desc->bAlternateSetting;
+			}
+        }
+
+        size -= desc->length;
+        p += desc->length;
+        desc = (usb_descriptor_header_t *)p;
+    }
+
+    return NULL;
+}
+
 ULONG get_current_frame(IN PDEVICE_EXTENSION deviceExtension, IN PIRP Irp)
 /*++
 
