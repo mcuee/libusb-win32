@@ -332,8 +332,8 @@ NTSTATUS dispatch_ioctl(libusb_device_t *dev, IRP *irp)
 
     case LIBUSB_IOCTL_SET_INTERFACE:
 
-        status = set_interface(dev, request->interface.interface,
-                               request->interface.altsetting, request->timeout);
+        status = set_interface(dev, request->intf.interface_number,
+                               request->intf.altsetting_number, request->timeout);
         break;
 
     case LIBUSB_IOCTL_GET_INTERFACE:
@@ -345,7 +345,7 @@ NTSTATUS dispatch_ioctl(libusb_device_t *dev, IRP *irp)
             break;
         }
 
-        status = get_interface(dev, request->interface.interface,
+        status = get_interface(dev, request->intf.interface_number,
                                output_buffer, &ret, request->timeout);
         break;
 
@@ -497,12 +497,12 @@ NTSTATUS dispatch_ioctl(libusb_device_t *dev, IRP *irp)
 
     case LIBUSB_IOCTL_CLAIM_INTERFACE:
         status = claim_interface(dev, stack_location->FileObject,
-                                 request->interface.interface);
+                                 request->intf.interface_number);
         break;
 
     case LIBUSB_IOCTL_RELEASE_INTERFACE:
         status = release_interface(dev, stack_location->FileObject,
-                                   request->interface.interface);
+                                   request->intf.interface_number);
         break;
 
 	case LIBUSB_IOCTL_GET_DEVICE_PROPERTY:
@@ -554,10 +554,65 @@ NTSTATUS dispatch_ioctl(libusb_device_t *dev, IRP *irp)
 		}
 		break;
 
-	default:
+	case LIBUSB_IOCTL_QUERY_INTERFACE_SETTINGS:	// METHOD_BUFFERED (QUERY_INTERFACE_SETTINGS)
+		status = STATUS_NOT_IMPLEMENTED;
+		break;
 
+	case LIBUSB_IOCTL_QUERY_DEVICE_INFORMATION:	// METHOD_BUFFERED (QUERY_DEVICE_INFORMATION)
+		status = STATUS_NOT_IMPLEMENTED;
+		break;
+
+	case LIBUSB_IOCTL_QUERY_PIPE:				// METHOD_BUFFERED (QUERY_PIPE)
+		status = STATUS_NOT_IMPLEMENTED;
+		break;
+
+	case LIBUSB_IOCTL_SET_PIPE_POLICY:			// METHOD_BUFFERED (SET_PIPE_POLICY)
+		status = STATUS_NOT_IMPLEMENTED;
+		break;
+
+	case LIBUSB_IOCTL_GET_PIPE_POLICY:			// METHOD_BUFFERED (GET_PIPE_POLICY)
+		status = STATUS_NOT_IMPLEMENTED;
+		break;
+
+	case LIBUSB_IOCTL_SET_POWER_POLICY:			// METHOD_BUFFERED (SET_POWER_POLICY)
+		status = STATUS_NOT_IMPLEMENTED;
+		break;
+
+	case LIBUSB_IOCTL_GET_POWER_POLICY:			// METHOD_BUFFERED (GET_POWER_POLICY)
+		status = STATUS_NOT_IMPLEMENTED;
+		break;
+
+	case LIBUSB_IOCTL_CONTROL_WRITE:			// METHOD_IN_DIRECT (CONTROL_WRITE)
+		status = STATUS_NOT_IMPLEMENTED;
+		break;
+
+	case LIBUSB_IOCTL_CONTROL_READ:				// METHOD_OUT_DIRECT (CONTROL_READ)
+		status = STATUS_NOT_IMPLEMENTED;
+		break;
+
+	case LIBUSB_IOCTL_FLUSH_PIPE:				// METHOD_BUFFERED (FLUSH_PIPE)
+		status = STATUS_NOT_IMPLEMENTED;
+		break;
+
+	case LIBUSBK_IOCTL_CLAIM_INTERFACE:			// METHOD_BUFFERED (CLAIM_INTERFACE)
+		status = STATUS_NOT_IMPLEMENTED;
+		break;
+
+	case LIBUSBK_IOCTL_RELEASE_INTERFACE:		// METHOD_BUFFERED (RELEASE_INTERFACE)
+		status = STATUS_NOT_IMPLEMENTED;
+		break;
+
+	case LIBUSBK_IOCTL_SET_INTERFACE:			// METHOD_BUFFERED (SET_INTERFACE)
+		break;
+
+	case LIBUSBK_IOCTL_GET_INTERFACE:			// METHOD_BUFFERED (GET_INTERFACE)
+		status = STATUS_NOT_IMPLEMENTED;
+		break;
+
+	default:
         status = STATUS_INVALID_PARAMETER;
     }
+
 IOCTL_Done:
     status = complete_irp(irp, status, ret);
     remove_lock_release(dev);
