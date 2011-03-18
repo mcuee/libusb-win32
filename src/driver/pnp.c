@@ -59,6 +59,14 @@ NTSTATUS dispatch_pnp(libusb_device_t *dev, IRP *irp)
 			dev->is_filter ? 'Y' : 'N',
 			dev->device_id);
 
+		if (dev->device_interface_in_use && dev->is_started)
+		{
+			status = IoSetDeviceInterfaceState(&dev->device_interface_name, FALSE);
+			if (!NT_SUCCESS(status))
+			{
+				USBERR0("IRP_MN_REMOVE_DEVICE: disabling device interface failed\n");
+			}
+		}
 		/* wait until all outstanding requests are finished */
         remove_lock_release_and_wait(dev);
 
@@ -73,6 +81,11 @@ NTSTATUS dispatch_pnp(libusb_device_t *dev, IRP *irp)
         RtlInitUnicodeString(&symbolic_link_name, tmp_name);
         IoDeleteSymbolicLink(&symbolic_link_name);
 
+		if (dev->device_interface_in_use && dev->device_interface_name.Buffer)
+		{
+			RtlFreeUnicodeString(&dev->device_interface_name);
+		}
+
         /* delete the device object */
         IoDetachDevice(dev->next_stack_device);
         IoDeleteDevice(dev->self);
@@ -85,6 +98,16 @@ NTSTATUS dispatch_pnp(libusb_device_t *dev, IRP *irp)
 		USBMSG("IRP_MN_SURPRISE_REMOVAL: is-filter=%c %s\n",
 			dev->is_filter ? 'Y' : 'N',
 			dev->device_id);
+
+		if (dev->device_interface_in_use) 
+		{
+			status = IoSetDeviceInterfaceState(&dev->device_interface_name, FALSE);
+			if (!NT_SUCCESS(status))
+			{
+				USBERR0("IRP_MN_SURPRISE_REMOVAL: disabling device interface failed\n");
+			}
+		}
+
 		break;
 
     case IRP_MN_START_DEVICE:
@@ -98,8 +121,15 @@ NTSTATUS dispatch_pnp(libusb_device_t *dev, IRP *irp)
 		// PoSetPowerState to notify the power manager that the device is 
 		// in the D0 state.
 		//
-        PoSetPowerState(dev->self, DevicePowerState, dev->power_state);
-
+		PoSetPowerState(dev->self, DevicePowerState, dev->power_state);
+		if (dev->device_interface_in_use)
+		{
+			status = IoSetDeviceInterfaceState(&dev->device_interface_name, TRUE);
+			if (!NT_SUCCESS(status))
+			{
+				USBERR0("IRP_MN_START_DEVICE: enabling device interface failed\n");
+			}
+		}
         return pass_irp_down(dev, irp, on_start_complete, NULL);
 
     case IRP_MN_STOP_DEVICE:

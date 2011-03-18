@@ -175,7 +175,9 @@ typedef struct
 	char device_id[256];
 	bool_t disallow_power_control;
 	char objname_plugplay_registry_key[512];
-
+	GUID device_interface_guid;
+	bool_t device_interface_in_use;
+	UNICODE_STRING device_interface_name;
 } libusb_device_t, DEVICE_EXTENSION, *PDEVICE_EXTENSION;
 
 
