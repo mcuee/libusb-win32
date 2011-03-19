@@ -74,12 +74,6 @@ NTSTATUS set_configuration(libusb_device_t *dev,
 	if (!NT_SUCCESS(status))
 	{
 		active_config = 0;
-
-#ifdef REMOVED_FOR_TESTING
-			USBERR("failed setting active configuration for %s timeout=%d\n",
-				dev->device_id, timeout);
-			return status;
-#endif
 	}
 
 	if (configuration == SET_CONFIG_ACTIVE_CONFIG)
@@ -114,6 +108,7 @@ NTSTATUS set_configuration(libusb_device_t *dev,
 	// if the device is already configured with this value
 	if (dev->config.value == configuration_descriptor->bConfigurationValue)
     {
+		UpdateContextConfigDescriptor(dev, configuration_descriptor, desc_size);
 		status = STATUS_SUCCESS;
 		goto SetConfigurationDone;
     }
@@ -201,6 +196,7 @@ NTSTATUS set_configuration(libusb_device_t *dev,
     {
         update_pipe_info(dev, interfaces[i].Interface);
     }
+	UpdateContextConfigDescriptor(dev, configuration_descriptor, desc_size);
 
 SetConfigurationDone:
     if (interfaces)
@@ -208,9 +204,6 @@ SetConfigurationDone:
 
     if (urb_ptr)
 		ExFreePool(urb_ptr);
-
-	if (configuration_descriptor)
-		ExFreePool(configuration_descriptor);
 
     return status;
 }

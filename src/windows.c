@@ -27,7 +27,7 @@
 #include <winioctl.h>
 #include <setupapi.h>
 
-#include "usb.h"
+#include "lusb0_usb.h"
 #include "error.h"
 #include "usbi.h"
 #include "driver_api.h"
@@ -274,7 +274,7 @@ int usb_claim_interface(usb_dev_handle *dev, int interface)
         return 0;
     }
 
-    req.interface.interface = interface;
+    req.intf.interface_number = interface;
 
     if (!_usb_io_sync(dev->impl_info, LIBUSB_IOCTL_CLAIM_INTERFACE,
                       &req, sizeof(libusb_request), NULL, 0, NULL))
@@ -307,7 +307,7 @@ int usb_release_interface(usb_dev_handle *dev, int interface)
         return -EINVAL;
     }
 
-    req.interface.interface = interface;
+    req.intf.interface_number = interface;
 
     if (!_usb_io_sync(dev->impl_info, LIBUSB_IOCTL_RELEASE_INTERFACE,
                       &req, sizeof(libusb_request), NULL, 0, NULL))
@@ -347,8 +347,8 @@ int usb_set_altinterface(usb_dev_handle *dev, int alternate)
         return -EINVAL;
     }
 
-    req.interface.interface = dev->interface;
-    req.interface.altsetting = alternate;
+    req.intf.interface_number = dev->interface;
+    req.intf.altsetting_number = alternate;
     req.timeout = LIBUSB_DEFAULT_TIMEOUT;
 
     if (!_usb_io_sync(dev->impl_info, LIBUSB_IOCTL_SET_INTERFACE,
@@ -739,13 +739,13 @@ int usb_control_msg(usb_dev_handle *dev, int requesttype, int request,
             break;
 
         case USB_REQ_GET_INTERFACE:
-            req.interface.interface = index;
+            req.intf.interface_number = index;
             code = LIBUSB_IOCTL_GET_INTERFACE;
             break;
 
         case USB_REQ_SET_INTERFACE:
-            req.interface.interface = index;
-            req.interface.altsetting = value;
+            req.intf.interface_number = index;
+            req.intf.altsetting_number = value;
             code = LIBUSB_IOCTL_SET_INTERFACE;
             break;
 

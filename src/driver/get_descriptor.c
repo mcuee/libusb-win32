@@ -159,3 +159,138 @@ PUSB_CONFIGURATION_DESCRIPTOR get_config_descriptor(
 
     return NULL;
 }
+NTSTATUS interface_query_settings(libusb_device_t *dev,
+								  int interface_index, 
+								  int alt_index, 
+								  PUSB_INTERFACE_DESCRIPTOR interface_descriptor)
+{
+    NTSTATUS status = STATUS_SUCCESS;
+
+    PUSB_CONFIGURATION_DESCRIPTOR configuration_descriptor = dev->config.descriptor;
+    PUSB_INTERFACE_DESCRIPTOR interface_descriptor_src = NULL;
+
+    USBMSG("query interface index=%d alt-index=%d\n", 
+		interface_index, alt_index);
+
+	if (!dev->config.value || !configuration_descriptor)
+    {
+        USBERR0("device is not configured\n");
+        return STATUS_INVALID_DEVICE_STATE;
+    }
+
+
+    interface_descriptor_src =
+        find_interface_desc_by_index(configuration_descriptor, dev->config.total_size,
+                            interface_index, alt_index, NULL);
+
+	if (!interface_descriptor_src)
+	{
+		status = STATUS_NO_MORE_ENTRIES;
+	}
+	else
+	{
+		RtlCopyMemory(interface_descriptor, interface_descriptor_src, sizeof(*interface_descriptor));
+	}
+
+	return status;
+
+}
+
+NTSTATUS pipe_query_information(libusb_device_t *dev,
+								  int interface_index, 
+								  int alt_index, 
+								  int pipe_index, 
+								  PPIPE_INFORMATION pipe_information)
+{
+    NTSTATUS status = STATUS_SUCCESS;
+	unsigned int size_left=0;
+    PUSB_CONFIGURATION_DESCRIPTOR configuration_descriptor = dev->config.descriptor;
+    PUSB_INTERFACE_DESCRIPTOR interface_descriptor_src = NULL;
+    PUSB_ENDPOINT_DESCRIPTOR endpoint_descriptor_src = NULL;
+
+    USBMSG("query pipe interface-index=%d alt-index=%d pipe-index=%d\n", 
+		interface_index, alt_index, pipe_index);
+
+	if (!dev->config.value || !configuration_descriptor)
+    {
+        USBERR0("device is not configured\n");
+        return STATUS_INVALID_DEVICE_STATE;
+    }
+
+
+    interface_descriptor_src =
+        find_interface_desc_by_index(configuration_descriptor, dev->config.total_size,
+                            interface_index, alt_index, &size_left);
+
+	if (!interface_descriptor_src)
+	{
+		status = STATUS_NO_MORE_ENTRIES;
+	}
+	else
+	{
+		endpoint_descriptor_src = find_endpoint_desc_by_index(interface_descriptor_src, size_left, pipe_index);
+		if (!endpoint_descriptor_src)
+		{
+			status = STATUS_NO_MORE_ENTRIES;
+		}
+		else
+		{
+			pipe_information->Interval = endpoint_descriptor_src->bInterval;
+			pipe_information->MaximumPacketSize=endpoint_descriptor_src->wMaxPacketSize;
+			pipe_information->PipeId = endpoint_descriptor_src->bEndpointAddress;
+			pipe_information->PipeType = endpoint_descriptor_src->bmAttributes & 0x3;
+		}
+	}
+
+	return status;
+}
+
+/*
+NTSTATUS interface_query_settings2(libusb_device_t *dev,
+								  int interface_index, 
+								  int alt_index, 
+								  PUSB_INTERFACE_DESCRIPTOR interface_descriptor)
+{
+    NTSTATUS status = STATUS_SUCCESS;
+    URB *urb;
+    int i, config_size, config_index, tmp_size;
+
+    PUSB_CONFIGURATION_DESCRIPTOR configuration_descriptor = NULL;
+    PUSB_INTERFACE_DESCRIPTOR interface_descriptor_src = NULL;
+
+    USBMSG("query interface index=%d alt-index=%d\n", 
+		interface_index, alt_index);
+
+	if (!dev->config.value)
+    {
+        USBERR0("device is not configured\n");
+        return STATUS_INVALID_DEVICE_STATE;
+    }
+
+    configuration_descriptor = get_config_descriptor(dev, dev->config.value,
+                               &config_size, &config_index);
+    if (!configuration_descriptor)
+    {
+        USBERR0("memory_allocation error\n");
+        return STATUS_NO_MEMORY;
+    }
+
+    interface_descriptor_src =
+        find_interface_desc_by_index(configuration_descriptor, config_size,
+                            interface_index, alt_index);
+
+	if (!interface_descriptor_src)
+	{
+		status = STATUS_NO_MORE_ENTRIES;
+	}
+	else
+	{
+		RtlCopyMemory(interface_descriptor, interface_descriptor_src, sizeof(*interface_descriptor));
+	}
+
+    ExFreePool(configuration_descriptor);
+
+	return status;
+
+}
+*/

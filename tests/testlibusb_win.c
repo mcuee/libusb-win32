@@ -31,7 +31,7 @@
 #include <stdio.h>
 #include <initguid.h>
 
-#include "usb.h"
+#include "lusb0_usb.h"
 
 
 #define LIBUSB_WINDOW_CLASS "LIBUSB_WINDOW_CLASS"

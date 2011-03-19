@@ -7,7 +7,7 @@ call make_clean.bat
 
 copy sources_test sources >NUL
 copy %TESTS_DIR%\testlibusb.c . >NUL
-copy %SRC_DIR%\usb.h . >NUL
+copy %SRC_DIR%\lusb0_usb.h . >NUL
 copy %SRC_DIR%\*.rc . >NUL
 
 ECHO Building (%BUILD_ALT_DIR%) %0..

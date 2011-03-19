@@ -332,8 +332,14 @@ NTSTATUS dispatch_ioctl(libusb_device_t *dev, IRP *irp)
 
     case LIBUSB_IOCTL_SET_INTERFACE:
 
-        status = set_interface(dev, request->intf.interface_number,
-                               request->intf.altsetting_number, request->timeout);
+        status = set_interface(
+			dev, 
+			FALSE, 
+			request->intf.interface_number,
+			request->intf.altsetting_number,
+			request->intf.interfaceIndex,
+			request->intf.altsettingIndex,
+			request->timeout);
         break;
 
     case LIBUSB_IOCTL_GET_INTERFACE:
@@ -345,8 +351,14 @@ NTSTATUS dispatch_ioctl(libusb_device_t *dev, IRP *irp)
             break;
         }
 
-        status = get_interface(dev, request->intf.interface_number,
-                               output_buffer, &ret, request->timeout);
+        status = get_interface(
+			dev, 
+			FALSE, 
+			request->intf.interface_number,
+			request->intf.interfaceIndex,
+			output_buffer, 
+			&ret,
+			request->timeout);
         break;
 
     case LIBUSB_IOCTL_SET_FEATURE:
@@ -578,7 +590,6 @@ NTSTATUS dispatch_ioctl(libusb_device_t *dev, IRP *irp)
 		break;
 
 	case LIBUSB_IOCTL_QUERY_PIPE:				// METHOD_BUFFERED (QUERY_PIPE)
-		/*
 		if (!request || output_buffer_length < sizeof(PIPE_INFORMATION))
 		{
 			USBERR0("query_pipe: invalid output buffer\n");
@@ -586,19 +597,16 @@ NTSTATUS dispatch_ioctl(libusb_device_t *dev, IRP *irp)
 			break;
 		}
 
-		GET_OUT_BUFFER(sizeof(PIPE_INFORMATION), &outputBuffer, &outputBufferLen, "query_pipe");
-
-		status = query_pipe_information(deviceContext,
+		status = pipe_query_information(dev,
 		                               (UCHAR)request->query_pipe.interface_index,
 		                               (UCHAR)request->query_pipe.altsetting_index,
 		                               (UCHAR)request->query_pipe.pipe_index,
-		                               (PPIPE_INFORMATION)outputBuffer);
+		                               (PPIPE_INFORMATION)output_buffer);
 		if (NT_SUCCESS(status))
 		{
-			length = sizeof(PIPE_INFORMATION);
+			ret = sizeof(PIPE_INFORMATION);
 		}
-	    */
-		status = STATUS_NOT_IMPLEMENTED;
+
 		break;
 
 	case LIBUSB_IOCTL_SET_PIPE_POLICY:			// METHOD_BUFFERED (SET_PIPE_POLICY)
@@ -612,9 +620,9 @@ NTSTATUS dispatch_ioctl(libusb_device_t *dev, IRP *irp)
 		input_buffer_length-=sizeof(libusb_request);
 		if (request->pipe_policy.policy_type==PIPE_TRANSFER_TIMEOUT)
 		{
-			if (input_buffer_length < 4)
+			if (input_buffer_length < sizeof(ULONG))
 			{
-				USBERR0("set_pipe_policy:pipe_transfer_timeout: invalid output buffer\n");
+				USBERR0("set_pipe_policy:pipe_transfer_timeout: invalid input buffer\n");
 				status = STATUS_BUFFER_TOO_SMALL;
 				break;
 			}
@@ -623,6 +631,7 @@ NTSTATUS dispatch_ioctl(libusb_device_t *dev, IRP *irp)
 				status = STATUS_NOT_IMPLEMENTED;
 				break;
 			}
+
 			if (request->pipe_policy.pipe_id & USB_ENDPOINT_DIR_MASK)
 				dev->control_read_timeout=*((PULONG)input_buffer);
 			else
@@ -632,11 +641,36 @@ NTSTATUS dispatch_ioctl(libusb_device_t *dev, IRP *irp)
 			break;
 		}
 
-		status = STATUS_NOT_IMPLEMENTED;
 		break;
 
 	case LIBUSB_IOCTL_GET_PIPE_POLICY:			// METHOD_BUFFERED (GET_PIPE_POLICY)
-		status = STATUS_NOT_IMPLEMENTED;
+		if (!request || input_buffer_length < sizeof(libusb_request) || !output_buffer || (output_buffer_length < 1))
+		{
+			USBERR0("get_pipe_policy: invalid output buffer\n");
+			status = STATUS_BUFFER_TOO_SMALL;
+			break;
+		}
+		if (request->pipe_policy.policy_type==PIPE_TRANSFER_TIMEOUT)
+		{
+			if (output_buffer_length < sizeof(ULONG))
+			{
+				USBERR0("get_pipe_policy:pipe_transfer_timeout: invalid output buffer\n");
+				status = STATUS_BUFFER_TOO_SMALL;
+				break;
+			}
+			if (request->pipe_policy.pipe_id & USB_ENDPOINT_ADDRESS_MASK)
+			{
+				status = STATUS_NOT_IMPLEMENTED;
+				break;
+			}
+			if (request->pipe_policy.pipe_id & USB_ENDPOINT_DIR_MASK)
+				*((PULONG)output_buffer) = dev->control_read_timeout;
+			else
+				*((PULONG)output_buffer) = dev->control_write_timeout;
+
+			status = STATUS_SUCCESS;
+			break;
+		}
 		break;
 
 	case LIBUSB_IOCTL_SET_POWER_POLICY:			// METHOD_BUFFERED (SET_POWER_POLICY)
@@ -704,22 +738,44 @@ NTSTATUS dispatch_ioctl(libusb_device_t *dev, IRP *irp)
 
 	case LIBUSBK_IOCTL_CLAIM_INTERFACE:			// METHOD_BUFFERED (CLAIM_INTERFACE)
 
-		status = STATUS_SUCCESS;
+		if (request->intf.useInterfaceIndex)
+			status = claim_interface_by_index(dev,stack_location->FileObject, request->intf.interfaceIndex);
+		else
+			status = claim_interface(dev, stack_location->FileObject, request->intf.interface_number);
+
 		break;
 
 	case LIBUSBK_IOCTL_RELEASE_INTERFACE:		// METHOD_BUFFERED (RELEASE_INTERFACE)
 		
-		status = STATUS_SUCCESS;
+		if (request->intf.useInterfaceIndex)
+			status = release_interface_by_index(dev,stack_location->FileObject, request->intf.interfaceIndex);
+		else
+			status = release_interface(dev, stack_location->FileObject, request->intf.interface_number);
 		break;
 
 	case LIBUSBK_IOCTL_SET_INTERFACE:			// METHOD_BUFFERED (SET_INTERFACE)
 		
-		status = STATUS_SUCCESS;
+        status = set_interface(
+			dev, 
+			request->intf.useInterfaceIndex ? TRUE : FALSE, 
+			request->intf.interface_number,
+			request->intf.altsetting_number,
+			request->intf.interfaceIndex,
+			request->intf.altsettingIndex,
+			request->timeout);
 		break;
 
 	case LIBUSBK_IOCTL_GET_INTERFACE:			// METHOD_BUFFERED (GET_INTERFACE)
 		
-		status = STATUS_NOT_IMPLEMENTED;
+        status = get_interface(
+			dev, 
+			request->intf.useInterfaceIndex ? TRUE : FALSE, 
+			request->intf.interface_number,
+			request->intf.interfaceIndex,
+			output_buffer, 
+			&ret,
+			request->timeout);
+
 		break;
 
 	default:

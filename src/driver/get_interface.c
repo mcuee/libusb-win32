@@ -22,13 +22,28 @@
 
 
 NTSTATUS get_interface(libusb_device_t *dev,
-                       int interface, unsigned char *altsetting,
-                       int *ret, int timeout)
+                       bool_t use_index,
+					   int interface_index, 
+					   int interface_number, 
+					   unsigned char *altsetting,
+                       int *ret,
+					   int timeout)
 {
     NTSTATUS status = STATUS_SUCCESS;
     URB urb;
+	PUSB_INTERFACE_DESCRIPTOR interface_descriptor;
 
-	USBMSG("interface: %d timeout: %d\n", interface, timeout);
+	if (use_index)
+	{
+		interface_descriptor = find_interface_desc_by_index(dev->config.descriptor, dev->config.total_size, interface_index, 0, NULL);
+		if (!interface_descriptor)
+		{
+			return STATUS_NO_MORE_ENTRIES;
+		}
+		interface_number=interface_descriptor->bInterfaceNumber;
+	}
+
+	USBMSG("interface: %d timeout: %d\n", interface_number, timeout);
 
     if (!dev->config.value)
     {
@@ -42,7 +57,7 @@ NTSTATUS get_interface(libusb_device_t *dev,
     urb.UrbHeader.Length = sizeof(struct _URB_CONTROL_GET_INTERFACE_REQUEST);
     urb.UrbControlGetInterfaceRequest.TransferBufferLength = 1;
     urb.UrbControlGetInterfaceRequest.TransferBuffer = altsetting;
-    urb.UrbControlGetInterfaceRequest.Interface = (USHORT)interface;
+    urb.UrbControlGetInterfaceRequest.Interface = (USHORT)interface_number;
 
     status = call_usbd(dev, &urb, IOCTL_INTERNAL_USB_SUBMIT_URB, timeout);
 
@@ -60,53 +75,3 @@ NTSTATUS get_interface(libusb_device_t *dev,
 
     return status;
 }
-
-NTSTATUS interface_query_settings(libusb_device_t *dev,
-								  int interface_index, 
-								  int alt_index, 
-								  PUSB_INTERFACE_DESCRIPTOR interface_descriptor)
-{
-    NTSTATUS status = STATUS_SUCCESS;
-    URB *urb;
-    int i, config_size, config_index, tmp_size;
-
-    PUSB_CONFIGURATION_DESCRIPTOR configuration_descriptor = NULL;
-    PUSB_INTERFACE_DESCRIPTOR interface_descriptor_src = NULL;
-
-    USBMSG("query interface index=%d alt-index=%d\n", 
-		interface_index, alt_index);
-
-	if (!dev->config.value)
-    {
-        USBERR0("device is not configured\n");
-        return STATUS_INVALID_DEVICE_STATE;
-    }
-
-    configuration_descriptor = get_config_descriptor(dev, dev->config.value,
-                               &config_size, &config_index);
-    if (!configuration_descriptor)
-    {
-        USBERR0("memory_allocation error\n");
-        return STATUS_NO_MEMORY;
-    }
-
-    interface_descriptor_src =
-        find_interface_desc_by_index(configuration_descriptor, config_size,
-                            interface_index, alt_index);
-
-	if (!interface_descriptor_src)
-	{
-		status = STATUS_NO_MORE_ENTRIES;
-	}
-	else
-	{
-		RtlCopyMemory(interface_descriptor, interface_descriptor_src, sizeof(*interface_descriptor));
-	}
-
-    ExFreePool(configuration_descriptor);
-
-	return status;
-
-}
-
-

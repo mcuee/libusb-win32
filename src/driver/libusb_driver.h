@@ -107,6 +107,14 @@ typedef int bool_t;
 #define UrbFunctionFromEndpoint(PipeInfo) ((IS_ISOC_PIPE(PipeInfo)) ? URB_FUNCTION_ISOCH_TRANSFER : URB_FUNCTION_BULK_OR_INTERRUPT_TRANSFER)
 #define UsbdDirectionFromEndpoint(PipeInfo) ((PipeInfo->address & 0x80) ? USBD_TRANSFER_DIRECTION_IN : USBD_TRANSFER_DIRECTION_OUT)
 
+#define UpdateContextConfigDescriptor(DeviceContext, Descriptor, Size)		\
+{																			\
+	if (DeviceContext->config.descriptor)									\
+		ExFreePool(DeviceContext->config.descriptor);						\
+	DeviceContext->config.descriptor=Descriptor;							\
+	DeviceContext->config.total_size=Size;									\
+}
+
 #ifndef __WUSBIO_H__
 
 // Pipe policy types
@@ -133,6 +141,14 @@ typedef int bool_t;
 
 
 #include <pshpack1.h>
+
+typedef struct _PIPE_INFORMATION
+{
+	USBD_PIPE_TYPE  PipeType;
+	UCHAR           PipeId;
+	USHORT          MaximumPacketSize;
+	UCHAR           Interval;
+} PIPE_INFORMATION, *PPIPE_INFORMATION;
 
 typedef struct
 {
@@ -193,6 +209,8 @@ typedef struct
         int value;
 		int index;
         libusb_interface_t interfaces[LIBUSB_MAX_NUMBER_OF_INTERFACES];
+		PUSB_CONFIGURATION_DESCRIPTOR descriptor; 
+		int total_size;
     } config;
     POWER_STATE power_state;
     DEVICE_POWER_STATE device_power_states[PowerSystemMaximum];
@@ -256,18 +274,6 @@ NTSTATUS get_configuration(libusb_device_t *dev,
                            unsigned char *configuration, int *ret,
                            int timeout);
 
-
-NTSTATUS set_interface(libusb_device_t *dev,
-                       int interface, int altsetting, int timeout);
-NTSTATUS get_interface(libusb_device_t *dev,
-                       int interface, unsigned char *altsetting,
-                       int *ret, int timeout);
-
-NTSTATUS interface_query_settings(libusb_device_t *dev,
-								  int interface_index, 
-								  int alt_index, 
-								  PUSB_INTERFACE_DESCRIPTOR interface_descriptor);
-
 NTSTATUS set_feature(libusb_device_t *dev,
                      int recipient, int index, int feature, int timeout);
 NTSTATUS clear_feature(libusb_device_t *dev,
@@ -323,7 +329,11 @@ find_interface_desc(USB_CONFIGURATION_DESCRIPTOR *config_desc,
 
 USB_INTERFACE_DESCRIPTOR *
 find_interface_desc_by_index(USB_CONFIGURATION_DESCRIPTOR *config_desc,
-                    unsigned int size, int interface_index, int alt_index);
+                    unsigned int size, int interface_index, int alt_index, unsigned int* size_left);
+
+USB_ENDPOINT_DESCRIPTOR *
+find_endpoint_desc_by_index(USB_INTERFACE_DESCRIPTOR *interface_desc,
+                    unsigned int size, int pipe_index);
 
 /*
 Gets a device property for the device_object.
@@ -370,6 +380,17 @@ NTSTATUS large_transfer(IN libusb_device_t* dev,
 
 ULONG get_current_frame(IN PDEVICE_EXTENSION dev, IN PIRP Irp);
 
+NTSTATUS interface_query_settings(libusb_device_t *dev,
+								  int interface_index, 
+								  int alt_index, 
+								  PUSB_INTERFACE_DESCRIPTOR interface_descriptor);
+
+NTSTATUS pipe_query_information(libusb_device_t *dev,
+								  int interface_index, 
+								  int alt_index, 
+								  int pipe_index, 
+								  PPIPE_INFORMATION pipe_information);
+
 NTSTATUS control_transfer(libusb_device_t* dev, 
 						 PIRP irp,
 						 PMDL mdl,
@@ -382,4 +403,27 @@ NTSTATUS control_transfer(libusb_device_t* dev,
 						 USHORT value,
 						 USHORT index,
 						 USHORT length);
+
+NTSTATUS claim_interface_by_index(libusb_device_t *dev, FILE_OBJECT *file_object,
+                         int interface_index);
+
+NTSTATUS release_interface_by_index(libusb_device_t *dev, FILE_OBJECT *file_object,
+                         int interface_index);
+
+NTSTATUS set_interface(libusb_device_t *dev, 
+					   bool_t use_index, 
+					   int interface_number, 
+					   int alt_interface_number,
+					   int interface_index, 
+					   int alt_interface_index,
+                       int timeout);
+
+NTSTATUS get_interface(libusb_device_t *dev,
+                       bool_t use_index,
+					   int interface_index, 
+					   int interface_number, 
+					   unsigned char *altsetting,
+                       int *ret,
+					   int timeout);
+
 #endif
