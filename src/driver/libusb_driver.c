@@ -718,7 +718,6 @@ find_interface_desc_by_index(USB_CONFIGURATION_DESCRIPTOR *config_desc,
     char *p = (char *)desc;
 	int lastInfNumber, lastAltNumber;
 	int currentInfIndex, currentAltIndex;
-	int interface_numbers[32][2]={0};
 
     USB_INTERFACE_DESCRIPTOR *if_desc = NULL;
 

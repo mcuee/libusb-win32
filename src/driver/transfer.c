@@ -1428,3 +1428,62 @@ void set_urb_transfer_flags(libusb_device_t* dev, PIRP irp, PURB subUrb,int tran
 			subUrb->UrbBulkOrInterruptTransfer.TransferFlags |= USBD_SHORT_TRANSFER_OK;
 	}
 }
+
+NTSTATUS control_transfer(libusb_device_t* dev, 
+						 PIRP irp,
+						 PMDL mdl,
+						 int size,
+						 int usbd_direction,
+						 int *ret,
+						 int timeout,
+						 UCHAR request_type,
+						 UCHAR request,
+						 USHORT value,
+						 USHORT index,
+						 USHORT length)
+{
+    NTSTATUS status = STATUS_SUCCESS;
+    URB urb;
+
+    *ret = 0;
+
+	memset(&urb, 0, sizeof(struct _URB_CONTROL_TRANSFER));
+	urb.UrbControlTransfer.SetupPacket[0]=request_type;
+	urb.UrbControlTransfer.SetupPacket[1]=request;
+
+	urb.UrbControlTransfer.SetupPacket[2]=LBYTE(value);
+	urb.UrbControlTransfer.SetupPacket[3]=HBYTE(value);
+
+	urb.UrbControlTransfer.SetupPacket[4]=LBYTE(index);
+	urb.UrbControlTransfer.SetupPacket[5]=HBYTE(index);
+
+	urb.UrbControlTransfer.SetupPacket[6]=LBYTE(length);
+	urb.UrbControlTransfer.SetupPacket[7]=HBYTE(length);
+
+    urb.UrbHeader.Length = sizeof(struct _URB_CONTROL_TRANSFER);
+	urb.UrbHeader.Function=URB_FUNCTION_CONTROL_TRANSFER;
+	urb.UrbControlTransfer.TransferFlags=usbd_direction | USBD_DEFAULT_PIPE_TRANSFER | USBD_SHORT_TRANSFER_OK;
+    urb.UrbControlTransfer.TransferBufferLength = size;
+    urb.UrbControlTransfer.TransferBufferMDL = mdl;
+	urb.UrbControlTransfer.TransferBuffer = NULL;
+
+    USBMSG("[%s] timeout=%d request_type=%02Xh request=%02Xh value=%04Xh index=%04Xh length=%04Xh\n", 
+		(usbd_direction==USBD_TRANSFER_DIRECTION_IN) ? "read" : "write",
+		timeout, request_type, request, value, index, length);
+
+	// no maximum timeout check for control request.
+    status = call_usbd_ex(dev, &urb, IOCTL_INTERNAL_USB_SUBMIT_URB, timeout, 0);
+
+    if (!NT_SUCCESS(status) || !USBD_SUCCESS(urb.UrbHeader.Status))
+    {
+        USBERR("request failed: status: 0x%x, urb-status: 0x%x\n", status, urb.UrbHeader.Status);
+    }
+    else
+    {
+        *ret = urb.UrbControlTransfer.TransferBufferLength;
+        USBMSG("%d bytes transmitted\n",
+                      urb.UrbControlTransfer.TransferBufferLength);
+    }
+
+    return status;
+}

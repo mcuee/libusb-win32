@@ -578,10 +578,60 @@ NTSTATUS dispatch_ioctl(libusb_device_t *dev, IRP *irp)
 		break;
 
 	case LIBUSB_IOCTL_QUERY_PIPE:				// METHOD_BUFFERED (QUERY_PIPE)
+		/*
+		if (!request || output_buffer_length < sizeof(PIPE_INFORMATION))
+		{
+			USBERR0("query_pipe: invalid output buffer\n");
+			status = STATUS_BUFFER_TOO_SMALL;
+			break;
+		}
+
+		GET_OUT_BUFFER(sizeof(PIPE_INFORMATION), &outputBuffer, &outputBufferLen, "query_pipe");
+
+		status = query_pipe_information(deviceContext,
+		                               (UCHAR)request->query_pipe.interface_index,
+		                               (UCHAR)request->query_pipe.altsetting_index,
+		                               (UCHAR)request->query_pipe.pipe_index,
+		                               (PPIPE_INFORMATION)outputBuffer);
+		if (NT_SUCCESS(status))
+		{
+			length = sizeof(PIPE_INFORMATION);
+		}
+	    */
 		status = STATUS_NOT_IMPLEMENTED;
 		break;
 
 	case LIBUSB_IOCTL_SET_PIPE_POLICY:			// METHOD_BUFFERED (SET_PIPE_POLICY)
+		if (!request || !input_buffer || (input_buffer_length <= sizeof(libusb_request)))
+		{
+			USBERR0("set_pipe_policy: invalid output buffer\n");
+			status = STATUS_BUFFER_TOO_SMALL;
+			break;
+		}
+		input_buffer+=sizeof(libusb_request);
+		input_buffer_length-=sizeof(libusb_request);
+		if (request->pipe_policy.policy_type==PIPE_TRANSFER_TIMEOUT)
+		{
+			if (input_buffer_length < 4)
+			{
+				USBERR0("set_pipe_policy:pipe_transfer_timeout: invalid output buffer\n");
+				status = STATUS_BUFFER_TOO_SMALL;
+				break;
+			}
+			if (request->pipe_policy.pipe_id & USB_ENDPOINT_ADDRESS_MASK)
+			{
+				status = STATUS_NOT_IMPLEMENTED;
+				break;
+			}
+			if (request->pipe_policy.pipe_id & USB_ENDPOINT_DIR_MASK)
+				dev->control_read_timeout=*((PULONG)input_buffer);
+			else
+				dev->control_write_timeout=*((PULONG)input_buffer);
+
+			status = STATUS_SUCCESS;
+			break;
+		}
+
 		status = STATUS_NOT_IMPLEMENTED;
 		break;
 
@@ -598,30 +648,77 @@ NTSTATUS dispatch_ioctl(libusb_device_t *dev, IRP *irp)
 		break;
 
 	case LIBUSB_IOCTL_CONTROL_WRITE:			// METHOD_IN_DIRECT (CONTROL_WRITE)
-		status = STATUS_NOT_IMPLEMENTED;
+		// check if the request and buffer is valid
+		if (!request || !transfer_buffer_mdl || input_buffer_length < sizeof(libusb_request))
+        {
+            USBERR("%s: invalid transfer request\n", dispCtlCode);
+            status = STATUS_INVALID_PARAMETER;
+            goto IOCTL_Done;
+        }
+
+		status = control_transfer(
+			dev,
+			irp,
+			transfer_buffer_mdl,
+			transfer_buffer_length,
+			USBD_TRANSFER_DIRECTION_OUT,
+			&ret,
+			dev->control_write_timeout,
+			request->control.RequestType,
+			request->control.Request,
+			request->control.Value,
+			request->control.Index,
+			request->control.Length);
+
 		break;
 
 	case LIBUSB_IOCTL_CONTROL_READ:				// METHOD_OUT_DIRECT (CONTROL_READ)
-		status = STATUS_NOT_IMPLEMENTED;
+		// check if the request and buffer is valid
+		if (!request || !transfer_buffer_mdl || input_buffer_length < sizeof(libusb_request))
+        {
+            USBERR("%s: invalid transfer request\n", dispCtlCode);
+            status = STATUS_INVALID_PARAMETER;
+            goto IOCTL_Done;
+        }
+
+		status = control_transfer(
+			dev,
+			irp,
+			transfer_buffer_mdl,
+			transfer_buffer_length,
+			USBD_TRANSFER_DIRECTION_IN,
+			&ret,
+			dev->control_read_timeout,
+			request->control.RequestType,
+			request->control.Request,
+			request->control.Value,
+			request->control.Index,
+			request->control.Length);
+
 		break;
 
 	case LIBUSB_IOCTL_FLUSH_PIPE:				// METHOD_BUFFERED (FLUSH_PIPE)
+		
 		status = STATUS_NOT_IMPLEMENTED;
 		break;
 
 	case LIBUSBK_IOCTL_CLAIM_INTERFACE:			// METHOD_BUFFERED (CLAIM_INTERFACE)
-		status = STATUS_NOT_IMPLEMENTED;
+
+		status = STATUS_SUCCESS;
 		break;
 
 	case LIBUSBK_IOCTL_RELEASE_INTERFACE:		// METHOD_BUFFERED (RELEASE_INTERFACE)
-		status = STATUS_NOT_IMPLEMENTED;
+		
+		status = STATUS_SUCCESS;
 		break;
 
 	case LIBUSBK_IOCTL_SET_INTERFACE:			// METHOD_BUFFERED (SET_INTERFACE)
-		status = STATUS_NOT_IMPLEMENTED;
+		
+		status = STATUS_SUCCESS;
 		break;
 
 	case LIBUSBK_IOCTL_GET_INTERFACE:			// METHOD_BUFFERED (GET_INTERFACE)
+		
 		status = STATUS_NOT_IMPLEMENTED;
 		break;
 
