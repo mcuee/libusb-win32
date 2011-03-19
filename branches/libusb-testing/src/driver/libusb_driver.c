@@ -712,44 +712,49 @@ find_interface_desc(USB_CONFIGURATION_DESCRIPTOR *config_desc,
 
 USB_INTERFACE_DESCRIPTOR *
 find_interface_desc_by_index(USB_CONFIGURATION_DESCRIPTOR *config_desc,
-                    unsigned int size, int interface_index, int alt_index)
+                    unsigned int size, int interface_index, int alt_index, unsigned int* size_left)
 {
     usb_descriptor_header_t *desc = (usb_descriptor_header_t *)config_desc;
     char *p = (char *)desc;
 	int lastInfNumber, lastAltNumber;
-	int currentInfIndex, currentAltIndex;
+	int currentInfIndex;
+	short InterfacesByIndex[LIBUSB_MAX_NUMBER_OF_INTERFACES][2];
 
     USB_INTERFACE_DESCRIPTOR *if_desc = NULL;
+
+	memset(InterfacesByIndex,0xFF,sizeof(InterfacesByIndex));
 
     if (!config_desc || (size < config_desc->wTotalLength))
         return NULL;
 
-	currentInfIndex=0;
-	currentAltIndex=0;
-	lastInfNumber=-1;
-	lastAltNumber=-1;
     while (size && desc->length <= size)
     {
         if (desc->type == USB_INTERFACE_DESCRIPTOR_TYPE)
         {
             if_desc = (USB_INTERFACE_DESCRIPTOR *)desc;
+			for (currentInfIndex=0; currentInfIndex<LIBUSB_MAX_NUMBER_OF_INTERFACES;currentInfIndex++)
+			{
+				if (InterfacesByIndex[currentInfIndex][0]==-1)
+				{
+					InterfacesByIndex[currentInfIndex][0]=if_desc->bInterfaceNumber;
+					InterfacesByIndex[currentInfIndex][1]=0;
+					break;
+				}
+				else if (InterfacesByIndex[currentInfIndex][0]==if_desc->bInterfaceNumber)
+				{
+					InterfacesByIndex[currentInfIndex][1]++;
+					break;
+				}
+			}
 
-			if (currentInfIndex==interface_index && 
-				currentAltIndex == alt_index)
+			if (interface_index == currentInfIndex && 
+				alt_index == InterfacesByIndex[currentInfIndex][1])
+			{
+				if (size_left)
+				{
+					*size_left=size;
+				}
 				return if_desc;
-
-			if ((int)if_desc->bInterfaceNumber!=lastInfNumber)
-			{
-				currentInfIndex++;
-				lastInfNumber=(int)if_desc->bInterfaceNumber;
-				currentAltIndex=0;
-				lastAltNumber=-1;
-				continue;
-			} 
-			if ((int)if_desc->bAlternateSetting!=lastAltNumber)
-			{
-				currentAltIndex++;
-				lastAltNumber=(int)if_desc->bAlternateSetting;
 			}
         }
 
@@ -760,6 +765,64 @@ find_interface_desc_by_index(USB_CONFIGURATION_DESCRIPTOR *config_desc,
 
     return NULL;
 }
+
+USB_ENDPOINT_DESCRIPTOR *
+find_endpoint_desc_by_index(USB_INTERFACE_DESCRIPTOR *interface_desc,
+                    unsigned int size, int pipe_index)
+{
+    usb_descriptor_header_t *desc = (usb_descriptor_header_t *)interface_desc;
+    char *p = (char *)desc;
+	int currentPipeIndex;
+	short PipesByIndex[LIBUSB_MAX_NUMBER_OF_ENDPOINTS];
+
+    USB_ENDPOINT_DESCRIPTOR *ep_desc = NULL;
+	memset(PipesByIndex,0xFF,sizeof(PipesByIndex));
+
+	if (size && desc->length <= size)
+	{
+        size -= desc->length;
+        p += desc->length;
+        desc = (usb_descriptor_header_t *)p;
+	}
+
+    while (size && desc->length <= size)
+    {
+        if (desc->type == USB_ENDPOINT_DESCRIPTOR_TYPE)
+        {
+            ep_desc = (USB_ENDPOINT_DESCRIPTOR *)desc;
+			for (currentPipeIndex=0; currentPipeIndex<LIBUSB_MAX_NUMBER_OF_ENDPOINTS;currentPipeIndex++)
+			{
+				if (PipesByIndex[currentPipeIndex]==-1)
+				{
+					PipesByIndex[currentPipeIndex]=ep_desc->bEndpointAddress;
+					break;
+				}
+				else if (PipesByIndex[currentPipeIndex]==ep_desc->bEndpointAddress)
+				{
+					// the pipe is defined twice in the same interface
+					USBWRN("invalid endpoint descriptor at pipe index=%d\n",currentPipeIndex);
+					break;
+				}
+			}
+
+			if (pipe_index == currentPipeIndex)
+			{
+				return ep_desc;
+			}
+        }
+		else
+		{
+			break;
+		}
+
+        size -= desc->length;
+        p += desc->length;
+        desc = (usb_descriptor_header_t *)p;
+    }
+
+    return NULL;
+}
+
 
 ULONG get_current_frame(IN PDEVICE_EXTENSION deviceExtension, IN PIRP Irp)
 /*++

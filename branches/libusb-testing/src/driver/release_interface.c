@@ -62,6 +62,34 @@ NTSTATUS release_interface(libusb_device_t *dev, FILE_OBJECT *file_object,
     return STATUS_SUCCESS;
 }
 
+NTSTATUS release_interface_by_index(libusb_device_t *dev, FILE_OBJECT *file_object,
+                         int interface_index)
+{
+ 	PUSB_INTERFACE_DESCRIPTOR interface_descriptor;
+   
+	USBMSG("interface-index=%d\n", interface_index);
+
+    if (!dev->config.value || !dev->config.descriptor)
+    {
+        USBERR0("device is not configured\n");
+        return STATUS_INVALID_DEVICE_STATE;
+    }
+
+    if (interface_index >= LIBUSB_MAX_NUMBER_OF_INTERFACES)
+    {
+        USBERR("interface-index %d too high\n",
+                    interface_index);
+        return STATUS_NO_MORE_ENTRIES;
+    }
+
+	interface_descriptor = find_interface_desc_by_index(dev->config.descriptor,dev->config.total_size,interface_index,0,NULL);
+	if (!interface_descriptor)
+	{
+        return STATUS_NO_MORE_ENTRIES;
+	}
+	return release_interface(dev, file_object, interface_descriptor->bInterfaceNumber);
+}
+
 NTSTATUS release_all_interfaces(libusb_device_t *dev, FILE_OBJECT *file_object)
 {
     int i;

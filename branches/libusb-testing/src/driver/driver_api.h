@@ -177,14 +177,6 @@ enum
 
 #include <pshpack1.h>
 
-typedef struct _PIPE_INFORMATION
-{
-	USBD_PIPE_TYPE  PipeType;
-	UCHAR           PipeId;
-	USHORT          MaximumPacketSize;
-	UCHAR           Interval;
-} PIPE_INFORMATION, *PPIPE_INFORMATION;
-
 enum LIBUSB0_TRANSFER_FLAGS
 {
 	TRANSFER_FLAGS_SHORT_NOT_OK = 1 << 0,

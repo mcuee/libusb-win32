@@ -42,7 +42,7 @@
 #define strlwr(p) _strlwr(p)
 #endif
 
-#include "usb.h"
+#include "lusb0_usb.h"
 #include "registry.h"
 #include "error.h"
 #include "driver_api.h"

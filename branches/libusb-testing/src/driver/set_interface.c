@@ -20,44 +20,61 @@
 #include "libusb_driver.h"
 
 
-NTSTATUS set_interface(libusb_device_t *dev, int interface, int altsetting,
+NTSTATUS set_interface(libusb_device_t *dev, 
+					   bool_t use_index, 
+					   int interface_number, 
+					   int alt_interface_number,
+					   int interface_index, 
+					   int alt_interface_index,
                        int timeout)
 {
     NTSTATUS status = STATUS_SUCCESS;
     URB *urb;
-    int i, config_size, config_index, tmp_size;
+    int i, tmp_size;
 
-    USB_CONFIGURATION_DESCRIPTOR *configuration_descriptor = NULL;
     USB_INTERFACE_DESCRIPTOR *interface_descriptor = NULL;
     USBD_INTERFACE_INFORMATION *interface_information = NULL;
 
-    USBMSG("interface %d altsetting %d timeout %d\n", 
-		interface,altsetting,timeout);
+	if (use_index)
+	{
+		USBMSG("interface-index=%d alt-index=%d timeout=%d\n", 
+			interface_index,alt_interface_index,timeout);
+	}
+	else
+	{
+		USBMSG("interface-number=%d alt-number=%d timeout=%d\n", 
+			interface_number,alt_interface_number,timeout);
+	}
 
-	if (!dev->config.value)
+	if (!dev->config.value || !dev->config.descriptor)
     {
         USBERR0("device is not configured\n");
         return STATUS_INVALID_DEVICE_STATE;
     }
 
-    configuration_descriptor = get_config_descriptor(dev, dev->config.value,
-                               &config_size, &config_index);
-    if (!configuration_descriptor)
-    {
-        USBERR0("memory_allocation error\n");
-        return STATUS_NO_MEMORY;
-    }
-
-    interface_descriptor =
-        find_interface_desc(configuration_descriptor, config_size,
-                            interface, altsetting);
-
+	if (use_index)
+	{
+		interface_descriptor = find_interface_desc_by_index(dev->config.descriptor, dev->config.total_size, interface_index, alt_interface_index, NULL);
+	}
+	else
+	{
+		interface_descriptor = find_interface_desc(dev->config.descriptor, dev->config.total_size, interface_number, alt_interface_number);
+	}
     if (!interface_descriptor)
     {
-        USBERR("interface %d or altsetting %d invalid\n",
-                    interface, altsetting);
-        ExFreePool(configuration_descriptor);
-        return STATUS_UNSUCCESSFUL;
+		if (use_index)
+		{
+			USBWRN("interface-index=%d alt-index=%d does not exists.\n", 
+				interface_index,alt_interface_index);
+	        return STATUS_NO_MORE_ENTRIES;
+
+		}
+		else
+		{
+			USBERR("interface-number=%d alt-number=%d does not exists.\n", 
+				interface_number,alt_interface_number,timeout);
+	        return STATUS_INVALID_PARAMETER;
+		}
     }
 
     tmp_size = sizeof(struct _URB_SELECT_INTERFACE) + interface_descriptor->bNumEndpoints * sizeof(USBD_PIPE_INFORMATION);
@@ -68,7 +85,6 @@ NTSTATUS set_interface(libusb_device_t *dev, int interface, int altsetting,
     if (!urb)
     {
         USBERR0("memory_allocation error\n");
-        ExFreePool(configuration_descriptor);
         return STATUS_NO_MEMORY;
     }
 
@@ -82,8 +98,8 @@ NTSTATUS set_interface(libusb_device_t *dev, int interface, int altsetting,
     urb->UrbSelectInterface.Interface.NumberOfPipes = interface_descriptor->bNumEndpoints;
     urb->UrbSelectInterface.Interface.Length += interface_descriptor->bNumEndpoints * sizeof(struct _USBD_PIPE_INFORMATION);
 
-    urb->UrbSelectInterface.Interface.InterfaceNumber = (UCHAR)interface;
-    urb->UrbSelectInterface.Interface.AlternateSetting = (UCHAR)altsetting;
+    urb->UrbSelectInterface.Interface.InterfaceNumber = (UCHAR)interface_descriptor->bInterfaceNumber;
+    urb->UrbSelectInterface.Interface.AlternateSetting = (UCHAR)interface_descriptor->bAlternateSetting;
 
     interface_information = &urb->UrbSelectInterface.Interface;
 
@@ -98,14 +114,12 @@ NTSTATUS set_interface(libusb_device_t *dev, int interface, int altsetting,
     if (!NT_SUCCESS(status) || !USBD_SUCCESS(urb->UrbHeader.Status))
     {
         USBERR("setting interface failed: status: 0x%x, urb-status: 0x%x\n", status, urb->UrbHeader.Status);
-        ExFreePool(configuration_descriptor);
         ExFreePool(urb);
         return STATUS_UNSUCCESSFUL;
     }
 
     update_pipe_info(dev, interface_information);
 
-    ExFreePool(configuration_descriptor);
     ExFreePool(urb);
 
     return status;

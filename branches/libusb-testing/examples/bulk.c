@@ -1,4 +1,4 @@
-#include <usb.h>
+#include <lusb0_usb.h>
 #include <stdio.h>
 
 // Enables this example to work with a device running the
