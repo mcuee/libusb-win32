@@ -107,6 +107,31 @@ typedef int bool_t;
 #define UrbFunctionFromEndpoint(PipeInfo) ((IS_ISOC_PIPE(PipeInfo)) ? URB_FUNCTION_ISOCH_TRANSFER : URB_FUNCTION_BULK_OR_INTERRUPT_TRANSFER)
 #define UsbdDirectionFromEndpoint(PipeInfo) ((PipeInfo->address & 0x80) ? USBD_TRANSFER_DIRECTION_IN : USBD_TRANSFER_DIRECTION_OUT)
 
+#ifndef __WUSBIO_H__
+
+// Pipe policy types
+
+// The default value is zero. To set a time-out value, in Value pass the address of a caller-allocated ULONG variable that contains the time-out interval.
+// The PIPE_TRANSFER_TIMEOUT value specifies the time-out interval, in milliseconds. The host controller cancels transfers that do not complete within the specified time-out interval.
+// A value of zero (default) indicates that transfers do not time out because the host controller never cancels the transfer.
+#define PIPE_TRANSFER_TIMEOUT   0x03
+
+// Device Information types
+#define DEVICE_SPEED            0x01
+
+// Device Speeds
+#define LowSpeed                0x01
+#define FullSpeed               0x02
+#define HighSpeed               0x03
+
+#endif
+
+#define USB_ENDPOINT_ADDRESS_MASK 0x0F
+#define USB_ENDPOINT_DIR_MASK 0x80
+#define LBYTE(w) (w & 0xFF)
+#define HBYTE(w) ((w>>8) & 0xFF)
+
+
 #include <pshpack1.h>
 
 typedef struct
@@ -178,6 +203,8 @@ typedef struct
 	GUID device_interface_guid;
 	bool_t device_interface_in_use;
 	UNICODE_STRING device_interface_name;
+	int control_read_timeout;
+	int control_write_timeout;
 } libusb_device_t, DEVICE_EXTENSION, *PDEVICE_EXTENSION;
 
 
@@ -343,4 +370,16 @@ NTSTATUS large_transfer(IN libusb_device_t* dev,
 
 ULONG get_current_frame(IN PDEVICE_EXTENSION dev, IN PIRP Irp);
 
+NTSTATUS control_transfer(libusb_device_t* dev, 
+						 PIRP irp,
+						 PMDL mdl,
+						 int size,
+						 int usbd_direction,
+						 int *ret,
+						 int timeout,
+						 UCHAR request_type,
+						 UCHAR request,
+						 USHORT value,
+						 USHORT index,
+						 USHORT length);
 #endif
