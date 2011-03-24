@@ -232,9 +232,9 @@ bool_t reg_get_properties(libusb_device_t *dev)
 		{
 			USBERR("ObReferenceObjectByHandle failed. status=%Xh\n",status);
 		}
-        ExFreePool(info);
 
         ZwClose(key);
+        ExFreePool(info);
     }
 
     return TRUE;

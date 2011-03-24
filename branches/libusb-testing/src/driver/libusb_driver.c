@@ -307,10 +307,36 @@ NTSTATUS DDKAPI add_device(DRIVER_OBJECT *driver_object,
 		{
 			dev->device_interface_name.Buffer = NULL;
 
-			USBERR0("add_device(): creating device interface failed\n");
+			USBERR0("creating device interface failed\n");
 			IoDeleteSymbolicLink(&symbolic_link_name);
 			IoDeleteDevice(device_object);
 			return status;
+		}
+		else
+		{
+			if (dev->device_interface_in_use)
+			{
+				HANDLE hKey=NULL;
+				if (NT_SUCCESS(IoOpenDeviceInterfaceRegistryKey(&dev->device_interface_name,KEY_ALL_ACCESS,&hKey)))
+				{
+					UNICODE_STRING valueName;
+					RtlInitUnicodeString(&valueName, L"LUsb0");
+
+					if (NT_SUCCESS(ZwSetValueKey(hKey,&valueName, 0, REG_DWORD, &dev->id,sizeof(ULONG))))
+					{
+						USBMSG("updated interface registry with LUsb0 direct-access symbolic link. id=%04d\n",dev->id);
+					}
+					else
+					{
+						USBERR0("IoOpenDeviceInterfaceRegistryKey:ZwSetValueKey failed\n");
+					}
+					ZwClose(hKey);
+				}
+				else
+				{
+					USBERR0("IoOpenDeviceInterfaceRegistryKey failed\n");
+				}
+			}
 		}
 	}
 	// make sure the the devices can't be removed
@@ -469,24 +495,33 @@ NTSTATUS pass_irp_down(libusb_device_t *dev, IRP *irp,
 
     return IoCallDriver(dev->next_stack_device, irp);
 }
+/*
+bool_t accept_irp(libusb_device_t *dev, IRP *irp)
+{
+    if (irp->Tail.Overlay.OriginalFileObject)
+    {
+        return irp->Tail.Overlay.OriginalFileObject->DeviceObject
+               == dev->self ? TRUE : FALSE;
+    }
 
+    return FALSE;
+}
+*/
 bool_t accept_irp(libusb_device_t *dev, IRP *irp)
 {
 	/* check if the IRP is sent to libusb's device object or to */
 	/* the lower one. This check is necessary since the device object */
 	/* might be a filter */
 	if(!irp->Tail.Overlay.OriginalFileObject)
-	{
 		return FALSE;
-	}
+	if (irp->Tail.Overlay.OriginalFileObject->DeviceObject == dev->self)
+		return TRUE;
 
 	/* cover the cases when access is made by using device interfaces */
-	if (irp->Tail.Overlay.OriginalFileObject->DeviceObject == dev->self ||
-		(irp->Tail.Overlay.OriginalFileObject->DeviceObject == dev->physical_device_object && dev->device_interface_in_use)
-		) 
-	{
+	if (!dev->is_filter &&
+		dev->device_interface_in_use &&
+		(irp->Tail.Overlay.OriginalFileObject->DeviceObject == dev->physical_device_object)) 
 		return TRUE;
-	}
 
 	return FALSE;
 }
