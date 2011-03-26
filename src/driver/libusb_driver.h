@@ -95,7 +95,7 @@
 
 typedef int bool_t;
 
-#define IS_PIPE_TYPE(pipeInfo, pipeType) ((pipeInfo->pipe_type & 3)==pipeType)
+#define IS_PIPE_TYPE(pipeInfo, pipeType) ((((pipeInfo->pipe_type & 3)==pipeType))?TRUE:FALSE)
 
 #define IS_CTRL_PIPE(pipeInfo) IS_PIPE_TYPE(pipeInfo,UsbdPipeTypeControl)
 #define IS_ISOC_PIPE(pipeInfo) IS_PIPE_TYPE(pipeInfo,UsbdPipeTypeIsochronous)
