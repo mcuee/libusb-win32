@@ -426,4 +426,5 @@ NTSTATUS get_interface(libusb_device_t *dev,
                        int *ret,
 					   int timeout);
 
+VOID set_filter_interface_key(libusb_device_t *dev, ULONG id);
 #endif

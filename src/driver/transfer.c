@@ -148,6 +148,8 @@ NTSTATUS transfer(libusb_device_t* dev,
 	// TODO: reset pipe flag 
 	// status = reset_endpoint(dev,endpoint->address, LIBUSB_DEFAULT_TIMEOUT);
 	//
+	if (!packetSize)
+		packetSize = endpoint->maximum_packet_size;
 
 	if (urbFunction == URB_FUNCTION_ISOCH_TRANSFER)
 	{
@@ -429,6 +431,9 @@ NTSTATUS large_transfer(IN libusb_device_t* dev,
 
 	if (!maxTransferSize) 
 		maxTransferSize = endpoint->maximum_transfer_size;
+
+	if (!packetSize)
+		packetSize = endpoint->maximum_packet_size;
 
 	startOffset = 0;
 

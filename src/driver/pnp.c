@@ -61,6 +61,8 @@ NTSTATUS dispatch_pnp(libusb_device_t *dev, IRP *irp)
 
 		if (dev->device_interface_in_use && dev->is_started)
 		{
+			set_filter_interface_key(dev,(ULONG)-1);
+
 			status = IoSetDeviceInterfaceState(&dev->device_interface_name, FALSE);
 			if (!NT_SUCCESS(status))
 			{
@@ -102,6 +104,7 @@ NTSTATUS dispatch_pnp(libusb_device_t *dev, IRP *irp)
 
 		if (dev->device_interface_in_use) 
 		{
+			set_filter_interface_key(dev,(ULONG)-1);
 			status = IoSetDeviceInterfaceState(&dev->device_interface_name, FALSE);
 			if (!NT_SUCCESS(status))
 			{

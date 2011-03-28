@@ -152,10 +152,13 @@ NTSTATUS dispatch_ioctl(libusb_device_t *dev, IRP *irp)
 		// must be a bulk or interrupt pipe
 		if (!IS_BULK_PIPE(pipe_info) && !IS_INTR_PIPE(pipe_info))
 		{
+			goto IoctlIsochronousRead;
+			/*
 			USBERR("%s: incorrect pipe type: %02Xh\n", 
 				dispCtlCode, pipe_info->pipe_type);
 			status = STATUS_INVALID_PARAMETER;
 			goto IOCTL_Done;
+			*/
 		}
 
 		// read buffer length must be equal to or an interval of the max packet size
@@ -192,10 +195,13 @@ NTSTATUS dispatch_ioctl(libusb_device_t *dev, IRP *irp)
 		// must be a bulk or interrupt pipe
 		if (!IS_BULK_PIPE(pipe_info) && !IS_INTR_PIPE(pipe_info))
 		{
+			goto IoctlIsochronousWrite;
+			/*
 			USBERR("%s: incorrect pipe type: %02Xh\n", 
 				dispCtlCode, pipe_info->pipe_type);
 			status = STATUS_INVALID_PARAMETER;
 			goto IOCTL_Done;
+			*/
 		}
 
 		urbFunction = URB_FUNCTION_BULK_OR_INTERRUPT_TRANSFER;
@@ -225,6 +231,8 @@ NTSTATUS dispatch_ioctl(libusb_device_t *dev, IRP *irp)
 		// check if the pipe exists and get the pipe information
 		TRANSFER_IOCTL_GET_PIPEINFO();
 
+IoctlIsochronousRead:
+		dispCtlCode = "ISOCHRONOUS_READ";
 		// must be an isochronous endpoint
 		if (!IS_ISOC_PIPE(pipe_info))
 		{
@@ -264,6 +272,8 @@ NTSTATUS dispatch_ioctl(libusb_device_t *dev, IRP *irp)
 		// check if the pipe exists and get the pipe information
 		TRANSFER_IOCTL_GET_PIPEINFO();
 
+IoctlIsochronousWrite:
+		dispCtlCode = "ISOCHRONOUS_WRITE";
 		// must be an isochronous endpoint
 		if (!IS_ISOC_PIPE(pipe_info))
 		{
