@@ -332,3 +332,30 @@ NTSTATUS reg_get_custom_property(PDEVICE_OBJECT device_object,
     }
     return status;
 }
+
+VOID set_filter_interface_key(libusb_device_t *dev, ULONG id)
+{
+	if (dev->device_interface_in_use)
+	{
+		HANDLE hKey=NULL;
+		if (NT_SUCCESS(IoOpenDeviceInterfaceRegistryKey(&dev->device_interface_name,KEY_ALL_ACCESS,&hKey)))
+		{
+			UNICODE_STRING valueName;
+			RtlInitUnicodeString(&valueName, L"LUsb0");
+
+			if (NT_SUCCESS(ZwSetValueKey(hKey,&valueName, 0, REG_DWORD, &id,sizeof(ULONG))))
+			{
+				USBMSG("updated interface registry with LUsb0 direct-access symbolic link. id=%04d\n",dev->id);
+			}
+			else
+			{
+				USBERR0("IoOpenDeviceInterfaceRegistryKey:ZwSetValueKey failed\n");
+			}
+			ZwClose(hKey);
+		}
+		else
+		{
+			USBERR0("IoOpenDeviceInterfaceRegistryKey failed\n");
+		}
+	}
+}

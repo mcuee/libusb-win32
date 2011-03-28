@@ -314,6 +314,7 @@ NTSTATUS DDKAPI add_device(DRIVER_OBJECT *driver_object,
 		}
 		else
 		{
+			set_filter_interface_key(dev,dev->id);
 			if (dev->device_interface_in_use)
 			{
 				HANDLE hKey=NULL;
