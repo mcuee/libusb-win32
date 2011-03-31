@@ -18,6 +18,7 @@
 
 
 #include "libusb_driver.h"
+#include "lusb_defdi_guids.h"
 
 /* missing in mingw's ddk headers */
 #ifndef PLUGPLAY_REGKEY_DEVICE
@@ -27,9 +28,6 @@
 #define LIBUSB_REG_SURPRISE_REMOVAL_OK	L"SurpriseRemovalOK"
 #define LIBUSB_REG_INITIAL_CONFIG_VALUE	L"InitialConfigValue"
 #define LIBUSB_REG_DEVICE_INTERFACE_GUIDS L"DeviceInterfaceGUIDs"
-
-#define LIBUSB_REG_DEFAULT_FILTER_GUID L"{F9F3FF14-AE21-48a0-8A25-8011A7A931D9}"
-#define LIBUSB_REG_DEFAULT_DEVICE_GUID L"{20343A29-6DA1-4db8-8A3C-16E774057BF5}"
 
 static bool_t reg_get_property(DEVICE_OBJECT *physical_device_object,
                                int property, char *data, int size);
@@ -153,9 +151,26 @@ bool_t reg_get_properties(libusb_device_t *dev)
 				status = RtlGUIDFromString(&device_interface_guid_value, &dev->device_interface_guid);
 				if (NT_SUCCESS(status))
 				{
-					USBMSG0("found user specified device interface guid.\n");
-					dev->device_interface_in_use = TRUE;
-
+					if (IsEqualGUID(&dev->device_interface_guid, &LibusbKDeviceGuid))
+					{
+						USBWRN0("libusbK default device DeviceInterfaceGUID found. skippng..\n");
+						RtlInitUnicodeString(&device_interface_guid_value,Libusb0DeviceGuidW);
+					} 
+					else if (IsEqualGUID(&dev->device_interface_guid, &Libusb0FilterGuid))
+					{
+						USBWRN0("libusb0 filter DeviceInterfaceGUID found. skippng..\n");
+						RtlInitUnicodeString(&device_interface_guid_value,Libusb0DeviceGuidW);
+					}
+					else if (IsEqualGUID(&dev->device_interface_guid, &Libusb0DeviceGuid))
+					{
+						USBWRN0("libusb0 device DeviceInterfaceGUID found. skippng..\n");
+						RtlInitUnicodeString(&device_interface_guid_value,Libusb0DeviceGuidW);
+					}
+					else
+					{
+						USBMSG0("found user specified device interface guid.\n");
+						dev->device_interface_in_use = TRUE;
+					}
 				}
 				else
 				{
@@ -164,12 +179,12 @@ bool_t reg_get_properties(libusb_device_t *dev)
 			}
 			if (!dev->device_interface_in_use)
 			{
-				RtlInitUnicodeString(&device_interface_guid_value,LIBUSB_REG_DEFAULT_DEVICE_GUID);
+				RtlInitUnicodeString(&device_interface_guid_value,Libusb0DeviceGuidW);
 			}
 		}
 		else
 		{
-			RtlInitUnicodeString(&device_interface_guid_value,LIBUSB_REG_DEFAULT_FILTER_GUID);
+			RtlInitUnicodeString(&device_interface_guid_value,Libusb0FilterGuidW);
 		}
 
 		if (!dev->device_interface_in_use)
