@@ -31,8 +31,6 @@ NTSTATUS set_configuration(libusb_device_t *dev,
     USB_INTERFACE_DESCRIPTOR *interface_descriptor = NULL;
     USBD_INTERFACE_LIST_ENTRY *interfaces = NULL;
     int i, j, interface_number, desc_size, config_index, ret;
-	unsigned char active_config;
-	bool_t set_config_active_config = FALSE;
 
 	// check if this config value is already set
 	if ((configuration > 0) && dev->config.value == configuration)
@@ -70,28 +68,11 @@ NTSTATUS set_configuration(libusb_device_t *dev,
         return status;
     }
 
-	status = get_configuration(dev, &active_config, &ret, timeout);
-	if (!NT_SUCCESS(status))
+	if (configuration <= SET_CONFIG_ACTIVE_CONFIG)
 	{
-		active_config = 0;
-
-#ifdef REMOVED_FOR_TESTING
-			USBERR("failed setting active configuration for %s timeout=%d\n",
-				dev->device_id, timeout);
-			return status;
-#endif
-	}
-
-	if (configuration == SET_CONFIG_ACTIVE_CONFIG)
-	{
-		set_config_active_config = TRUE;
-
-		// if the device is already configured use this configuration
-		// if not use the first configuration index
-		if (active_config)
-			configuration=active_config;
-		else
-			configuration=-1;
+		// note: as of v1.2.4.0, the active/default configuration is 
+		// always the first configuration the device returns. (index 0)
+		configuration=-1;
 	}
 
 	USBMSG("setting configuration %s %d timeout=%d",
