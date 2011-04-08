@@ -79,6 +79,7 @@ static void print_configuration(struct usb_config_descriptor *config);
 static void print_interface(struct usb_interface *interface);
 static void print_altsetting(struct usb_interface_descriptor *interface);
 static void print_endpoint(struct usb_endpoint_descriptor *endpoint);
+static void print_device_descriptor(struct usb_device_descriptor *desc, int indent);
 
 int APIENTRY WinMain(HINSTANCE instance, HINSTANCE prev_instance,
                      LPSTR cmd_line, int cmd_show)
@@ -331,6 +332,8 @@ static void on_refresh(void)
                 usb_close (udev);
             }
 
+			print_device_descriptor(&dev->descriptor,0);
+
             if (!dev->config)
             {
                 edit_printf("  Couldn't retrieve descriptors\r\n");
@@ -451,4 +454,22 @@ static void print_configuration(struct usb_config_descriptor *config)
 
     for (i = 0; i < config->bNumInterfaces; i++)
         print_interface(&config->interface[i]);
+}
+
+static void print_device_descriptor(struct usb_device_descriptor *desc, int indent)
+{
+	edit_printf("%.*sbLength:             %u\r\n",    indent, "                    ", desc->bLength);
+	edit_printf("%.*sbDescriptorType:     %02Xh\r\n", indent, "                    ", desc->bDescriptorType);
+	edit_printf("%.*sbcdUSB:              %04Xh\r\n", indent, "                    ", desc->bcdUSB);
+	edit_printf("%.*sbDeviceClass:        %02Xh\r\n", indent, "                    ", desc->bDeviceClass);
+	edit_printf("%.*sbDeviceSubClass:     %02Xh\r\n", indent, "                    ", desc->bDeviceSubClass);
+	edit_printf("%.*sbDeviceProtocol:     %02Xh\r\n", indent, "                    ", desc->bDeviceProtocol);
+	edit_printf("%.*sbMaxPacketSize0:     %02Xh\r\n", indent, "                    ", desc->bMaxPacketSize0);
+	edit_printf("%.*sidVendor:            %04Xh\r\n", indent, "                    ", desc->idVendor);
+	edit_printf("%.*sidProduct:           %04Xh\r\n", indent, "                    ", desc->idProduct);
+	edit_printf("%.*sbcdDevice:           %04Xh\r\n", indent, "                    ", desc->bcdDevice);
+	edit_printf("%.*siManufacturer:       %u\r\n",    indent, "                    ", desc->iManufacturer);
+	edit_printf("%.*siProduct:            %u\r\n",    indent, "                    ", desc->iProduct);
+	edit_printf("%.*siSerialNumber:       %u\r\n",    indent, "                    ", desc->iSerialNumber);
+	edit_printf("%.*sbNumConfigurations:  %u\r\n",    indent, "                    ", desc->bNumConfigurations);
 }

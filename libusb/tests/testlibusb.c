@@ -59,6 +59,24 @@ void print_configuration(struct usb_config_descriptor *config)
         print_interface(&config->interface[i]);
 }
 
+void print_device_descriptor(struct usb_device_descriptor *desc, int indent)
+{
+	printf("%.*sbLength:             %u\n",    indent, "                    ", desc->bLength);
+	printf("%.*sbDescriptorType:     %02Xh\n", indent, "                    ", desc->bDescriptorType);
+	printf("%.*sbcdUSB:              %04Xh\n", indent, "                    ", desc->bcdUSB);
+	printf("%.*sbDeviceClass:        %02Xh\n", indent, "                    ", desc->bDeviceClass);
+	printf("%.*sbDeviceSubClass:     %02Xh\n", indent, "                    ", desc->bDeviceSubClass);
+	printf("%.*sbDeviceProtocol:     %02Xh\n", indent, "                    ", desc->bDeviceProtocol);
+	printf("%.*sbMaxPacketSize0:     %02Xh\n", indent, "                    ", desc->bMaxPacketSize0);
+	printf("%.*sidVendor:            %04Xh\n", indent, "                    ", desc->idVendor);
+	printf("%.*sidProduct:           %04Xh\n", indent, "                    ", desc->idProduct);
+	printf("%.*sbcdDevice:           %04Xh\n", indent, "                    ", desc->bcdDevice);
+	printf("%.*siManufacturer:       %u\n",    indent, "                    ", desc->iManufacturer);
+	printf("%.*siProduct:            %u\n",    indent, "                    ", desc->iProduct);
+	printf("%.*siSerialNumber:       %u\n",    indent, "                    ", desc->iSerialNumber);
+	printf("%.*sbNumConfigurations:  %u\n",    indent, "                    ", desc->bNumConfigurations);
+}
+
 int print_device(struct usb_device *dev, int level)
 {
     usb_dev_handle *udev;
@@ -103,7 +121,7 @@ int print_device(struct usb_device *dev, int level)
         snprintf(description, sizeof(description), "%04X - %04X",
                  dev->descriptor.idVendor, dev->descriptor.idProduct);
 
-    printf("%.*sDev #%d: %s\n", level * 2, "                    ", dev->devnum,
+    printf("\n%.*sDev #%d: %s", level * 2, "                    ", dev->devnum,
            description);
 
     if (udev && verbose)
@@ -113,10 +131,16 @@ int print_device(struct usb_device *dev, int level)
             ret = usb_get_string_simple(udev, dev->descriptor.iSerialNumber, string,
                                         sizeof(string));
             if (ret > 0)
-                printf("%.*s  - Serial Number: %s\n", level * 2,
-                       "                    ", string);
+                printf(" - Serial Number: %s\n", string);
         }
+		else
+			printf("\n");
     }
+	else
+		printf("\n");
+
+	if (verbose)
+		print_device_descriptor(&dev->descriptor, level * 2);
 
     if (udev)
         usb_close(udev);
