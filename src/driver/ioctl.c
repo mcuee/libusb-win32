@@ -350,12 +350,10 @@ IoctlIsochronousWrite:
 
 		status = set_interface(
 			dev, 
-			FALSE, 
 			request->intf.interface_number,
 			request->intf.altsetting_number,
-			request->intf.interfaceIndex,
-			request->intf.altsettingIndex,
 			request->timeout);
+
 		break;
 
 	case LIBUSB_IOCTL_GET_INTERFACE:
@@ -368,13 +366,14 @@ IoctlIsochronousWrite:
 		}
 
 		status = get_interface(
-			dev, 
-			FALSE, 
+			dev,
 			request->intf.interface_number,
-			request->intf.interfaceIndex,
 			output_buffer, 
-			&ret,
 			request->timeout);
+
+		if (NT_SUCCESS(status))
+			ret = 1;
+
 		break;
 
 	case LIBUSB_IOCTL_SET_FEATURE:
@@ -592,8 +591,8 @@ NULL : input_buffer + sizeof(libusb_request),
 
 		status = interface_query_settings(
 			dev,
-			request->intf.interfaceIndex,
-			request->intf.altsettingIndex,
+			request->intf.interface_index,
+			request->intf.altsetting_number,
 			(PUSB_INTERFACE_DESCRIPTOR)output_buffer);
 
 		if (NT_SUCCESS(status))
@@ -749,49 +748,71 @@ NULL : input_buffer + sizeof(libusb_request),
 
 	case LIBUSB_IOCTL_FLUSH_PIPE:				// METHOD_BUFFERED (FLUSH_PIPE)
 
-		status = STATUS_NOT_IMPLEMENTED;
+		status = STATUS_SUCCESS;
 		break;
 
+
 	case LIBUSBK_IOCTL_CLAIM_INTERFACE:			// METHOD_BUFFERED (CLAIM_INTERFACE)
+		if (!request || output_buffer_length < sizeof(libusb_request))
+		{
+			USBERR0("claim_interfaceK: invalid output buffer\n");
+			status = STATUS_BUFFER_TOO_SMALL;
+			break;
+		}
 
-		if (request->intf.useInterfaceIndex)
-			status = claim_interface_by_index(dev,stack_location->FileObject, request->intf.interfaceIndex);
-		else
-			status = claim_interface(dev, stack_location->FileObject, request->intf.interface_number);
-
+		status = claim_interface_ex(dev, stack_location->FileObject, &request->intf);
+		if (NT_SUCCESS(status))
+		{
+			ret = sizeof(libusb_request);
+		}
 		break;
 
 	case LIBUSBK_IOCTL_RELEASE_INTERFACE:		// METHOD_BUFFERED (RELEASE_INTERFACE)
 
-		if (request->intf.useInterfaceIndex)
-			status = release_interface_by_index(dev,stack_location->FileObject, request->intf.interfaceIndex);
-		else
-			status = release_interface(dev, stack_location->FileObject, request->intf.interface_number);
+		if (!request || output_buffer_length < sizeof(libusb_request))
+		{
+			USBERR0("release_interfaceK: invalid output buffer\n");
+			status = STATUS_BUFFER_TOO_SMALL;
+			break;
+		}
+
+		status = release_interface_ex(dev, stack_location->FileObject, &request->intf);
+		if (NT_SUCCESS(status))
+		{
+			ret = sizeof(libusb_request);
+		}
 		break;
 
 	case LIBUSBK_IOCTL_SET_INTERFACE:			// METHOD_BUFFERED (SET_INTERFACE)
 
-		status = set_interface(
-			dev, 
-			request->intf.useInterfaceIndex ? TRUE : FALSE, 
-			request->intf.interface_number,
-			request->intf.altsetting_number,
-			request->intf.interfaceIndex,
-			request->intf.altsettingIndex,
-			request->timeout);
+		if (!request || output_buffer_length < sizeof(libusb_request))
+		{
+			USBERR0("set_interfaceK: invalid output buffer\n");
+			status = STATUS_BUFFER_TOO_SMALL;
+			break;
+		}
+
+		status = set_interface_ex(dev, &request->intf, request->timeout);
+		if (NT_SUCCESS(status))
+		{
+			ret = sizeof(libusb_request);
+		}
 		break;
 
 	case LIBUSBK_IOCTL_GET_INTERFACE:			// METHOD_BUFFERED (GET_INTERFACE)
 
-		status = get_interface(
-			dev, 
-			request->intf.useInterfaceIndex ? TRUE : FALSE, 
-			request->intf.interface_number,
-			request->intf.interfaceIndex,
-			output_buffer, 
-			&ret,
-			request->timeout);
+		if (!request || output_buffer_length < sizeof(libusb_request))
+		{
+			USBERR0("get_interfaceK: invalid output buffer\n");
+			status = STATUS_BUFFER_TOO_SMALL;
+			break;
+		}
 
+		status = get_interface_ex(dev, &request->intf, request->timeout);
+		if (NT_SUCCESS(status))
+		{
+			ret = sizeof(libusb_request);
+		}
 		break;
 
 	default:

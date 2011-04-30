@@ -169,6 +169,9 @@ enum
 #define LIBUSBK_IOCTL_RELEASE_INTERFACE CTL_CODE(FILE_DEVICE_UNKNOWN,\
         0x90E, METHOD_BUFFERED, FILE_ANY_ACCESS)
 
+#define LIBUSBK_IOCTL_RELEASE_ALL_INTERFACES CTL_CODE(FILE_DEVICE_UNKNOWN,\
+        0x90F, METHOD_BUFFERED, FILE_ANY_ACCESS)
+
 #define LIBUSBK_IOCTL_SET_INTERFACE CTL_CODE(FILE_DEVICE_UNKNOWN,\
         0x910, METHOD_BUFFERED, FILE_ANY_ACCESS)
 
@@ -269,6 +272,20 @@ typedef struct
 */
 
 #pragma warning(disable:4201)
+
+typedef struct
+{
+	unsigned int interface_number;
+	unsigned int altsetting_number;
+
+	unsigned char intf_use_index:1;	// libusbK Only
+	unsigned char altf_use_index:1;	// libusbK Only
+	unsigned char:6;
+
+	short interface_index;		// libusbK Only
+	short altsetting_index;		// libusbK Only
+}interface_request_t;
+
 typedef struct
 {
 	unsigned int timeout;
@@ -279,16 +296,7 @@ typedef struct
 			unsigned int configuration;
 		} configuration;
 
-		struct
-		{
-			unsigned int interface_number;
-			unsigned int altsetting_number;
-
-			unsigned char useInterfaceIndex;	// libusbK Only
-			unsigned char useAltSettingIndex;	// libusbK Only
-			unsigned char interfaceIndex;		// libusbK Only
-			unsigned char altsettingIndex;		// libusbK Only
-		} intf;
+		interface_request_t intf;
 
 		struct
 		{

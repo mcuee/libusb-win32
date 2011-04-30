@@ -746,11 +746,15 @@ find_interface_desc(USB_CONFIGURATION_DESCRIPTOR *config_desc,
     return NULL;
 }
 
-USB_INTERFACE_DESCRIPTOR *
-find_interface_desc_by_index(USB_CONFIGURATION_DESCRIPTOR *config_desc,
-                    unsigned int size, int interface_index, int alt_index, unsigned int* size_left)
+USB_INTERFACE_DESCRIPTOR* find_interface_desc_ex(USB_CONFIGURATION_DESCRIPTOR *config_desc,
+												 unsigned int size,
+												 interface_request_t* intf,
+												 unsigned int* size_left)
 {
-    usb_descriptor_header_t *desc = (usb_descriptor_header_t *)config_desc;
+#define INTF_FIELD 0
+#define ALTF_FIELD 1
+
+	usb_descriptor_header_t *desc = (usb_descriptor_header_t *)config_desc;
     char *p = (char *)desc;
 	int lastInfNumber, lastAltNumber;
 	int currentInfIndex;
@@ -760,40 +764,83 @@ find_interface_desc_by_index(USB_CONFIGURATION_DESCRIPTOR *config_desc,
 
 	memset(InterfacesByIndex,0xFF,sizeof(InterfacesByIndex));
 
-    if (!config_desc || (size < config_desc->wTotalLength))
+    if (!config_desc)
         return NULL;
+
+	size = size > config_desc->wTotalLength ? config_desc->wTotalLength : size;
 
     while (size && desc->length <= size)
     {
         if (desc->type == USB_INTERFACE_DESCRIPTOR_TYPE)
         {
+			// this is a new interface or alternate interface
             if_desc = (USB_INTERFACE_DESCRIPTOR *)desc;
 			for (currentInfIndex=0; currentInfIndex<LIBUSB_MAX_NUMBER_OF_INTERFACES;currentInfIndex++)
 			{
-				if (InterfacesByIndex[currentInfIndex][0]==-1)
+				if (InterfacesByIndex[currentInfIndex][INTF_FIELD]==-1)
 				{
-					InterfacesByIndex[currentInfIndex][0]=if_desc->bInterfaceNumber;
-					InterfacesByIndex[currentInfIndex][1]=0;
+					// this is a new interface
+					InterfacesByIndex[currentInfIndex][INTF_FIELD]=if_desc->bInterfaceNumber;
+					InterfacesByIndex[currentInfIndex][ALTF_FIELD]=0;
 					break;
 				}
-				else if (InterfacesByIndex[currentInfIndex][0]==if_desc->bInterfaceNumber)
+				else if (InterfacesByIndex[currentInfIndex][INTF_FIELD]==if_desc->bInterfaceNumber)
 				{
-					InterfacesByIndex[currentInfIndex][1]++;
+					// this is a new alternate interface
+					InterfacesByIndex[currentInfIndex][ALTF_FIELD]++;
 					break;
 				}
 			}
 
-			if (interface_index == currentInfIndex && 
-				alt_index == InterfacesByIndex[currentInfIndex][1])
+			// if the interface index is -1, then we don't care; 
+			// i.e. any interface number or index
+			if (intf->interface_index!=FIND_INTERFACE_INDEX_ANY)
 			{
-				if (size_left)
+				if (intf->intf_use_index)
 				{
-					*size_left=size;
+					// looking for a particular interface index; if this is not it then continue on.
+					if (intf->interface_index != currentInfIndex)
+						goto NextInterface;
 				}
-				return if_desc;
+				else
+				{
+					// looking for a particular interface number; if this is not it then continue on.
+					if (intf->interface_number != if_desc->bInterfaceNumber)
+						goto NextInterface;
+				}
 			}
+
+			if (intf->altsetting_index!=FIND_INTERFACE_INDEX_ANY)
+			{
+				if (intf->altf_use_index)
+				{
+					// looking for a particular alternate interface index; if this is not it then continue on.
+					if (intf->altsetting_index != InterfacesByIndex[currentInfIndex][ALTF_FIELD])
+						goto NextInterface;
+				}
+				else
+				{
+					// looking for a particular alternate interface number; if this is not it then continue on.
+					if (intf->altsetting_number != if_desc->bAlternateSetting)
+						goto NextInterface;
+				}
+			}
+
+			// found a match
+			intf->interface_index = (unsigned char)currentInfIndex;
+			intf->altsetting_index = (unsigned char)InterfacesByIndex[currentInfIndex][ALTF_FIELD];
+			intf->interface_number = if_desc->bInterfaceNumber;
+			intf->altsetting_number = if_desc->bAlternateSetting;
+
+			if (size_left)
+			{
+				*size_left=size;
+			}
+			return if_desc;
+
         }
 
+NextInterface:
         size -= desc->length;
         p += desc->length;
         desc = (usb_descriptor_header_t *)p;
