@@ -20,12 +20,9 @@
 #include "libusb_driver.h"
 
 
-NTSTATUS set_interface(libusb_device_t *dev, 
-					   bool_t use_index, 
+NTSTATUS set_interface(libusb_device_t *dev,
 					   int interface_number, 
 					   int alt_interface_number,
-					   int interface_index, 
-					   int alt_interface_index,
                        int timeout)
 {
     NTSTATUS status = STATUS_SUCCESS;
@@ -35,16 +32,9 @@ NTSTATUS set_interface(libusb_device_t *dev,
     USB_INTERFACE_DESCRIPTOR *interface_descriptor = NULL;
     USBD_INTERFACE_INFORMATION *interface_information = NULL;
 
-	if (use_index)
-	{
-		USBMSG("interface-index=%d alt-index=%d timeout=%d\n", 
-			interface_index,alt_interface_index,timeout);
-	}
-	else
-	{
-		USBMSG("interface-number=%d alt-number=%d timeout=%d\n", 
-			interface_number,alt_interface_number,timeout);
-	}
+
+	USBMSG("interface-number=%d alt-number=%d timeout=%d\n", 
+		interface_number,alt_interface_number,timeout);
 
 	if (!dev->config.value || !dev->config.descriptor)
     {
@@ -52,29 +42,14 @@ NTSTATUS set_interface(libusb_device_t *dev,
         return STATUS_INVALID_DEVICE_STATE;
     }
 
-	if (use_index)
-	{
-		interface_descriptor = find_interface_desc_by_index(dev->config.descriptor, dev->config.total_size, interface_index, alt_interface_index, NULL);
-	}
-	else
-	{
-		interface_descriptor = find_interface_desc(dev->config.descriptor, dev->config.total_size, interface_number, alt_interface_number);
-	}
-    if (!interface_descriptor)
-    {
-		if (use_index)
-		{
-			USBWRN("interface-index=%d alt-index=%d does not exists.\n", 
-				interface_index,alt_interface_index);
-	        return STATUS_NO_MORE_ENTRIES;
+	interface_descriptor = find_interface_desc(dev->config.descriptor, dev->config.total_size, interface_number, alt_interface_number);
 
-		}
-		else
-		{
-			USBERR("interface-number=%d alt-number=%d does not exists.\n", 
-				interface_number,alt_interface_number,timeout);
-	        return STATUS_INVALID_PARAMETER;
-		}
+	if (!interface_descriptor)
+    {
+		USBERR("interface-number=%d alt-number=%d does not exists.\n", 
+			interface_number,alt_interface_number,timeout);
+		
+		return STATUS_NO_MORE_ENTRIES;
     }
 
     tmp_size = sizeof(struct _URB_SELECT_INTERFACE) + interface_descriptor->bNumEndpoints * sizeof(USBD_PIPE_INFORMATION);
@@ -125,3 +100,26 @@ NTSTATUS set_interface(libusb_device_t *dev,
     return status;
 }
 
+NTSTATUS set_interface_ex(libusb_device_t *dev, 
+					   interface_request_t* interface_request, 
+                       int timeout)
+{
+    NTSTATUS status = STATUS_SUCCESS;
+
+    USB_INTERFACE_DESCRIPTOR *interface_descriptor = NULL;
+
+	USBMSG("interface-%s=%d alt-%s=%d timeout=%d\n",
+		interface_request->intf_use_index ? "index" : "number",
+		interface_request->intf_use_index ? interface_request->interface_index : interface_request->interface_number,
+		interface_request->altf_use_index ? "index" : "number",
+		interface_request->altf_use_index ? interface_request->altsetting_index : interface_request->altsetting_number,
+		timeout);
+
+	interface_descriptor = find_interface_desc_ex(dev->config.descriptor,dev->config.total_size,interface_request,NULL);
+	if (!interface_descriptor)
+	{
+        return STATUS_NO_MORE_ENTRIES;
+	}
+
+	return set_interface(dev,interface_descriptor->bInterfaceNumber, interface_descriptor->bAlternateSetting, timeout);
+}

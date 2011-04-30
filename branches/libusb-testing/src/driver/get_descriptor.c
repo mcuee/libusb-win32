@@ -168,6 +168,7 @@ NTSTATUS interface_query_settings(libusb_device_t *dev,
 
     PUSB_CONFIGURATION_DESCRIPTOR configuration_descriptor = dev->config.descriptor;
     PUSB_INTERFACE_DESCRIPTOR interface_descriptor_src = NULL;
+	interface_request_t find_interface;
 
     USBMSG("query interface index=%d alt-index=%d\n", 
 		interface_index, alt_index);
@@ -179,9 +180,17 @@ NTSTATUS interface_query_settings(libusb_device_t *dev,
     }
 
 
-    interface_descriptor_src =
-        find_interface_desc_by_index(configuration_descriptor, dev->config.total_size,
-                            interface_index, alt_index, NULL);
+	memset(&find_interface,0, sizeof(find_interface));
+	find_interface.intf_use_index=1;
+	find_interface.altf_use_index=0;
+	find_interface.interface_index=(short)interface_index;
+	find_interface.altsetting_number=(short)alt_index;
+
+	interface_descriptor_src = find_interface_desc_ex(
+		configuration_descriptor, 
+		dev->config.total_size,
+		&find_interface,
+		NULL);
 
 	if (!interface_descriptor_src)
 	{
@@ -207,6 +216,7 @@ NTSTATUS pipe_query_information(libusb_device_t *dev,
     PUSB_CONFIGURATION_DESCRIPTOR configuration_descriptor = dev->config.descriptor;
     PUSB_INTERFACE_DESCRIPTOR interface_descriptor_src = NULL;
     PUSB_ENDPOINT_DESCRIPTOR endpoint_descriptor_src = NULL;
+	interface_request_t find_interface;
 
     USBMSG("query pipe interface-index=%d alt-index=%d pipe-index=%d\n", 
 		interface_index, alt_index, pipe_index);
@@ -217,10 +227,17 @@ NTSTATUS pipe_query_information(libusb_device_t *dev,
         return STATUS_INVALID_DEVICE_STATE;
     }
 
+	memset(&find_interface,0, sizeof(find_interface));
+	find_interface.altf_use_index=1;
+	find_interface.intf_use_index=1;
+	find_interface.interface_index=(short)interface_index;
+	find_interface.altsetting_index=(short)alt_index;
 
-    interface_descriptor_src =
-        find_interface_desc_by_index(configuration_descriptor, dev->config.total_size,
-                            interface_index, alt_index, &size_left);
+	interface_descriptor_src = find_interface_desc_ex(
+		configuration_descriptor, 
+		dev->config.total_size,
+		&find_interface,
+		&size_left);
 
 	if (!interface_descriptor_src)
 	{
@@ -245,52 +262,3 @@ NTSTATUS pipe_query_information(libusb_device_t *dev,
 	return status;
 }
 
-/*
-NTSTATUS interface_query_settings2(libusb_device_t *dev,
-								  int interface_index, 
-								  int alt_index, 
-								  PUSB_INTERFACE_DESCRIPTOR interface_descriptor)
-{
-    NTSTATUS status = STATUS_SUCCESS;
-    URB *urb;
-    int i, config_size, config_index, tmp_size;
-
-    PUSB_CONFIGURATION_DESCRIPTOR configuration_descriptor = NULL;
-    PUSB_INTERFACE_DESCRIPTOR interface_descriptor_src = NULL;
-
-    USBMSG("query interface index=%d alt-index=%d\n", 
-		interface_index, alt_index);
-
-	if (!dev->config.value)
-    {
-        USBERR0("device is not configured\n");
-        return STATUS_INVALID_DEVICE_STATE;
-    }
-
-    configuration_descriptor = get_config_descriptor(dev, dev->config.value,
-                               &config_size, &config_index);
-    if (!configuration_descriptor)
-    {
-        USBERR0("memory_allocation error\n");
-        return STATUS_NO_MEMORY;
-    }
-
-    interface_descriptor_src =
-        find_interface_desc_by_index(configuration_descriptor, config_size,
-                            interface_index, alt_index);
-
-	if (!interface_descriptor_src)
-	{
-		status = STATUS_NO_MORE_ENTRIES;
-	}
-	else
-	{
-		RtlCopyMemory(interface_descriptor, interface_descriptor_src, sizeof(*interface_descriptor));
-	}
-
-    ExFreePool(configuration_descriptor);
-
-	return status;
-
-}
-*/

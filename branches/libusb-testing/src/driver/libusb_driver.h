@@ -304,14 +304,6 @@ NTSTATUS abort_endpoint(libusb_device_t *dev, int endpoint, int timeout);
 NTSTATUS reset_endpoint(libusb_device_t *dev, int endpoint, int timeout);
 NTSTATUS reset_device(libusb_device_t *dev, int timeout);
 
-NTSTATUS claim_interface(libusb_device_t *dev, FILE_OBJECT *file_object,
-                         int interface);
-NTSTATUS release_interface(libusb_device_t *dev, FILE_OBJECT *file_object,
-                           int interface);
-NTSTATUS release_all_interfaces(libusb_device_t *dev,
-                                FILE_OBJECT *file_object);
-
-
 bool_t reg_get_hardware_id(DEVICE_OBJECT *physical_device_object,
                            char *data, int size);
 bool_t reg_get_compatible_id(DEVICE_OBJECT *physical_device_object,
@@ -327,9 +319,11 @@ USB_INTERFACE_DESCRIPTOR *
 find_interface_desc(USB_CONFIGURATION_DESCRIPTOR *config_desc,
                     unsigned int size, int interface_number, int altsetting);
 
-USB_INTERFACE_DESCRIPTOR *
-find_interface_desc_by_index(USB_CONFIGURATION_DESCRIPTOR *config_desc,
-                    unsigned int size, int interface_index, int alt_index, unsigned int* size_left);
+#define FIND_INTERFACE_INDEX_ANY		(-1)
+USB_INTERFACE_DESCRIPTOR* find_interface_desc_ex(USB_CONFIGURATION_DESCRIPTOR *config_desc,
+												 unsigned int size,
+												 interface_request_t* intf,
+												 unsigned int* size_left);
 
 USB_ENDPOINT_DESCRIPTOR *
 find_endpoint_desc_by_index(USB_INTERFACE_DESCRIPTOR *interface_desc,
@@ -404,27 +398,40 @@ NTSTATUS control_transfer(libusb_device_t* dev,
 						 USHORT index,
 						 USHORT length);
 
-NTSTATUS claim_interface_by_index(libusb_device_t *dev, FILE_OBJECT *file_object,
-                         int interface_index);
+NTSTATUS claim_interface(libusb_device_t *dev, FILE_OBJECT *file_object,
+                         int interface);
 
-NTSTATUS release_interface_by_index(libusb_device_t *dev, FILE_OBJECT *file_object,
-                         int interface_index);
+NTSTATUS claim_interface_ex(libusb_device_t *dev, 
+							  FILE_OBJECT *file_object, 
+							  interface_request_t* interface_request);
 
-NTSTATUS set_interface(libusb_device_t *dev, 
-					   bool_t use_index, 
+NTSTATUS release_all_interfaces(libusb_device_t *dev,
+                                FILE_OBJECT *file_object);
+
+NTSTATUS release_interface(libusb_device_t *dev, FILE_OBJECT *file_object,
+                           int interface);
+
+NTSTATUS release_interface_ex(libusb_device_t *dev, 
+							  FILE_OBJECT *file_object, 
+							  interface_request_t* interface_request);
+
+NTSTATUS set_interface(libusb_device_t *dev,
 					   int interface_number, 
 					   int alt_interface_number,
-					   int interface_index, 
-					   int alt_interface_index,
+                       int timeout);
+
+NTSTATUS set_interface_ex(libusb_device_t *dev, 
+					   interface_request_t* interface_request, 
                        int timeout);
 
 NTSTATUS get_interface(libusb_device_t *dev,
-                       bool_t use_index,
-					   int interface_index, 
 					   int interface_number, 
 					   unsigned char *altsetting,
-                       int *ret,
 					   int timeout);
+
+NTSTATUS get_interface_ex(libusb_device_t *dev, 
+					   interface_request_t* interface_request, 
+                       int timeout);
 
 VOID set_filter_interface_key(libusb_device_t *dev, ULONG id);
 #endif
