@@ -1,6 +1,6 @@
 /* Error & Logging functions
 
- Copyright © 2010 Travis Robinson. <libusbdotnet@gmail.com>
+ Copyright (C) 2010 Travis Robinson. <libusbdotnet@gmail.com>
  website: http://sourceforge.net/projects/libusb-win32
  
  This program is free software; you can redistribute it and/or modify it
