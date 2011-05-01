@@ -581,47 +581,8 @@ NULL : input_buffer + sizeof(libusb_request),
 		}
 		break;
 
-	case LIBUSB_IOCTL_QUERY_INTERFACE_SETTINGS:	// METHOD_BUFFERED (QUERY_INTERFACE_SETTINGS)
-		if (!request || output_buffer_length < sizeof(USB_INTERFACE_DESCRIPTOR))
-		{
-			USBERR0("query_interface_settings: invalid output buffer\n");
-			status = STATUS_BUFFER_TOO_SMALL;
-			break;
-		}
-
-		status = interface_query_settings(
-			dev,
-			request->intf.interface_index,
-			request->intf.altsetting_number,
-			(PUSB_INTERFACE_DESCRIPTOR)output_buffer);
-
-		if (NT_SUCCESS(status))
-			ret = sizeof(USB_INTERFACE_DESCRIPTOR);
-
-		break;
-
 	case LIBUSB_IOCTL_QUERY_DEVICE_INFORMATION:	// METHOD_BUFFERED (QUERY_DEVICE_INFORMATION)
 		status = STATUS_NOT_IMPLEMENTED;
-		break;
-
-	case LIBUSB_IOCTL_QUERY_PIPE:				// METHOD_BUFFERED (QUERY_PIPE)
-		if (!request || output_buffer_length < sizeof(PIPE_INFORMATION))
-		{
-			USBERR0("query_pipe: invalid output buffer\n");
-			status = STATUS_BUFFER_TOO_SMALL;
-			break;
-		}
-
-		status = pipe_query_information(dev,
-			(UCHAR)request->query_pipe.interface_index,
-			(UCHAR)request->query_pipe.altsetting_index,
-			(UCHAR)request->query_pipe.pipe_index,
-			(PPIPE_INFORMATION)output_buffer);
-		if (NT_SUCCESS(status))
-		{
-			ret = sizeof(PIPE_INFORMATION);
-		}
-
 		break;
 
 	case LIBUSB_IOCTL_SET_PIPE_POLICY:			// METHOD_BUFFERED (SET_PIPE_POLICY)

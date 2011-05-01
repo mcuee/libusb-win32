@@ -142,14 +142,6 @@ typedef int bool_t;
 
 #include <pshpack1.h>
 
-typedef struct _PIPE_INFORMATION
-{
-	USBD_PIPE_TYPE  PipeType;
-	UCHAR           PipeId;
-	USHORT          MaximumPacketSize;
-	UCHAR           Interval;
-} PIPE_INFORMATION, *PPIPE_INFORMATION;
-
 typedef struct
 {
     unsigned char length;
@@ -374,16 +366,6 @@ NTSTATUS large_transfer(IN libusb_device_t* dev,
 
 ULONG get_current_frame(IN PDEVICE_EXTENSION dev, IN PIRP Irp);
 
-NTSTATUS interface_query_settings(libusb_device_t *dev,
-								  int interface_index, 
-								  int alt_index, 
-								  PUSB_INTERFACE_DESCRIPTOR interface_descriptor);
-
-NTSTATUS pipe_query_information(libusb_device_t *dev,
-								  int interface_index, 
-								  int alt_index, 
-								  int pipe_index, 
-								  PPIPE_INFORMATION pipe_information);
 
 NTSTATUS control_transfer(libusb_device_t* dev, 
 						 PIRP irp,
