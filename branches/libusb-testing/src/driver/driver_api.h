@@ -133,14 +133,8 @@ enum
 /////////////////////////////////////////////////////////////////////////////
 // supported after 1.2.3.0
 /////////////////////////////////////////////////////////////////////////////
-#define LIBUSB_IOCTL_QUERY_INTERFACE_SETTINGS CTL_CODE(FILE_DEVICE_UNKNOWN,\
-        0x903, METHOD_BUFFERED, FILE_ANY_ACCESS)
-
 #define LIBUSB_IOCTL_QUERY_DEVICE_INFORMATION CTL_CODE(FILE_DEVICE_UNKNOWN,\
         0x904, METHOD_BUFFERED, FILE_ANY_ACCESS)
-
-#define LIBUSB_IOCTL_QUERY_PIPE CTL_CODE(FILE_DEVICE_UNKNOWN,\
-        0x905, METHOD_BUFFERED, FILE_ANY_ACCESS)
 
 #define LIBUSB_IOCTL_SET_PIPE_POLICY CTL_CODE(FILE_DEVICE_UNKNOWN,\
         0x906, METHOD_BUFFERED, FILE_ANY_ACCESS)
@@ -367,12 +361,6 @@ typedef struct
 		{
 			ULONG information_type;
 		} query_device;
-		struct
-		{
-			unsigned int interface_index;
-			unsigned int altsetting_index;
-			unsigned int pipe_index;
-		} query_pipe;
 		struct
 		{
 			unsigned int interface_index;

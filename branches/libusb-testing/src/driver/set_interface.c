@@ -54,7 +54,6 @@ NTSTATUS set_interface(libusb_device_t *dev,
 
     tmp_size = sizeof(struct _URB_SELECT_INTERFACE) + interface_descriptor->bNumEndpoints * sizeof(USBD_PIPE_INFORMATION);
 
-
     urb = ExAllocatePool(NonPagedPool, tmp_size);
 
     if (!urb)
