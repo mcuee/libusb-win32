@@ -95,6 +95,10 @@
 
 typedef int bool_t;
 
+#define POOL_TAG (ULONG) '0BSU'
+#undef ExAllocatePool
+#define ExAllocatePool(type, size) ExAllocatePoolWithTag(type, size, POOL_TAG)
+
 #define IS_PIPE_TYPE(pipeInfo, pipeType) ((((pipeInfo->pipe_type & 3)==pipeType))?TRUE:FALSE)
 
 #define IS_CTRL_PIPE(pipeInfo) IS_PIPE_TYPE(pipeInfo,UsbdPipeTypeControl)
@@ -107,12 +111,14 @@ typedef int bool_t;
 #define UrbFunctionFromEndpoint(PipeInfo) ((IS_ISOC_PIPE(PipeInfo)) ? URB_FUNCTION_ISOCH_TRANSFER : URB_FUNCTION_BULK_OR_INTERRUPT_TRANSFER)
 #define UsbdDirectionFromEndpoint(PipeInfo) ((PipeInfo->address & 0x80) ? USBD_TRANSFER_DIRECTION_IN : USBD_TRANSFER_DIRECTION_OUT)
 
-#define UpdateContextConfigDescriptor(DeviceContext, Descriptor, Size)		\
-{																			\
-	if (DeviceContext->config.descriptor)									\
-		ExFreePool(DeviceContext->config.descriptor);						\
-	DeviceContext->config.descriptor=Descriptor;							\
-	DeviceContext->config.total_size=Size;									\
+#define UpdateContextConfigDescriptor(DeviceContext, Descriptor, Size, Value, Index)		\
+{																							\
+	if (DeviceContext->config.descriptor && DeviceContext->config.descriptor!=(Descriptor))	\
+		ExFreePool(DeviceContext->config.descriptor);										\
+	DeviceContext->config.descriptor=(Descriptor);											\
+	DeviceContext->config.total_size=(Size);												\
+	DeviceContext->config.value=(Value);													\
+	DeviceContext->config.index=(Index);													\
 }
 
 #ifndef __WUSBIO_H__
@@ -183,7 +189,6 @@ typedef struct
 
 } libusb_interface_t;
 
-
 typedef struct
 {
     DEVICE_OBJECT	*self;
@@ -195,6 +200,7 @@ typedef struct
     bool_t is_started;
     bool_t surprise_removal_ok;
     int id;
+	USB_DEVICE_DESCRIPTOR device_descriptor; 
     struct
     {
         USBD_CONFIGURATION_HANDLE handle;

@@ -75,6 +75,12 @@ NTSTATUS get_interface_ex(libusb_device_t *dev,
 		interface_request->intf_use_index ? interface_request->interface_index : interface_request->interface_number,
 		timeout);
 
+    if (!dev->config.value || !dev->config.descriptor)
+    {
+        USBERR0("device is not configured\n");
+        return STATUS_INVALID_DEVICE_STATE;
+    }
+
 	interface_request->altsetting_index=FIND_INTERFACE_INDEX_ANY;
 	interface_descriptor = find_interface_desc_ex(dev->config.descriptor,dev->config.total_size,interface_request,NULL);
 	if (!interface_descriptor)
