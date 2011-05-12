@@ -57,21 +57,136 @@ NTSTATUS get_descriptor(libusb_device_t *dev,
     urb.UrbControlDescriptorRequest.Index = (UCHAR)index;
     urb.UrbControlDescriptorRequest.LanguageId = (USHORT)language_id;
 
+	// the device and active config descriptors are cached. If the request
+	// is for one of these and we have already retrieved it, then this is
+	// a non-blocking non-i/o call.
 
-    status = call_usbd(dev, &urb, IOCTL_INTERNAL_USB_SUBMIT_URB, timeout);
+	if (type == USB_DEVICE_DESCRIPTOR_TYPE && 
+		recipient == USB_RECIP_DEVICE && 
+		index == 0 && 
+		language_id == 0 && 
+		size >= sizeof(USB_DEVICE_DESCRIPTOR))
+	{
+		// this is a device descriptor request.
+		if (dev->device_descriptor.bLength == 0)
+		{
+			// this is the first request made for the device descriptor.
+			// Cache it now and forever
+			status = call_usbd(dev, &urb, IOCTL_INTERNAL_USB_SUBMIT_URB, timeout);
 
 
-    if (!NT_SUCCESS(status) || !USBD_SUCCESS(urb.UrbHeader.Status))
-    {
-        USBERR("getting descriptor failed: status: 0x%x, urb-status: 0x%x\n",
-                    status, urb.UrbHeader.Status);
-        *received = 0;
-    }
-    else
-    {
-        *received = urb.UrbControlDescriptorRequest.TransferBufferLength;
-    }
+			if (!NT_SUCCESS(status) || !USBD_SUCCESS(urb.UrbHeader.Status))
+			{
+				USBERR("getting descriptor failed: status: 0x%x, urb-status: 0x%x\n", status, urb.UrbHeader.Status);
+				*received = 0;
+			}
+			else
+			{
+				*received = urb.UrbControlDescriptorRequest.TransferBufferLength;
+				RtlCopyMemory(&dev->device_descriptor, buffer, sizeof(USB_DEVICE_DESCRIPTOR));
+			}
+		}
+		else
+		{
+			// device descriptor is already cached.
+			*received = size = sizeof(USB_DEVICE_DESCRIPTOR);
+			RtlCopyMemory(buffer, &dev->device_descriptor, size);
+		}
+	}
+	else if (type == USB_CONFIGURATION_DESCRIPTOR_TYPE && 
+		recipient == USB_RECIP_DEVICE && 
+		language_id == 0 && 
+		size >= sizeof(USB_CONFIGURATION_DESCRIPTOR))
+	{
+		if (dev->device_descriptor.bLength != 0)
+		{
+			if (index >=dev->device_descriptor.bNumConfigurations)
+			{
+				USBWRN("config descriptor index %d out of range.\n", index);
+				status = STATUS_NO_MORE_ENTRIES;
+				*received = 0;
+			}
+		}
+		else
+		{
+			// this is a config descriptor request.
+			if (!dev->config.descriptor ||
+				dev->config.index != index)
+			{
+				// this is either:
+				// * The first request made for a config descriptor.
+				// * A request for a config descriptor other than the cached index.
+				status = call_usbd(dev, &urb, IOCTL_INTERNAL_USB_SUBMIT_URB, timeout);
 
+				if (!NT_SUCCESS(status) || !USBD_SUCCESS(urb.UrbHeader.Status))
+				{
+					USBERR("getting descriptor failed: status: 0x%x, urb-status: 0x%x\n", status, urb.UrbHeader.Status);
+					*received = 0;
+				}
+				else
+				{
+					*received = urb.UrbControlDescriptorRequest.TransferBufferLength;
+
+					if (!dev->config.descriptor && 
+						urb.UrbControlDescriptorRequest.TransferBufferLength >= ((PUSB_CONFIGURATION_DESCRIPTOR)buffer)->wTotalLength &&
+						size >= ((PUSB_CONFIGURATION_DESCRIPTOR)buffer)->wTotalLength)
+					{
+						PUSB_CONFIGURATION_DESCRIPTOR config_desc;
+
+						//
+						// This is a special case scenario where we cache the first
+						// config deescriptor requested when dev->config.descriptor == NULL
+						// and this was a request for the *entire* descriptor.
+						// 
+						// Nearly all windows USB devices will only have one configuration.
+						// In the case a the filter driver, it does *not* auto configure the
+						// device which is where the *active* config descriptor caching occurs.
+						//
+						// This code ensures the first config descriptor requested is always cached
+						// even if the device is not configured yet.
+						//
+						if (!( config_desc = ExAllocatePool(NonPagedPool, size)))
+						{
+							USBERR0("memory allocation error\n");
+							status =  STATUS_NO_MEMORY;
+						}
+						else
+						{
+							dev->config.descriptor=config_desc;
+
+							RtlCopyMemory(dev->config.descriptor,buffer,size);
+							dev->config.value=0;
+							dev->config.total_size=size;
+							dev->config.index=index;
+						}
+					}
+				}
+			}
+			else
+			{
+				// This is a request for the active configuration descriptor.
+				// This is only updated upon a successful set_configuration().
+				*received = size = (size > dev->config.descriptor->wTotalLength) ? dev->config.descriptor->wTotalLength : size;
+				RtlCopyMemory(buffer, dev->config.descriptor, size);
+			}
+		}
+	}
+	else
+	{
+		// this is not a device or config descriptor reequest.
+		status = call_usbd(dev, &urb, IOCTL_INTERNAL_USB_SUBMIT_URB, timeout);
+
+
+		if (!NT_SUCCESS(status) || !USBD_SUCCESS(urb.UrbHeader.Status))
+		{
+			USBERR("getting descriptor failed: status: 0x%x, urb-status: 0x%x\n", status, urb.UrbHeader.Status);
+			*received = 0;
+		}
+		else
+		{
+			*received = urb.UrbControlDescriptorRequest.TransferBufferLength;
+		}
+	}
     return status;
 }
 

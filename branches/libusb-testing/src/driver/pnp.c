@@ -87,7 +87,7 @@ NTSTATUS dispatch_pnp(libusb_device_t *dev, IRP *irp)
 		{
 			RtlFreeUnicodeString(&dev->device_interface_name);
 		}
-		UpdateContextConfigDescriptor(dev,NULL,0);
+		UpdateContextConfigDescriptor(dev,NULL,0,0,0);
 
         /* delete the device object */
         IoDetachDevice(dev->next_stack_device);

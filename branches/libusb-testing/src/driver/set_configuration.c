@@ -95,7 +95,13 @@ NTSTATUS set_configuration(libusb_device_t *dev,
 	// if the device is already configured with this value
 	if (dev->config.value == configuration_descriptor->bConfigurationValue)
     {
-		UpdateContextConfigDescriptor(dev, configuration_descriptor, desc_size);
+		UpdateContextConfigDescriptor(
+			dev, 
+			configuration_descriptor, 
+			desc_size, 
+			configuration_descriptor->bConfigurationValue, 
+			config_index);
+
 		status = STATUS_SUCCESS;
 		goto SetConfigurationDone;
     }
@@ -109,6 +115,7 @@ NTSTATUS set_configuration(libusb_device_t *dev,
     {
         USBERR0("memory allocation failed\n");
 		status = STATUS_NO_MEMORY;
+		ExFreePool(configuration_descriptor);
 		goto SetConfigurationDone;
     }
 
@@ -134,6 +141,7 @@ NTSTATUS set_configuration(libusb_device_t *dev,
         {
             USBERR("unable to find interface descriptor at index %d\n", i);
 			status = STATUS_INVALID_PARAMETER;
+			ExFreePool(configuration_descriptor);
 			goto SetConfigurationDone;
         }
         else
@@ -149,6 +157,7 @@ NTSTATUS set_configuration(libusb_device_t *dev,
 	{
 		USBERR0("memory allocation failed\n");
 		status = STATUS_NO_MEMORY;
+		ExFreePool(configuration_descriptor);
 		goto SetConfigurationDone;
 	}
 
@@ -170,12 +179,12 @@ NTSTATUS set_configuration(libusb_device_t *dev,
 		USBERR("setting configuration %d failed: status: 0x%x, urb-status: 0x%x\n",
 					configuration, status, urb_ptr->UrbHeader.Status);
 		if (NT_SUCCESS(status)) status = urb_ptr->UrbHeader.Status;
+
+		ExFreePool(configuration_descriptor);
 		goto SetConfigurationDone;
 	}
 
 	dev->config.handle = urb_ptr->UrbSelectConfiguration.ConfigurationHandle;
-	dev->config.value = configuration_descriptor->bConfigurationValue;
-	dev->config.index = config_index;
 
     clear_pipe_info(dev);
 
@@ -183,7 +192,7 @@ NTSTATUS set_configuration(libusb_device_t *dev,
     {
         update_pipe_info(dev, interfaces[i].Interface);
     }
-	UpdateContextConfigDescriptor(dev, configuration_descriptor, desc_size);
+	UpdateContextConfigDescriptor(dev, configuration_descriptor, desc_size, configuration_descriptor->bConfigurationValue, config_index);
 
 SetConfigurationDone:
     if (interfaces)
