@@ -6,7 +6,7 @@
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
- * version 2.1 of the License, or (at your option) any later version.
+ * version 3 of the License, or (at your option) any later version.
  *
  * This library is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -80,13 +80,22 @@ static int (*progress_function)(void*);
 static void* progress_arglist;
 static HANDLE progress_mutex = INVALID_HANDLE_VALUE;
 
-// Work around for CreateFont on DDK (would require end user apps linking with Gdi32 othwerwise)
+// Work around for GDI calls on DDK (would require end user apps linking with Gdi32 othwerwise)
 static HFONT (WINAPI *pCreateFontA)(int, int, int, int, int, DWORD, DWORD, DWORD, DWORD, DWORD, DWORD, DWORD, DWORD, LPCSTR) = NULL;
-#define INIT_CREATEFONT if (pCreateFontA== NULL) {	\
+static HGDIOBJ (WINAPI *pGetStockObject)(int) = NULL;
+static int (WINAPI *pSetBkMode)(HDC, int) = NULL;
+
+#define IS_CREATEFONT_AVAILABLE (pCreateFontA != NULL)
+#define IS_BACKGROUND_AVAILABLE ((pGetStockObject != NULL) && (pSetBkMode != NULL))
+
+#define INIT_GDI32 do {	\
 	pCreateFontA = (HFONT (WINAPI *)(int, int, int, int, int, DWORD, DWORD, DWORD, DWORD, DWORD, DWORD, DWORD, DWORD, LPCSTR))	\
 		GetProcAddress(GetModuleHandleA("Gdi32"), "CreateFontA"); \
-	}
-#define IS_CREATEFONT_AVAILABLE (pCreateFontA != NULL)
+	pGetStockObject = (HGDIOBJ (WINAPI *)(int))	\
+		GetProcAddress(GetModuleHandleA("Gdi32"), "GetStockObject"); \
+	pSetBkMode = (int (WINAPI *)(HDC, int))	\
+		GetProcAddress(GetModuleHandleA("Gdi32"), "SetBkMode"); \
+	} while(0)
 
 extern char *windows_error_str(uint32_t retval);
 
@@ -176,7 +185,7 @@ static void init_children(HWND hDlg) {
 
 	HFONT hFont;
 	// Progress Bar
-	hProgressBar = CreateWindowExA(WS_EX_NOPARENTNOTIFY, PROGRESS_CLASS,
+	hProgressBar = CreateWindowExA(WS_EX_NOPARENTNOTIFY, PROGRESS_CLASSA,
 		NULL,
 		WS_CHILDWINDOW | WS_VISIBLE | PBS_MARQUEE,
 		10,35,250,12,
@@ -192,7 +201,7 @@ static void init_children(HWND hDlg) {
 	PostMessage(hProgressBar, PBM_SETMARQUEE, TRUE, 0);
 
 	// Progress Text
-	hProgressText = CreateWindowExA(WS_EX_NOPARENTNOTIFY, WC_STATIC,
+	hProgressText = CreateWindowExA(WS_EX_NOPARENTNOTIFY|WS_EX_TRANSPARENT, WC_STATICA,
 		"Installing Driver...",
 		WS_CHILDWINDOW | WS_VISIBLE | WS_GROUP,
 		12,12,250,16,
@@ -205,7 +214,7 @@ static void init_children(HWND hDlg) {
 	}
 
 	// Set the font to MS Dialog default
-	INIT_CREATEFONT;
+	INIT_GDI32;
 	if (IS_CREATEFONT_AVAILABLE) {
 		hFont = pCreateFontA(-11, 0, 0, 0, FW_DONTCARE, 0, 0, 0, ANSI_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
 			DEFAULT_QUALITY, DEFAULT_PITCH, "MS Shell Dlg 2");
@@ -221,7 +230,7 @@ LRESULT CALLBACK progress_callback(HWND hDlg, UINT message, WPARAM wParam, LPARA
 	LRESULT loc;
 	HANDLE handle;
 	static int installation_time = 0;	// active installation time, in secs
-	const int msg_max = sizeof(progress_message) / sizeof(progress_message[0]);
+	const int msg_max = ARRAYSIZE(progress_message);
 	static int msg_index = 0;
 	int i;
 	// coordinates that we want to disable (=> no resize)
@@ -287,6 +296,11 @@ LRESULT CALLBACK progress_callback(HWND hDlg, UINT message, WPARAM wParam, LPARA
 			if ( (msg_index < msg_max) && (installation_time > 15*(msg_index+1)) ) {
 				// Change the progress blurb
 				SetWindowTextA(hProgressText, progress_message[msg_index]);
+				// Force a full redraw fot the transparent text background
+				ShowWindow(hProgressText, SW_HIDE);
+				UpdateWindow(hProgressText);
+				ShowWindow(hProgressText, SW_SHOW);
+				UpdateWindow(hProgressText);
 				msg_index++;
 			} else if ( (installation_time > 300) && (progress_thid != -1L) ) {
 				// Wait 300 (loose) seconds and kill the thread
@@ -309,6 +323,9 @@ LRESULT CALLBACK progress_callback(HWND hDlg, UINT message, WPARAM wParam, LPARA
 		hProgress = INVALID_HANDLE_VALUE;
 		return (INT_PTR)FALSE;
 
+	case WM_CTLCOLORSTATIC:
+		pSetBkMode((HDC)wParam, TRANSPARENT);
+		return (INT_PTR)pGetStockObject(NULL_BRUSH);
 	}
 	return DefWindowProc(hDlg, message, wParam, lParam);
 }
@@ -343,8 +360,8 @@ int run_with_progress_bar(HWND hWnd, int(*function)(void*), void* arglist) {
 	// => create the whole dialog manually.
 
 	// First we create  Window class if it doesn't already exist
-	if (!GetClassInfoExA(app_instance, "wdi_progress_class", &wc)) {
-		wc.cbSize = sizeof(WNDCLASSEX);
+	if (!GetClassInfoEx(app_instance, TEXT("wdi_progress_class"), &wc)) {
+		wc.cbSize = sizeof(wc);
 		wc.style = CS_DBLCLKS | CS_SAVEBITS;
 		wc.lpfnWndProc = progress_callback;
 		wc.cbClsExtra = 0;
@@ -353,11 +370,11 @@ int run_with_progress_bar(HWND hWnd, int(*function)(void*), void* arglist) {
 		wc.hIcon = LoadIcon(NULL, IDI_APPLICATION);
 		wc.hIconSm = LoadIcon(NULL, IDI_APPLICATION);
 		wc.hCursor = LoadCursor(NULL, IDC_ARROW);
-		wc.lpszClassName = "wdi_progress_class";
+		wc.lpszClassName = TEXT("wdi_progress_class");
 		wc.lpszMenuName  = NULL;
 		wc.hbrBackground = GetSysColorBrush(COLOR_3DFACE);
 
-		if (!RegisterClassExA(&wc)) {
+		if (!RegisterClassEx(&wc)) {
 			wdi_err("can't register class %s", windows_error_str(0));
 			safe_closehandle(progress_mutex);
 			return WDI_ERROR_RESOURCE;
@@ -365,8 +382,8 @@ int run_with_progress_bar(HWND hWnd, int(*function)(void*), void* arglist) {
 	}
 
 	// Then we create the dialog base
-	hDlg = CreateWindowExA(WS_EX_WINDOWEDGE | WS_EX_CONTROLPARENT,
-		"wdi_progress_class", "Installing driver...",
+	hDlg = CreateWindowEx(WS_EX_WINDOWEDGE | WS_EX_CONTROLPARENT,
+		TEXT("wdi_progress_class"), TEXT("Installing Driver..."),
 		WS_CLIPCHILDREN | WS_CLIPSIBLINGS | WS_CAPTION | WS_POPUP | WS_VISIBLE | WS_THICKFRAME,
 		100, 100, 287, 102, hWnd, NULL, app_instance, NULL);
 	if (hDlg == NULL) {

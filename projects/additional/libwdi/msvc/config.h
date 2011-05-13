@@ -1,6 +1,9 @@
 /* config.h.  Manual config for MSVC.  */
 
-#ifdef _MSC_VER
+#ifndef _MSC_VER
+#warn "msvc/config.h shouldn't be included for your development environment."
+#error "Please make sure the msvc/ directory is removed from your build path."
+#endif
 
 /* embed WinUSB driver files from the following DDK location */
 #ifndef DDK_DIR
@@ -12,29 +15,29 @@
 // #define LIBUSB0_DIR "D:/libusb-win32"
 #endif
 
+/* embed libusbK driver files from the following location */
+#ifndef LIBUSBK_DIR
+// #define LIBUSBK_DIR "D:/libusbK/fre"
+#endif
+
 /* embed user defined driver files from the following location */
-#if !defined(USER_DIR) && !defined(LIBUSB0_DIR) && !defined(DDK_DIR)
-	#define USER_DIR ""
+#ifndef USER_DIR
+// #define USER_DIR "C:/signed-driver"
 #endif
 
 /* DDK WDF coinstaller version (string) */
 #define WDF_VER "01009"
 
 /* 32 bit support */
-//#define OPT_M32
+// #define OPT_M32
 
 /* 64 bit support */
-//#define OPT_M64
+// #define OPT_M64
 
 /* embed IA64 driver files */
 //#define OPT_IA64
 
-#else // end of MSVC defaults
-
-
-#endif
-
-// MSVC and GCC defaults
+/* Debug message logging */
 #if defined(DBG) || defined(DEBUG) || defined(_DEBUG)
 	/* Debug message logging */
 	#define ENABLE_DEBUG_LOGGING

@@ -18,8 +18,10 @@
 */
 
 /*
+09/13/2010 Revisions:
+  o Fixed processing of non NUL terminated strings
 08/05/2010 Revisions:
-  o minor string macro improvements
+  o Minor string macro improvements
 07/23/2010 Revisions:
   o Fixed positive return value if memory allocation fails
   o Changed grow size from 8192 to 1024
@@ -104,9 +106,21 @@ long tokenize_string(const char* src, // text to bo tokenized
 
 	match_count=0;
 
-	// search for a token prefix
-	while((match_start=strstr(src,tok_prefix)))
+	while(src_count > (tok_prefix_size + tok_suffix_size))
 	{
+		// search for a token prefix
+		match_start = src;
+		while(match_start && strncmp(match_start, tok_prefix, tok_prefix_size) != 0)
+		{
+			match_start++;
+			if ((match_start + tok_prefix_size + tok_suffix_size) > (src+src_count))
+			{
+				match_start = NULL;
+				break;
+			}
+		}
+		if (!match_start) break;
+
 		// found a token prefix
 		match_replace_pos=0;
 		match_found=0;
@@ -120,46 +134,41 @@ long tokenize_string(const char* src, // text to bo tokenized
 
 		src+=match_length+tok_prefix_size;
 		src_count-=(match_length+tok_prefix_size);
-		//ASSERT(src_count >=0);
 
-		// If src_count equals 0 this is a token prefix and the end of src.
-		if (src_count > 0)
+		// iterate through the match/replace tokens
+		while ((next_match=&token_entities[match_replace_pos++]))
 		{
-			// iterate through the match/replace tokens
-			while ((next_match=&token_entities[match_replace_pos++]))
+			// the match and replace fields must both be set
+			if (!next_match->match || !next_match->replace)
 			{
-				// the match and replace fields must both be set
-				if (!next_match->match || !next_match->replace)
+				break;
+			}
+			match_length=(long)strlen(next_match->match);
+
+			// if this token will be longer than what's left in src buffer, skip it.
+			if (src_count < (match_length+tok_suffix_size))
+				continue; // not found
+
+			// check for a match suffix
+			if (strncmp(src+match_length,tok_suffix,tok_suffix_size)!=0)
+				continue; // not found
+
+			if (strncmp(src,next_match->match,match_length)==0)
+			{
+				// found a valid token match
+				replace_length=(long)strlen(next_match->replace);
+
+				if (!grow_strcpy(&pDst, dst, &dst_pos, &dst_alloc_size,
+					next_match->replace, replace_length))
 				{
-					break;
+					return -ERROR_NOT_ENOUGH_MEMORY;
 				}
-				match_length=(long)strlen(next_match->match);
 
-				// if this token will be longer than what's left in src buffer, skip it.
-				if (src_count < (match_length+tok_suffix_size))
-					continue; // not found
-
-				// check for a match suffix
-				if (strncmp(src+match_length,tok_suffix,tok_suffix_size)!=0)
-					continue; // not found
-
-				if (strncmp(src,next_match->match,match_length)==0)
-				{
-					// found a valid token match
-					replace_length=(long)strlen(next_match->replace);
-
-					if (!grow_strcpy(&pDst, dst, &dst_pos, &dst_alloc_size,
-						next_match->replace, replace_length))
-					{
-						return -ERROR_NOT_ENOUGH_MEMORY;
-					}
-
-					src+=match_length+tok_suffix_size;
-					src_count-=(match_length+tok_suffix_size);
-					match_found=1;
-					match_count++;
-					break;
-				}
+				src+=match_length+tok_suffix_size;
+				src_count-=(match_length+tok_suffix_size);
+				match_found=1;
+				match_count++;
+				break;
 			}
 		}
 		if (!match_found)

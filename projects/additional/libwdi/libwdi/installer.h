@@ -5,7 +5,7 @@
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
- * version 2.1 of the License, or (at your option) any later version.
+ * version 3 of the License, or (at your option) any later version.
  *
  * This library is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -19,6 +19,7 @@
 #pragma once
 
 #include <windows.h>
+#include <objbase.h>
 #if !defined(bool)
 #define bool BOOL
 #endif
@@ -29,8 +30,8 @@
 #define false FALSE
 #endif
 
-#define MAX_DESC_LENGTH             128
-#define MAX_PATH_LENGTH             128
+#define MAX_DESC_LENGTH             256
+#define MAX_PATH_LENGTH             512
 #define MAX_KEY_LENGTH              256
 #define STR_BUFFER_SIZE             256
 #define MAX_GUID_STRING_LENGTH      40
@@ -54,6 +55,9 @@
 #define static_sprintf(dest, format, ...) safe_sprintf(dest, sizeof(dest), format, __VA_ARGS__)
 #define safe_swprintf _snwprintf
 #define safe_strdup _strdup
+#ifndef ARRAYSIZE
+#define ARRAYSIZE(A) (sizeof(A)/sizeof((A)[0]))
+#endif
 
 #if defined(_MSC_VER)
 #define safe_vsnprintf(buf, size, format, arg) _vsnprintf_s(buf, size, _TRUNCATE, format, arg)
@@ -92,14 +96,15 @@ enum windows_version {
 /*
  * API macros - from libusb-win32 1.x
  */
-#define DLL_DECLARE(api, ret, name, args)                    \
-  typedef ret (api * __dll_##name##_t)args; __dll_##name##_t name = NULL
+#define DLL_DECLARE(api, ret, name, args)                     \
+	typedef ret (api * __dll_##name##_t)args;                 \
+	static __dll_##name##_t name = NULL
 
 #define DLL_LOAD(dll, name, ret_on_failure)                   \
 	do {                                                      \
-		HMODULE h = GetModuleHandle(#dll);                    \
+		HMODULE h = GetModuleHandleA(#dll);                   \
 	if (!h)                                                   \
-		h = LoadLibrary(#dll);                                \
+		h = LoadLibraryA(#dll);                               \
 	if (!h) {                                                 \
 		if (ret_on_failure) { return -1; }                    \
 		else { break; }                                       \
@@ -150,6 +155,9 @@ typedef RETURN_TYPE	CONFIGRET;
 #ifndef ERROR_IN_WOW64
 #define ERROR_IN_WOW64                    0xE0000235
 #endif
+#ifndef ERROR_AUTHENTICODE_PUBLISHER_NOT_TRUSTED
+#define ERROR_AUTHENTICODE_PUBLISHER_NOT_TRUSTED 0xE0000243
+#endif
 
 typedef enum {
 	DIFXAPI_SUCCESS,
@@ -166,3 +174,41 @@ typedef struct {
 	LPCSTR  pMfgName;
 } INSTALLERINFO, *PINSTALLERINFO;
 typedef const PINSTALLERINFO PCINSTALLERINFO;
+
+/*
+ * GPEdit Interface (from MinGW-w64)
+ */
+typedef enum _GROUP_POLICY_OBJECT_TYPE {
+  GPOTypeLocal = 0,GPOTypeRemote,GPOTypeDS
+} GROUP_POLICY_OBJECT_TYPE,*PGROUP_POLICY_OBJECT_TYPE;
+
+#define REGISTRY_EXTENSION_GUID { 0x35378EAC,0x683F,0x11D2, {0xA8,0x9A,0x00,0xC0,0x4F,0xBB,0xCF,0xA2} }
+#define GPO_OPEN_LOAD_REGISTRY 0x00000001
+#define GPO_SECTION_MACHINE 2
+
+#undef INTERFACE
+#define INTERFACE IGroupPolicyObject
+  DECLARE_INTERFACE_(IGroupPolicyObject,IUnknown) {
+    STDMETHOD(QueryInterface) (THIS_ REFIID riid,LPVOID *ppvObj) PURE;
+    STDMETHOD_(ULONG,AddRef) (THIS) PURE;
+    STDMETHOD_(ULONG,Release) (THIS) PURE;
+    STDMETHOD(New) (THIS_ LPOLESTR pszDomainName,LPOLESTR pszDisplayName,DWORD dwFlags) PURE;
+    STDMETHOD(OpenDSGPO) (THIS_ LPOLESTR pszPath,DWORD dwFlags) PURE;
+    STDMETHOD(OpenLocalMachineGPO) (THIS_ DWORD dwFlags) PURE;
+    STDMETHOD(OpenRemoteMachineGPO) (THIS_ LPOLESTR pszComputerName,DWORD dwFlags) PURE;
+    STDMETHOD(Save) (THIS_ BOOL bMachine, BOOL bAdd,GUID *pGuidExtension,GUID *pGuid) PURE;
+    STDMETHOD(Delete) (THIS) PURE;
+    STDMETHOD(GetName) (THIS_ LPOLESTR pszName,int cchMaxLength) PURE;
+    STDMETHOD(GetDisplayName) (THIS_ LPOLESTR pszName,int cchMaxLength) PURE;
+    STDMETHOD(SetDisplayName) (THIS_ LPOLESTR pszName) PURE;
+    STDMETHOD(GetPath) (THIS_ LPOLESTR pszPath,int cchMaxPath) PURE;
+    STDMETHOD(GetDSPath) (THIS_ DWORD dwSection,LPOLESTR pszPath,int cchMaxPath) PURE;
+    STDMETHOD(GetFileSysPath) (THIS_ DWORD dwSection,LPOLESTR pszPath,int cchMaxPath) PURE;
+    STDMETHOD(GetRegistryKey) (THIS_ DWORD dwSection,HKEY *hKey) PURE;
+    STDMETHOD(GetOptions) (THIS_ DWORD *dwOptions) PURE;
+    STDMETHOD(SetOptions) (THIS_ DWORD dwOptions,DWORD dwMask) PURE;
+    STDMETHOD(GetType) (THIS_ GROUP_POLICY_OBJECT_TYPE *gpoType) PURE;
+    STDMETHOD(GetMachineName) (THIS_ LPOLESTR pszName,int cchMaxLength) PURE;
+    STDMETHOD(GetPropertySheetPages) (THIS_ HPROPSHEETPAGE **hPages,UINT *uPageCount) PURE;
+  };
+  typedef IGroupPolicyObject *LPGROUPPOLICYOBJECT;
