@@ -7,12 +7,12 @@
 
 /* embed WinUSB driver files from the following DDK location */
 #ifndef DDK_DIR
-// #define DDK_DIR "E:/WinDDK/7600.16385.0"
+//#define DDK_DIR "Z:/WinDDK/7600.16385.0"
 #endif
 
 /* embed libusb0 driver files from the following location */
 #ifndef LIBUSB0_DIR
-// #define LIBUSB0_DIR "D:/libusb-win32"
+#define LIBUSB0_DIR "Z:/packages/libusb-win32"
 #endif
 
 /* embed libusbK driver files from the following location */
@@ -29,7 +29,9 @@
 #define WDF_VER "01009"
 
 /* 32 bit support */
-// #define OPT_M32
+#ifndef OPT_M32
+#define OPT_M32
+#endif
 
 /* 64 bit support */
 // #define OPT_M64
@@ -47,7 +49,7 @@
 
 	/* Message logging */
 	#define ENABLE_LOGGING 1
-
-	/* Output log message to a debug window/DebugView */
-	#define LOG_OUTPUT_DEBUGWINDOW
 #endif
+
+/* Output log message to a debug window/DebugView */
+#define LOG_OUTPUT_DEBUGWINDOW
