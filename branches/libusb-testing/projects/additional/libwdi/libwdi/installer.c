@@ -5,7 +5,7 @@
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
- * version 2.1 of the License, or (at your option) any later version.
+ * version 3 of the License, or (at your option) any later version.
  *
  * This library is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -59,7 +59,7 @@ typedef DEVNODEID_A DEVNODEID;
 typedef DEVINSTID_A DEVINSTID;
 #endif
 
-DLL_DECLARE(WINAPI, CONFIGRET, CM_Locate_DevNode, (PDEVINST, DEVINSTID, ULONG));
+DLL_DECLARE(WINAPI, CONFIGRET, CM_Locate_DevNodeA, (PDEVINST, DEVINSTID_A, ULONG));
 DLL_DECLARE(WINAPI, CONFIGRET, CM_Reenumerate_DevNode, (DEVINST, ULONG));
 DLL_DECLARE(WINAPI, CONFIGRET, CM_Get_DevNode_Status, (PULONG, PULONG, DEVINST, ULONG));
 DLL_DECLARE(WINAPI, int, __wgetmainargs, (int*, wchar_t***, wchar_t***, int, int*));
@@ -75,7 +75,7 @@ PSID user_psid = NULL;
 // Setup the Cfgmgr32 DLLs
 static int init_dlls(void)
 {
-	DLL_LOAD(Cfgmgr32.dll, CM_Locate_DevNode, TRUE);
+	DLL_LOAD(Cfgmgr32.dll, CM_Locate_DevNodeA, TRUE);
 	DLL_LOAD(Cfgmgr32.dll, CM_Reenumerate_DevNode, TRUE);
 	DLL_LOAD(Cfgmgr32.dll, CM_Get_DevNode_Status, TRUE);
 	DLL_LOAD(Msvcrt.dll, __wgetmainargs, FALSE);
@@ -208,13 +208,43 @@ char* req_id(enum installer_code id_code)
 	memset(id, 0, MAX_PATH_LENGTH);
 	size = request_data(id_code, (void*)id, MAX_PATH_LENGTH);
 	if (size > 0) {
-		plog("got %s: %s", id_text[id_code-IC_GET_DEVICE_ID], id);
-		return id;
+		plog("got %s: '%s'", id_text[id_code-IC_GET_DEVICE_ID], id);
+		return (id[0] != 0)?id:NULL;
 	}
 
 	plog("failed to read %s", id_text[id_code-IC_GET_DEVICE_ID]);
 	return NULL;
 }
+
+/*
+ * Force the re-enumeration of a device and all of its children
+ * This causes driver installation for devices where either the driver
+ * is already available, or for devices where a device_id was not provided,
+ * yet that are plugged in.
+ * If device_id is NULL, this call re-enumerates all devices
+ */
+int enumerate_device(char* device_id)
+{
+	DEVINST dev_inst;
+	CONFIGRET status;
+
+	plog("re-enumerating driver node %s...", device_id?device_id:"<root>");
+	status = CM_Locate_DevNodeA(&dev_inst, device_id, 0);
+	if (status != CR_SUCCESS) {
+		plog("failed to locate device_id %s: %x\n", device_id?device_id:"<root>", status);
+		return -1;
+	}
+
+	status = CM_Reenumerate_DevNode(dev_inst, CM_REENUMERATE_RETRY_INSTALLATION);
+	if (status != CR_SUCCESS) {
+		plog("failed to re-enumerate device node: CR code %X", status);
+		return -1;
+	}
+
+	plog("re-enumeration succeeded...");
+	return 0;
+}
+
 
 /*
  * Flag phantom/removed devices for reinstallation. See:
@@ -490,6 +520,7 @@ static __inline int process_error(DWORD r, char* path) {
 	// r = 0xE0000203 ERROR_NO_DRIVER_SELECTED if the driver provided is not compatible with the target platform
 	// r = 0x800B0100 ERROR_WRONG_INF_STYLE => missing cat entry in inf
 	// r = 0xE000022F ERROR_NO_CATALOG_FOR_OEM_INF => "reject unsigned driver" policy is enforced
+	// r = 0xE0000243 ERROR_AUTHENTICODE_PUBLISHER_NOT_TRUSTED => user doesn't trust the cert that signed the cat
 	// r = 0xB7 => missing DRIVER_PACKAGE_REPAIR flag
 	switch(r) {
 	case ERROR_NO_MORE_ITEMS:
@@ -499,10 +530,10 @@ static __inline int process_error(DWORD r, char* path) {
 		plog("device not detected (copying driver files for next time device is plugged in)");
 		return WDI_SUCCESS;
 	case ERROR_INVALID_PARAMETER:
-		plog("invalid path or hardware ID");
+		plog("invalid path or hardware ID (%s)", path);
 		return WDI_ERROR_INVALID_PARAM;
 	case ERROR_FILE_NOT_FOUND:
-		plog("the system can not find the file specified");
+		plog("the system can not find the file specified (%s)", path);
 		return WDI_ERROR_NOT_FOUND;
 	case ERROR_ACCESS_DENIED:
 		plog("this process needs to be run with administrative privileges");
@@ -523,6 +554,7 @@ static __inline int process_error(DWORD r, char* path) {
 		return WDI_ERROR_CAT_MISSING;
 	case ERROR_NO_AUTHENTICODE_CATALOG:
 	case ERROR_DRIVER_STORE_ADD_FAILED:
+	case ERROR_AUTHENTICODE_PUBLISHER_NOT_TRUSTED:
 		plog("operation cancelled by the user");
 		return WDI_ERROR_USER_CANCEL;
 	case ERROR_NO_DRIVER_SELECTED:
@@ -541,6 +573,103 @@ static __inline int process_error(DWORD r, char* path) {
 		plog("unhandled error %X", r);
 		return WDI_ERROR_OTHER;
 	}
+}
+
+// Disable or restore the system restore creation point settings for driver install
+bool disable_system_restore(bool enabled)
+{
+	OSVERSIONINFO os_version;
+	LONG r;
+	DWORD disp, regtype, val, val_size=sizeof(DWORD);
+	HRESULT hr;
+	IGroupPolicyObject* pLGPO;
+	static DWORD original_val = -1;		// -1 = key doesn't exist
+	HKEY machine_key, dsrkey;
+	// MSVC is finicky about these ones => redefine them
+	const IID my_IID_IGroupPolicyObject = 
+		{ 0xea502723, 0xa23d, 0x11d1, { 0xa7, 0xd3, 0x0, 0x0, 0xf8, 0x75, 0x71, 0xe3 } };
+	const IID my_CLSID_GroupPolicyObject = 
+		{ 0xea502722, 0xa23d, 0x11d1, { 0xa7, 0xd3, 0x0, 0x0, 0xf8, 0x75, 0x71, 0xe3 } };
+	GUID ext_guid = REGISTRY_EXTENSION_GUID;
+	// Can be anything really
+	GUID snap_guid = { 0x3D271CFC, 0x2BC6, 0x4AC2, {0xB6, 0x33, 0x3B, 0xDF, 0xF5, 0xBD, 0xAB, 0x2A} };
+
+	// This call only makes sense on Vista or later
+	memset(&os_version, 0, sizeof(OSVERSIONINFO));
+	os_version.dwOSVersionInfoSize = sizeof(OSVERSIONINFO);
+	if ((GetVersionEx(&os_version) != 0) && (os_version.dwPlatformId == VER_PLATFORM_WIN32_NT)) {
+		if (os_version.dwMajorVersion < 6) {
+			return true;
+		}
+	}
+
+	// We need an IGroupPolicyObject instance to set a Local Group Policy
+	hr = CoCreateInstance(&my_CLSID_GroupPolicyObject, NULL, CLSCTX_INPROC_SERVER, &my_IID_IGroupPolicyObject, (LPVOID*)&pLGPO);
+	if (FAILED(hr)) {
+		plog("CoCreateInstance failed; hr = %x", hr);
+		goto error;
+	}
+
+	hr = pLGPO->lpVtbl->OpenLocalMachineGPO(pLGPO, GPO_OPEN_LOAD_REGISTRY);
+	if (FAILED(hr)) {
+		plog("OpenLocalMachineGPO failed - error %x", hr);
+		goto error;
+	}
+
+	hr = pLGPO->lpVtbl->GetRegistryKey(pLGPO, GPO_SECTION_MACHINE, &machine_key);
+	if (FAILED(hr)) {
+		plog("GetRegistryKey failed - error %x", hr);
+		goto error;
+	}
+
+	// The DisableSystemRestore is set in Software\Policies\Microsoft\Windows\DeviceInstall\Settings
+	r = RegCreateKeyExA(machine_key, "Software\\Policies\\Microsoft\\Windows\\DeviceInstall\\Settings",
+		0, NULL, 0, KEY_SET_VALUE | KEY_QUERY_VALUE, NULL, &dsrkey, &disp);
+	if (r != ERROR_SUCCESS) {
+		plog("RegCreateKeyEx failed - error %x", hr);
+		goto error;
+	}
+
+	if ((disp == REG_OPENED_EXISTING_KEY) && (enabled) && (original_val == -1)) {
+		// backup existing value for restore
+		regtype = REG_DWORD;
+		r = RegQueryValueExA(dsrkey, "DisableSystemRestore", NULL, &regtype, (LPBYTE)&original_val, &val_size);
+		if (r == ERROR_FILE_NOT_FOUND) {
+			// The Key exists but not its value, which is OK
+			original_val = -1;
+		} else if (r != ERROR_SUCCESS) {
+			plog("failed to read original DisableSystemRestore value - error %x", r);
+		}
+	}
+
+	if ((enabled) || (original_val != -1)) {
+		val = (enabled)?1:original_val;
+		r = RegSetValueExA(dsrkey, "DisableSystemRestore", 0, REG_DWORD, (BYTE*)&val, sizeof(val));
+	} else {
+		r = RegDeleteValueA(dsrkey, "DisableSystemRestore");
+	}
+	if (r != ERROR_SUCCESS) {
+		plog("RegSetValueEx / RegDeleteValue failed - error %x", r);
+	}
+	RegCloseKey(dsrkey);
+
+	// Apply policy
+	hr = pLGPO->lpVtbl->Save(pLGPO, TRUE, (enabled)?TRUE:FALSE, &ext_guid, &snap_guid);
+	if (r != S_OK) {
+		plog("unable to apply DisableSystemRestore policy - error %x", hr);
+		goto error;
+	} else {
+		plog("successfully %s the system restore point creation setting", (enabled)?"disabled":"restored");
+	}
+
+	RegCloseKey(machine_key);
+	pLGPO->lpVtbl->Release(pLGPO);
+	return true;
+
+error:
+	if (machine_key != NULL) RegCloseKey(machine_key);
+	if (pLGPO != NULL) pLGPO->lpVtbl->Release(pLGPO);
+	return false;
 }
 
 // TODO: allow commandline options (v2)
@@ -575,6 +704,9 @@ int __cdecl main(int argc_ansi, char** argv_ansi)
 		ret = WDI_ERROR_RESOURCE;
 		goto out;
 	}
+
+	// Initialize COM for Restore Point disabling
+	CoInitializeEx(NULL, COINIT_APARTMENTTHREADED);
 
 	// libwdi provides the arguments as UTF-16 => read them and convert to UTF-8
 	if (__wgetmainargs != NULL) {
@@ -621,15 +753,19 @@ int __cdecl main(int argc_ansi, char** argv_ansi)
 		// "more recent driver was found" error from UpdateForPnP. Weird...
 	}
 
+	// Disable the creation of a restore point
+	disable_system_restore(true);
+
 	// Find if the device is plugged in
 	send_status(IC_SET_TIMEOUT_INFINITE);
-	if ((hardware_id != NULL) && (hardware_id[0] != 0)) {
+	if (hardware_id != NULL) {
 		plog("Installing driver for %s - please wait...", hardware_id);
 		b = UpdateDriverForPlugAndPlayDevicesU(NULL, hardware_id, path, INSTALLFLAG_FORCE, NULL);
 		send_status(IC_SET_TIMEOUT_DEFAULT);
 		if (b == true) {
 			// Success
 			plog("driver update completed");
+			enumerate_device(device_id);
 			ret = WDI_SUCCESS;
 			goto out;
 		}
@@ -648,6 +784,7 @@ int __cdecl main(int argc_ansi, char** argv_ansi)
 	if (b) {
 		plog("copied inf to %s", destname);
 		ret = WDI_SUCCESS;
+		enumerate_device(device_id);
 		goto out;
 	}
 
@@ -664,6 +801,8 @@ out:
 	// Report any error status code and wait for target app to read it
 	send_status(IC_INSTALLER_COMPLETED);
 	pstat(ret);
+	// Restore the system restore point creation original settings
+	disable_system_restore(false);
 	// TODO: have libwi send an ACK?
 	Sleep(1000);
 	SetEvent(syslog_terminate_event);

@@ -6,7 +6,7 @@
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
- * version 2.1 of the License, or (at your option) any later version.
+ * version 3 of the License, or (at your option) any later version.
  *
  * This library is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -20,13 +20,15 @@
 #pragma once
 
 /*
- * This include defines the driver files that should be embedded in the library
+ * This include defines the driver files that should be embedded in the library.
+ * This file is meant to be used by libwdi developers only.
  * If you want to add extra files from a specific directory (eg signed inf and cat)
  * you should either define the macro USER_DIR in msvc/config.h (MS compilers) or
  * use the --with-userdir option when running configure.
  */
 
 struct emb {
+	int reuse_last;
 	char* file_name;
 	char* extraction_subdir;
 };
@@ -36,55 +38,119 @@ struct emb {
  */
 struct emb embeddable_fixed[] = {
 
-// 32 bit driver files
+// WinUSB
+#if defined(DDK_DIR)
+#	if defined(OPT_M32)
+		{ 0, DDK_DIR "\\redist\\wdf\\x86\\WdfCoInstaller" WDF_VER ".dll", "x86" },
+		{ 0, DDK_DIR "\\redist\\winusb\\x86\\winusbcoinstaller2.dll", "x86" },
+#	endif	// OPT_M32
+#	if defined(OPT_M64)
+		{ 0, DDK_DIR "\\redist\\wdf\\amd64\\WdfCoInstaller" WDF_VER ".dll", "amd64" },
+		{ 0, DDK_DIR "\\redist\\winusb\\amd64\\winusbcoinstaller2.dll", "amd64" },
+#	endif	// OPT_M64
+#	if defined(OPT_IA64)
+		{ 0, DDK_DIR "\\redist\\wdf\\ia64\\WdfCoInstaller" WDF_VER ".dll", "ia64" },
+		{ 0, DDK_DIR "\\redist\\winusb\\ia64\\winusbcoinstaller2.dll", "ia64" },
+#	endif	// OPT_IA64
+		{ 0, DDK_DIR "\\license.rtf", "license\\WinUSB" },	// WinUSB License file
+#endif	// DDK_DIR
+
+// libusb0
+#if defined(LIBUSB0_DIR)
+	{ 0, LIBUSB0_DIR "\\bin\\x86\\libusb0_x86.dll", "x86" },
+#	if defined(LIBUSBK_DIR)
+#		if defined(OPT_M32)
+			{ 1, "libusb0.dll", "x86" },	// reuse
+#		endif	// OPT_M32
+#		if defined(OPT_M64)
+			{ 1, "libusb0_x86.dll", "amd64" },	// reuse
+#		endif	// OPT_M64
+#	endif	// LIBUSBK_DIR
+#	if defined(OPT_M32)
+		{ 0, LIBUSB0_DIR "\\bin\\x86\\libusb0.sys", "x86" },
+#	endif	// OPT_M32
+#	if defined(OPT_M64)
+		{ 0, LIBUSB0_DIR "\\bin\\amd64\\libusb0.dll", "amd64" },
+		{ 0, LIBUSB0_DIR "\\bin\\amd64\\libusb0.sys", "amd64" },
+#	endif	// OPT_M64
+#	if defined(OPT_IA64)
+		{ 0, LIBUSB0_DIR "\\bin\\ia64\\libusb0.dll", "ia64" },
+		{ 0, LIBUSB0_DIR "\\bin\\ia64\\libusb0.sys", "ia64" },
+#	endif	// OPT_IA64
+	{ 0, LIBUSB0_DIR "\\installer_license.txt", "license\\libusb0" },
+#endif	// LIBUSB0_DIR
+
+// libusbK
+#if defined(LIBUSBK_DIR)
+
+#	if	defined(OPT_M32)
+#		if !defined(DDK_DIR)
+			{ 0, LIBUSBK_DIR "\\sys\\x86\\WdfCoInstaller" WDF_VER ".dll", "x86" },
+#		endif	// DDK_DIR
+		{ 0, LIBUSBK_DIR "\\sys\\x86\\libusbK.sys", "x86" },
+		{ 0, LIBUSBK_DIR "\\dll\\x86\\libusbK.dll", "x86" },
+#		if defined(OPT_M64)
+			{ 1, "libusbK_x86.dll", "amd64" },	// reuse
+#		endif	// OPT_M64
+#		if !defined(LIBUSB0_DIR)
+			{ 0, LIBUSBK_DIR "\\dll\\x86\\libusb0.dll", "x86" },
+#			if defined(OPT_M64)
+				{ 1, "libusb0_x86.dll", "amd64" },	// reuse
+#			endif	// OPT_M64
+#		endif	// LIBUSB0_DIR
+		{ 0, LIBUSBK_DIR "\\dll\\x86\\libusb-1.0.dll", "x86" },
+#		if defined(OPT_M64)
+			{ 1, "libusb-1.0_x86.dll", "amd64" },	// reuse
+#		endif	// OPT_M64
+#	endif	// OPT_M32
+
+#	if defined(OPT_M64)
+#		if !defined(DDK_DIR)
+			{ 0, LIBUSBK_DIR "\\sys\\amd64\\WdfCoInstaller" WDF_VER ".dll", "amd64" },
+#		endif	// DDK_DIR
+		{ 0, LIBUSBK_DIR "\\sys\\amd64\\libusbK.sys", "amd64" },
+		{ 0, LIBUSBK_DIR "\\dll\\amd64\\libusbK.dll", "amd64" },
+		{ 0, LIBUSBK_DIR "\\dll\\amd64\\libusb-1.0.dll", "amd64" },
+#		if !defined(LIBUSB0_DIR)
+			{ 0, LIBUSBK_DIR "\\dll\\amd64\\libusb0.dll", "amd64" },
+#		endif	// LIBUSB0_DIR
+#		if !defined(OPT_M32)
+			// The x86/ DLLs will not be used, but they are required for rename to _x86
+			{ 0, LIBUSBK_DIR "\\dll\\x86\\libusbK.dll", "x86" },
+			{ 1, "libusbK_x86.dll", "amd64" },
+			{ 0, LIBUSBK_DIR "\\dll\\x86\\libusb-1.0.dll", "x86" },
+			{ 1, "libusb-1.0_x86.dll", "amd64" },
+#			if !defined(LIBUSB0_DIR)
+				{ 0, LIBUSBK_DIR "\\dll\\x86\\libusb0.dll", "x86" }
+				{ 1, "libusb0_x86.dll", "amd64" },
+#			endif	// LIBUSB0_DIR
+#		endif	// OPT_M32
+#	endif	// OPT_M64
+
+#	if defined(OPT_IA64)
+#		if !defined(DDK_DIR)
+			{ 0, LIBUSBK_DIR "\\sys\\ia64\\WdfCoInstaller" WDF_VER ".dll", "ia64" },
+#		endif	// DDK_DIR
+		{ 0, LIBUSBK_DIR "\\sys\\ia64\\libusbK.sys", "ia64" },
+		{ 0, LIBUSBK_DIR "\\dll\\ia64\\libusbK.dll", "ia64" },
+		{ 0, LIBUSBK_DIR "\\dll\\ia64\\libusb0.dll", "ia64" },
+#	endif	// OPT_IA64
+
+#endif	// LIBUSBK_DIR
+
+// Common files
 #if defined(OPT_M32)
-#if defined(DDK_DIR)
-	{ DDK_DIR "\\redist\\wdf\\x86\\WdfCoInstaller" WDF_VER ".dll", "x86" },
-	{ DDK_DIR "\\redist\\winusb\\x86\\winusbcoinstaller2.dll", "x86" },
+	{ 0, INSTALLER_PATH_32 "\\installer_x86.exe", "." },
 #endif
-	{ INSTALLER_PATH_32 "\\installer_x86.exe", "." },
-#endif
-
-// 64 bit driver files
 #if defined(OPT_M64)
-#if defined(DDK_DIR)
-	{ DDK_DIR "\\redist\\wdf\\amd64\\WdfCoInstaller" WDF_VER ".dll", "amd64" },
-	{ DDK_DIR "\\redist\\winusb\\amd64\\winusbcoinstaller2.dll", "amd64" },
+	{ 0, INSTALLER_PATH_64 "\\installer_x64.exe", "." },
 #endif
-#if defined(LIBUSB0_DIR)
-	{ LIBUSB0_DIR "\\bin\\amd64\\libusb0.dll", "amd64" },
-	{ LIBUSB0_DIR "\\bin\\amd64\\libusb0.sys", "amd64" },
-#endif
-	{ INSTALLER_PATH_64 "\\installer_x64.exe", "." },
-#endif
-
-// IA64 (Itanium) driver files
-#if defined(OPT_IA64)
-#if defined(DDK_DIR)
-	{ DDK_DIR "\\redist\\wdf\\ia64\\WdfCoInstaller" WDF_VER ".dll", "ia64" },
-	{ DDK_DIR "\\redist\\winusb\\ia64\\winusbcoinstaller2.dll", "ia64" },
-#endif
-#if defined(LIBUSB0_DIR)
-	{ LIBUSB0_DIR "\\bin\\ia64\\libusb0.dll", "ia64" },
-	{ LIBUSB0_DIR "\\bin\\ia64\\libusb0.sys", "ia64" },
-#endif
-#endif
-
-// Common driver files
-// On 64 bit, for WOW64, we must include the 32 bit libusb0 files as well
-#if defined(LIBUSB0_DIR)
-	{ LIBUSB0_DIR "\\bin\\x86\\libusb0_x86.dll", "x86" },
-	{ LIBUSB0_DIR "\\bin\\x86\\libusb0.sys", "x86" },
-	{ LIBUSB0_DIR "\\installer_license.txt", "license\\libusb-win32" },
-	{ LIBUSB0_DIR "\\bin\\libusb-win32-bin-README.txt", ".\\" },
-#endif
-#if defined(DDK_DIR)
-	{ DDK_DIR "\\license.rtf", "license\\WinUSB" },	// WinUSB License file
-#endif
-
 // inf templates for the tokenizer ("" directory means no extraction)
-	{ "winusb.inf.in", "" },
-	{ "libusb-win32.inf.in", "" },
+	{ 0, "winusb.inf.in", "" },
+	{ 0, "libusb-win32.inf.in", "" },
+	{ 0, "libusbk.inf.in", "" },
+// cat file lists for self signing
+	{ 0, "winusb.cat.in", "" },
+	{ 0, "libusb-win32.cat.in", "" },
+	{ 0, "libusbk.cat.in", "" },
 };
-
-
