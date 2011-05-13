@@ -535,7 +535,7 @@ int get_version_info(int driver_type, VS_FIXEDFILEINFO* driver_info)
 		// Fill the creation date of VS_FIXEDFILEINFO with the one from embedded.h
 		t = unixtime_to_msfiletime((time_t)resource[res].creation_time);
 		file_info->dwFileDateLS = (DWORD)t;
-		file_info->dwFileDateMS = t >> 32;
+		file_info->dwFileDateMS = (DWORD)(t >> 32);
 		memcpy(&driver_version[driver_type], file_info, sizeof(VS_FIXEDFILEINFO));
 		memcpy(driver_info, file_info, sizeof(VS_FIXEDFILEINFO));
 	} else {
