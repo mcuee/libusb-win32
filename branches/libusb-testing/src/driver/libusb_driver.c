@@ -388,6 +388,8 @@ NTSTATUS DDKAPI add_device(DRIVER_OBJECT *driver_object,
         device_object->Flags |= DO_DIRECT_IO | DO_POWER_PAGABLE;
     }
 
+	UpdateContextConfigDescriptor(dev,NULL,0,0,-1);
+
     device_object->Flags &= ~DO_DEVICE_INITIALIZING;
 	remove_lock_release(dev);
 

@@ -360,7 +360,7 @@ VOID set_filter_interface_key(libusb_device_t *dev, ULONG id)
 
 			if (NT_SUCCESS(ZwSetValueKey(hKey,&valueName, 0, REG_DWORD, &id,sizeof(ULONG))))
 			{
-				USBMSG("updated interface registry with LUsb0 direct-access symbolic link. id=%04d\n",dev->id);
+				USBMSG("updated interface registry with LUsb0 direct-access symbolic link. id=%d\n",id);
 			}
 			else
 			{

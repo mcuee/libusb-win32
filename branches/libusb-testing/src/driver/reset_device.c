@@ -40,5 +40,6 @@ NTSTATUS reset_device(libusb_device_t *dev, int timeout)
         USBERR("IOCTL_INTERNAL_USB_CYCLE_PORT failed: status: 0x%x\n", status);
     }
 
+	UpdateContextConfigDescriptor(dev, NULL, 0, 0, -1);
     return status;
 }

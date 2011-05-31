@@ -1,2 +1,0 @@
-warnings in directory z:\projects\libusb-win32-stage\projects\additional\libwdi\libwdi
-z:\projects\libusb-win32-stage\projects\additional\libwdi\libwdi\libwdi.c(538) : warning C4242: '=' : conversion from 'int64_t' to 'DWORD', possible loss of data
