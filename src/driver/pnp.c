@@ -53,8 +53,6 @@ NTSTATUS dispatch_pnp(libusb_device_t *dev, IRP *irp)
     {
     case IRP_MN_REMOVE_DEVICE:
 
-        dev->is_started = FALSE;
-
 		USBMSG("IRP_MN_REMOVE_DEVICE: is-filter=%c %s\n",
 			dev->is_filter ? 'Y' : 'N',
 			dev->device_id);
@@ -69,6 +67,9 @@ NTSTATUS dispatch_pnp(libusb_device_t *dev, IRP *irp)
 				USBERR0("IRP_MN_REMOVE_DEVICE: disabling device interface failed\n");
 			}
 		}
+
+		dev->is_started = FALSE;
+
 		/* wait until all outstanding requests are finished */
         remove_lock_release_and_wait(dev);
 
@@ -87,7 +88,7 @@ NTSTATUS dispatch_pnp(libusb_device_t *dev, IRP *irp)
 		{
 			RtlFreeUnicodeString(&dev->device_interface_name);
 		}
-		UpdateContextConfigDescriptor(dev,NULL,0,0,0);
+		UpdateContextConfigDescriptor(dev,NULL,0,0,-1);
 
         /* delete the device object */
         IoDetachDevice(dev->next_stack_device);
@@ -105,12 +106,16 @@ NTSTATUS dispatch_pnp(libusb_device_t *dev, IRP *irp)
 		if (dev->device_interface_in_use) 
 		{
 			set_filter_interface_key(dev,(ULONG)-1);
-			status = IoSetDeviceInterfaceState(&dev->device_interface_name, FALSE);
-			if (!NT_SUCCESS(status))
+			IoSetDeviceInterfaceState(&dev->device_interface_name, FALSE);
+			dev->device_interface_in_use=FALSE;
+			if (dev->device_interface_name.Buffer)
 			{
-				USBERR0("IRP_MN_SURPRISE_REMOVAL: disabling device interface failed\n");
+				RtlFreeUnicodeString(&dev->device_interface_name);
+				dev->device_interface_name.Buffer = NULL;
 			}
 		}
+		UpdateContextConfigDescriptor(dev,NULL,0,0,-1);
+		status = STATUS_SUCCESS;
 
 		break;
 
