@@ -565,6 +565,7 @@ static int _usb_transfer_sync(usb_dev_handle *dev, int control_code,
     int ret;
     int requested;
 
+	if (!timeout) timeout=INFINITE;
     ret = _usb_setup_async(dev, &context, control_code, (unsigned char )ep,
                            pktsize);
 
