@@ -126,7 +126,7 @@ DRIVER_LDFLAGS = -s -shared -Wl,--entry,_DriverEntry@8 \
 
 
 .PHONY: all
-all: dll filter infwizard test testwin driver
+all: dll filter test testwin
 
 .PHONY: dll
 dll: DLL_CFLAGS = $(CFLAGS) -DLOG_APPNAME=\"$(DLL_TARGET)-dll\" -DTARGETTYPE=DYNLINK
