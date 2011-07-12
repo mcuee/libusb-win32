@@ -55,6 +55,7 @@ typedef int (*usb_set_altinterface_t)(usb_dev_handle *dev, int alternate);
 typedef int (*usb_resetep_t)(usb_dev_handle *dev, unsigned int ep);
 typedef int (*usb_clear_halt_t)(usb_dev_handle *dev, unsigned int ep);
 typedef int (*usb_reset_t)(usb_dev_handle *dev);
+typedef int (*usb_reset_ex_t)(usb_dev_handle *dev, unsigned int reset_type);
 typedef char * (*usb_strerror_t)(void);
 typedef void (*usb_init_t)(void);
 typedef void (*usb_set_debug_t)(int level);
@@ -96,6 +97,7 @@ static usb_set_altinterface_t _usb_set_altinterface = NULL;
 static usb_resetep_t _usb_resetep = NULL;
 static usb_clear_halt_t _usb_clear_halt = NULL;
 static usb_reset_t _usb_reset = NULL;
+static usb_reset_ex_t _usb_reset_ex = NULL;
 static usb_strerror_t _usb_strerror = NULL;
 static usb_init_t _usb_init = NULL;
 static usb_set_debug_t _usb_set_debug = NULL;
@@ -160,6 +162,8 @@ void usb_init(void)
                       GetProcAddress(libusb_dll, "usb_clear_halt");
     _usb_reset = (usb_reset_t)
                  GetProcAddress(libusb_dll, "usb_reset");
+    _usb_reset_ex = (usb_reset_ex_t)
+                 GetProcAddress(libusb_dll, "usb_reset_ex");
     _usb_strerror = (usb_strerror_t)
                     GetProcAddress(libusb_dll, "usb_strerror");
     _usb_init = (usb_init_t)
@@ -351,6 +355,14 @@ int usb_reset(usb_dev_handle *dev)
 {
     if (_usb_reset)
         return _usb_reset(dev);
+    else
+        return -ENOFILE;
+}
+
+int usb_reset_ex(usb_dev_handle *dev, unsigned int reset_type)
+{
+    if (_usb_reset_ex)
+        return _usb_reset_ex(dev, reset_type);
     else
         return -ENOFILE;
 }

@@ -500,6 +500,11 @@ NULL : input_buffer + sizeof(libusb_request),
 		status = reset_device(dev, request->timeout);
 		break;
 
+	case LIBUSB_IOCTL_RESET_DEVICE_EX:
+
+		status = reset_device_ex(dev, request->timeout, request->reset_ex.reset_type);
+		break;
+
 	case LIBUSB_IOCTL_SET_DEBUG_LEVEL:
 		usb_log_set_level(request->debug.level);
 		break;

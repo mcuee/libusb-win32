@@ -240,6 +240,16 @@ struct usb_ctrl_setup
  */
 #define USB_LE16_TO_CPU(x)
 
+/*
+ * Device reset types for usb_reset_ex.
+ * http://msdn.microsoft.com/en-us/library/ff537269%28VS.85%29.aspx
+ * http://msdn.microsoft.com/en-us/library/ff537243%28v=vs.85%29.aspx
+ */
+#define USB_RESET_TYPE_RESET_PORT (1 << 0)
+#define USB_RESET_TYPE_CYCLE_PORT (1 << 1)
+#define USB_RESET_TYPE_FULL_RESET (USB_RESET_TYPE_CYCLE_PORT | USB_RESET_TYPE_RESET_PORT)
+
+
 /* Data types */
 /* struct usb_device; */
 /* struct usb_bus; */
@@ -349,6 +359,7 @@ extern "C"
     int usb_resetep(usb_dev_handle *dev, unsigned int ep);
     int usb_clear_halt(usb_dev_handle *dev, unsigned int ep);
     int usb_reset(usb_dev_handle *dev);
+    int usb_reset_ex(usb_dev_handle *dev, unsigned int reset_type);
 
     char *usb_strerror(void);
 

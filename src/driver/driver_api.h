@@ -103,6 +103,9 @@ enum
 #define LIBUSB_IOCTL_RELEASE_INTERFACE CTL_CODE(FILE_DEVICE_UNKNOWN,\
 0x816, METHOD_BUFFERED, FILE_ANY_ACCESS)
 
+#define LIBUSB_IOCTL_RESET_DEVICE_EX CTL_CODE(FILE_DEVICE_UNKNOWN,\
+0x817, METHOD_BUFFERED, FILE_ANY_ACCESS)
+
 /////////////////////////////////////////////////////////////////////////////
 // supported after 0.1.12.2
 /////////////////////////////////////////////////////////////////////////////
@@ -371,6 +374,10 @@ typedef struct
 		{
 			unsigned int policy_type;
 		} power_policy;
+		struct
+		{
+			unsigned int reset_type;
+		} reset_ex;
 
 		// WDF_USB_CONTROL_SETUP_PACKET control;
 		struct

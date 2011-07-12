@@ -1050,6 +1050,29 @@ int usb_reset(usb_dev_handle *dev)
     return 0;
 }
 
+int usb_reset_ex(usb_dev_handle *dev, unsigned int reset_type)
+{
+    libusb_request req;
+
+    if (dev->impl_info == INVALID_HANDLE_VALUE)
+    {
+        USBERR0("device not open\n");
+        return -EINVAL;
+    }
+
+    req.timeout = LIBUSB_DEFAULT_TIMEOUT;
+    req.reset_ex.reset_type = reset_type;
+
+    if (!_usb_io_sync(dev->impl_info, LIBUSB_IOCTL_RESET_DEVICE_EX,
+                      &req, sizeof(libusb_request), NULL, 0, NULL))
+    {
+        USBERR("could not reset device, win error: %s\n", usb_win_error_to_string());
+        return -usb_win_error_to_errno();
+    }
+
+    return 0;
+}
+
 const struct usb_version *usb_get_version(void)
 {
     return &_usb_version;
