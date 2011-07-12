@@ -302,6 +302,11 @@ NTSTATUS abort_endpoint(libusb_device_t *dev, int endpoint, int timeout);
 NTSTATUS reset_endpoint(libusb_device_t *dev, int endpoint, int timeout);
 NTSTATUS reset_device(libusb_device_t *dev, int timeout);
 
+#define USB_RESET_TYPE_RESET_PORT (1 << 0)
+#define USB_RESET_TYPE_CYCLE_PORT (1 << 1)
+#define USB_RESET_TYPE_FULL_RESET (USB_RESET_TYPE_CYCLE_PORT | USB_RESET_TYPE_RESET_PORT)
+NTSTATUS reset_device_ex(libusb_device_t *dev, int timeout, unsigned int reset_type);
+
 bool_t reg_get_hardware_id(DEVICE_OBJECT *physical_device_object,
                            char *data, int size);
 bool_t reg_get_compatible_id(DEVICE_OBJECT *physical_device_object,
