@@ -103,9 +103,6 @@ enum
 #define LIBUSB_IOCTL_RELEASE_INTERFACE CTL_CODE(FILE_DEVICE_UNKNOWN,\
 0x816, METHOD_BUFFERED, FILE_ANY_ACCESS)
 
-#define LIBUSB_IOCTL_RESET_DEVICE_EX CTL_CODE(FILE_DEVICE_UNKNOWN,\
-0x817, METHOD_BUFFERED, FILE_ANY_ACCESS)
-
 /////////////////////////////////////////////////////////////////////////////
 // supported after 0.1.12.2
 /////////////////////////////////////////////////////////////////////////////
@@ -174,6 +171,12 @@ enum
 
 #define LIBUSBK_IOCTL_GET_INTERFACE CTL_CODE(FILE_DEVICE_UNKNOWN,\
         0x911, METHOD_BUFFERED, FILE_ANY_ACCESS)
+
+/////////////////////////////////////////////////////////////////////////////
+// supported after 1.2.4.8 (libusb0.sys only)
+/////////////////////////////////////////////////////////////////////////////
+#define LIBUSB_IOCTL_RESET_DEVICE_EX CTL_CODE(FILE_DEVICE_UNKNOWN,\
+0x817, METHOD_BUFFERED, FILE_ANY_ACCESS)
 
 #include <pshpack1.h>
 
