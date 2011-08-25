@@ -297,6 +297,49 @@ NTSTATUS DDKAPI add_device(DRIVER_OBJECT *driver_object,
 
 	remove_lock_initialize(dev);
 	
+	if (dev->device_interface_in_use)
+	{
+		status = IoRegisterDeviceInterface(physical_device_object,
+			(LPGUID)&dev->device_interface_guid,
+			NULL,
+			&dev->device_interface_name);
+		if (!NT_SUCCESS (status))
+		{
+			dev->device_interface_name.Buffer = NULL;
+
+			USBERR0("creating device interface failed\n");
+			IoDeleteSymbolicLink(&symbolic_link_name);
+			IoDeleteDevice(device_object);
+			return status;
+		}
+		else
+		{
+			set_filter_interface_key(dev,dev->id);
+			if (dev->device_interface_in_use)
+			{
+				HANDLE hKey=NULL;
+				if (NT_SUCCESS(IoOpenDeviceInterfaceRegistryKey(&dev->device_interface_name,KEY_ALL_ACCESS,&hKey)))
+				{
+					UNICODE_STRING valueName;
+					RtlInitUnicodeString(&valueName, L"LUsb0");
+
+					if (NT_SUCCESS(ZwSetValueKey(hKey,&valueName, 0, REG_DWORD, &dev->id,sizeof(ULONG))))
+					{
+						USBMSG("updated interface registry with LUsb0 direct-access symbolic link. id=%04d\n",dev->id);
+					}
+					else
+					{
+						USBERR0("IoOpenDeviceInterfaceRegistryKey:ZwSetValueKey failed\n");
+					}
+					ZwClose(hKey);
+				}
+				else
+				{
+					USBERR0("IoOpenDeviceInterfaceRegistryKey failed\n");
+				}
+			}
+		}
+	}
 	// make sure the the devices can't be removed
 	// before we are done adding it.
 	if (!NT_SUCCESS(remove_lock_acquire(dev)))
@@ -344,6 +387,8 @@ NTSTATUS DDKAPI add_device(DRIVER_OBJECT *driver_object,
         dev->target_device = dev->next_stack_device;
         device_object->Flags |= DO_DIRECT_IO | DO_POWER_PAGABLE;
     }
+
+	UpdateContextConfigDescriptor(dev,NULL,0,0,-1);
 
     device_object->Flags &= ~DO_DEVICE_INITIALIZING;
 	remove_lock_release(dev);
@@ -453,12 +498,9 @@ NTSTATUS pass_irp_down(libusb_device_t *dev, IRP *irp,
 
     return IoCallDriver(dev->next_stack_device, irp);
 }
-
+/*
 bool_t accept_irp(libusb_device_t *dev, IRP *irp)
 {
-    /* check if the IRP is sent to libusb's device object or to */
-    /* the lower one. This check is neccassary since the device object */
-    /* might be a filter */
     if (irp->Tail.Overlay.OriginalFileObject)
     {
         return irp->Tail.Overlay.OriginalFileObject->DeviceObject
@@ -466,6 +508,25 @@ bool_t accept_irp(libusb_device_t *dev, IRP *irp)
     }
 
     return FALSE;
+}
+*/
+bool_t accept_irp(libusb_device_t *dev, IRP *irp)
+{
+	/* check if the IRP is sent to libusb's device object or to */
+	/* the lower one. This check is necessary since the device object */
+	/* might be a filter */
+	if(!irp->Tail.Overlay.OriginalFileObject)
+		return FALSE;
+	if (irp->Tail.Overlay.OriginalFileObject->DeviceObject == dev->self)
+		return TRUE;
+
+	/* cover the cases when access is made by using device interfaces */
+	if (!dev->is_filter &&
+		dev->device_interface_in_use &&
+		(irp->Tail.Overlay.OriginalFileObject->DeviceObject == dev->physical_device_object)) 
+		return TRUE;
+
+	return FALSE;
 }
 
 bool_t get_pipe_handle(libusb_device_t *dev, int endpoint_address,
@@ -686,6 +747,168 @@ find_interface_desc(USB_CONFIGURATION_DESCRIPTOR *config_desc,
 
     return NULL;
 }
+
+USB_INTERFACE_DESCRIPTOR* find_interface_desc_ex(USB_CONFIGURATION_DESCRIPTOR *config_desc,
+												 unsigned int size,
+												 interface_request_t* intf,
+												 unsigned int* size_left)
+{
+#define INTF_FIELD 0
+#define ALTF_FIELD 1
+
+	usb_descriptor_header_t *desc = (usb_descriptor_header_t *)config_desc;
+    char *p = (char *)desc;
+	int lastInfNumber, lastAltNumber;
+	int currentInfIndex;
+	short InterfacesByIndex[LIBUSB_MAX_NUMBER_OF_INTERFACES][2];
+
+    USB_INTERFACE_DESCRIPTOR *if_desc = NULL;
+
+	memset(InterfacesByIndex,0xFF,sizeof(InterfacesByIndex));
+
+    if (!config_desc)
+        return NULL;
+
+	size = size > config_desc->wTotalLength ? config_desc->wTotalLength : size;
+
+    while (size && desc->length <= size)
+    {
+        if (desc->type == USB_INTERFACE_DESCRIPTOR_TYPE)
+        {
+			// this is a new interface or alternate interface
+            if_desc = (USB_INTERFACE_DESCRIPTOR *)desc;
+			for (currentInfIndex=0; currentInfIndex<LIBUSB_MAX_NUMBER_OF_INTERFACES;currentInfIndex++)
+			{
+				if (InterfacesByIndex[currentInfIndex][INTF_FIELD]==-1)
+				{
+					// this is a new interface
+					InterfacesByIndex[currentInfIndex][INTF_FIELD]=if_desc->bInterfaceNumber;
+					InterfacesByIndex[currentInfIndex][ALTF_FIELD]=0;
+					break;
+				}
+				else if (InterfacesByIndex[currentInfIndex][INTF_FIELD]==if_desc->bInterfaceNumber)
+				{
+					// this is a new alternate interface
+					InterfacesByIndex[currentInfIndex][ALTF_FIELD]++;
+					break;
+				}
+			}
+
+			// if the interface index is -1, then we don't care; 
+			// i.e. any interface number or index
+			if (intf->interface_index!=FIND_INTERFACE_INDEX_ANY)
+			{
+				if (intf->intf_use_index)
+				{
+					// looking for a particular interface index; if this is not it then continue on.
+					if (intf->interface_index != currentInfIndex)
+						goto NextInterface;
+				}
+				else
+				{
+					// looking for a particular interface number; if this is not it then continue on.
+					if (intf->interface_number != if_desc->bInterfaceNumber)
+						goto NextInterface;
+				}
+			}
+
+			if (intf->altsetting_index!=FIND_INTERFACE_INDEX_ANY)
+			{
+				if (intf->altf_use_index)
+				{
+					// looking for a particular alternate interface index; if this is not it then continue on.
+					if (intf->altsetting_index != InterfacesByIndex[currentInfIndex][ALTF_FIELD])
+						goto NextInterface;
+				}
+				else
+				{
+					// looking for a particular alternate interface number; if this is not it then continue on.
+					if (intf->altsetting_number != if_desc->bAlternateSetting)
+						goto NextInterface;
+				}
+			}
+
+			// found a match
+			intf->interface_index = (unsigned char)currentInfIndex;
+			intf->altsetting_index = (unsigned char)InterfacesByIndex[currentInfIndex][ALTF_FIELD];
+			intf->interface_number = if_desc->bInterfaceNumber;
+			intf->altsetting_number = if_desc->bAlternateSetting;
+
+			if (size_left)
+			{
+				*size_left=size;
+			}
+			return if_desc;
+
+        }
+
+NextInterface:
+        size -= desc->length;
+        p += desc->length;
+        desc = (usb_descriptor_header_t *)p;
+    }
+
+    return NULL;
+}
+
+USB_ENDPOINT_DESCRIPTOR *
+find_endpoint_desc_by_index(USB_INTERFACE_DESCRIPTOR *interface_desc,
+                    unsigned int size, int pipe_index)
+{
+    usb_descriptor_header_t *desc = (usb_descriptor_header_t *)interface_desc;
+    char *p = (char *)desc;
+	int currentPipeIndex;
+	short PipesByIndex[LIBUSB_MAX_NUMBER_OF_ENDPOINTS];
+
+    USB_ENDPOINT_DESCRIPTOR *ep_desc = NULL;
+	memset(PipesByIndex,0xFF,sizeof(PipesByIndex));
+
+	if (size && desc->length <= size)
+	{
+        size -= desc->length;
+        p += desc->length;
+        desc = (usb_descriptor_header_t *)p;
+	}
+
+    while (size && desc->length <= size)
+    {
+        if (desc->type == USB_ENDPOINT_DESCRIPTOR_TYPE)
+        {
+            ep_desc = (USB_ENDPOINT_DESCRIPTOR *)desc;
+			for (currentPipeIndex=0; currentPipeIndex<LIBUSB_MAX_NUMBER_OF_ENDPOINTS;currentPipeIndex++)
+			{
+				if (PipesByIndex[currentPipeIndex]==-1)
+				{
+					PipesByIndex[currentPipeIndex]=ep_desc->bEndpointAddress;
+					break;
+				}
+				else if (PipesByIndex[currentPipeIndex]==ep_desc->bEndpointAddress)
+				{
+					// the pipe is defined twice in the same interface
+					USBWRN("invalid endpoint descriptor at pipe index=%d\n",currentPipeIndex);
+					break;
+				}
+			}
+
+			if (pipe_index == currentPipeIndex)
+			{
+				return ep_desc;
+			}
+        }
+		else
+		{
+			break;
+		}
+
+        size -= desc->length;
+        p += desc->length;
+        desc = (usb_descriptor_header_t *)p;
+    }
+
+    return NULL;
+}
+
+
 ULONG get_current_frame(IN PDEVICE_EXTENSION deviceExtension, IN PIRP Irp)
 /*++
 

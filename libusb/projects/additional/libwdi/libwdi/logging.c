@@ -6,7 +6,7 @@
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
- * version 2.1 of the License, or (at your option) any later version.
+ * version 3 of the License, or (at your option) any later version.
  *
  * This library is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -61,6 +61,9 @@ void pipe_wdi_log_v(enum wdi_log_level level,
 #endif
 
 	switch (level) {
+	case WDI_LOG_LEVEL_DEBUG:
+		prefix = "debug";
+		break;
 	case WDI_LOG_LEVEL_INFO:
 		prefix = "info";
 		break;
@@ -69,9 +72,6 @@ void pipe_wdi_log_v(enum wdi_log_level level,
 		break;
 	case WDI_LOG_LEVEL_ERROR:
 		prefix = "error";
-		break;
-	case WDI_LOG_LEVEL_DEBUG:
-		prefix = "debug";
 		break;
 	default:
 		prefix = "unknown";
@@ -196,7 +196,7 @@ int create_logger(DWORD buffsize)
 	}
 
 	// Read end of the pipe
-	logger_rd_handle = CreateNamedPipe(LOGGER_PIPE_NAME, PIPE_ACCESS_INBOUND,
+	logger_rd_handle = CreateNamedPipeA(LOGGER_PIPE_NAME, PIPE_ACCESS_INBOUND,
 		PIPE_TYPE_MESSAGE|PIPE_READMODE_MESSAGE, 1, buffsize, buffsize, 0, NULL);
 	if (logger_rd_handle == INVALID_HANDLE_VALUE) {
 		fprintf(stderr, "could not create logger pipe for reading: %s\n", windows_error_str(0));
@@ -204,7 +204,7 @@ int create_logger(DWORD buffsize)
 	}
 
 	// Write end of the pipe
-	logger_wr_handle = CreateFile(LOGGER_PIPE_NAME, GENERIC_WRITE, 0, NULL, OPEN_EXISTING,
+	logger_wr_handle = CreateFileA(LOGGER_PIPE_NAME, GENERIC_WRITE, 0, NULL, OPEN_EXISTING,
 		FILE_ATTRIBUTE_NORMAL, NULL);
 	if (logger_wr_handle == INVALID_HANDLE_VALUE) {
 		fprintf(stderr, "could not create logger pipe for writing: %s\n", windows_error_str(0));
@@ -323,9 +323,6 @@ int LIBWDI_API wdi_set_log_level(int level)
 #if defined(ENABLE_DEBUG_LOGGING)
 	return WDI_ERROR_NOT_SUPPORTED;
 #endif
-	if ( (level < WDI_LOG_LEVEL_DEBUG) || (level > WDI_LOG_LEVEL_ERROR) ) {
-		return WDI_ERROR_INVALID_PARAM;
-	}
 	global_log_level = level;
 	return WDI_SUCCESS;
 }

@@ -7,7 +7,7 @@
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
- * version 2.1 of the License, or (at your option) any later version.
+ * version 3 of the License, or (at your option) any later version.
  *
  * This library is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -19,6 +19,7 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
 #include <windows.h>
+#include <stdio.h>
 #include <shlobj.h>
 #include <commdlg.h>
 #include <shellapi.h>
@@ -250,6 +251,18 @@ static __inline HANDLE CreateFileU(const char* lpFileName, DWORD dwDesiredAccess
 	wconvert(lpFileName);
 	ret = CreateFileW(wlpFileName, dwDesiredAccess, dwShareMode, lpSecurityAttributes,
 		dwCreationDisposition, dwFlagsAndAttributes, hTemplateFile);
+	err = GetLastError();
+	wfree(lpFileName);
+	SetLastError(err);
+	return ret;
+}
+
+static __inline BOOL DeleteFileU(const char* lpFileName)
+{
+	BOOL ret = FALSE;
+	DWORD err = ERROR_INVALID_DATA;
+	wconvert(lpFileName);
+	ret = DeleteFileW(wlpFileName);
 	err = GetLastError();
 	wfree(lpFileName);
 	SetLastError(err);
@@ -528,6 +541,17 @@ out:
 	wfree(OEMSourceMediaLocation);
 	wfree(DestinationInfFileName);
 	SetLastError(err);
+	return ret;
+}
+
+static __inline FILE* fopenU(const char* filename, const char* mode)
+{
+	FILE* ret = NULL;
+	wconvert(filename);
+	wconvert(mode);
+	ret = _wfopen(wfilename, wmode);
+	wfree(filename);
+	wfree(mode);
 	return ret;
 }
 

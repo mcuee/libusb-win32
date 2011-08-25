@@ -18,7 +18,7 @@
  */
 
 #include <stdio.h>
-#include "usb.h"
+#include "lusb0_usb.h"
 
 
 int main()

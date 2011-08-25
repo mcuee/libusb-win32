@@ -8,7 +8,7 @@ call make_clean.bat
 copy sources_test_win sources >NUL
 copy %TESTS_DIR%\testlibusb_win.c . >NUL
 copy %TESTS_DIR%\testlibusb_win_rc.rc . >NUL
-copy %SRC_DIR%\usb.h . >NUL
+copy %SRC_DIR%\lusb0_usb.h . >NUL
 copy %SRC_DIR%\libusb-win32_version.h . >NUL
 copy %SRC_DIR%\*.rc . >NUL
 copy %SRC_DIR%\*.manifest . >NUL
