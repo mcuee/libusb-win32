@@ -22,23 +22,35 @@
 
 NTSTATUS reset_device(libusb_device_t *dev, int timeout)
 {
-    NTSTATUS status = STATUS_SUCCESS;
+    return reset_device_ex(dev, timeout, USB_RESET_TYPE_FULL_RESET);
+}
+
+NTSTATUS reset_device_ex(libusb_device_t *dev, int timeout, unsigned int reset_type)
+{
+    NTSTATUS status = STATUS_INVALID_PARAMETER;
 
     USBMSG0("resetting device\n");
 
-    status = call_usbd(dev, NULL, IOCTL_INTERNAL_USB_RESET_PORT, timeout);
-
-    if (!NT_SUCCESS(status))
+    if (reset_type & USB_RESET_TYPE_RESET_PORT)
     {
-        USBERR("IOCTL_INTERNAL_USB_RESET_PORT failed: status: 0x%x\n", status);
+        status = call_usbd(dev, NULL, IOCTL_INTERNAL_USB_RESET_PORT, timeout);
+
+        if (!NT_SUCCESS(status))
+        {
+            USBERR("IOCTL_INTERNAL_USB_RESET_PORT failed: status: 0x%x\n", status);
+        }
     }
 
-    status = call_usbd(dev, NULL, IOCTL_INTERNAL_USB_CYCLE_PORT, timeout);
-
-    if (!NT_SUCCESS(status))
+    if (reset_type & USB_RESET_TYPE_CYCLE_PORT)
     {
-        USBERR("IOCTL_INTERNAL_USB_CYCLE_PORT failed: status: 0x%x\n", status);
+        status = call_usbd(dev, NULL, IOCTL_INTERNAL_USB_CYCLE_PORT, timeout);
+
+        if (!NT_SUCCESS(status))
+        {
+            USBERR("IOCTL_INTERNAL_USB_CYCLE_PORT failed: status: 0x%x\n", status);
+        }
     }
 
+    UpdateContextConfigDescriptor(dev, NULL, 0, 0, -1);
     return status;
 }

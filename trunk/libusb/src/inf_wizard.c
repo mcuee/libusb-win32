@@ -571,7 +571,7 @@ BOOL CALLBACK dialog_proc_2(HWND dialog, UINT message,
 
 		if (device)
 		{
-			wdi_is_driver_supported(WDI_LIBUSB, &device->driver_info);
+			wdi_is_driver_supported(WDI_LIBUSB0, &device->driver_info);
 
 			//g_hwndTrackingTT = CreateTrackingToolTip(dialog,TEXT(" "));
 			hToolTip = create_tooltip(dialog, g_hInst, 300, tooltips_dlg2);
@@ -986,13 +986,15 @@ static char* to_valid_filename(char* name, char* ext)
 	char* ret;
 	wchar_t unauthorized[] = L"\x0001\x0002\x0003\x0004\x0005\x0006\x0007\x0008\x000a"
 		L"\x000b\x000c\x000d\x000e\x000f\x0010\x0011\x0012\x0013\x0014\x0015\x0016\x0017"
-		L"\x0018\x0019\x001a\x001b\x001c\x001d\x001e\x001f\x007f\"<>|:*";
+		L"\x0018\x0019\x001a\x001b\x001c\x001d\x001e\x001f\x007f\"*/:<>?\\|";
 	wchar_t to_underscore[] = L" \t";
 	wchar_t *wname, *wext, *wret;
 
 	if ((name == NULL) || (ext == NULL)) {
 		return NULL;
 	}
+
+	if (strlen(name) > WDI_MAX_STRLEN) return NULL;
 
 	// Convert to UTF-16
 	wname = utf8_to_wchar(name);
@@ -1062,8 +1064,8 @@ static int save_file(HWND dialog, device_context_t *device)
 	if (!strlen(device->inf_path))
 		strcpy(device->inf_path, "your_file.inf");
 
-	memcpy(ofd_filter, 
-		"inf files (*.inf)\0*.inf\0\0", 
+	memcpy(ofd_filter,
+		"inf files (*.inf)\0*.inf\0\0",
 		sizeof("inf files (*.inf)\0*.inf\0\0"));
 
 	open_file.lStructSize = sizeof(OPENFILENAME);
@@ -1107,7 +1109,7 @@ int infwizard_prepare_driver(HWND dialog, device_context_t *device)
 	int ret;
 
 	memset(&options,0,sizeof(options));
-	options.driver_type = WDI_LIBUSB;
+	options.driver_type = WDI_LIBUSB0;
 	options.vendor_name = device->manufacturer;
 
 	if (device->wdi->desc)

@@ -17,6 +17,7 @@ EXPORTS
     usb_resetep
     usb_clear_halt
     usb_reset
+    usb_reset_ex
     usb_strerror
     usb_init
     usb_set_debug

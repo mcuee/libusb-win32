@@ -18,6 +18,7 @@
 
 
 #include "libusb_driver.h"
+#include "lusb_defdi_guids.h"
 
 /* missing in mingw's ddk headers */
 #ifndef PLUGPLAY_REGKEY_DEVICE
@@ -26,6 +27,7 @@
 
 #define LIBUSB_REG_SURPRISE_REMOVAL_OK	L"SurpriseRemovalOK"
 #define LIBUSB_REG_INITIAL_CONFIG_VALUE	L"InitialConfigValue"
+#define LIBUSB_REG_DEVICE_INTERFACE_GUIDS L"DeviceInterfaceGUIDs"
 
 static bool_t reg_get_property(DEVICE_OBJECT *physical_device_object,
                                int property, char *data, int size);
@@ -73,10 +75,13 @@ bool_t reg_get_properties(libusb_device_t *dev)
     NTSTATUS status;
     UNICODE_STRING surprise_removal_ok_name;
     UNICODE_STRING initial_config_value_name;
+    UNICODE_STRING device_interface_guids;
+    UNICODE_STRING device_interface_guid_value;
     KEY_VALUE_FULL_INFORMATION *info;
     ULONG pool_length;
     ULONG length;
 	ULONG val;
+	LPWSTR valW;
 
 	if (!dev->physical_device_object)
     {
@@ -100,6 +105,9 @@ bool_t reg_get_properties(libusb_device_t *dev)
         RtlInitUnicodeString(&initial_config_value_name, 
 			LIBUSB_REG_INITIAL_CONFIG_VALUE);
 
+        RtlInitUnicodeString(&device_interface_guids, 
+			LIBUSB_REG_DEVICE_INTERFACE_GUIDS);
+		
 		pool_length = sizeof(KEY_VALUE_FULL_INFORMATION) + 512;
 
         info = ExAllocatePool(NonPagedPool, pool_length);
@@ -126,6 +134,72 @@ bool_t reg_get_properties(libusb_device_t *dev)
             dev->surprise_removal_ok = val ? TRUE : FALSE;
             dev->is_filter = FALSE;
         }
+
+		if (!dev->is_filter)
+		{
+			// get device interface guid
+			length = pool_length;
+			memset(info, 0, length);
+
+			status = ZwQueryValueKey(key, &device_interface_guids, 
+				KeyValueFullInformation, info, length, &length);
+
+			if (NT_SUCCESS(status) && (info->Type == REG_MULTI_SZ))
+			{
+				valW = ((LPWSTR)(((char *)info) + info->DataOffset));
+				RtlInitUnicodeString(&device_interface_guid_value,valW);
+				status = RtlGUIDFromString(&device_interface_guid_value, &dev->device_interface_guid);
+				if (NT_SUCCESS(status))
+				{
+					if (IsEqualGUID(&dev->device_interface_guid, &LibusbKDeviceGuid))
+					{
+						USBWRN0("libusbK default device DeviceInterfaceGUID found. skippng..\n");
+						RtlInitUnicodeString(&device_interface_guid_value,Libusb0DeviceGuidW);
+					} 
+					else if (IsEqualGUID(&dev->device_interface_guid, &Libusb0FilterGuid))
+					{
+						USBWRN0("libusb0 filter DeviceInterfaceGUID found. skippng..\n");
+						RtlInitUnicodeString(&device_interface_guid_value,Libusb0DeviceGuidW);
+					}
+					else if (IsEqualGUID(&dev->device_interface_guid, &Libusb0DeviceGuid))
+					{
+						USBWRN0("libusb0 device DeviceInterfaceGUID found. skippng..\n");
+						RtlInitUnicodeString(&device_interface_guid_value,Libusb0DeviceGuidW);
+					}
+					else
+					{
+						USBMSG0("found user specified device interface guid.\n");
+						dev->device_interface_in_use = TRUE;
+					}
+				}
+				else
+				{
+					USBERR0("invalid user specified device interface guid.");
+				}
+			}
+			if (!dev->device_interface_in_use)
+			{
+				RtlInitUnicodeString(&device_interface_guid_value,Libusb0DeviceGuidW);
+			}
+		}
+		else
+		{
+			RtlInitUnicodeString(&device_interface_guid_value,Libusb0FilterGuidW);
+		}
+
+		if (!dev->device_interface_in_use)
+		{
+			status = RtlGUIDFromString(&device_interface_guid_value, &dev->device_interface_guid);
+			if (NT_SUCCESS(status))
+			{
+				USBMSG0("using default device interface guid.\n");
+				dev->device_interface_in_use = TRUE;
+			}
+			else
+			{
+				USBERR0("failed using default device interface guid.\n");
+			}
+		}
 
 		// get initial_config_value
 		length = pool_length;
@@ -173,9 +247,9 @@ bool_t reg_get_properties(libusb_device_t *dev)
 		{
 			USBERR("ObReferenceObjectByHandle failed. status=%Xh\n",status);
 		}
-        ExFreePool(info);
 
         ZwClose(key);
+        ExFreePool(info);
     }
 
     return TRUE;
@@ -272,4 +346,31 @@ NTSTATUS reg_get_custom_property(PDEVICE_OBJECT device_object,
         ZwClose(key);
     }
     return status;
+}
+
+VOID set_filter_interface_key(libusb_device_t *dev, ULONG id)
+{
+	if (dev->device_interface_in_use)
+	{
+		HANDLE hKey=NULL;
+		if (NT_SUCCESS(IoOpenDeviceInterfaceRegistryKey(&dev->device_interface_name,KEY_ALL_ACCESS,&hKey)))
+		{
+			UNICODE_STRING valueName;
+			RtlInitUnicodeString(&valueName, L"LUsb0");
+
+			if (NT_SUCCESS(ZwSetValueKey(hKey,&valueName, 0, REG_DWORD, &id,sizeof(ULONG))))
+			{
+				USBMSG("updated interface registry with LUsb0 direct-access symbolic link. id=%d\n",id);
+			}
+			else
+			{
+				USBERR0("IoOpenDeviceInterfaceRegistryKey:ZwSetValueKey failed\n");
+			}
+			ZwClose(hKey);
+		}
+		else
+		{
+			USBERR0("IoOpenDeviceInterfaceRegistryKey failed\n");
+		}
+	}
 }

@@ -231,6 +231,10 @@
 				RelativePath="..\src\driver\libusb_driver.h"
 				>
 			</File>
+			<File
+				RelativePath="..\src\driver\lusb_defdi_guids.h"
+				>
+			</File>
 		</Filter>
 		<Filter
 			Name="Resource Files"

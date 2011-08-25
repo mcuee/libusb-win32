@@ -1,6 +1,6 @@
 /* USB Benchmark for libusb-win32
 
- Copyright © 2010 Travis Robinson. <libusbdotnet@gmail.com>
+ Copyright (C) 2010 Travis Robinson. <libusbdotnet@gmail.com>
  website: http://sourceforge.net/projects/libusb-win32
  
  This program is free software; you can redistribute it and/or modify it
@@ -22,7 +22,7 @@
 #include <stdlib.h>
 #include <conio.h>
 
-#include "usb.h"
+#include "lusb0_usb.h"
 
 #define _BENCHMARK_VER_ONLY
 #include "benchmark_rc.rc"

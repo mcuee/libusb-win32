@@ -1,4 +1,4 @@
-AC_INIT([libwdi], [1.0.0], [libusb-devel@lists.sourceforge.net], [libwdi], [http://libusb.org/wiki/windows_backend])
+AC_INIT([libwdi], [1.1.1], [libwdi-devel@lists.sourceforge.net], [libwdi], [http://libwdi.akeo.ie])
 AM_INIT_AUTOMAKE
 AC_CONFIG_SRCDIR([libwdi/libwdi.c])
 AC_CONFIG_MACRO_DIR([m4])
@@ -11,53 +11,64 @@ AC_PROG_LIBTOOL
 AC_C_INLINE
 AM_PROG_CC_C_O
 AC_DEFINE([_GNU_SOURCE], [], [Use GNU extensions])
+
 WDF_VER="01009"
 AC_DEFINE_UNQUOTED([WDF_VER], ["${WDF_VER}"], [DDK WDF coinstaller version (string)])
 
-AC_ARG_WITH(ddkdir,
-	AS_HELP_STRING([--with-ddkdir], [embed WinUSB driver files from the following DDK location]),
-	DDK_DIR=$withval,
-	DDK_DIR="")
+AC_ARG_WITH([ddkdir],
+	[AS_HELP_STRING([--with-ddkdir], [embed WinUSB driver files from the following DDK location])],
+	[DDK_DIR=$withval],
+	[DDK_DIR=""])
 if test "x$DDK_DIR" != "x"; then
 	AC_DEFINE_UNQUOTED([DDK_DIR], ["${DDK_DIR}"], [embed WinUSB driver files from the following DDK location])
 fi
 
-AC_ARG_WITH(libusb0,
- 	AS_HELP_STRING([--with-libusb0], [embed libusb0 driver files from the following location]),
- 	LIBUSB0_DIR=$withval,
- 	LIBUSB0_DIR="")
+AC_ARG_WITH([libusb0],
+ 	[AS_HELP_STRING([--with-libusb0], [embed libusb0 driver files from the following location])],
+ 	[LIBUSB0_DIR=$withval],
+ 	[LIBUSB0_DIR=""])
 if test "x$LIBUSB0_DIR" != "x"; then
 	AC_DEFINE_UNQUOTED([LIBUSB0_DIR], ["${LIBUSB0_DIR}"], [embed libusb0 driver files from the following location])
 fi
 
-AC_ARG_WITH(userdir,
- 	AS_HELP_STRING([--with-userdir], [embed user defined driver files from the following location]),
- 	USER_DIR=$withval,
- 	USER_DIR="")
+AC_ARG_WITH([libusbk],
+ 	[AS_HELP_STRING([--with-libusbk], [embed libusbK driver files from the following location])],
+ 	[LIBUSBK_DIR=$withval],
+ 	[LIBUSBK_DIR=""])
+if test "x$LIBUSBK_DIR" != "x"; then
+	AC_DEFINE_UNQUOTED([LIBUSBK_DIR], ["${LIBUSBK_DIR}"], [embed libusbK driver files from the following location])
+fi
+
+AC_ARG_WITH([userdir],
+ 	[AS_HELP_STRING([--with-userdir], [embed user defined driver files from the following location])],
+ 	[USER_DIR=$withval],
+ 	[USER_DIR=""])
 if test "x$USER_DIR" != "x"; then
 	AC_DEFINE_UNQUOTED([USER_DIR], ["${USER_DIR}"], [embed user defined driver files from the following location])
 fi
 
-if test "x$USER_DIR" == "x" -a "x$DDK_DIR" == "x" -a "x$LIBUSB0_DIR" == "x"; then
-	AC_MSG_ERROR([One of --with-ddkdir, --with-libusb0 or --with-userdir options MUST be provided.])
+if test "x$USER_DIR" == "x" -a "x$DDK_DIR" == "x" -a "x$LIBUSB0_DIR" == "x" -a "x$LIBUSBK_DIR" == "x"; then
+	AC_MSG_ERROR([One of --with-ddkdir, --with-libusb0, --with-libusbk or --with-userdir options MUST be provided.])
 fi
 
 AC_MSG_CHECKING([development environment])
 case $host in
 *-mingw*)
 	AC_MSG_RESULT([MinGW])
-	AM_CFLAGS="-Wshadow -DWINVER=0x500"
+	create_import_lib="yes"
 	NO_CYGWIN=""
 	LIBCONFIG_LIBADD=""
 	LIBCONFIG_CFLAGS=""
+	AM_CFLAGS="-Wshadow"
+	AM_LDFLAGS="-Wl,--add-stdcall-alias"
+	AC_CHECK_TOOL(DLLTOOL, dlltool, false)	
 	;;
 *-cygwin*)
 	AC_MSG_RESULT([cygwin])
-	AM_CFLAGS="-DWINVER=0x500"
-	save_CFLAGS="${CFLAGS}"
+	saved_CFLAGS="${CFLAGS}"
 	CFLAGS="${CFLAGS} -mno-cygwin"
 	AC_MSG_CHECKING([if -mno-cygwin is supported])
-	AC_TRY_COMPILE(, [;],
+	AC_TRY_COMPILE([], [;],
 		has_mno_cygwin=yes,
 		has_mno_cygwin=no)
 	if test "x$has_mno_cygwin" == "xyes"; then
@@ -66,47 +77,89 @@ case $host in
 		AC_MSG_RESULT([no])
 		AC_MSG_ERROR([you must ensure that -mno-cygwin is supported on cygwin])
 	fi
-	CFLAGS="${save_CFLAGS}"
+	CFLAGS="${saved_CFLAGS}"
 	# if you try to redefine CC to "gcc -mno-cygwin", all kind of bad things happen
 	# => use a variable instead
 	NO_CYGWIN="-mno-cygwin"
 	LIBCONFIG_LIBADD="-L/lib/mingw -lcrtdll -lmingwex"
 	LIBCONFIG_CFLAGS="-static -I/usr/include/mingw -D__MINGW_FEATURES__"
-	;;	
+	AM_CFLAGS=""
+	AM_LDFLAGS=""
+	;;
 *)
 	AC_MSG_ERROR([unsupported development environment])
 esac
 
-AM_LDFLAGS="-no-undefined -avoid-version"
-AC_CHECK_TOOL(RC, windres, no)
+AM_CFLAGS="${AM_CFLAGS} -DWINVER=0x500"
+AM_LDFLAGS="${AM_LDFLAGS} -no-undefined -avoid-version"
+AC_CHECK_TOOL([RC], [windres], [no])
+AM_CONDITIONAL([CREATE_IMPORT_LIB], [test "x$create_import_lib" = "xyes"])
+
+# cross compiling support
+if test "x$CC_FOR_BUILD" == "x"; then
+	if test "x$cross_compiling" == "xyes"; then
+		AC_CHECK_PROGS([CC_FOR_BUILD], [gcc], [cc])
+	else
+		CC_FOR_BUILD="$CC"
+	fi
+fi
+AC_SUBST([CC_FOR_BUILD])
+
+# detect if the host's CC_FOR_BUILD actually produces executables that run
+# (this is required for the embedder)
+saved_CC="${CC}"
+saved_CFLAGS="${CFLAGS}"
+saved_LDFLAGS="${LDFLAGS}"
+# we need to disable cross compiling  detection for this test
+saved_cross_compiling=$cross_compiling
+cross_compiling=no
+CC="${CC_FOR_BUILD}"
+CFLAGS=""
+LDFLAGS=""
+AC_MSG_CHECKING([whether the build compiler can produce executables that run on this host])
+AC_RUN_IFELSE([AC_LANG_PROGRAM([])],
+	[AC_MSG_RESULT([yes])
+	 cc_for_build_ok="yes"],
+	[AC_MSG_RESULT([no])
+	 cc_for_build_ok="no"])
+CC="${saved_CC}"
+CFLAGS="${saved_CFLAGS}"
+LDFLAGS="${saved_LDFLAGS}"
+cross_compiling=$saved_cross_compiling
+if test "x$cc_for_build_ok" != "xyes"; then
+	AC_ERROR([The build compiler cannot produce executables for this
+  platform. You might have to define the CC_FOR_BUILD environment variable.
+  For instance, on 32 bit Windows, if using a multilib MinGW-w64 that defaults
+  to 64 bit executables, you would need: export CC_FOR_BUILD="gcc -m32"])
+fi
 
 # 32 bit support
-save_CFLAGS="${CFLAGS}"
+saved_CFLAGS="${CFLAGS}"
 CFLAGS="${CFLAGS} -m32"
 AC_MSG_CHECKING([whether the compiler can produce 32 bit binaries])
-AC_TRY_COMPILE(, [;],
-	compiler_has_m32=yes,
-	compiler_has_m32=no)
+AC_TRY_COMPILE([], [;],
+	[compiler_has_m32=yes],
+	[compiler_has_m32=no])
 if test "x$compiler_has_m32" == "xyes"; then
 	AC_MSG_RESULT([yes])
 else
 	AC_MSG_RESULT([no])
 fi
-CFLAGS="${save_CFLAGS}"
+CFLAGS="${saved_CFLAGS}"
 
 # 64 bit support
-save_CFLAGS="${CFLAGS}"
+saved_CFLAGS="${CFLAGS}"
 CFLAGS="${CFLAGS} -m64"
 AC_MSG_CHECKING([whether the compiler can produce 64 bit binaries])
-AC_TRY_COMPILE(, [;],
-	compiler_has_m64=yes,
-	compiler_has_m64=no)
+AC_TRY_COMPILE([], [;],
+	[compiler_has_m64=yes],
+	[compiler_has_m64=no])
 if test "x$compiler_has_m64" == "xyes"; then
 	AC_MSG_RESULT([yes])
 else
 	AC_MSG_RESULT([no])
 fi
-CFLAGS="${save_CFLAGS}"
+CFLAGS="${saved_CFLAGS}"
 
 if test "x$compiler_has_m64" != "xyes" -a "x$compiler_has_m32" != "xyes"; then
 	AC_MSG_ERROR([neither -m32 nor -m64 is supported by your compiler])
@@ -116,12 +169,12 @@ fi
 AC_ARG_ENABLE([32bit], [AS_HELP_STRING([--enable-32bit],
 	[build 32 bit compatible library (default y)])],
 	[enable_32bit=$enableval],
-	[enable_32bit='yes'])	
-AC_ARG_ENABLE([64bit], [AS_HELP_STRING([--enable-64bit], 
+	[enable_32bit='yes'])
+AC_ARG_ENABLE([64bit], [AS_HELP_STRING([--enable-64bit],
 	[build 64 bit compatible library (default y)])],
 	[enable_64bit='$enableval'],
 	[enable_64bit='yes'])
-AC_ARG_ENABLE([ia64], [AS_HELP_STRING([--enable-ia64], 
+AC_ARG_ENABLE([ia64], [AS_HELP_STRING([--enable-ia64],
 	[embed IA64/Itanium driver files (default n)])],
 	[enable_ia64='$enableval'],
 	[enable_ia64='no'])
@@ -149,17 +202,17 @@ fi
 # define the automake and config.h variables
 if test "x$enable_32bit" != "xno"; then
 	AC_DEFINE([OPT_M32], [], [32 bit support])
-	AC_SUBST(OPT_M32)
+	AC_SUBST([OPT_M32])
 fi
 AM_CONDITIONAL([OPT_M32], [test "x$enable_32bit" != "xno"])
 if test "x$enable_64bit" != "xno"; then
 	AC_DEFINE([OPT_M64], [], [64 bit support])
-	AC_SUBST(OPT_M64)	
+	AC_SUBST([OPT_M64])
 fi
 AM_CONDITIONAL([OPT_M64], [test "x$enable_64bit" != "xno"])
 if test "x$enable_ia64" != "xno"; then
 	AC_DEFINE([OPT_IA64], [], [embed IA64 driver files])
-	AC_SUBST(OPT_IA64)	
+	AC_SUBST([OPT_IA64])
 fi
 
 if test "x$enable_64bit" != "xno"; then
@@ -169,7 +222,7 @@ if test "x$enable_64bit" != "xno"; then
 		AC_MSG_NOTICE([if you want to produce 64 bit only library and samples, use --disable-32bit])
 		ARCH_CFLAGS="-m32"
 		ARCH_RCFLAGS="--target=pe-i386"
-		
+
 	else
 		AC_MSG_WARN([will produce a 64 bit library that is INCOMPATIBLE with 32 bit platforms])
 		ARCH_CFLAGS="-m64 -D_WIN64"
@@ -179,44 +232,62 @@ else
 	AC_MSG_WARN([will produce a 32 bit library that is INCOMPATIBLE with 64 bit platforms])
 	ARCH_CFLAGS=""
 	ARCH_RCFLAGS=""
-	
+
 fi
 AC_SUBST([ARCH_CFLAGS])
 AC_SUBST([ARCH_RCFLAGS])
 
-if test "x$DDK_DIR" != "x"; then
-	# check that the required WinUSB DDK files are available
-	if test "x$enable_64bit" != "xno"; then
-	# NB: I found the hard way that cygwin doesn't like multiple files to be provided on multiple lines - YOU HAVE BEEN WARNED!
-	AC_CHECK_FILES([$DDK_DIR/redist/wdf/amd64/WdfCoInstaller${WDF_VER}.dll $DDK_DIR/redist/winusb/amd64/winusbcoinstaller2.dll],,
-		[AC_MSG_ERROR([the WinUSB amd64 driver files could not be detected (--with-ddkdir)])])
+# AC_CHECK_FILES only works when not cross compiling
+if test "$cross_compiling" != "yes"
+then
+	if test "x$DDK_DIR" != "x"; then
+		# check that the required WinUSB DDK files are available
+		if test "x$enable_64bit" != "xno"; then
+		# NB: I found the hard way that cygwin doesn't like multiple files to be provided on multiple lines - YOU HAVE BEEN WARNED!
+		AC_CHECK_FILES([$DDK_DIR/redist/wdf/amd64/WdfCoInstaller${WDF_VER}.dll $DDK_DIR/redist/winusb/amd64/winusbcoinstaller2.dll], [],
+			[AC_MSG_ERROR([the WinUSB amd64 driver files could not be detected (--with-ddkdir)])])
+		fi
+		if test "x$enable_32bit" != "xno"; then
+		AC_CHECK_FILES([$DDK_DIR/redist/wdf/x86/WdfCoInstaller${WDF_VER}.dll $DDK_DIR/redist/winusb/x86/winusbcoinstaller2.dll], [],
+			[AC_MSG_ERROR([the WinUSB x86 driver files could not be detected (--with-ddkdir)])])
+		fi
+		if test "x$enable_ia64" != "xno"; then
+		AC_CHECK_FILES([$DDK_DIR/redist/wdf/ia64/WdfCoInstaller${WDF_VER}.dll $DDK_DIR/redist/winusb/ia64/winusbcoinstaller2.dll], [],
+			[AC_MSG_ERROR([the WinUSB ia64 driver files could not be detected (--with-ddkdir)])])
+		fi
 	fi
-	if test "x$enable_32bit" != "xno"; then
-	AC_CHECK_FILES([$DDK_DIR/redist/wdf/x86/WdfCoInstaller${WDF_VER}.dll $DDK_DIR/redist/winusb/x86/winusbcoinstaller2.dll],,
-		[AC_MSG_ERROR([the WinUSB x86 driver files could not be detected (--with-ddkdir)])])
-	fi
-	if test "x$enable_ia64" != "xno"; then
-	AC_CHECK_FILES([$DDK_DIR/redist/wdf/ia64/WdfCoInstaller${WDF_VER}.dll $DDK_DIR/redist/winusb/ia64/winusbcoinstaller2.dll],,
-		[AC_MSG_ERROR([the WinUSB ia64 driver files could not be detected (--with-ddkdir)])])
-	fi
-fi
 
-if test "x$LIBUSB0_DIR" != "x"; then
-	# check that the required libusb0 driver files are available
-	AC_CHECK_FILES([$LIBUSB0_DIR/bin/x86/libusb0.sys $LIBUSB0_DIR/bin/x86/libusb0_x86.dll],,
-		[AC_MSG_ERROR([the libusb0 x86 driver files could not be detected (--with-libusb0)])])
-	if test "x$enable_64bit" != "xno"; then
-	AC_CHECK_FILES([$LIBUSB0_DIR/bin/amd64/libusb0.sys $LIBUSB0_DIR/bin/amd64/libusb0.dll],,
-		[AC_MSG_ERROR([the libusb0 amd64 driver files could not be detected (--with-libusb0)])])
+	if test "x$LIBUSB0_DIR" != "x"; then
+		# check that the required libusb0 driver files are available
+		AC_CHECK_FILES([$LIBUSB0_DIR/bin/x86/libusb0.sys $LIBUSB0_DIR/bin/x86/libusb0_x86.dll],,
+			[AC_MSG_ERROR([the libusb0 x86 driver files could not be detected (--with-libusb0)])])
+		if test "x$enable_64bit" != "xno"; then
+		AC_CHECK_FILES([$LIBUSB0_DIR/bin/amd64/libusb0.sys $LIBUSB0_DIR/bin/amd64/libusb0.dll],,
+			[AC_MSG_ERROR([the libusb0 amd64 driver files could not be detected (--with-libusb0)])])
+		fi
+		if test "x$enable_ia64" != "xno"; then
+		AC_CHECK_FILES([$LIBUSB0_DIR/bin/ia64/libusb0.sys $LIBUSB0_DIR/bin/ia64/libusb0.dll],,
+			[AC_MSG_ERROR([the libusb0 ia64 driver files could not be detected (--with-libusb0)])])
+		fi
 	fi
-	if test "x$enable_ia64" != "xno"; then
-	AC_CHECK_FILES([$LIBUSB0_DIR/bin/ia64/libusb0.sys $LIBUSB0_DIR/bin/ia64/libusb0.dll],,
-		[AC_MSG_ERROR([the libusb0 ia64 driver files could not be detected (--with-libusb0)])])
-	fi
-fi
 
-if test "x$USER_DIR" != "x"; then
-	AC_CHECK_FILE([$USER_DIR],,[AC_MSG_ERROR([the custom driver directory could not be detected (--with-userdir)])])
+	if test "x$LIBUSBK_DIR" != "x"; then
+		# check that the required libusbK driver files are available
+		AC_CHECK_FILES([$LIBUSBK_DIR/sys/x86/libusbK.sys $LIBUSBK_DIR/dll/x86/libusbK.dll $LIBUSBK_DIR/dll/x86/libusb0.dll],,
+			[AC_MSG_ERROR([the libusbK x86 driver files could not be detected (--with-libusbk)])])
+		if test "x$enable_64bit" != "xno"; then
+		AC_CHECK_FILES([$LIBUSBK_DIR/sys/amd64/libusbK.sys $LIBUSBK_DIR/dll/amd64/libusbK.dll $LIBUSBK_DIR/dll/amd64/libusb0.dll],,
+			[AC_MSG_ERROR([the libusbK amd64 driver files could not be detected (--with-libusbk)])])
+		fi
+		if test "x$enable_ia64" != "xno"; then
+		AC_CHECK_FILES([$LIBUSBK_DIR/sys/ia64/libusbK.sys $LIBUSBK_DIR/dll/ia64/libusbK.dll $LIBUSBK_DIR/dll/ia64/libusb0.dll],,
+			[AC_MSG_ERROR([the libusbK ia64 driver files could not be detected (--with-libusbk)])])
+		fi
+	fi
+
+	if test "x$USER_DIR" != "x"; then
+		AC_CHECK_FILE([$USER_DIR],,[AC_MSG_ERROR([the custom driver directory could not be detected (--with-userdir)])])
+	fi
 fi
 
 # Message logging
@@ -224,7 +295,7 @@ AC_ARG_ENABLE([log], [AS_HELP_STRING([--enable-log], [enable logging (default y)
 	[log_enabled=$enableval],
 	[log_enabled='yes'])
 if test "x$log_enabled" != "xno"; then
-	AC_DEFINE([ENABLE_LOGGING], 1, [Message logging])
+	AC_DEFINE([ENABLE_LOGGING], [1], [Message logging])
 fi
 
 AC_ARG_ENABLE([debug-log], [AS_HELP_STRING([--enable-debug-log],
@@ -238,10 +309,10 @@ AC_ARG_ENABLE([toggable-debug], [AS_HELP_STRING([--enable-toggable-debug],
 	[toggable_debug='no'])
 
 if test "x$debug_log_enabled" != "xno"; then
-	AC_DEFINE([ENABLE_DEBUG_LOGGING], 1, [Debug message logging (forced)])
+	AC_DEFINE([ENABLE_DEBUG_LOGGING], [1], [Debug message logging (forced)])
 else
 	if test "x$toggable_debug" != "xno"; then
-		AC_DEFINE([INCLUDE_DEBUG_LOGGING], 1, [Debug message logging (toggable)])
+		AC_DEFINE([INCLUDE_DEBUG_LOGGING], [1], [Debug message logging (toggable)])
 	fi
 fi
 
@@ -263,20 +334,20 @@ AC_ARG_ENABLE([examples-build], [AS_HELP_STRING([--enable-examples-build],
 AM_CONDITIONAL([BUILD_EXAMPLES], [test "x$build_examples" != "xno"])
 
 # check for -Wno-pointer-sign compiler support (GCC >= 4)
-saved_cflags="$CFLAGS"
+saved_CFLAGS="${CFLAGS}"
 CFLAGS="$CFLAGS -Wno-pointer-sign"
-AC_COMPILE_IFELSE(AC_LANG_PROGRAM([]),
-	nopointersign_cflags="-Wno-pointer-sign", nopointersign_cflags="")
-CFLAGS="$saved_cflags"
+AC_COMPILE_IFELSE([AC_LANG_PROGRAM([])],
+	[nopointersign_cflags="-Wno-pointer-sign"], [nopointersign_cflags=""])
+CFLAGS="${saved_CFLAGS}"
 
 AM_CFLAGS="$AM_CFLAGS -std=gnu99 -Wall -Wundef -Wunused -Wstrict-prototypes -Werror-implicit-function-declaration $nopointersign_cflags"
 
-AC_SUBST(VISIBILITY_CFLAGS)
-AC_SUBST(AM_CFLAGS)
-AC_SUBST(AM_LDFLAGS)
-AC_SUBST(NO_CYGWIN)
-AC_SUBST(LIBCONFIG_CFLAGS)
-AC_SUBST(LIBCONFIG_LIBADD)
+AC_SUBST([VISIBILITY_CFLAGS])
+AC_SUBST([AM_CFLAGS])
+AC_SUBST([AM_LDFLAGS])
+AC_SUBST([NO_CYGWIN])
+AC_SUBST([LIBCONFIG_CFLAGS])
+AC_SUBST([LIBCONFIG_LIBADD])
 
-AC_CONFIG_FILES([Makefile] [libwdi/Makefile] [examples/libconfig/Makefile] [examples/Makefile])
+AC_CONFIG_FILES([Makefile] [libwdi/Makefile] [examples/Makefile])
 AC_OUTPUT
