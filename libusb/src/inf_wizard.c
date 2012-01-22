@@ -518,11 +518,6 @@ BOOL CALLBACK dialog_proc_1(HWND dialog, UINT message,
 			if (!device->description[0])
 				strcpy(device->description,  "Insert device description");
 
-			if (notification_handle_hub)
-				UnregisterDeviceNotification(notification_handle_hub);
-			if (notification_handle_dev)
-				UnregisterDeviceNotification(notification_handle_dev);
-
 			device_list_clean(list);
 
 			EndDialog(dialog, ID_DIALOG_2);
