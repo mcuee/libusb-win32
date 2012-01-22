@@ -90,7 +90,6 @@
 	urbFunction,									\
 	pipe_info,										\
 	request->endpoint.packet_size,					\
-	maxTransferSize,								\
 	request->endpoint.transfer_flags,				\
 	request->endpoint.iso_start_frame_latency,		\
 	transfer_buffer_mdl,							\
@@ -247,7 +246,9 @@ IoctlIsochronousRead:
 
 		urbFunction = URB_FUNCTION_ISOCH_TRANSFER;
 		usbdDirection = USBD_TRANSFER_DIRECTION_IN;
-		maxTransferSize = GetMaxTransferSize(pipe_info, request->endpoint.max_transfer_size);
+
+		// Do not use large transfers/splitting for ISO.
+		maxTransferSize = 0x7fffffff;
 
 		// ensure that the urb function and direction we set matches the
 		// pipe information
@@ -287,7 +288,8 @@ IoctlIsochronousWrite:
 		usbdDirection = USBD_TRANSFER_DIRECTION_OUT;
 		TRANSFER_IOCTL_CHECK_FUNCTION_AND_DIRECTION();
 
-		maxTransferSize = GetMaxTransferSize(pipe_info, request->endpoint.max_transfer_size);
+		// Do not use large transfers/splitting for ISO.
+		maxTransferSize = 0x7fffffff;
 
 		// ensure that the urb function and direction we set matches the
 		// pipe information
