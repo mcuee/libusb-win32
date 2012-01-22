@@ -1832,7 +1832,7 @@ static BOOL usb_install_log_handler(enum USB_LOG_LEVEL level,
 
 		if (std_handle && std_handle != INVALID_HANDLE_VALUE)
 		{
-			WriteConsoleA(std_handle, message, (DWORD)message_length, &req_length, NULL);
+			WriteFile(std_handle, message, (DWORD)message_length, &req_length, NULL);
 			return TRUE;
 		}
 		// use default log handler
@@ -2731,5 +2731,5 @@ void usage(void)
 	src = (char*) LockResource(res_data);
 	if (!src) return;
 
-	WriteConsoleA(handle, src, src_count, &charsWritten, NULL);
+	WriteFile(handle, src, src_count, &charsWritten, NULL);
 }
