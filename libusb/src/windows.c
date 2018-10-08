@@ -1156,7 +1156,36 @@ static int _usb_cancel_io(usb_context_t *context)
 {
     int ret;
     ret = _usb_abort_ep(context->dev, context->req.endpoint.endpoint);
-    WaitForSingleObject(context->ol.hEvent, 0);
+    if(!ret)
+    {
+      /* _usb_abort_ep() sends the LIBUSB_IOCTL_ABORT_ENDPOINT to the driver
+       * synchronously. However, the operation we are affecting is aborted
+       * asynchronously. Furthermore, if we return from this function before
+       * the operation is successfully aborted then the pending operation
+       * could trash the local stack of the caller.
+       *
+       * Example:
+       *
+       * {
+       *   uint8_t data[20];
+       *   usb_interrupt_read(handle, ep_int_in, data, 20, 1);
+       * }
+       *
+       * We cannot allow the caller to exit the function, until we are 100%
+       * sure that we have stopped read/writing to/from "data" which is a
+       * local stack variable.
+       *
+       * The only way to guarantee this is to wait forever, even if it might
+       * feel wrong to do so. However, if this can only happen if the driver
+       * freezes up totally in which case the user program is toast anyway.
+       */
+      WaitForSingleObject(context->ol.hEvent, INFINITE);
+    }
+    else
+    {
+      WaitForSingleObject(context->ol.hEvent, 0);
+    }
+
     return ret;
 }
 
