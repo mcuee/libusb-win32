@@ -28,7 +28,7 @@ IF EXIST "build%BUILD_ALT_DIR%.err" DEL /Q "build%BUILD_ALT_DIR%.err" >NUL
 IF EXIST "build%BUILD_ALT_DIR%.wrn" DEL /Q "build%BUILD_ALT_DIR%.wrn" >NUL
 
 IF EXIST "!LIBUSB0_DIR!" (
-	SET C_DEFINES=/DLIBUSB0_DIR=\"!LIBUSB0_DIR!\" /DOPT_M32 /DOPT_M64 /DOPT_IA64
+	SET C_DEFINES=/DLIBUSB0_DIR=\"!LIBUSB0_DIR!\" /DOPT_M32 /DOPT_M64
 ) ELSE (
 	ECHO.
 	ECHO [Warning] The LIBUSB0_DIR environment variable has not been set. This 

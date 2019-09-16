@@ -33,15 +33,15 @@ Compression = lzma
 SolidCompression = yes
 OutputDir = .
 OutputBaseFilename = @PCKGNAME@
-; requires Win2k, or higher
-MinVersion = 0, 5.0.2195 
+; requires XP, or higher
+MinVersion = 0, 5.1 
 PrivilegesRequired=admin
 
-; "ArchitecturesInstallIn64BitMode=x64 ia64" requests that the install
-; be done in "64-bit mode" on x64 & Itanium, meaning it should use the
+; "ArchitecturesInstallIn64BitMode=x64" requests that the install
+; be done in "64-bit mode" on x64, meaning it should use the
 ; native 64-bit Program Files directory and the 64-bit view of the
 ; registry. On all other architectures it will install in "32-bit mode".
-ArchitecturesInstallIn64BitMode=x64 ia64
+ArchitecturesInstallIn64BitMode=x64
 AllowNoIcons=yes
 
 [Code]
@@ -50,19 +50,14 @@ begin
   Result := Is64BitInstallMode and (ProcessorArchitecture = paX64);
 end;
 
-function IsI64: Boolean;
-begin
-  Result := Is64BitInstallMode and (ProcessorArchitecture = paIA64);
-end;
-
 function IsX86: Boolean;
 begin
-  Result := not IsX64 and not IsI64;
+  Result := not IsX64;
 end;
 
 function Is64: Boolean;
 begin
-  Result := IsX64 or IsI64;
+  Result := IsX64;
 end;
 
 function IsNormalInstall: Boolean;
@@ -71,7 +66,7 @@ begin
 end;
 
 [Files]
-; LibUsb-win32 x86 (Windows 2000/XP and greater)
+; LibUsb-win32 x86 (Windows XP and greater)
 Source: @PACKAGE_BIN_DIR@x86\libusb0_x86.dll; DestName: libusb0.dll; DestDir: {sys}; Flags: uninsneveruninstall replacesameversion restartreplace promptifolder; Check: IsX86;
 Source: @PACKAGE_BIN_DIR@x86\libusb0.sys; DestDir: {sys}\drivers; Flags: uninsneveruninstall replacesameversion restartreplace promptifolder; Check: IsX86;
 Source: @PACKAGE_BIN_DIR@x86\install-filter.exe; DestDir: {app}\bin; Flags: ignoreversion; Check: IsX86;
@@ -87,15 +82,6 @@ Source: @PACKAGE_BIN_DIR@amd64\install-filter.exe; DestDir: {app}\bin; Flags: ig
 Source: @PACKAGE_BIN_DIR@amd64\install-filter-win.exe; DestDir: {app}\bin; Flags: ignoreversion; Check: IsX64;
 Source: @PACKAGE_BIN_DIR@amd64\testlibusb-win.exe; DestDir: {app}\bin; Flags: ignoreversion; Check: IsX64;
 Source: @PACKAGE_BIN_DIR@amd64\testlibusb.exe; DestDir: {app}\bin; Flags: ignoreversion; Check: IsX64;
-
-; LibUsb-win32 Itanium 64bit
-Source: @PACKAGE_BIN_DIR@x86\libusb0_x86.dll; DestName: libusb0.dll; DestDir: {syswow64}; Flags: uninsneveruninstall replacesameversion restartreplace promptifolder; Check: IsI64;
-Source: @PACKAGE_BIN_DIR@ia64\libusb0.sys; DestDir: {sys}\drivers; Flags: uninsneveruninstall replacesameversion restartreplace promptifolder; Check: IsI64;
-Source: @PACKAGE_BIN_DIR@ia64\libusb0.dll; DestDir: {sys}; Flags: uninsneveruninstall replacesameversion restartreplace promptifolder; Check: IsI64;
-Source: @PACKAGE_BIN_DIR@ia64\install-filter.exe; DestDir: {app}\bin; Flags: ignoreversion; Check: IsI64;
-Source: @PACKAGE_BIN_DIR@ia64\install-filter-win.exe; DestDir: {app}\bin; Flags: ignoreversion; Check: IsI64;
-Source: @PACKAGE_BIN_DIR@ia64\testlibusb-win.exe; DestDir: {app}\bin; Flags: ignoreversion; Check: IsI64;
-Source: @PACKAGE_BIN_DIR@ia64\testlibusb.exe; DestDir: {app}\bin; Flags: ignoreversion; Check: IsI64;
 
 ;inf-wizard (x86 only)
 Source: @PACKAGE_BIN_DIR@inf-wizard.exe; DestDir: {app}\bin; Flags: ignoreversion;

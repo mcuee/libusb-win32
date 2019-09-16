@@ -168,11 +168,8 @@ IF /I "!CMDVAR_ARCH!" EQU "notused" (
 ) ELSE IF /I "!CMDVAR_ARCH!" EQU "x64" (
 	CALL :SetDDK "!CMDVAR_WINDDK_DIR!" normal !_FRE_OR_CHECK_! x64 WNET
 	IF !BUILD_ERRORLEVEL! NEQ 0 GOTO CMDERROR
-) ELSE IF /I "!CMDVAR_ARCH!" EQU "i64" (
-	CALL :SetDDK "!CMDVAR_WINDDK_DIR!" normal !_FRE_OR_CHECK_! 64 WNET
-	IF !BUILD_ERRORLEVEL! NEQ 0 GOTO CMDERROR
 ) ELSE IF /I "!CMDVAR_ARCH!" EQU "x86" (
-	CALL :SetDDK "!CMDVAR_WINDDK_W2K_DIR!" forceoacr !_FRE_OR_CHECK_! W2K 
+	CALL :SetDDK "!CMDVAR_WINDDK_DIR!" forceoacr !_FRE_OR_CHECK_! WXP
 	IF !BUILD_ERRORLEVEL! NEQ 0 GOTO CMDERROR
 ) ELSE (
 	ECHO Invalid argument. arch=!CMDVAR_ARCH!
@@ -260,9 +257,6 @@ GOTO :EOF
 	CALL :SafeCleanDir "!PACKAGE_BIN_DIR!"
 	IF !ERRORLEVEL! NEQ 0 GOTO :EOF
 	
-	REM CALL :Build_PackageBinaries w2k msvc w2k
-	REM IF !BUILD_ERRORLEVEL! NEQ 0 GOTO CMDERROR
-
 	CALL :Build_PackageBinaries x86 msvc x86
 	IF !BUILD_ERRORLEVEL! NEQ 0 GOTO CMDERROR
 	
@@ -280,13 +274,9 @@ GOTO :EOF
 	:: 
 	CALL :BuildLib_BCC libusb_bcc.lib libusb0.dll
 	CALL :SafeMove libusb_bcc.lib "!PACKAGE_LIB_DIR!bcc\libusb.lib"
-	
 	POPD	
-	
-	CALL :Build_PackageBinaries x64 msvc_x64 amd64
-	IF !BUILD_ERRORLEVEL! NEQ 0 GOTO CMDERROR
 
-	CALL :Build_PackageBinaries i64 msvc_i64 ia64
+	CALL :Build_PackageBinaries x64 msvc_x64 amd64
 	IF !BUILD_ERRORLEVEL! NEQ 0 GOTO CMDERROR
 
 	CALL :SafeCopy "..\src\libusb_dyn.c" "!PACKAGE_LIB_DIR!dynamic\"
@@ -567,7 +557,6 @@ GOTO :EOF
 :BuildLib_GCC
 	IF NOT EXIST "!CMDVAR_DLLTOOL!" (
 		ECHO [WARNING] gcc dlltool not found. Skipping gcc lib build..
-		SET BUILD_ERRORLEVEL=1
 		GOTO :EOF
 	)
 
@@ -581,7 +570,6 @@ GOTO :EOF
 :BuildLib_BCC
 	IF NOT EXIST "!CMDVAR_IMPLIB!" (
 		ECHO [WARNING] bcc implib tool not found. Skipping bcc lib build..
-		SET BUILD_ERRORLEVEL=1
 		GOTO :EOF
 	)
 
@@ -650,16 +638,12 @@ GOTO :EOF
 
 	IF /I "%1" EQU "pre" (
 		IF NOT EXIST "!CMDVAR_WINDDK_DIR!" GOTO WINDDK_NOTFOUND
-		IF NOT EXIST "!CMDVAR_WINDDK_W2K_DIR!" GOTO WINDDK_W2K_NOTFOUND
 		SET BUILD_ERRORLEVEL=0
 		GOTO :EOF
 		:WINDDK_NOTFOUND
 			ECHO Invalid WinDDK Directory !CMDVAR_WINDDK_DIR!
 			GOTO :EOF
 
-		:WINDDK_W2K_NOTFOUND
-			ECHO Invalid WinDDK W2K Directory !CMDVAR_WINDDK_W2K_DIR!
-			GOTO :EOF
 	) ELSE (
 		IF DEFINED _NT_TARGET_VERSION (
 			ECHO WinDDK ok. Target version = !_NT_TARGET_VERSION!
@@ -717,8 +701,6 @@ GOTO :EOF
 	CALL :ToAbsolutePaths DIR_LIBUSB "!DIR_LIBUSB_DDK!..\"
 	
 	IF "!CMDVAR_WINDDK!" NEQ "" SET CMDVAR_WINDDK_DIR=!CMDVAR_WINDDK!
-	IF "!CMDVAR_WIN2KDDK!" NEQ "" SET CMDVAR_WINDDK_W2K_DIR=!CMDVAR_WIN2KDDK!
-	IF "!CMDVAR_WINDDK_W2K_DIR!" EQU "" SET CMDVAR_WINDDK_W2K_DIR=!CMDVAR_WINDDK_DIR!
 	IF "!CMDVAR_OUTDIR!" EQU "" SET CMDVAR_OUTDIR=.\!CMDVAR_ARCH!
 	IF "!CMDVAR_APP!" EQU "" SET CMDVAR_APP=all
 GOTO :EOF
@@ -961,14 +943,12 @@ ECHO          [see also make.cfg]
 ECHO.
 ECHO BUILD USAGE: CMD /C make.cmd "Option=Value"
 ECHO Options: 
-ECHO [req] ARCH      w2k/x86/x64/i64
+ECHO [req] ARCH      x86/x64
 ECHO APP		  all/dll/driver/install_filter/install_filter_win/inf_wizard/test/testwin
 ECHO              [Default = all]
 ECHO OUTDIR		  Directory that will contain the compiled binaries
 ECHO              [Default = .\ARCH]
 ECHO WINDDK		  WinDDK directory for WXP-WIN7 builds
-ECHO              [Default = see make.cfg]
-ECHO WIN2KDDK     WinDDK directory for Windows 2000 builds
 ECHO              [Default = see make.cfg]
 ECHO DEBUGMODE    Setting this option to 'true' makes chk builds instead of fre.
 ECHO              This also enables kernel debug messages and sets all default
