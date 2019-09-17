@@ -291,6 +291,7 @@ GOTO :EOF
 	
 	ECHO.
 	ECHO libusb-win32 v!VERSION! binaries built at '!PACKAGE_BIN_DIR!'
+
 	IF /I "!LIBUSB_DIST_BUILD!" EQU "true" (
 		SET /P __DUMMY=[Sign these files now and/or press 'Enter' to continue]
 	)
@@ -661,6 +662,13 @@ GOTO :EOF
 		SET BUILD_ERRORLEVEL=1
 		GOTO :EOF
 	)
+
+	:: setup date variables using a generic method that works on all regions
+	for /f "tokens=2 delims==" %%a in ('wmic OS Get localdatetime /value') do set "LOCALTIME=%%a"
+	SET _MM_=!LOCALTIME:~4,2!
+	SET _DD_=!LOCALTIME:~6,2!
+	SET _YYYY_=!LOCALTIME:~0,4!
+
 	FOR /F "eol=; tokens=1,2* usebackq delims==" %%I IN (!MAKE_CFG!) DO (
 		IF NOT "%%~I" EQU "" (
 			SET _PNAME=%%~I
