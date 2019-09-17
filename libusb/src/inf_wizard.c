@@ -766,7 +766,7 @@ BOOL CALLBACK dialog_proc_3(HWND dialog, UINT message,
 				safe_sprintf(bufferLabel, MAX_TEXT_LENGTH, package_contents_fmt_0, "libusb-win32",
 					(int)device->driver_info.dwFileVersionMS>>16, (int)device->driver_info.dwFileVersionMS&0xFFFF,
 					(int)device->driver_info.dwFileVersionLS>>16, (int)device->driver_info.dwFileVersionLS&0xFFFF,
-					"x86, x64, ia64");
+					"x86, x64");
 
 			}
 			else
