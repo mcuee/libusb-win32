@@ -376,6 +376,7 @@ NTSTATUS large_transfer(IN libusb_device_t* dev,
 
 ULONG get_current_frame(IN PDEVICE_EXTENSION dev, IN PIRP Irp);
 
+PVOID allocate_pool(SIZE_T bytes);
 
 NTSTATUS control_transfer(libusb_device_t* dev, 
 						 PIRP irp,

@@ -108,7 +108,7 @@ NTSTATUS set_configuration(libusb_device_t *dev,
 
 	// MEMORY ALLOCATION BEGINS
     interfaces =
-        ExAllocatePool(NonPagedPool,(configuration_descriptor->bNumInterfaces + 1)
+        allocate_pool((configuration_descriptor->bNumInterfaces + 1)
                        * sizeof(USBD_INTERFACE_LIST_ENTRY));
 
     if (!interfaces)

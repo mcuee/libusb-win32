@@ -160,7 +160,7 @@ NTSTATUS transfer(libusb_device_t* dev,
 		USBMSG("[%s #%d] EP%02Xh length %d\n",
 			dispTransfer, sequenceID, endpoint->address, totalLength);
 	}
-	context = ExAllocatePool(NonPagedPool, sizeof(context_t));
+	context = allocate_pool(sizeof(context_t));
 
 	if (!context)
 	{
@@ -297,7 +297,7 @@ static NTSTATUS create_urb(libusb_device_t *dev, URB **urb, int direction,
 		urb_size = sizeof(struct _URB_BULK_OR_INTERRUPT_TRANSFER);
 	}
 
-	*urb = ExAllocatePool(NonPagedPool, urb_size);
+	*urb = allocate_pool(urb_size);
 
 	if (!*urb)
 	{
@@ -499,8 +499,7 @@ NTSTATUS large_transfer(IN libusb_device_t* dev,
 	// before calling them down the driver stack.
 	//
 	subRequestContextArray = (PSUB_REQUEST_CONTEXT *)
-		ExAllocatePool(NonPagedPool,
-		numIrps * sizeof(PSUB_REQUEST_CONTEXT));
+		allocate_pool(numIrps * sizeof(PSUB_REQUEST_CONTEXT));
 
 	if (subRequestContextArray == NULL)
 	{
@@ -545,7 +544,7 @@ NTSTATUS large_transfer(IN libusb_device_t* dev,
 		//
 
 		subRequestContext = (PSUB_REQUEST_CONTEXT)
-			ExAllocatePool(NonPagedPool, sizeof(SUB_REQUEST_CONTEXT));
+			allocate_pool(sizeof(SUB_REQUEST_CONTEXT));
 
 		if (subRequestContext == NULL)
 		{
@@ -1368,7 +1367,7 @@ static NTSTATUS allocate_suburb(USHORT urbFunction,
 		urbSize = sizeof(struct _URB_BULK_OR_INTERRUPT_TRANSFER);
 	}
 
-	*subUrbRef = (PURB)ExAllocatePool(NonPagedPool, urbSize);
+	*subUrbRef = (PURB)allocate_pool(urbSize);
 
 	if ((*subUrbRef) == NULL)
 		return STATUS_INSUFFICIENT_RESOURCES;

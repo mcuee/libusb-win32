@@ -969,3 +969,33 @@ Return Value:
 
     return urb.FrameNumber;
 }
+
+PVOID allocate_pool(SIZE_T bytes)
+{
+    ULONG major;
+    ULONG minor;
+    NTSTATUS status;
+    RTL_OSVERSIONINFOW version;
+    /* Windwos 7 and below only has normal paged pool */
+    POOL_TYPE pool = NonPagedPool;
+
+    version.dwOSVersionInfoSize = sizeof(version);
+    status = RtlGetVersion(&version);
+    if(!NT_VERIFY(NT_SUCCESS(status)))
+    {
+        major = 5;
+        minor = 0;
+    }
+    else
+    {
+        major = version.dwMajorVersion;
+        minor = version.dwMinorVersion;
+    }
+
+    /* Windwos 8 needs non-executable paged pool to pass verification test */
+    if((major > 6) || ((major == 6) && (minor >= 2)))
+    {
+        pool = 512;  /* NonPagedPoolNx - Windows 8 and up */
+    }
+    return ExAllocatePool(pool, bytes);
+}

@@ -110,7 +110,7 @@ bool_t reg_get_properties(libusb_device_t *dev)
 		
 		pool_length = sizeof(KEY_VALUE_FULL_INFORMATION) + 512;
 
-        info = ExAllocatePool(NonPagedPool, pool_length);
+        info = allocate_pool(pool_length);
 		if (!info)
 		{
 			ZwClose(key);
@@ -330,7 +330,7 @@ NTSTATUS reg_get_custom_property(PDEVICE_OBJECT device_object,
     {
         RtlInitUnicodeString(&name, (WCHAR*)(&data_buffer[name_offset]));
         length = sizeof(KEY_VALUE_FULL_INFORMATION) + name.MaximumLength + data_length;
-        info = ExAllocatePool(NonPagedPool, length);
+        info = allocate_pool(length);
         if (info)
         {
             memset(info, 0, length);
