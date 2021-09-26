@@ -434,7 +434,7 @@ NTSTATUS call_usbd_ex(libusb_device_t *dev, void *urb, ULONG control_code,
 
 	irp = IoBuildDeviceIoControlRequest(control_code, dev->target_device,
 		NULL, 0, NULL, 0, TRUE,
-		NULL, &io_status);
+		&event, &io_status);
 
 	if (!irp)
 	{
@@ -457,16 +457,31 @@ NTSTATUS call_usbd_ex(libusb_device_t *dev, void *urb, ULONG control_code,
 		{
 			USBERR0("request timed out\n");
 			IoCancelIrp(irp);
+
+			/* Wait for the child requests to complete. Here we are waiting for
+			 * the original event given along with IoBuildDeviceIoControlRequest().
+			 * We must avoid reaching IoCompleteRequest() before this has happened
+			 * or we risk returning before io_status has been set, causing stack
+			 * corruption.
+			 */
+			KeWaitForSingleObject(&event, Executive, KernelMode, FALSE, NULL);
 		}
 	}
 
-	/* wait until completion routine is called */
-	KeWaitForSingleObject(&event, Executive, KernelMode, FALSE, NULL);
+	/* Reset event, so completion routine can signal it again */
+	KeClearEvent(&event);
 
 	status = irp->IoStatus.Status;
 
 	/* complete the request */
 	IoCompleteRequest(irp, IO_NO_INCREMENT);
+
+	/* Wait for the IRP to complete. Here we are waiting for the event given to
+	 * IoSetCompletionRoutine(), which will be signalled in on_usbd_complete().
+	 * This prevents function from returning before the system has accepted that
+	 * the IRP has completed.
+	 */
+	KeWaitForSingleObject(&event, Executive, KernelMode, FALSE, NULL);
 	
 	USBDBG("status = %08Xh\n",status);
 	return status;
