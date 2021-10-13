@@ -665,6 +665,9 @@ NULL : input_buffer + sizeof(libusb_request),
 		break;
 
 	case LIBUSB_IOCTL_CONTROL_WRITE:			// METHOD_IN_DIRECT (CONTROL_WRITE)
+
+		dispCtlCode = "CONTROL_WRITE";
+
 		// check if the request and buffer is valid
 		if (!request || !transfer_buffer_mdl || input_buffer_length < sizeof(libusb_request))
 		{
@@ -690,6 +693,9 @@ NULL : input_buffer + sizeof(libusb_request),
 		break;
 
 	case LIBUSB_IOCTL_CONTROL_READ:				// METHOD_OUT_DIRECT (CONTROL_READ)
+
+		dispCtlCode = "CONTROL_READ";
+
 		// check if the request and buffer is valid
 		if (!request || !transfer_buffer_mdl || input_buffer_length < sizeof(libusb_request))
 		{
