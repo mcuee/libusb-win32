@@ -669,7 +669,8 @@ NULL : input_buffer + sizeof(libusb_request),
 		dispCtlCode = "CONTROL_WRITE";
 
 		// check if the request and buffer is valid
-		if (!request || !transfer_buffer_mdl || input_buffer_length < sizeof(libusb_request))
+		// allow for zero length control packets
+		if (!request || (!transfer_buffer_mdl && transfer_buffer_length) || input_buffer_length < sizeof(libusb_request))
 		{
 			USBERR("%s: invalid transfer request\n", dispCtlCode);
 			status = STATUS_INVALID_PARAMETER;
