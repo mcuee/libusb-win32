@@ -548,7 +548,11 @@ int usb_free_async(void **context)
         return -EINVAL;
     }
 
-    CloseHandle((*c)->ol.hEvent);
+    if (!CloseHandle((*c)->ol.hEvent))
+    {
+      USBERR("close event failed: win error: %s", usb_win_error_to_string());
+      return -usb_win_error_to_errno();
+    }
 
     free(*c);
     *c = NULL;
