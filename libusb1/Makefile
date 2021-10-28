@@ -123,7 +123,7 @@ DRIVER_LDFLAGS = -s -shared -Wl,--entry,_DriverEntry@8 \
 	-nostartfiles -nostdlib -L. -lusbd -lntoskrnl -lhal
 
 
-EXE_FILES = testlibusb.exe testlibusb-win.exe inf-wizard.exe inf-install.exe
+EXE_FILES = testlibusb.exe testlibusb-win.exe inf-install.exe
 
 
 .PHONY: all
@@ -138,9 +138,6 @@ $(DRIVER_TARGET): libusbd.a $(DRIVER_OBJECTS)
 libusbd.a:
 	$(DLLTOOL) --dllname usbd.sys --add-underscore --def ./src/driver/usbd.def \
 		--output-lib libusbd.a
-
-inf-wizard.exe: inf_wizard_rc.o inf_wizard.o registry.o
-	$(CC) $(WIN_CFLAGS) -o $@ -I./src  $^ $(WIN_LDFLAGS)
 
 inf-install.exe: inf_install_rc.o inf_install.o
 	$(CC) $(WIN_CFLAGS) -o $@ -I./src  $^ $(WIN_LDFLAGS)

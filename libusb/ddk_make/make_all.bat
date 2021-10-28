@@ -15,12 +15,6 @@ IF NOT %ERRORLEVEL%==0 GOTO BUILD_ERROR
 call make_install_filter_win.bat %*
 IF NOT %ERRORLEVEL%==0 GOTO BUILD_ERROR
 
-REM DDK builkdInf-Wizard embeds drivers for multiple
-REM platforms and can no longer be here.
-REM
-REM call make_inf_wizard.bat %*
-REM IF NOT %ERRORLEVEL%==0 GOTO INF_BUILD_ERROR
-
 GOTO DONE
 
 :BUILD_ERROR

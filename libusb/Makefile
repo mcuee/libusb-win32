@@ -254,8 +254,7 @@ cleantemp:
 	$(RM) README.txt
 	$(RM) winusb.inf.in
 	$(RM) libusb-win32.inf.in
-	$(RM) inf_wizard.ico
-	
+
 .PHONY: clean
 clean: cleantemp	
 	$(RM) *.dll *.lib *.exe *.sys

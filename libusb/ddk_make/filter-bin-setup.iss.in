@@ -83,9 +83,6 @@ Source: @PACKAGE_BIN_DIR@amd64\install-filter-win.exe; DestDir: {app}\bin; Flags
 Source: @PACKAGE_BIN_DIR@amd64\testlibusb-win.exe; DestDir: {app}\bin; Flags: ignoreversion; Check: IsX64;
 Source: @PACKAGE_BIN_DIR@amd64\testlibusb.exe; DestDir: {app}\bin; Flags: ignoreversion; Check: IsX64;
 
-;inf-wizard (x86 only)
-Source: @PACKAGE_BIN_DIR@inf-wizard.exe; DestDir: {app}\bin; Flags: ignoreversion;
-
 Source: @LIBUSB_DIR@src\install-filter-help.txt; DestDir: {app}; Flags: ignoreversion;
 
 ; test applications(x86 runtimes for 64bit machines)
@@ -109,7 +106,6 @@ Name: "{group}\DebugView\DebugView Help"; Filename: {app}\additional\dbgview.chm
 
 ; libusb-win32 icons
 Name: "{group}\Test (Win) Program"; Filename: {app}\bin\testlibusb-win.exe; 
-Name: "{group}\Inf Wizard"; Filename: {app}\bin\inf-wizard.exe;
 Name: "{group}\Filter Wizard"; Filename: {app}\bin\install-filter-win.exe; 
 Name: "{group}\Filter Console Help"; Filename: {app}\install-filter-help.txt; 
 Name: "{group}\Class Filter\Install all class filters"; Filename: {app}\bin\install-filter-win.exe; Parameters:"i -ac -p -w"; Comment: "Installs all libusb-win32 class filters."

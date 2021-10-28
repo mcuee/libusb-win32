@@ -296,12 +296,6 @@ GOTO :EOF
 		SET /P __DUMMY=[Sign these files now and/or press 'Enter' to continue]
 	)
 	ECHO.
-		
-	SET _OUTDIR_=!PACKAGE_BIN_DIR!
-	CALL :CmdExe make.cmd !_ARG_LINE! "arch=x86" "app=inf_wizard" "outdir=!_OUTDIR_!"
-	IF !BUILD_ERRORLEVEL! NEQ 0 GOTO CMDERROR
-	
-	CALL :SafeDelete "!_OUTDIR_!*.lib"
 
 GOTO :EOF
 
@@ -952,7 +946,7 @@ ECHO.
 ECHO BUILD USAGE: CMD /C make.cmd "Option=Value"
 ECHO Options: 
 ECHO [req] ARCH      x86/x64
-ECHO APP		  all/dll/driver/install_filter/install_filter_win/inf_wizard/test/testwin
+ECHO APP		  all/dll/driver/install_filter/install_filter_win/test/testwin
 ECHO              [Default = all]
 ECHO OUTDIR		  Directory that will contain the compiled binaries
 ECHO              [Default = .\ARCH]
