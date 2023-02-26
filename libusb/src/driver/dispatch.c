@@ -58,6 +58,10 @@ NTSTATUS DDKAPI dispatch(DEVICE_OBJECT *device_object, IRP *irp)
 
         case IRP_MJ_CREATE:
 
+            USBDBG("IRP_MJ_CREATE: is-filter=%c %s\n",
+                   dev->is_filter ? 'Y' : 'N',
+                   dev->device_id);
+
             if (dev->is_started)
             {
 				// only one driver can act as power policy owner and 
@@ -78,6 +82,10 @@ NTSTATUS DDKAPI dispatch(DEVICE_OBJECT *device_object, IRP *irp)
             }
 
         case IRP_MJ_CLOSE:
+
+            USBDBG("IRP_MJ_CLOSE: is-filter=%c %s\n",
+                   dev->is_filter ? 'Y' : 'N',
+                   dev->device_id);
 
             /* release all interfaces bound to this file object */
             release_all_interfaces(dev, stack_location->FileObject);
