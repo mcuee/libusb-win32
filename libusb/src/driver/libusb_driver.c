@@ -795,7 +795,6 @@ USB_INTERFACE_DESCRIPTOR* find_interface_desc_ex(USB_CONFIGURATION_DESCRIPTOR *c
 
 	usb_descriptor_header_t *desc = (usb_descriptor_header_t *)config_desc;
     char *p = (char *)desc;
-	int lastInfNumber, lastAltNumber;
 	int currentInfIndex;
 	short InterfacesByIndex[LIBUSB_MAX_NUMBER_OF_INTERFACES][2];
 

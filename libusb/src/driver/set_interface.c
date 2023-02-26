@@ -103,8 +103,6 @@ NTSTATUS set_interface_ex(libusb_device_t *dev,
 					   interface_request_t* interface_request, 
                        int timeout)
 {
-    NTSTATUS status = STATUS_SUCCESS;
-
     USB_INTERFACE_DESCRIPTOR *interface_descriptor = NULL;
 
 	USBMSG("interface-%s=%d alt-%s=%d timeout=%d\n",

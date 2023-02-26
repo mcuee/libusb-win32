@@ -30,7 +30,7 @@ NTSTATUS set_configuration(libusb_device_t *dev,
     USB_CONFIGURATION_DESCRIPTOR *configuration_descriptor = NULL;
     USB_INTERFACE_DESCRIPTOR *interface_descriptor = NULL;
     USBD_INTERFACE_LIST_ENTRY *interfaces = NULL;
-    int i, j, interface_number, desc_size, config_index, ret;
+    int i, j, interface_number, desc_size, config_index;
 
 	// check if this config value is already set
 	if ((configuration > 0) && dev->config.value == configuration)

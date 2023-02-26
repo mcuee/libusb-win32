@@ -393,7 +393,6 @@ NTSTATUS large_transfer(IN libusb_device_t* dev,
 						IN PMDL mdlAddress,
 						IN int totalLength)
 {
-	PIO_STACK_LOCATION      irpStack;
 	BOOLEAN                 read;
 	ULONG                   stageSize;
 	ULONG                   numIrps;
@@ -424,7 +423,6 @@ NTSTATUS large_transfer(IN libusb_device_t* dev,
 	//
 	// initialize vars
 	//
-	irpStack = IoGetCurrentIrpStackLocation(irp);
 	sequenceID = InterlockedIncrement(&sequence);
 	subRequestContextArray = NULL;
 

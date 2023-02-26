@@ -28,7 +28,6 @@ NTSTATUS get_interface(libusb_device_t *dev,
 {
     NTSTATUS status = STATUS_SUCCESS;
     URB urb;
-	PUSB_INTERFACE_DESCRIPTOR interface_descriptor;
 
 	USBMSG("interface: %d timeout: %d\n", interface_number, timeout);
 
