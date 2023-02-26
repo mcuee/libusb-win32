@@ -126,9 +126,14 @@ LIBWDI_DLL_LDFLAGS = -s -shared \
 	-Wl,--enable-stdcall-fixup \
 	-L. -lnewdev -lsetupapi -lole32
 
-DRIVER_LDFLAGS = -s -shared -Wl,--entry,_DriverEntry@8 \
+DRIVER_LDFLAGS = -s -shared -Wl,--entry,$(DRIVERENTRY) \
 	-nostartfiles -nostdlib -L. -lusbd -lntoskrnl -lhal
 
+ifneq (,$(findstring x86, $(host_prefix)))
+DRIVERENTRY = DriverEntry
+else
+DRIVERENTRY = _DriverEntry@8
+endif
 
 .PHONY: all
 all: dll filter test testwin
