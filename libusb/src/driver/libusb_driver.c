@@ -793,25 +793,25 @@ USB_INTERFACE_DESCRIPTOR* find_interface_desc_ex(USB_CONFIGURATION_DESCRIPTOR *c
 #define INTF_FIELD 0
 #define ALTF_FIELD 1
 
-	usb_descriptor_header_t *desc = (usb_descriptor_header_t *)config_desc;
+    usb_descriptor_header_t *desc = (usb_descriptor_header_t *)config_desc;
     char *p = (char *)desc;
-	int currentInfIndex;
-	short InterfacesByIndex[LIBUSB_MAX_NUMBER_OF_INTERFACES][2];
+    int currentInfIndex;
+    short InterfacesByIndex[LIBUSB_MAX_NUMBER_OF_INTERFACES][2];
 
     USB_INTERFACE_DESCRIPTOR *if_desc = NULL;
 
-	memset(InterfacesByIndex,0xFF,sizeof(InterfacesByIndex));
+    memset(InterfacesByIndex,0xFF,sizeof(InterfacesByIndex));
 
     if (!config_desc)
         return NULL;
 
-	size = size > config_desc->wTotalLength ? config_desc->wTotalLength : size;
+    size = size > config_desc->wTotalLength ? config_desc->wTotalLength : size;
 
     while (size && desc->length <= size)
     {
         if (desc->type == USB_INTERFACE_DESCRIPTOR_TYPE)
         {
-			// this is a new interface or alternate interface
+            // this is a new interface or alternate interface
             if_desc = (USB_INTERFACE_DESCRIPTOR *)desc;
 			for (currentInfIndex=0; currentInfIndex<LIBUSB_MAX_NUMBER_OF_INTERFACES;currentInfIndex++)
 			{
