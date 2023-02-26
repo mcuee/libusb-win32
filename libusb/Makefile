@@ -35,6 +35,9 @@ endif
 ifdef cflags
 	DBG_DEFINE = $(cflags)
 endif
+ifdef ddk
+	DDK_INCLUDE = -I$(ddk)/include/ddk
+endif
 
 CC = $(host_prefix)gcc
 LD = $(host_prefix)ld
@@ -87,8 +90,10 @@ LIBWDI_OBJECTS = $(LIBWDI_DIR)/logging.5.o \
 				 
 
 INCLUDES = -I./src -I./src/driver -I.
+driver: INCLUDES += $(DDK_INCLUDE)
 
 CFLAGS = -O2 -Wall -DWINVER=0x500 $(DBG_DEFINE)
+CFLAGS += -Wno-unknown-pragmas -Wno-multichar
 WIN_CFLAGS = $(CFLAGS) -mwindows
 
 WINDRES_FLAGS = -I$(SRC_DIR)

@@ -24,17 +24,14 @@
 //#define SKIP_DEVICES_WINUSB
 //#define SKIP_DEVICES_PICOPP
 
-#ifdef __GNUC__
-#include <ddk/usb100.h>
-#include <ddk/usbdi.h>
-#include <ddk/winddk.h>
-#include "usbdlib_gcc.h"
-#else
 #include <ntifs.h>
+#ifdef __GNUC__
+#define NTSTATUS LONG
+#else
 #include <wdm.h>
+#endif
 #include "usbdi.h"
 #include "usbdlib.h"
-#endif
 
 #include <wchar.h>
 #include <initguid.h>
@@ -44,19 +41,6 @@
 #include "driver_debug.h"
 #include "error.h"
 #include "driver_api.h"
-
-/* some missing defines */
-#ifdef __GNUC__
-
-#define USBD_TRANSFER_DIRECTION_OUT       0
-#define USBD_TRANSFER_DIRECTION_BIT       0
-#define USBD_TRANSFER_DIRECTION_IN        (1 << USBD_TRANSFER_DIRECTION_BIT)
-#define USBD_SHORT_TRANSFER_OK_BIT        1
-#define USBD_SHORT_TRANSFER_OK            (1 << USBD_SHORT_TRANSFER_OK_BIT)
-#define USBD_START_ISO_TRANSFER_ASAP_BIT  2
-#define USBD_START_ISO_TRANSFER_ASAP   (1 << USBD_START_ISO_TRANSFER_ASAP_BIT)
-
-#endif
 
 #define SET_CONFIG_ACTIVE_CONFIG -258
 
@@ -81,7 +65,9 @@
 #define LIBUSB_MAX_CONTROL_TRANSFER_TIMEOUT 5000
 
 
-#ifndef __GNUC__
+#ifdef __GNUC__
+#define DDKAPI __stdcall
+#else
 #define DDKAPI
 #endif
 
@@ -140,7 +126,9 @@ typedef int bool_t;
 
 #endif
 
+#ifndef __GNUC__
 #define USB_ENDPOINT_ADDRESS_MASK 0x0F
+#endif
 #define USB_ENDPOINT_DIR_MASK 0x80
 #define LBYTE(w) (w & 0xFF)
 #define HBYTE(w) ((w>>8) & 0xFF)
