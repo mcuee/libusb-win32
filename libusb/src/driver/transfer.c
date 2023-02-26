@@ -985,6 +985,7 @@ NTSTATUS large_transfer_complete(IN PDEVICE_OBJECT DeviceObjectIsNULL,
 			subRequestByteCount = MmGetMdlByteCount(subUrb->UrbBulkOrInterruptTransfer.TransferBufferMDL);
 			subRequestByteOffset = MmGetMdlByteOffset(subUrb->UrbBulkOrInterruptTransfer.TransferBufferMDL);
 			information = subUrb->UrbBulkOrInterruptTransfer.TransferBufferLength;
+			(void) subRequestByteOffset;
 			USBDBG("[%s #%d] offset=%d requested=%d transferred=%d\n", 
 				dispTransfer, 
 				sequenceID, 
