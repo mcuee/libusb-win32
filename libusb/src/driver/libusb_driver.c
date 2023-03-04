@@ -527,7 +527,10 @@ static NTSTATUS DDKAPI on_usbd_complete(DEVICE_OBJECT *device_object,
 static NTSTATUS DDKAPI on_complete(DEVICE_OBJECT *device_object,
                                         IRP *irp, void *context)
 {
-    KeSetEvent((KEVENT *) context, IO_NO_INCREMENT, FALSE);
+    if (irp->PendingReturned == TRUE)
+    {
+        KeSetEvent((KEVENT *) context, IO_NO_INCREMENT, FALSE);
+    }
 
     return STATUS_MORE_PROCESSING_REQUIRED;
 }
@@ -983,6 +986,7 @@ Return Value:
     KEVENT                               event;
     PIO_STACK_LOCATION                   nextStack;
     struct _URB_GET_CURRENT_FRAME_NUMBER urb;
+    NTSTATUS status;
 
     //
     // initialize the urb
@@ -1009,14 +1013,22 @@ Return Value:
                            TRUE,
                            TRUE);
 
+    status = IoCallDriver(deviceExtension->target_device, Irp);
 
-    IoCallDriver(deviceExtension->target_device, Irp);
-
-    KeWaitForSingleObject((PVOID) &event,
+    if (status == STATUS_PENDING)
+    {
+        KeWaitForSingleObject((PVOID) &event,
                           Executive,
                           KernelMode,
                           FALSE,
                           NULL);
+        status = Irp->IoStatus.Status;
+    }
+
+    if (status != STATUS_SUCCESS)
+    {
+	USBDBG("failed to retrieve framenumber: status = %08Xh\n", status);
+    }
 
     return urb.FrameNumber;
 }
