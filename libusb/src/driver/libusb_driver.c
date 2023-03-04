@@ -435,6 +435,14 @@ NTSTATUS complete_irp(IRP *irp, NTSTATUS status, ULONG info)
     return status;
 }
 
+/* used to protect IRP while canceller calls IoCancelIrp */
+typedef enum {
+	IRPLOCK_CANCELABLE,
+	IRPLOCK_CANCEL_STARTED,
+	IRPLOCK_CANCEL_COMPLETE,
+	IRPLOCK_COMPLETED
+} IRPLOCK;
+
 NTSTATUS call_usbd_ex(libusb_device_t *dev, void *urb, ULONG control_code,
 					  int timeout, int max_timeout)
 {
@@ -444,6 +452,7 @@ NTSTATUS call_usbd_ex(libusb_device_t *dev, void *urb, ULONG control_code,
 	IO_STACK_LOCATION *next_irp_stack;
 	LARGE_INTEGER _timeout;
 	IO_STATUS_BLOCK io_status;
+	IRPLOCK lock;
 
 	if (max_timeout > 0 && timeout > max_timeout)
 	{
@@ -467,49 +476,55 @@ NTSTATUS call_usbd_ex(libusb_device_t *dev, void *urb, ULONG control_code,
 	next_irp_stack->Parameters.Others.Argument1 = urb;
 	next_irp_stack->Parameters.Others.Argument2 = NULL;
 
-	IoSetCompletionRoutine(irp, on_usbd_complete, &event, TRUE, TRUE, TRUE);
+	lock = IRPLOCK_CANCELABLE;
+
+	IoSetCompletionRoutine(irp, on_usbd_complete, &lock, TRUE, TRUE, TRUE);
 
 	status = IoCallDriver(dev->target_device, irp);
+
 	if(status == STATUS_PENDING)
 	{
 		_timeout.QuadPart = -(timeout * 10000);
 
-		if(KeWaitForSingleObject(&event, Executive, KernelMode,
-			FALSE, &_timeout) == STATUS_TIMEOUT)
+		status = KeWaitForSingleObject(&event, Executive, KernelMode, FALSE, &_timeout);
+		if (status == STATUS_TIMEOUT)
 		{
-			USBERR0("request timed out\n");
-			IoCancelIrp(irp);
-
-			/* Wait for the child requests to complete. Here we are waiting for
-			 * the original event given along with IoBuildDeviceIoControlRequest().
-			 * We must avoid reaching IoCompleteRequest() before this has happened
-			 * or we risk returning before io_status has been set, causing stack
-			 * corruption.
-			 */
+			if (InterlockedExchange((PVOID)&lock, IRPLOCK_CANCEL_STARTED) == IRPLOCK_CANCELABLE)
+			{
+				IoCancelIrp(irp);
+				if (InterlockedExchange((PVOID)&lock, IRPLOCK_CANCEL_COMPLETE) == IRPLOCK_COMPLETED)
+				{
+					IoCompleteRequest(irp, IO_NO_INCREMENT);
+				}
+			}
 			KeWaitForSingleObject(&event, Executive, KernelMode, FALSE, NULL);
+			io_status.Status = status;
+			USBERR0("request timed out\n");
+		}
+		else
+		{
+			status = io_status.Status;
 		}
 	}
 
-	/* Reset event, so completion routine can signal it again */
-	KeClearEvent(&event);
-
-	status = irp->IoStatus.Status;
-
-	/* complete the request */
-	IoCompleteRequest(irp, IO_NO_INCREMENT);
-
-	/* Wait for the IRP to complete. Here we are waiting for the event given to
-	 * IoSetCompletionRoutine(), which will be signalled in on_usbd_complete().
-	 * This prevents function from returning before the system has accepted that
-	 * the IRP has completed.
-	 */
-	KeWaitForSingleObject(&event, Executive, KernelMode, FALSE, NULL);
-	
 	USBDBG("status = %08Xh\n",status);
 	return status;
 }
 
 static NTSTATUS DDKAPI on_usbd_complete(DEVICE_OBJECT *device_object,
+                                        IRP *irp, void *context)
+{
+    PLONG lock = (PLONG) context;
+
+    if (InterlockedExchange(lock, IRPLOCK_COMPLETED) == IRPLOCK_CANCEL_STARTED)
+    {
+        return STATUS_MORE_PROCESSING_REQUIRED;
+    }
+
+    return STATUS_SUCCESS;
+}
+
+static NTSTATUS DDKAPI on_complete(DEVICE_OBJECT *device_object,
                                         IRP *irp, void *context)
 {
     KeSetEvent((KEVENT *) context, IO_NO_INCREMENT, FALSE);
@@ -988,7 +1003,7 @@ Return Value:
                       FALSE);
 
     IoSetCompletionRoutine(Irp,
-                           on_usbd_complete,
+                           on_complete,
                            &event,
                            TRUE,
                            TRUE,
