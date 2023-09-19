@@ -45,6 +45,8 @@ const char* attached_driver_wdf_list[] =
 
 static bool_t match_driver(PDEVICE_OBJECT deviceObject, const char* driverString);
 
+static RTL_OSVERSIONINFOW os_version;
+static POOL_TYPE alloc_pool;
 
 #ifdef DBG
 
@@ -120,6 +122,26 @@ NTSTATUS DDKAPI DriverEntry(DRIVER_OBJECT *driver_object,
 
     driver_object->DriverExtension->AddDevice = add_device;
     driver_object->DriverUnload = unload;
+
+    /* Determine running OS version */
+    os_version.dwOSVersionInfoSize = sizeof(os_version);
+    if (!NT_SUCCESS(RtlGetVersion(&os_version)))
+    {
+        os_version.dwMajorVersion = 5;
+        os_version.dwMinorVersion = 0;
+    }
+
+    /* Windows 8 needs non-executable paged pool to pass verification test */
+    if (os_version.dwMajorVersion > 6 ||
+        (os_version.dwMajorVersion == 6 && os_version.dwMinorVersion >= 2))
+    {
+        alloc_pool = 512;  /* NonPagedPoolNx - Windows 8 and up */
+    }
+    else
+    {
+        /* Windows 7 and below only has normal paged pool */
+        alloc_pool = NonPagedPool;
+    }
 
     return STATUS_SUCCESS;
 }
@@ -413,6 +435,14 @@ NTSTATUS complete_irp(IRP *irp, NTSTATUS status, ULONG info)
     return status;
 }
 
+/* used to protect IRP while canceller calls IoCancelIrp */
+typedef enum {
+	IRPLOCK_CANCELABLE,
+	IRPLOCK_CANCEL_STARTED,
+	IRPLOCK_CANCEL_COMPLETE,
+	IRPLOCK_COMPLETED
+} IRPLOCK;
+
 NTSTATUS call_usbd_ex(libusb_device_t *dev, void *urb, ULONG control_code,
 					  int timeout, int max_timeout)
 {
@@ -422,6 +452,7 @@ NTSTATUS call_usbd_ex(libusb_device_t *dev, void *urb, ULONG control_code,
 	IO_STACK_LOCATION *next_irp_stack;
 	LARGE_INTEGER _timeout;
 	IO_STATUS_BLOCK io_status;
+	IRPLOCK lock;
 
 	if (max_timeout > 0 && timeout > max_timeout)
 	{
@@ -445,44 +476,37 @@ NTSTATUS call_usbd_ex(libusb_device_t *dev, void *urb, ULONG control_code,
 	next_irp_stack->Parameters.Others.Argument1 = urb;
 	next_irp_stack->Parameters.Others.Argument2 = NULL;
 
-	IoSetCompletionRoutine(irp, on_usbd_complete, &event, TRUE, TRUE, TRUE);
+	lock = IRPLOCK_CANCELABLE;
+
+	IoSetCompletionRoutine(irp, on_usbd_complete, &lock, TRUE, TRUE, TRUE);
 
 	status = IoCallDriver(dev->target_device, irp);
+
 	if(status == STATUS_PENDING)
 	{
 		_timeout.QuadPart = -(timeout * 10000);
 
-		if(KeWaitForSingleObject(&event, Executive, KernelMode,
-			FALSE, &_timeout) == STATUS_TIMEOUT)
+		status = KeWaitForSingleObject(&event, Executive, KernelMode, FALSE, &_timeout);
+		if (status == STATUS_TIMEOUT)
 		{
-			USBERR0("request timed out\n");
-			IoCancelIrp(irp);
-
-			/* Wait for the child requests to complete. Here we are waiting for
-			 * the original event given along with IoBuildDeviceIoControlRequest().
-			 * We must avoid reaching IoCompleteRequest() before this has happened
-			 * or we risk returning before io_status has been set, causing stack
-			 * corruption.
-			 */
+			if (InterlockedExchange((PVOID)&lock, IRPLOCK_CANCEL_STARTED) == IRPLOCK_CANCELABLE)
+			{
+				IoCancelIrp(irp);
+				if (InterlockedExchange((PVOID)&lock, IRPLOCK_CANCEL_COMPLETE) == IRPLOCK_COMPLETED)
+				{
+					IoCompleteRequest(irp, IO_NO_INCREMENT);
+				}
+			}
 			KeWaitForSingleObject(&event, Executive, KernelMode, FALSE, NULL);
+			io_status.Status = status;
+			USBERR0("request timed out\n");
+		}
+		else
+		{
+			status = io_status.Status;
 		}
 	}
 
-	/* Reset event, so completion routine can signal it again */
-	KeClearEvent(&event);
-
-	status = irp->IoStatus.Status;
-
-	/* complete the request */
-	IoCompleteRequest(irp, IO_NO_INCREMENT);
-
-	/* Wait for the IRP to complete. Here we are waiting for the event given to
-	 * IoSetCompletionRoutine(), which will be signalled in on_usbd_complete().
-	 * This prevents function from returning before the system has accepted that
-	 * the IRP has completed.
-	 */
-	KeWaitForSingleObject(&event, Executive, KernelMode, FALSE, NULL);
-	
 	USBDBG("status = %08Xh\n",status);
 	return status;
 }
@@ -490,7 +514,23 @@ NTSTATUS call_usbd_ex(libusb_device_t *dev, void *urb, ULONG control_code,
 static NTSTATUS DDKAPI on_usbd_complete(DEVICE_OBJECT *device_object,
                                         IRP *irp, void *context)
 {
-    KeSetEvent((KEVENT *) context, IO_NO_INCREMENT, FALSE);
+    PLONG lock = (PLONG) context;
+
+    if (InterlockedExchange(lock, IRPLOCK_COMPLETED) == IRPLOCK_CANCEL_STARTED)
+    {
+        return STATUS_MORE_PROCESSING_REQUIRED;
+    }
+
+    return STATUS_SUCCESS;
+}
+
+static NTSTATUS DDKAPI on_complete(DEVICE_OBJECT *device_object,
+                                        IRP *irp, void *context)
+{
+    if (irp->PendingReturned == TRUE)
+    {
+        KeSetEvent((KEVENT *) context, IO_NO_INCREMENT, FALSE);
+    }
 
     return STATUS_MORE_PROCESSING_REQUIRED;
 }
@@ -771,26 +811,25 @@ USB_INTERFACE_DESCRIPTOR* find_interface_desc_ex(USB_CONFIGURATION_DESCRIPTOR *c
 #define INTF_FIELD 0
 #define ALTF_FIELD 1
 
-	usb_descriptor_header_t *desc = (usb_descriptor_header_t *)config_desc;
+    usb_descriptor_header_t *desc = (usb_descriptor_header_t *)config_desc;
     char *p = (char *)desc;
-	int lastInfNumber, lastAltNumber;
-	int currentInfIndex;
-	short InterfacesByIndex[LIBUSB_MAX_NUMBER_OF_INTERFACES][2];
+    int currentInfIndex;
+    short InterfacesByIndex[LIBUSB_MAX_NUMBER_OF_INTERFACES][2];
 
     USB_INTERFACE_DESCRIPTOR *if_desc = NULL;
 
-	memset(InterfacesByIndex,0xFF,sizeof(InterfacesByIndex));
+    memset(InterfacesByIndex,0xFF,sizeof(InterfacesByIndex));
 
     if (!config_desc)
         return NULL;
 
-	size = size > config_desc->wTotalLength ? config_desc->wTotalLength : size;
+    size = size > config_desc->wTotalLength ? config_desc->wTotalLength : size;
 
     while (size && desc->length <= size)
     {
         if (desc->type == USB_INTERFACE_DESCRIPTOR_TYPE)
         {
-			// this is a new interface or alternate interface
+            // this is a new interface or alternate interface
             if_desc = (USB_INTERFACE_DESCRIPTOR *)desc;
 			for (currentInfIndex=0; currentInfIndex<LIBUSB_MAX_NUMBER_OF_INTERFACES;currentInfIndex++)
 			{
@@ -947,6 +986,7 @@ Return Value:
     KEVENT                               event;
     PIO_STACK_LOCATION                   nextStack;
     struct _URB_GET_CURRENT_FRAME_NUMBER urb;
+    NTSTATUS status;
 
     //
     // initialize the urb
@@ -967,50 +1007,33 @@ Return Value:
                       FALSE);
 
     IoSetCompletionRoutine(Irp,
-                           on_usbd_complete,
+                           on_complete,
                            &event,
                            TRUE,
                            TRUE,
                            TRUE);
 
+    status = IoCallDriver(deviceExtension->target_device, Irp);
 
-    IoCallDriver(deviceExtension->target_device, Irp);
-
-    KeWaitForSingleObject((PVOID) &event,
+    if (status == STATUS_PENDING)
+    {
+        KeWaitForSingleObject((PVOID) &event,
                           Executive,
                           KernelMode,
                           FALSE,
                           NULL);
+        status = Irp->IoStatus.Status;
+    }
+
+    if (status != STATUS_SUCCESS)
+    {
+	USBDBG("failed to retrieve framenumber: status = %08Xh\n", status);
+    }
 
     return urb.FrameNumber;
 }
 
 PVOID allocate_pool(SIZE_T bytes)
 {
-    ULONG major;
-    ULONG minor;
-    NTSTATUS status;
-    RTL_OSVERSIONINFOW version;
-    /* Windwos 7 and below only has normal paged pool */
-    POOL_TYPE pool = NonPagedPool;
-
-    version.dwOSVersionInfoSize = sizeof(version);
-    status = RtlGetVersion(&version);
-    if(!NT_VERIFY(NT_SUCCESS(status)))
-    {
-        major = 5;
-        minor = 0;
-    }
-    else
-    {
-        major = version.dwMajorVersion;
-        minor = version.dwMinorVersion;
-    }
-
-    /* Windwos 8 needs non-executable paged pool to pass verification test */
-    if((major > 6) || ((major == 6) && (minor >= 2)))
-    {
-        pool = 512;  /* NonPagedPoolNx - Windows 8 and up */
-    }
-    return ExAllocatePool(pool, bytes);
+    return ExAllocatePool(alloc_pool, bytes);
 }

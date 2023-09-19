@@ -344,7 +344,7 @@ IoctlIsochronousWrite:
 		}
 		else
 		{
-			status = get_configuration(dev, output_buffer, &ret, request->timeout);
+			status = get_configuration(dev, (unsigned char *)output_buffer, &ret, request->timeout);
 		}
 		break;
 
@@ -370,7 +370,7 @@ IoctlIsochronousWrite:
 		status = get_interface(
 			dev,
 			request->intf.interface_number,
-			output_buffer, 
+			(unsigned char *)output_buffer,
 			request->timeout);
 
 		if (NT_SUCCESS(status))

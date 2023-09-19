@@ -19,6 +19,7 @@
 
 #include "libusb_driver.h"
 #include "lusb_defdi_guids.h"
+#include <guiddef.h>
 
 /* missing in mingw's ddk headers */
 #ifndef PLUGPLAY_REGKEY_DEVICE

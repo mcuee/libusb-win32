@@ -2,13 +2,11 @@
 #define __LUSB_DEFDI_GUIDS_
 
 #ifndef DEFINE_TO_STR
-#define _DEFINE_TO_STR(x) #x
-#define  DEFINE_TO_STR(x) _DEFINE_TO_STR(x)
+#define  DEFINE_TO_STR(x) #x
 #endif
 
 #ifndef DEFINE_TO_STRW
-#define _DEFINE_TO_STRW(x) L#x
-#define  DEFINE_TO_STRW(x) _DEFINE_TO_STRW(x)
+#define  DEFINE_TO_STRW(x) L ## #x
 #endif
 
 #define DEFINE_DEVICE_INTERFACE_GUID(BaseFieldName,BaseGuidName,L1,W1,W2,B1,B2,B3,B4,B5,B6,B7,B8)	\

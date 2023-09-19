@@ -23,15 +23,7 @@
 #include <stdio.h>
 
 #if IS_DRIVER
-	#ifdef __GNUC__
-		#define OBJ_KERNEL_HANDLE       0x00000200L
-		#include <ddk/usb100.h>
-		#include <ddk/usbdi.h>
-		#include <ddk/winddk.h>
-		#include "usbdlib_gcc.h"
-	#else
-		#include <ntddk.h>
-	#endif
+	#include <ntddk.h>
 #else
 	#include <windows.h>
 #endif
