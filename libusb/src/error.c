@@ -340,6 +340,7 @@ void usb_log_set_level(enum USB_LOG_LEVEL level)
 	// Application can no longer change this.
 	//
 #if (defined(_DEBUG) || defined(DEBUG) || defined(DBG))
+	UNREFERENCED_PARAMETER(level);
 	__usb_log_level = LOG_LEVEL_MAX;
 #else
     __usb_log_level = level > LOG_LEVEL_MAX ? LOG_LEVEL_MAX : level;
@@ -361,6 +362,15 @@ static int usb_log_def_handler(enum USB_LOG_LEVEL level,
 								char* message,
 								int message_length)
 {
+  UNREFERENCED_PARAMETER(app_name);
+  UNREFERENCED_PARAMETER(prefix);
+  UNREFERENCED_PARAMETER(func);
+  UNREFERENCED_PARAMETER(message_length);
+#if !GetLogOuput(LOG_OUTPUT_TYPE_MSGBOX)
+  UNREFERENCED_PARAMETER(level);
+  UNREFERENCED_PARAMETER(app_prefix_func_end);
+#endif
+
 #if IS_DRIVER
 	DbgPrint("%s",message);
 #else

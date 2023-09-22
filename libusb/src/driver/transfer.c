@@ -261,6 +261,8 @@ static NTSTATUS create_urb(libusb_device_t *dev, URB **urb, int direction,
 	int num_packets = 0;
 	int i, urb_size;
 
+	UNREFERENCED_PARAMETER(dev);
+
 	*urb = NULL;
 
 	pipe_handle = endpoint->handle;
@@ -1206,6 +1208,9 @@ None
 --*/
 VOID large_transfer_cancel_routine(IN PDEVICE_OBJECT DeviceObject, IN PIRP irp)
 {
+	UNREFERENCED_PARAMETER(DeviceObject);
+	UNREFERENCED_PARAMETER(irp);
+
 	large_transfer_cancel(irp, TRUE);
 }
 
@@ -1446,6 +1451,8 @@ NTSTATUS control_transfer(libusb_device_t* dev,
 {
     NTSTATUS status = STATUS_SUCCESS;
     URB urb;
+
+    UNREFERENCED_PARAMETER(irp);
 
     *ret = 0;
 

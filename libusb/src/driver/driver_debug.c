@@ -35,6 +35,8 @@ void DEBUG_SET_LEVEL(int level)
 {
 #ifdef DBG
     debug_level = level;
+#else
+  UNREFERENCED_PARAMETER(level);
 #endif
 }
 
@@ -53,6 +55,8 @@ void DEBUG_MESSAGE(const char *format, ...)
 
         DbgPrint("LIBUSB-DRIVER - %s", tmp);
     }
+#else
+  UNREFERENCED_PARAMETER(format);
 #endif
 }
 
@@ -71,5 +75,7 @@ void DEBUG_ERROR(const char *format, ...)
 
         DbgPrint("LIBUSB-DRIVER - %s", tmp);
     }
+#else
+  UNREFERENCED_PARAMETER(format);
 #endif
 }

@@ -111,6 +111,8 @@ NTSTATUS DDKAPI DriverEntry(DRIVER_OBJECT *driver_object,
 {
     int i;
 
+    UNREFERENCED_PARAMETER(registry_path);
+
  	USBMSG("[loading-driver] v%d.%d.%d.%d\n",
 		VERSION_MAJOR, VERSION_MINOR, VERSION_MICRO, VERSION_NANO);
 
@@ -422,6 +424,8 @@ NTSTATUS DDKAPI add_device(DRIVER_OBJECT *driver_object,
 
 VOID DDKAPI unload(DRIVER_OBJECT *driver_object)
 {
+  UNREFERENCED_PARAMETER(driver_object);
+
  	USBMSG("[unloading-driver] v%d.%d.%d.%d\n",
 		VERSION_MAJOR, VERSION_MINOR, VERSION_MICRO, VERSION_NANO);
 }
@@ -516,6 +520,9 @@ static NTSTATUS DDKAPI on_usbd_complete(DEVICE_OBJECT *device_object,
 {
     PLONG lock = (PLONG) context;
 
+    UNREFERENCED_PARAMETER(device_object);
+    UNREFERENCED_PARAMETER(irp);
+
     if (InterlockedExchange(lock, IRPLOCK_COMPLETED) == IRPLOCK_CANCEL_STARTED)
     {
         return STATUS_MORE_PROCESSING_REQUIRED;
@@ -527,6 +534,8 @@ static NTSTATUS DDKAPI on_usbd_complete(DEVICE_OBJECT *device_object,
 static NTSTATUS DDKAPI on_complete(DEVICE_OBJECT *device_object,
                                         IRP *irp, void *context)
 {
+    UNREFERENCED_PARAMETER(device_object);
+
     if (irp->PendingReturned == TRUE)
     {
         KeSetEvent((KEVENT *) context, IO_NO_INCREMENT, FALSE);
@@ -648,8 +657,8 @@ bool_t update_pipe_info(libusb_device_t *dev,
 {
     int i;
     int number;
-	int maxTransferSize;
-	int maxPacketSize;
+	ULONG maxTransferSize;
+	USHORT maxPacketSize;
 
     if (!interface_info)
     {
