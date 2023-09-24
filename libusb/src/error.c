@@ -16,6 +16,10 @@
  You should have received a copy of the GNU Lesser General Public License
  along with this program; if not, please visit www.gnu.org.
 */
+
+#if !IS_DRIVER
+#define _CRT_SECURE_NO_WARNINGS
+#endif
  
 #include "error.h"
 #include <errno.h>

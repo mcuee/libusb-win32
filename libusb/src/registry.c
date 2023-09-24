@@ -17,6 +17,7 @@
 * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 */
 
+#define _CRT_SECURE_NO_WARNINGS
 
 #include <windows.h>
 #include <ctype.h>
@@ -75,7 +76,7 @@ static bool_t usb_registry_get_class_filter_keys(filter_class_t* filter_class,
 
 bool_t usb_registry_is_nt(void)
 {
-	return GetVersion() < 0x80000000 ? TRUE : FALSE;
+	return TRUE;
 }
 
 bool_t usb_registry_get_property(DWORD which, HDEVINFO dev_info,

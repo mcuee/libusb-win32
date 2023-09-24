@@ -188,6 +188,8 @@ on_start_complete(DEVICE_OBJECT *device_object, IRP *irp, void *context)
 {
     libusb_device_t *dev = device_object->DeviceExtension;
 
+		UNREFERENCED_PARAMETER(context);
+
 	if (irp->PendingReturned)
     {
         IoMarkIrpPending(irp);
@@ -253,6 +255,7 @@ on_device_usage_notification_complete(DEVICE_OBJECT *device_object,
                                       IRP *irp, void *context)
 {
     libusb_device_t *dev = device_object->DeviceExtension;
+		UNREFERENCED_PARAMETER(context);
 
     if (irp->PendingReturned)
     {
@@ -275,6 +278,7 @@ on_query_capabilities_complete(DEVICE_OBJECT *device_object,
 {
     libusb_device_t *dev = device_object->DeviceExtension;
     IO_STACK_LOCATION *stack_location = IoGetCurrentIrpStackLocation(irp);
+		UNREFERENCED_PARAMETER(context);
 
     if (irp->PendingReturned)
     {

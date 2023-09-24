@@ -18,6 +18,7 @@
 * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 */
 
+#define  _CRT_SECURE_NO_WARNINGS
 
 #include <windows.h>
 #include <winsvc.h>
@@ -386,22 +387,7 @@ static void detect_version(void)
 
 	memset(&os_version, 0, sizeof(OSVERSIONINFO));
 	os_version.dwOSVersionInfoSize = sizeof(OSVERSIONINFO);
-	windows_version = WINDOWS_UNSUPPORTED;
-	if ((GetVersionEx(&os_version) != 0) && (os_version.dwPlatformId == VER_PLATFORM_WIN32_NT)) {
-		if ((os_version.dwMajorVersion == 5) && (os_version.dwMinorVersion == 0)) {
-			windows_version = WINDOWS_2K;
-		} else if ((os_version.dwMajorVersion == 5) && (os_version.dwMinorVersion == 1)) {
-			windows_version = WINDOWS_XP;
-		} else if ((os_version.dwMajorVersion == 5) && (os_version.dwMinorVersion == 2)) {
-			windows_version = WINDOWS_2003_XP64;
-		} else if (os_version.dwMajorVersion >= 6) {
-			if (os_version.dwBuildNumber < 7000) {
-				windows_version = WINDOWS_VISTA;
-			} else {
-				windows_version = WINDOWS_7;
-			}
-		}
-	}
+	windows_version = WINDOWS_7;
 }
 
 BOOL sem_create_lock(HANDLE* sem_handle_out, LPCSTR unique_name, LONG remaining, LONG max)
@@ -1200,71 +1186,32 @@ int usb_touch_inf_file_np(const char *inf_file)
 	                                  L"digital signature";
 
 	char buf[1024];
-	wchar_t wbuf[1024];
 	int found = 0;
-	OSVERSIONINFO version;
 	FILE *f;
 
-	version.dwOSVersionInfoSize = sizeof(OSVERSIONINFO);
+	f = fopen(inf_file, "r");
 
-	if (!GetVersionEx(&version))
+	if (!f)
 		return -1;
 
-
-	/* XP system */
-	if ((version.dwMajorVersion == 5) && (version.dwMinorVersion >= 1))
+	while (fgets(buf, sizeof(buf), f))
 	{
-		f = fopen(inf_file, "rb");
-
-		if (!f)
-			return -1;
-
-		while (fgetws(wbuf, sizeof(wbuf) / 2, f))
+		if (strstr(buf, inf_comment))
 		{
-			if (wcsstr(wbuf, inf_comment_uni))
-			{
-				found = 1;
-				break;
-			}
-		}
-
-		fclose(f);
-
-		if (!found)
-		{
-			f = fopen(inf_file, "ab");
-			/*           fputwc(0x000d, f); */
-			/*           fputwc(0x000d, f); */
-			fputws(inf_comment_uni, f);
-			fclose(f);
+			found = 1;
+			break;
 		}
 	}
-	else
+
+	fclose(f);
+
+	if (!found)
 	{
-		f = fopen(inf_file, "r");
-
-		if (!f)
-			return -1;
-
-		while (fgets(buf, sizeof(buf), f))
-		{
-			if (strstr(buf, inf_comment))
-			{
-				found = 1;
-				break;
-			}
-		}
-
+		f = fopen(inf_file, "a");
+		fputs("\n", f);
+		fputs(inf_comment, f);
+		fputs("\n", f);
 		fclose(f);
-
-		if (!found)
-		{
-			f = fopen(inf_file, "a");
-			fputs("\n", f);
-			fputs(inf_comment, f);
-			fputs("\n", f);
-			fclose(f);
-		}
 	}
 
 	return 0;
@@ -1327,7 +1274,7 @@ bool_t usb_install_parse_filter_context(filter_context_t* filter_context,
 	bool_t success = TRUE;
 	size_t length;
 	char tmp[MAX_PATH+1];
-	filter_device_t* found_device;
+	filter_device_t* found_device = NULL;
 	filter_class_t* found_class;
 	filter_file_t* found_inf;
 
