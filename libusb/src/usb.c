@@ -6,6 +6,8 @@
  * This library is covered by the LGPL, read LICENSE for details.
  */
 
+#define _CRT_SECURE_NO_WARNINGS
+
 #include <stdlib.h>	/* getenv */
 #include <stdio.h>	/* stderr */
 #include <string.h>	/* strcmp */

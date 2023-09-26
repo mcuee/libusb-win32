@@ -151,7 +151,8 @@ NTSTATUS get_descriptor(libusb_device_t *dev,
 				PUSB_CONFIGURATION_DESCRIPTOR config_desc;
 				size = ((PUSB_CONFIGURATION_DESCRIPTOR)buffer)->wTotalLength;
 
-				if (!( config_desc = allocate_pool(size)))
+				config_desc = allocate_pool(size);
+				if (!config_desc)
 				{
 					USBERR0("memory allocation error\n");
 					status =  STATUS_NO_MEMORY;
@@ -229,7 +230,8 @@ PUSB_CONFIGURATION_DESCRIPTOR get_config_descriptor(
         return NULL;
     }
 
-    if (!(desc = allocate_pool(sizeof(USB_CONFIGURATION_DESCRIPTOR))))
+		desc = allocate_pool(sizeof(USB_CONFIGURATION_DESCRIPTOR));
+		if (!desc)
     {
         USBERR0("memory allocation error\n");
         return NULL;
@@ -256,7 +258,8 @@ PUSB_CONFIGURATION_DESCRIPTOR get_config_descriptor(
             desc_size = desc->wTotalLength;
             ExFreePool(desc);
 
-            if (!(desc = allocate_pool(desc_size)))
+						desc = allocate_pool(desc_size);
+						if (!desc)
             {
                 USBERR0("memory allocation error\n");
                 break;

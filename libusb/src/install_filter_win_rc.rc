@@ -44,8 +44,6 @@
 #define RC_PRODUCT_STR    DIALOG_CAPTION
 #define RC_FILE_NAME_STR  "install-filter-win.exe"
 
-#include "libusb-win32_version.rc"
-
 /////////////////////////////////////////////////////////////////////////////
 //
 // Icon

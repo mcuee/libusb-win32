@@ -128,6 +128,8 @@ on_power_state_complete(DEVICE_OBJECT *device_object,
     POWER_STATE power_state = stack_location->Parameters.Power.State;
     DEVICE_POWER_STATE dev_power_state;
 
+    UNREFERENCED_PARAMETER(device_object);
+
     if (irp->PendingReturned)
     {
         IoMarkIrpPending(irp);
@@ -184,6 +186,8 @@ on_filter_power_state_complete(DEVICE_OBJECT *device_object,
     IO_STACK_LOCATION *stack_location = IoGetCurrentIrpStackLocation(irp);
     POWER_STATE power_state = stack_location->Parameters.Power.State;
 
+    UNREFERENCED_PARAMETER(device_object);
+
     if (NT_SUCCESS(irp->IoStatus.Status))
     {
         if (stack_location->Parameters.Power.Type == SystemPowerState)
@@ -229,6 +233,11 @@ on_power_set_device_state_complete(DEVICE_OBJECT *device_object,
                                    void *context,
                                    IO_STATUS_BLOCK *io_status)
 {
+    UNREFERENCED_PARAMETER(device_object);
+    UNREFERENCED_PARAMETER(minor_function);
+    UNREFERENCED_PARAMETER(power_state);
+    UNREFERENCED_PARAMETER(io_status);
+
     KeSetEvent((KEVENT *)context, EVENT_INCREMENT, FALSE);
 }
 
