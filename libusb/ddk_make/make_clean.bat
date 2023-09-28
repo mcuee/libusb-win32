@@ -1,37 +1,10 @@
-@echo off
+@echo on
 
 if "%1"=="all" (
-MSBuild ../projects/vs2019/libusb-win32.sln -t:Clean
-) else if "%2"=="" (
-MSBuild ../projects/vs2019/libusb-win32.sln -t:%1:Clean -p:BuildProjectReferences=false
-) else (
-MSBuild ../projects/vs2019/libusb-win32.sln -t:%1:Clean -p:Platform=%2;Configuration=%3;BuildProjectReferences=false
+if exist .\output\%2 rmdir /s /q .\output\%2
 )
 
-set OUTDIR=
-
-if exist .\output\i386 set OUTDIR=.\output\i386
-if exist .\output\amd64 set OUTDIR=.\output\amd64
-if exist .\output\ia64  set OUTDIR=.\output\ia64
-
-if "%OUTDIR%"=="" GOTO NO_OUTDIR
-  if exist %OUTDIR%\*.exe copy /y %OUTDIR%\*.exe . >NUL
-  if exist %OUTDIR%\*.dll copy /y %OUTDIR%\*.dll . >NUL
-  if exist %OUTDIR%\*.lib copy /y %OUTDIR%\*.lib . >NUL
-  if exist %OUTDIR%\*.sys copy /y %OUTDIR%\*.sys . >NUL
-:NO_OUTDIR
-
-if exist .\output rmdir /s /q .\output
-
-if exist .\objchk_wxp_x86 rmdir /s /q .\objchk_wxp_x86
-if exist .\objchk_wnet_AMD64 rmdir /s /q .\objchk_wnet_AMD64
-if exist .\objchk_wnet_IA64 rmdir /s /q .\objchk_wnet_IA64
-if exist .\objchk_wxp_ia64 rmdir /s /q .\objchk_wxp_ia64
-
-if exist .\objfre_wxp_x86 rmdir /s /q .\objfre_wxp_x86
-if exist .\objfre_wnet_AMD64 rmdir /s /q .\objfre_wnet_AMD64
-if exist .\objfre_wnet_IA64 rmdir /s /q .\objfre_wnet_IA64
-if exist .\objfre_wxp_ia64 rmdir /s /q .\objfre_wxp_ia64
+echo off
 
 if exist sources del /q sources 
 if exist *.def del *.def 

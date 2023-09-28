@@ -185,7 +185,7 @@ IF /I "!CMDVAR_ARCH!" EQU "notused" (
 CALL :CheckWinDDK post
 IF !BUILD_ERRORLEVEL! NEQ 0 GOTO CMDERROR
 
-call make_clean.bat all
+call make_clean.bat all !CMDVAR_ARCH!
 CALL :ClearError
 
 SET _LIBUSB_APP=!CMDVAR_APP!
@@ -226,7 +226,6 @@ GOTO CMDEXIT
 	CALL :TokenizeLibusbVersionH true
 	SET _title=Building libusb-win32 !_LIBUSB_APP! (!BUILD_ALT_DIR!)
 	title !_title!
-	CALL make_clean.bat all !CMDVAR_ARCH! !_RELEASE_OR_DEBUG_!
 
 	SET CMDVAR_BUILDARCH=!_BUILDARCH!
 	SET _ADD_C_DEFINES=/DLIBUSB0_DIR=\"!LIBUSB0_DIR!\"
@@ -593,6 +592,10 @@ GOTO :EOF
 		GOTO :EOF
 	)
 	CALL "!SELECTED_DDK!\BuildEnv\SetupBuildEnv.cmd" %1
+
+	:: EWDK turns ECHO back on, so turn it off
+	@ECHO OFF
+
 	SET BUILD_ERRORLEVEL=!ERRORLEVEL!
 	POPD
 	IF NOT !BUILD_ERRORLEVEL!==0 (

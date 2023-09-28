@@ -17,5 +17,5 @@ SET BUILD_ERRORLEVEL=0
 
 if exist libusb0.lib move /Y libusb0.lib libusb.lib >NUL
 
-MSBuild ../projects/vs2019/libusb-win32.sln -t:%1 -p:OutDir=output\%1\%3\;Configuration=%3;Platform=%2;BuildProjectReferences=false
+MSBuild ../projects/vs2019/libusb-win32.sln -t:%1 -p:OutDir=%~dp0\output\%2\%3\;Configuration=%3;Platform=%2;BuildProjectReferences=false
 IF %ERRORLEVEL% NEQ 0 SET BUILD_ERRORLEVEL=1
