@@ -2,18 +2,10 @@
 set TESTS_DIR=..\tests
 set SRC_DIR=..\src
 
-call make_clean.bat
-
-copy sources_install_filter sources >NUL
-copy %SRC_DIR%\*.c . >NUL
-copy %SRC_DIR%\*.h . >NUL
-copy %SRC_DIR%\*.rc . >NUL
-copy %SRC_DIR%\driver\driver_api.h . >NUL
-copy %SRC_DIR%\install-filter*.* . >NUL
-copy ..\manifest.txt . >NUL
+call make_clean.bat install-filter %*
 
 ECHO Building (%BUILD_ALT_DIR%) %0..
-CALL build_ddk.bat %*
+CALL build_ddk.bat install-filter %*
 IF %BUILD_ERRORLEVEL%==0 GOTO BUILD_SUCCESS
 GOTO BUILD_ERROR
 

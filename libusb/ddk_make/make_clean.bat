@@ -1,5 +1,13 @@
 @echo off
 
+if "%1"=="all" (
+MSBuild ../projects/vs2019/libusb-win32.sln -t:Clean
+) else if "%2"=="" (
+MSBuild ../projects/vs2019/libusb-win32.sln -t:%1:Clean -p:BuildProjectReferences=false
+) else (
+MSBuild ../projects/vs2019/libusb-win32.sln -t:%1:Clean -p:Platform=%2;Configuration=%3;BuildProjectReferences=false
+)
+
 set OUTDIR=
 
 if exist .\output\i386 set OUTDIR=.\output\i386

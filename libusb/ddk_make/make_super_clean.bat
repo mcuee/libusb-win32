@@ -1,23 +1,26 @@
 @echo off
 
-call make_clean.bat
+call make_clean.bat all
+
 DEL /Q *.exe *.dll *.sys *.lib *.log *.wrn *.err *.cer *.manifest *.ico ..\*.inf.in 2>NUL>NUL
 
 if exist .\x86 rmdir /s /q .\x86
 if exist .\x64 rmdir /s /q .\x64
+if exist .\AMD rmdir /s /q .\AMD
 if exist .\AMD64 rmdir /s /q .\AMD64
-if exist .\i64 rmdir /s /q .\i64
-if exist .\w2k rmdir /s /q .\w2k
 
 IF NOT EXIST ..\projects\ GOTO DONE
 
 PUSHD !CD!
-CD ..\projects
+CD ..\projects\vs2019
 RMDIR /S /Q .\Debug 2>NUL>NUL
 RMDIR /S /Q .\Release 2>NUL>NUL
-RMDIR /S /Q .\Win32 2>NUL>NUL
 RMDIR /S /Q .\x64 2>NUL>NUL
+RMDIR /S /Q .\ARM 2>NUL>NUL
+RMDIR /S /Q .\ARM64 2>NUL>NUL
+
 RMDIR /S /Q .\_ReSharper.libusb-win32 2>NUL>NUL
+RMDIR /S /Q .\.vs
 
 DEL /S /Q *.gitignore *.log  *.user *.ncb *.resharper 2>NUL>NUL
 DEL /S /Q /AH *.suo 2>NUL>NUL

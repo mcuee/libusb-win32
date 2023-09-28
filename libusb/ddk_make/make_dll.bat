@@ -2,18 +2,10 @@
 
 set SRC_DIR=..\src
 
-call make_clean.bat
-
-copy sources_dll sources >NUL
-
-copy %SRC_DIR%\*.c . >NUL
-copy ..\*.def . >NUL
-copy %SRC_DIR%\*.h . >NUL
-copy %SRC_DIR%\*.rc . >NUL
-copy %SRC_DIR%\driver\driver_api.h . >NUL
+call make_clean.bat libusb-dll %*
 
 ECHO Building (%BUILD_ALT_DIR%) %0..
-CALL build_ddk.bat %*
+CALL build_ddk.bat libusb-dll %*
 IF %BUILD_ERRORLEVEL%==0 GOTO BUILD_SUCCESS
 GOTO BUILD_ERROR
 

@@ -13,15 +13,9 @@ SET COMMON_C_DEFINES=%COMMON_C_DEFINES% /DLOG_APPNAME="\"$(LOG_APPNAME)\""
 IF DEFINED CMDVAR_LOG_DIRECTORY SET COMMON_C_DEFINES=%COMMON_C_DEFINES% /DLOG_DIRECTORY="\"$(CMDVAR_LOG_DIRECTORY)\""
 SET COMMON_C_DEFINES=%COMMON_C_DEFINES% %*
 
-IF EXIST "build%BUILD_ALT_DIR%.err" DEL /Q "build%BUILD_ALT_DIR%.err" >NUL
-IF EXIST "build%BUILD_ALT_DIR%.wrn" DEL /Q "build%BUILD_ALT_DIR%.wrn" >NUL
 SET BUILD_ERRORLEVEL=0
 
 if exist libusb0.lib move /Y libusb0.lib libusb.lib >NUL
 
-build -cwgZ 2>NUL>NUL
-IF EXIST "build%BUILD_ALT_DIR%.err" TYPE "build%BUILD_ALT_DIR%.err"
-IF EXIST "build%BUILD_ALT_DIR%.wrn" TYPE "build%BUILD_ALT_DIR%.wrn"
-IF EXIST "build%BUILD_ALT_DIR%.err" SET BUILD_ERRORLEVEL=1
-IF EXIST "build%BUILD_ALT_DIR%.err" SET ERRORLEVEL=1
-
+MSBuild ../projects/vs2019/libusb-win32.sln -t:%1 -p:OutDir=output\%1\%3\;Configuration=%3;Platform=%2;BuildProjectReferences=false
+IF %ERRORLEVEL% NEQ 0 SET BUILD_ERRORLEVEL=1

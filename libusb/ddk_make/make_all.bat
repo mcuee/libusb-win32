@@ -1,6 +1,5 @@
 @echo off
-call make_clean.bat
-SET ERRORLEVEL=0
+call make_clean.bat all %*
 
 call make_dll.bat %*
 IF NOT %ERRORLEVEL%==0 GOTO BUILD_ERROR
