@@ -189,13 +189,8 @@ call make_clean.bat all !CMDVAR_ARCH!
 CALL :ClearError
 
 SET _LIBUSB_APP=!CMDVAR_APP!
-IF EXIST "build!BUILD_ALT_DIR!.err" DEL /Q "build!BUILD_ALT_DIR!.err"
 CALL :Build
 IF !BUILD_ERRORLEVEL! NEQ 0 GOTO CMDERROR
-IF EXIST "build!BUILD_ALT_DIR!.err" (
-	SET BUILD_ERRORLEVEL=1
-	GOTO CMDERROR
-)
 
 :: 
 :: Copy binaries to the output directory
@@ -206,10 +201,10 @@ IF !ERRORLEVEL! NEQ 0 (
 	GOTO CMDERROR
 )
 
-IF EXIST *.sys MOVE /Y *.sys "!CMDVAR_OUTDIR!" >NUL
-IF EXIST *.dll MOVE /Y *.dll "!CMDVAR_OUTDIR!" >NUL
-IF EXIST *.exe MOVE /Y *.exe "!CMDVAR_OUTDIR!" >NUL
-IF EXIST libusb.lib COPY /Y libusb.lib "!CMDVAR_OUTDIR!" >NUL
+IF EXIST output\!CMDVAR_ARCH!\!_RELEASE_OR_DEBUG_!\*.sys MOVE /Y output\!CMDVAR_ARCH!\!_RELEASE_OR_DEBUG_!\*.sys "!CMDVAR_OUTDIR!" >NUL
+IF EXIST output\!CMDVAR_ARCH!\!_RELEASE_OR_DEBUG_!\*.dll MOVE /Y output\!CMDVAR_ARCH!\!_RELEASE_OR_DEBUG_!\*.dll "!CMDVAR_OUTDIR!" >NUL
+IF EXIST output\!CMDVAR_ARCH!\!_RELEASE_OR_DEBUG_!\*.exe MOVE /Y output\!CMDVAR_ARCH!\!_RELEASE_OR_DEBUG_!\*.exe "!CMDVAR_OUTDIR!" >NUL
+IF EXIST output\!CMDVAR_ARCH!\!_RELEASE_OR_DEBUG_!\libusb.lib COPY /Y output\!CMDVAR_ARCH!\!_RELEASE_OR_DEBUG_!\libusb.lib "!CMDVAR_OUTDIR!" >NUL
 
 CALL :DestroyErrorMarker
 
@@ -224,7 +219,7 @@ GOTO CMDEXIT
 :: 
 :Build
 	CALL :TokenizeLibusbVersionH true
-	SET _title=Building libusb-win32 !_LIBUSB_APP! (!BUILD_ALT_DIR!)
+	SET _title=Building libusb-win32 !_LIBUSB_APP!
 	title !_title!
 
 	SET CMDVAR_BUILDARCH=!_BUILDARCH!
@@ -239,10 +234,6 @@ GOTO CMDEXIT
 	IF !BUILD_ERRORLEVEL! NEQ 0 (
 		GOTO CMDERROR
 	)
-
-	IF /I "!CMDVAR_DIR_INTERMEDIATE!" NEQ "" (
-		CALL :SafeCopyDir "!DIR_LIBUSB_DDK!obj!BUILD_ALT_DIR!\" "!CMDVAR_DIR_INTERMEDIATE!"
-	)
 	
 	IF /I "!CMDVAR_TESTSIGNING!" EQU "on" (
 		IF EXIST libusb0.sys CALL :SignFile libusb0.sys
@@ -250,7 +241,7 @@ GOTO CMDEXIT
 	)
 
 	CALL :ClearError
-	IF EXIST libusb0.lib move libusb0.lib libusb.lib %~1
+	IF EXIST output\!CMDVAR_ARCH!\!_RELEASE_OR_DEBUG_!\libusb0.lib move output\!CMDVAR_ARCH!\!_RELEASE_OR_DEBUG_!\libusb0.lib output\!CMDVAR_ARCH!\!_RELEASE_OR_DEBUG_!\libusb.lib %~1
 GOTO :EOF
 
 :Build_Binaries
@@ -281,6 +272,9 @@ GOTO :EOF
 	POPD	
 
 	CALL :Build_PackageBinaries x64 msvc_x64 amd64
+	IF !BUILD_ERRORLEVEL! NEQ 0 GOTO CMDERROR
+
+	CALL :Build_PackageBinaries arm64 msvc_arm64 arm64
 	IF !BUILD_ERRORLEVEL! NEQ 0 GOTO CMDERROR
 
 	CALL :SafeCopy "..\src\libusb_dyn.c" "!PACKAGE_LIB_DIR!dynamic\"
