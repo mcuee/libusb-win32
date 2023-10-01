@@ -68,11 +68,8 @@ DRIVER_TARGET = $(TARGET)0.sys
 INSTALL_DIR = /usr
 VPATH = .:./src:./src/driver:./tests
 
-LIBWDI_DIR = ./projects/additional/libwdi/libwdi
 SRC_DIR = ./src
 DRIVER_SRC_DIR = $(SRC_DIR)/driver
-
-LIBWDI_CONFIG_H = -DWDF_VER=\"01009\" -DUSER_DIR=\"\" -DOPT_M32 -DWINVER=0x500
 
 DRIVER_OBJECTS = abort_endpoint.o claim_interface.o clear_feature.o \
 	dispatch.o get_configuration.o \
@@ -81,13 +78,6 @@ DRIVER_OBJECTS = abort_endpoint.o claim_interface.o clear_feature.o \
 	reset_endpoint.o set_configuration.o set_descriptor.o \
 	set_feature.o set_interface.o transfer.o vendor_request.o \
 	power.o driver_registry.o error.o libusb_driver_rc.o 
-
-LIBWDI_OBJECTS = $(LIBWDI_DIR)/logging.5.o \
-				 $(LIBWDI_DIR)/tokenizer.5.o \
-				 $(LIBWDI_DIR)/vid_data.5.o \
-				 $(LIBWDI_DIR)/libwdi_dlg.5.o \
-				 $(LIBWDI_DIR)/libwdi.5.o
-				 
 
 INCLUDES = -I./src -I./src/driver -I.
 driver: INCLUDES += $(DDK_INCLUDE)
@@ -119,12 +109,6 @@ DLL_LDFLAGS = -s -mdll \
 	-Wl,--out-implib,$(LIB_TARGET).a \
 	-Wl,--enable-stdcall-fixup \
 	-L. -lcfgmgr32 -lsetupapi -lgdi32
-
-LIBWDI_DLL_LDFLAGS = -s -shared \
-	-Wl,--kill-at \
-	-Wl,--out-implib,libwdi.a \
-	-Wl,--enable-stdcall-fixup \
-	-L. -lnewdev -lsetupapi -lole32
 
 DRIVER_LDFLAGS = -s -shared -Wl,--entry,$(DRIVERENTRY) \
 	-nostartfiles -nostdlib -L. -lusbd -lntoskrnl -lhal
@@ -191,53 +175,6 @@ testlibusb-win.exe: testlibusb_win.4.o testlibusb_win_rc.4.o
 %.4.o: %.rc
 	$(WINDRES) $(CPPFLAGS) $(WINDRES_FLAGS) $< -o $@
 
-#
-# LIBWDI installer_x86
-#
-.PHONY: installer_x86
-installer_x86: INSTALLER_CFLAGS = $(CFLAGS) -DLOG_APPNAME=\"installer_x86\" -DTARGETTYPE=PROGRAMconsole $(LIBWDI_CONFIG_H)
-installer_x86: INSTALLER_LDFLAGS = -s -L. -ladvapi32 -lnewdev -lsetupapi
-installer_x86: installer_x86.exe
-
-installer_x86.exe: $(LIBWDI_DIR)/installer.6.o
-	$(CC86) $(INSTALLER_CFLAGS) -o $@ -I$(LIBWDI_DIR)  $^ $(INSTALLER_LDFLAGS)
-	$(CP) $(LIBWDI_DIR)/../msvc/config.h $(LIBWDI_DIR)
-
-%.6.o: %.c $(LIBWDI_DIR)/installer.h
-	$(CC86) -c $< -o $@ $(INSTALLER_CFLAGS) $(CPPFLAGS) -DWINVER=0x500 -I$(LIBWDI_DIR)
-
-#
-# LIBWDI embedder
-#
-.PHONY: embedder
-embedder: installer_x86
-embedder: EMBEDDER_CFLAGS = $(CFLAGS) -DLOG_APPNAME=\"embedder\" -DTARGETTYPE=PROGRAMconsole $(LIBWDI_CONFIG_H)
-embedder: EMBEDDER_LDFLAGS = -s -L. -luser32 -lversion
-embedder: embedder.exe
-
-embedder.exe: $(LIBWDI_DIR)/embedder.7.o
-	$(CC86) $(EMBEDDER_CFLAGS) -o $@ -I$(LIBWDI_DIR) $^ $(EMBEDDER_LDFLAGS)
-	$(CP) -u $(LIBWDI_DIR)/winusb.inf.in ./
-	$(CP) -u $(LIBWDI_DIR)/libusb-win32.inf.in ./
-	./embedder.exe embedded.h
-
-%.7.o: %.c $(LIBWDI_DIR)/embedder.h
-	$(CC86) -c $< -o $@ $(EMBEDDER_CFLAGS) $(CPPFLAGS) -DWINVER=0x500 -I$(LIBWDI_DIR)
-
-.PHONY: infwizard
-infwizard: embedder
-infwizard: INFWIZARD_CFLAGS = $(CFLAGS) -DLOG_APPNAME=\"infwizard\" -DTARGETTYPE=PROGRAMwindows
-infwizard: inf-wizard.exe
-
-inf-wizard.exe: inf_wizard.5.o inf_wizard_rc.5.o $(LIBWDI_OBJECTS)
-	$(CC86) $(WIN_CFLAGS) -o $@ -I./src -I$(LIBWDI_DIR) $^ $(WIN_LDFLAGS)
-
-%.5.o: %.c libusb-win32_version.h $(LIBWDI_DIR)/libwdi.h
-	$(CC86) -c $< -o $@ -I$(LIBWDI_DIR) $(INFWIZARD_CFLAGS) $(CPPFLAGS) $(INCLUDES) 
-
-%.5.o: %.rc
-	$(WINDRES86) $(CPPFLAGS) $(WINDRES_FLAGS) $< -o $@
-
 .PHONY: driver
 driver: DRIVER_CFLAGS = $(CFLAGS) -DLOG_APPNAME=\"$(DLL_TARGET)-sys\" -DTARGETTYPE=DRIVER
 driver: $(DRIVER_TARGET)
@@ -257,8 +194,6 @@ libusbd.a:
 .PHONY: cleantemp
 cleantemp:	
 	$(RM) *.o *.a *.exp *.tar.gz *~ *.iss *.rc *.h
-	$(RM) $(LIBWDI_DIR)/*.o
-	$(RM) $(LIBWDI_DIR)/config.h
 	$(RM) ./src/*~ *.log
 	$(RM) $(DRIVER_SRC_DIR)/*~
 	$(RM) README.txt
