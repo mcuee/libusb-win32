@@ -1,9 +1,9 @@
 # libusb-win32
-This is imported from libusb-win32 Subversion.
+libusb-win32 is a port of the libusb-0.1 API for Windows with some additional asynchronous transfer support. The library allows user space applications to access many USB device on Windows.
 
-libusb-win32 is now in Bug-Fix-Only maintenance mode. It is recommended new project should migrate to libusb-1.0 API and use libusb Windows (http://libusb.info) instead, especially for cross platform project. You can also consider migrating to libusbk (https://sourceforge.net/projects/libusbk/) if your project is for Windows only.
+There are two parts of this project: digital signed kernel driver (libusb0.sys) and user space library (libusb0.dll).
 
-Status: with very limited support
+Status: supported
 
 Maintained by Peter Dons Tychsen (developer) and Xiaofan Chen (technical support)
 
