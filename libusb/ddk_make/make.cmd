@@ -348,8 +348,6 @@ GOTO :EOF
 	
 	PUSHD "!CD!"
 	CD /D "!PACKAGE_WORKING!"
-	
-	CALL :DeleteAllDirectories ".svn"
 
 	"!ZIP!" -tzip a -r "!PACKAGE_SAVE_DIR!!CMDVAR_PCKGNAME!.zip" ".\!CMDVAR_PCKGNAME!"
 	CALL :SafeDeleteDir ".\!CMDVAR_PCKGNAME!"
@@ -370,7 +368,6 @@ GOTO :EOF
 	PUSHD "!CD!"
 	CD /D "!PACKAGE_WORKING!"
 	
-	CALL :DeleteAllDirectories ".svn"
 	"!ZIP!" -tzip a -r "!PACKAGE_SAVE_DIR!!CMDVAR_PCKGNAME!.zip" ".\!CMDVAR_PCKGNAME!"
 	CALL :SafeDeleteDir ".\!CMDVAR_PCKGNAME!\"
 	POPD
@@ -391,7 +388,6 @@ GOTO :EOF
 	
 	PUSHD "!CD!"
 	CD /D "!_WORKING_DIR!"
-	CALL :DeleteAllDirectories ".svn"
 	"!ISCC!" "filter-bin-setup.iss"
 	IF !ERRORLEVEL! NEQ 0 GOTO CMDERROR
 
@@ -500,18 +496,6 @@ GOTO :EOF
 		MOVE /Y "%~1" "%~2"
 		GOTO :EOF
 	)
-GOTO :EOF
-
-:DeleteAllDirectories
-	CALL :CreateTempFile CLEAN_SVN_TMP
-	
-	DIR /B /S "%~1">!CLEAN_SVN_TMP!
-	FOR /F "eol=; tokens=1* usebackq delims=" %%I IN (!CLEAN_SVN_TMP!) DO (
-		CALL :SafeDeleteDir "%%I"
-	)
-
-	CALL :DestroyTempFile CLEAN_SVN_TMP
-
 GOTO :EOF
 
 :: 
