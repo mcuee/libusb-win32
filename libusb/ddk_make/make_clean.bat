@@ -1,29 +1,10 @@
-@echo off
+@echo on
 
-set OUTDIR=
+if "%1"=="all" (
+if exist .\output\%2 rmdir /s /q .\output\%2
+)
 
-if exist .\output\i386 set OUTDIR=.\output\i386
-if exist .\output\amd64 set OUTDIR=.\output\amd64
-if exist .\output\ia64  set OUTDIR=.\output\ia64
-
-if "%OUTDIR%"=="" GOTO NO_OUTDIR
-  if exist %OUTDIR%\*.exe copy /y %OUTDIR%\*.exe . >NUL
-  if exist %OUTDIR%\*.dll copy /y %OUTDIR%\*.dll . >NUL
-  if exist %OUTDIR%\*.lib copy /y %OUTDIR%\*.lib . >NUL
-  if exist %OUTDIR%\*.sys copy /y %OUTDIR%\*.sys . >NUL
-:NO_OUTDIR
-
-if exist .\output rmdir /s /q .\output
-
-if exist .\objchk_wxp_x86 rmdir /s /q .\objchk_wxp_x86
-if exist .\objchk_wnet_AMD64 rmdir /s /q .\objchk_wnet_AMD64
-if exist .\objchk_wnet_IA64 rmdir /s /q .\objchk_wnet_IA64
-if exist .\objchk_wxp_ia64 rmdir /s /q .\objchk_wxp_ia64
-
-if exist .\objfre_wxp_x86 rmdir /s /q .\objfre_wxp_x86
-if exist .\objfre_wnet_AMD64 rmdir /s /q .\objfre_wnet_AMD64
-if exist .\objfre_wnet_IA64 rmdir /s /q .\objfre_wnet_IA64
-if exist .\objfre_wxp_ia64 rmdir /s /q .\objfre_wxp_ia64
+echo off
 
 if exist sources del /q sources 
 if exist *.def del *.def 

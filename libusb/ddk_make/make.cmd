@@ -52,20 +52,21 @@ IF /I "!_PACKAGE_TYPE_!" EQU "cleanpackage" (
 )
 IF /I "!_PACKAGE_TYPE_!" EQU "all" (
 	CALL :Build_Binaries %*
-	IF "!BUILD_ERRORLEVEL!" NEQ 0 GOTO CMDERROR
+	IF !BUILD_ERRORLEVEL! NEQ 0 GOTO CMDERROR
 	GOTO CMDEXIT
 )
 IF /I "!_PACKAGE_TYPE_!" EQU "bin" (
 	CALL :Build_Binaries %*
-	IF "!BUILD_ERRORLEVEL!" NEQ 0 GOTO CMDERROR
+	IF !BUILD_ERRORLEVEL! NEQ 0 GOTO CMDERROR
 	GOTO CMDEXIT
 )
 
 IF /I "!_PACKAGE_TYPE_!" EQU "dist" (
 	SET LIBUSB_DIST_BUILD=true
+	CALL :SetDDK "!CMDVAR_WINDDK_DIR!"
 	CALL :TokenizeLibusbVersionH %*
 	CALL :Package_Distributables %*
-	IF "!BUILD_ERRORLEVEL!" NEQ 0 GOTO CMDERROR
+	IF !BUILD_ERRORLEVEL! NEQ 0 GOTO CMDERROR
 	GOTO CMDEXIT
 )
 
@@ -159,17 +160,23 @@ IF NOT DEFINED CMDVAR_ARCH (
 CALL :CheckWinDDK pre
 IF "!BUILD_ERRORLEVEL!" NEQ "0" GOTO CMDERROR
 
-SET _FRE_OR_CHECK_=fre
-IF /I "!CMDVAR_DEBUGMODE!" equ "true" SET _FRE_OR_CHECK_=chk
+SET _RELEASE_OR_DEBUG_=Release
+IF /I "!CMDVAR_DEBUGMODE!" equ "true" SET _RELEASE_OR_DEBUG_=Debug
 
 IF /I "!CMDVAR_ARCH!" EQU "notused" (
-	CALL :SetDDK "!CMDVAR_WINDDK_DIR!" normal !_FRE_OR_CHECK_! WXP
+	CALL :SetDDK "!CMDVAR_WINDDK_DIR!"
 	IF !BUILD_ERRORLEVEL! NEQ 0 GOTO CMDERROR
 ) ELSE IF /I "!CMDVAR_ARCH!" EQU "x64" (
-	CALL :SetDDK "!CMDVAR_WINDDK_DIR!" normal !_FRE_OR_CHECK_! x64 WNET
+	CALL :SetDDK "!CMDVAR_WINDDK_DIR!"
 	IF !BUILD_ERRORLEVEL! NEQ 0 GOTO CMDERROR
 ) ELSE IF /I "!CMDVAR_ARCH!" EQU "x86" (
-	CALL :SetDDK "!CMDVAR_WINDDK_DIR!" forceoacr !_FRE_OR_CHECK_! WXP
+	CALL :SetDDK "!CMDVAR_WINDDK_DIR!"
+	IF !BUILD_ERRORLEVEL! NEQ 0 GOTO CMDERROR
+) ELSE IF /I "!CMDVAR_ARCH!" EQU "arm" (
+	CALL :SetDDK "!CMDVAR_WINDDK_DIR!"
+	IF !BUILD_ERRORLEVEL! NEQ 0 GOTO CMDERROR
+) ELSE IF /I "!CMDVAR_ARCH!" EQU "arm64" (
+	CALL :SetDDK "!CMDVAR_WINDDK_DIR!"
 	IF !BUILD_ERRORLEVEL! NEQ 0 GOTO CMDERROR
 ) ELSE (
 	ECHO Invalid argument. arch=!CMDVAR_ARCH!
@@ -178,17 +185,12 @@ IF /I "!CMDVAR_ARCH!" EQU "notused" (
 CALL :CheckWinDDK post
 IF !BUILD_ERRORLEVEL! NEQ 0 GOTO CMDERROR
 
-call make_clean.bat
+call make_clean.bat all !CMDVAR_ARCH!
 CALL :ClearError
 
 SET _LIBUSB_APP=!CMDVAR_APP!
-IF EXIST "build!BUILD_ALT_DIR!.err" DEL /Q "build!BUILD_ALT_DIR!.err"
 CALL :Build
 IF !BUILD_ERRORLEVEL! NEQ 0 GOTO CMDERROR
-IF EXIST "build!BUILD_ALT_DIR!.err" (
-	SET BUILD_ERRORLEVEL=1
-	GOTO CMDERROR
-)
 
 :: 
 :: Copy binaries to the output directory
@@ -199,10 +201,10 @@ IF !ERRORLEVEL! NEQ 0 (
 	GOTO CMDERROR
 )
 
-IF EXIST *.sys MOVE /Y *.sys "!CMDVAR_OUTDIR!" >NUL
-IF EXIST *.dll MOVE /Y *.dll "!CMDVAR_OUTDIR!" >NUL
-IF EXIST *.exe MOVE /Y *.exe "!CMDVAR_OUTDIR!" >NUL
-IF EXIST libusb.lib COPY /Y libusb.lib "!CMDVAR_OUTDIR!" >NUL
+IF EXIST output\!CMDVAR_ARCH!\!_RELEASE_OR_DEBUG_!\*.sys MOVE /Y output\!CMDVAR_ARCH!\!_RELEASE_OR_DEBUG_!\*.sys "!CMDVAR_OUTDIR!" >NUL
+IF EXIST output\!CMDVAR_ARCH!\!_RELEASE_OR_DEBUG_!\*.dll MOVE /Y output\!CMDVAR_ARCH!\!_RELEASE_OR_DEBUG_!\*.dll "!CMDVAR_OUTDIR!" >NUL
+IF EXIST output\!CMDVAR_ARCH!\!_RELEASE_OR_DEBUG_!\*.exe MOVE /Y output\!CMDVAR_ARCH!\!_RELEASE_OR_DEBUG_!\*.exe "!CMDVAR_OUTDIR!" >NUL
+IF EXIST output\!CMDVAR_ARCH!\!_RELEASE_OR_DEBUG_!\libusb.lib COPY /Y output\!CMDVAR_ARCH!\!_RELEASE_OR_DEBUG_!\libusb.lib "!CMDVAR_OUTDIR!" >NUL
 
 CALL :DestroyErrorMarker
 
@@ -217,10 +219,9 @@ GOTO CMDEXIT
 :: 
 :Build
 	CALL :TokenizeLibusbVersionH true
-	SET _title=Building libusb-win32 !_LIBUSB_APP! (!BUILD_ALT_DIR!)
+	SET _title=Building libusb-win32 !_LIBUSB_APP!
 	title !_title!
-	CALL make_clean.bat
-	
+
 	SET CMDVAR_BUILDARCH=!_BUILDARCH!
 	SET _ADD_C_DEFINES=/DLIBUSB0_DIR=\"!LIBUSB0_DIR!\"
 	IF DEFINED CMDVAR_LOG_OUTPUT (
@@ -228,17 +229,11 @@ GOTO CMDEXIT
 		SET _ADD_C_DEFINES=!_ADD_C_DEFINES! /DLOG_OUTPUT_TYPE=!_LOG_OUTPUT_!
 	)
 	
-	CALL make_!_LIBUSB_APP!.bat !_ADD_C_DEFINES!
+	CALL make_!_LIBUSB_APP!.bat !CMDVAR_ARCH! !_RELEASE_OR_DEBUG_! !_ADD_C_DEFINES!
 	IF !ERRORLEVEL! NEQ 0 SET BUILD_ERRORLEVEL=1
 	IF !BUILD_ERRORLEVEL! NEQ 0 (
 		GOTO CMDERROR
 	)
-
-	IF /I "!CMDVAR_DIR_INTERMEDIATE!" NEQ "" (
-		CALL :SafeCopyDir "!DIR_LIBUSB_DDK!obj!BUILD_ALT_DIR!\" "!CMDVAR_DIR_INTERMEDIATE!"
-	)
-
-	IF /I "!CMDVAR_NOCLEAN" NEQ "true" CALL make_clean.bat %1
 	
 	IF /I "!CMDVAR_TESTSIGNING!" EQU "on" (
 		IF EXIST libusb0.sys CALL :SignFile libusb0.sys
@@ -246,7 +241,7 @@ GOTO CMDEXIT
 	)
 
 	CALL :ClearError
-	IF EXIST libusb0.lib move libusb0.lib libusb.lib %~1
+	IF EXIST output\!CMDVAR_ARCH!\!_RELEASE_OR_DEBUG_!\libusb0.lib move output\!CMDVAR_ARCH!\!_RELEASE_OR_DEBUG_!\libusb0.lib output\!CMDVAR_ARCH!\!_RELEASE_OR_DEBUG_!\libusb.lib %~1
 GOTO :EOF
 
 :Build_Binaries
@@ -279,6 +274,9 @@ GOTO :EOF
 	CALL :Build_PackageBinaries x64 msvc_x64 amd64
 	IF !BUILD_ERRORLEVEL! NEQ 0 GOTO CMDERROR
 
+	CALL :Build_PackageBinaries arm64 msvc_arm64 arm64
+	IF !BUILD_ERRORLEVEL! NEQ 0 GOTO CMDERROR
+
 	CALL :SafeCopy "..\src\libusb_dyn.c" "!PACKAGE_LIB_DIR!dynamic\"
 	
 	CALL :SafeCopy "!PACKAGE_ROOT_DIR!gcc\libusb.a" "!PACKAGE_LIB_DIR!gcc\libusb.a" false
@@ -293,7 +291,7 @@ GOTO :EOF
 	ECHO libusb-win32 v!VERSION! binaries built at '!PACKAGE_BIN_DIR!'
 
 	IF /I "!LIBUSB_DIST_BUILD!" EQU "true" (
-		SET /P __DUMMY=[Sign these files now and/or press 'Enter' to continue]
+		SET /P __DUMMY=[Sign these files now and/or press 'Enter' to continue] || cd .
 	)
 	ECHO.
 
@@ -582,12 +580,16 @@ GOTO :EOF
 	SHIFT /1
 	IF /I "%~1" EQU "forceoacr" SET WINDDK_AUTOCODEREVIEW=
 	SHIFT /1
-	IF NOT EXIST "!SELECTED_DDK!\bin\setenv.bat" (
-		ECHO Failed locating WinDDK setenv.bat at '!SELECTED_DDK!\bin\setenv.bat'
+	IF NOT EXIST "!SELECTED_DDK!\BuildEnv\SetupBuildEnv.cmd" (
+		ECHO Failed locating WinDDK SetupBuildEnv.cmd at '!SELECTED_DDK!\BuildEnv\SetupBuildEnv.cmd'
 		SET BUILD_ERRORLEVEL=1
 		GOTO :EOF
 	)
-	CALL "!SELECTED_DDK!\bin\setenv.bat" !SELECTED_DDK! %1 %2 %3 %4 !WINDDK_AUTOCODEREVIEW!
+	CALL "!SELECTED_DDK!\BuildEnv\SetupBuildEnv.cmd" %1
+
+	:: EWDK turns ECHO back on, so turn it off
+	@ECHO OFF
+
 	SET BUILD_ERRORLEVEL=!ERRORLEVEL!
 	POPD
 	IF NOT !BUILD_ERRORLEVEL!==0 (
@@ -640,13 +642,8 @@ GOTO :EOF
 			GOTO :EOF
 
 	) ELSE (
-		IF DEFINED _NT_TARGET_VERSION (
-			ECHO WinDDK ok. Target version = !_NT_TARGET_VERSION!
-			SET BUILD_ERRORLEVEL=0
-		) ELSE (
-			ECHO Unable to configure WinDDK.
-			GOTO :EOF
-		)
+		ECHO WinDDK ok.
+		SET BUILD_ERRORLEVEL=0
 	)
 GOTO :EOF
 
@@ -921,13 +918,11 @@ GOTO :EOF
 
 
 :ClearError
-	SET ERRORLEVEL=0
 	SET BUILD_ERRORLEVEL=0
 GOTO :EOF
 
 :CMDERROR
 	SET BUILD_ERRORLEVEL=1
-	SET ERRORLEVEL=1
 GOTO CMDEXIT
 
 :CMDEXIT
@@ -945,7 +940,7 @@ ECHO          [see also make.cfg]
 ECHO.
 ECHO BUILD USAGE: CMD /C make.cmd "Option=Value"
 ECHO Options: 
-ECHO [req] ARCH      x86/x64
+ECHO [req] ARCH      x86/x64/arm/arm64
 ECHO APP		  all/dll/driver/install_filter/install_filter_win/test/testwin
 ECHO              [Default = all]
 ECHO OUTDIR		  Directory that will contain the compiled binaries
