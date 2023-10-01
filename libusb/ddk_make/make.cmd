@@ -1,8 +1,9 @@
 @ECHO OFF
 SETLOCAL ENABLEEXTENSIONS ENABLEDELAYEDEXPANSION
 :: oooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooo
-:: LIBUSB-WIN32 WINDDK MAKE UTILITY
+:: LIBUSB-WIN32 EWDK MAKE UTILITY
 :: Travis Robinson [libusbdotnet@gmail.com]
+:: Peter Dons Tychesn [pdt@dontech.dk]
 ::
 :: NOTE: param/values passed into make.cmd will override make.cfg
 :: NOTE: destination directories are automatically created
@@ -115,30 +116,6 @@ IF /I "%~1" EQU "packagesetup" (
 IF /I "%~1" EQU "signfile" (
 	CALL :SignFile %2
 	IF !BUILD_ERRORLEVEL! NEQ 0 GOTO CMDERROR
-	GOTO CMDEXIT
-)
-
-IF /I "%~1" EQU "launchdevenv" (
-	CALL :ToShortName DIR_VS_IDE_10 "%VS100COMNTOOLS%..\IDE\"
-	CALL :ToShortName DIR_VS_IDE_9 "%VS90COMNTOOLS%..\IDE\"
-	IF EXIST "!DIR_VS_IDE_10!" (
-		SET DIR_VS=!DIR_VS_IDE_10!
-	) ELSE IF EXIST "!DIR_VS_IDE_9!" (
-		SET DIR_VS=!DIR_VS_IDE_9!
-	) ELSE (
-		Echo failed locating visual studio ide directory
-		GOTO CMDEXIT
-	)
-
-	IF EXIST "!DIR_VS!devenv.exe" (
-		"!DIR_VS!devenv.exe" %2
-	) ELSE IF EXIST "!DIR_VS!VCExpress.exe" (
-		"!DIR_VS!VCExpress.exe" %2
-	) ELSE (
-		Echo failed locating visual studio ide
-		GOTO CMDEXIT
-	)
-
 	GOTO CMDEXIT
 )
 
@@ -264,11 +241,6 @@ GOTO :EOF
 	CALL :BuildLib_GCC libusb_gcc.a libusb0.dll "!DIR_LIBUSB!libusb0.def"
 	CALL :SafeMove libusb_gcc.a "!PACKAGE_LIB_DIR!gcc\libusb.a"
 	
-	:: 
-	:: build bcc lib 
-	:: 
-	CALL :BuildLib_BCC libusb_bcc.lib libusb0.dll
-	CALL :SafeMove libusb_bcc.lib "!PACKAGE_LIB_DIR!bcc\libusb.lib"
 	POPD	
 
 	CALL :Build_PackageBinaries x64 msvc_x64 amd64
@@ -280,7 +252,6 @@ GOTO :EOF
 	CALL :SafeCopy "..\src\libusb_dyn.c" "!PACKAGE_LIB_DIR!dynamic\"
 	
 	CALL :SafeCopy "!PACKAGE_ROOT_DIR!gcc\libusb.a" "!PACKAGE_LIB_DIR!gcc\libusb.a" false
-	CALL :SafeCopy "!PACKAGE_ROOT_DIR!bcc\libusb.lib" "!PACKAGE_LIB_DIR!bcc\libusb.lib" false
 	CALL :SafeMove "!PACKAGE_BIN_DIR!x86\libusb0.dll" "!PACKAGE_BIN_DIR!x86\libusb0_x86.dll"
 	
 	
@@ -372,7 +343,6 @@ GOTO :EOF
 	CALL :SafeCopy "..\src\lusb0_usb.h" "!_WORKING_DIR!include\"
 
 	CALL :SafeCopy "!PACKAGE_ROOT_DIR!gcc\*" "!_WORKING_DIR!lib\gcc\"
-	CALL :SafeCopy "!PACKAGE_ROOT_DIR!bcc\*" "!_WORKING_DIR!lib\bcc\"
 
 	CALL :PackageText bin "!_WORKING_DIR!"
 	
@@ -557,19 +527,6 @@ GOTO :EOF
 	IF !ERRORLEVEL! NEQ 0 ECHO [WARNING] gcc dlltool tool failed.
 GOTO :EOF
 
-:: 
-:: params = outlibfile indllfile
-::
-:BuildLib_BCC
-	IF NOT EXIST "!CMDVAR_IMPLIB!" (
-		ECHO [WARNING] bcc implib tool not found. Skipping bcc lib build..
-		GOTO :EOF
-	)
-
-	"!CMDVAR_IMPLIB!" -a %~1 %~2
-	IF !ERRORLEVEL! NEQ 0 ECHO [WARNING] bcc implib tool failed.
-GOTO :EOF
-
 :TryCopyGccBinaries
 	CALL :SafeCopy ..\libusb.a "!PACKAGE_ROOT_DIR!gcc\"
 GOTO :EOF
@@ -604,6 +561,9 @@ GOTO :EOF
 	IF NOT EXIST "!PACKAGE_BIN_DIR!amd64\*.dll" GOTO BinariesNotBuilt
 	IF NOT EXIST "!PACKAGE_BIN_DIR!amd64\*.sys" GOTO BinariesNotBuilt
 	IF NOT EXIST "!PACKAGE_BIN_DIR!amd64\*.exe" GOTO BinariesNotBuilt
+	IF NOT EXIST "!PACKAGE_BIN_DIR!arm64\*.dll" GOTO BinariesNotBuilt
+	IF NOT EXIST "!PACKAGE_BIN_DIR!arm64\*.sys" GOTO BinariesNotBuilt
+	IF NOT EXIST "!PACKAGE_BIN_DIR!arm64\*.exe" GOTO BinariesNotBuilt
 	GOTO :EOF
 	
 	:BinariesNotBuilt
@@ -934,18 +894,18 @@ EXIT /B !BUILD_ERRORLEVEL!
 ECHO.
 ECHO LIBUSB-WIN32 WinDDK build utility/application packager
 ECHO.
-ECHO Summary: This batch script automates the libusb-win32 WinDDK build process
+ECHO Summary: This batch script automates the libusb-win32 EWDK build process
 ECHO          and creates libusb-win32 redistributable packages.
 ECHO          [see also make.cfg]
 ECHO.
 ECHO BUILD USAGE: CMD /C make.cmd "Option=Value"
 ECHO Options: 
-ECHO [req] ARCH      x86/x64/arm/arm64
-ECHO APP		  all/dll/driver/install_filter/install_filter_win/test/testwin
+ECHO [req] ARCH   x86/x64/arm/arm64
+ECHO APP          all/dll/driver/install_filter/install_filter_win/test/testwin
 ECHO              [Default = all]
-ECHO OUTDIR		  Directory that will contain the compiled binaries
+ECHO OUTDIR       Directory that will contain the compiled binaries
 ECHO              [Default = .\ARCH]
-ECHO WINDDK		  WinDDK directory for WXP-WIN7 builds
+ECHO WINDDK       EWDK root directory
 ECHO              [Default = see make.cfg]
 ECHO DEBUGMODE    Setting this option to 'true' makes chk builds instead of fre.
 ECHO              This also enables kernel debug messages and sets all default
@@ -969,7 +929,7 @@ ECHO.
 ECHO [Note: See make.cfg for more options that can be used when building]
 ECHO Examples:
 ECHO CMD /C make.cmd "arch=x86" "app=all" "outdir=.\x86"
-ECHO CMD /C make.cmd "arch=x64" "outdir=.\x64" "winddk=%SystemDrive%\WinDDK\7600.16385.0\"
+ECHO CMD /C make.cmd "arch=x64" "outdir=.\x64" "winddk=E:\"
 ECHO CMD /C make.cmd "arch=x64" "testsigning=on"
 ECHO CMD /C make.cmd "arch=x86"
 ECHO.
