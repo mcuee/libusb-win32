@@ -84,12 +84,10 @@ IF /I "!_PACKAGE_TYPE_!" EQU "makever" (
 )
 
 IF /I "%~1" EQU "packagebin" (
-	CALL :PrepForPackaging %*
-	CALL :CheckOrBuildBinaries
+	CALL :Build_Binaries %*
 	IF !BUILD_ERRORLEVEL! NEQ 0 GOTO CMDERROR
-
-	CALL :Package_Bin
-	IF "!BUILD_ERRORLEVEL!" NEQ 0 GOTO CMDERROR
+	CALL :Package_Bin %*
+	IF !BUILD_ERRORLEVEL! NEQ 0 GOTO CMDERROR
 	GOTO CMDEXIT
 )
 
@@ -165,6 +163,8 @@ IF !BUILD_ERRORLEVEL! NEQ 0 GOTO CMDERROR
 call make_clean.bat all !CMDVAR_ARCH!
 CALL :ClearError
 
+SET BUILD_DIR=!BUILD_BASE_DIR!!CMDVAR_ARCH!\!_RELEASE_OR_DEBUG_!\
+
 SET _LIBUSB_APP=!CMDVAR_APP!
 CALL :Build
 IF !BUILD_ERRORLEVEL! NEQ 0 GOTO CMDERROR
@@ -178,10 +178,10 @@ IF !ERRORLEVEL! NEQ 0 (
 	GOTO CMDERROR
 )
 
-IF EXIST output\!CMDVAR_ARCH!\!_RELEASE_OR_DEBUG_!\*.sys MOVE /Y output\!CMDVAR_ARCH!\!_RELEASE_OR_DEBUG_!\*.sys "!CMDVAR_OUTDIR!" >NUL
-IF EXIST output\!CMDVAR_ARCH!\!_RELEASE_OR_DEBUG_!\*.dll MOVE /Y output\!CMDVAR_ARCH!\!_RELEASE_OR_DEBUG_!\*.dll "!CMDVAR_OUTDIR!" >NUL
-IF EXIST output\!CMDVAR_ARCH!\!_RELEASE_OR_DEBUG_!\*.exe MOVE /Y output\!CMDVAR_ARCH!\!_RELEASE_OR_DEBUG_!\*.exe "!CMDVAR_OUTDIR!" >NUL
-IF EXIST output\!CMDVAR_ARCH!\!_RELEASE_OR_DEBUG_!\libusb.lib COPY /Y output\!CMDVAR_ARCH!\!_RELEASE_OR_DEBUG_!\libusb.lib "!CMDVAR_OUTDIR!" >NUL
+IF EXIST !BUILD_DIR!*.sys MOVE /Y !BUILD_DIR!*.sys "!CMDVAR_OUTDIR!" >NUL
+IF EXIST !BUILD_DIR!*.dll MOVE /Y !BUILD_DIR!*.dll "!CMDVAR_OUTDIR!" >NUL
+IF EXIST !BUILD_DIR!*.exe MOVE /Y !BUILD_DIR!*.exe "!CMDVAR_OUTDIR!" >NUL
+IF EXIST !BUILD_DIR!libusb.lib COPY /Y !BUILD_DIR!libusb.lib "!CMDVAR_OUTDIR!" >NUL
 
 CALL :DestroyErrorMarker
 
@@ -218,7 +218,7 @@ GOTO CMDEXIT
 	)
 
 	CALL :ClearError
-	IF EXIST output\!CMDVAR_ARCH!\!_RELEASE_OR_DEBUG_!\libusb0.lib move output\!CMDVAR_ARCH!\!_RELEASE_OR_DEBUG_!\libusb0.lib output\!CMDVAR_ARCH!\!_RELEASE_OR_DEBUG_!\libusb.lib %~1
+	IF EXIST !BUILD_DIR!libusb0.lib move !BUILD_DIR!libusb0.lib !BUILD_DIR!libusb.lib %~1
 GOTO :EOF
 
 :Build_Binaries
@@ -300,10 +300,12 @@ GOTO :EOF
 GOTO :EOF
 
 :SetPackage
+	SET _PACKAGE_DEBUG_=
+	IF /I "!CMDVAR_DEBUGMODE!" equ "true" SET _PACKAGE_DEBUG_=debug-
 	IF /I "!_PACKAGE_TYPE_!" EQU "snapshot" (
-		SET CMDVAR_PCKGNAME=%~1-!CMDVAR_SNAPSHOT_ID!
+		SET CMDVAR_PCKGNAME=%~1-!_PACKAGE_DEBUG_!!CMDVAR_SNAPSHOT_ID!
 	) ELSE (
-		SET CMDVAR_PCKGNAME=%~1-!CMDVAR_VERSION!
+		SET CMDVAR_PCKGNAME=%~1-!_PACKAGE_DEBUG_!!CMDVAR_VERSION!
 	)
 GOTO :EOF
 
@@ -313,10 +315,12 @@ GOTO :EOF
 	CALL :CheckPackaging
 	IF !BUILD_ERRORLEVEL! NEQ 0 GOTO CMDERROR
 	
-	CALL :CheckOrBuildBinaries
+	:: Make debug binaries	
+	CALL :CmdExe make.cmd packagebin "debugmode=true"
 	IF !BUILD_ERRORLEVEL! NEQ 0 GOTO CMDERROR
-	
-	CALL :Package_Bin
+
+	:: Make release binaries
+	CALL :CmdExe make.cmd packagebin "debugmode=false"
 	IF !BUILD_ERRORLEVEL! NEQ 0 GOTO CMDERROR
 	
 	CALL :Package_Src
@@ -539,25 +543,11 @@ GOTO :EOF
 GOTO :EOF
 
 :CheckOrBuildBinaries
-	IF NOT EXIST "!PACKAGE_BIN_DIR!x86\*.dll" GOTO BinariesNotBuilt
-	IF NOT EXIST "!PACKAGE_BIN_DIR!x86\*.sys" GOTO BinariesNotBuilt
-	IF NOT EXIST "!PACKAGE_BIN_DIR!x86\*.exe" GOTO BinariesNotBuilt
-	IF NOT EXIST "!PACKAGE_BIN_DIR!amd64\*.dll" GOTO BinariesNotBuilt
-	IF NOT EXIST "!PACKAGE_BIN_DIR!amd64\*.sys" GOTO BinariesNotBuilt
-	IF NOT EXIST "!PACKAGE_BIN_DIR!amd64\*.exe" GOTO BinariesNotBuilt
-	IF NOT EXIST "!PACKAGE_BIN_DIR!arm64\*.dll" GOTO BinariesNotBuilt
-	IF NOT EXIST "!PACKAGE_BIN_DIR!arm64\*.sys" GOTO BinariesNotBuilt
-	IF NOT EXIST "!PACKAGE_BIN_DIR!arm64\*.exe" GOTO BinariesNotBuilt
-	GOTO :EOF
-	
-	:BinariesNotBuilt
-	ECHO Binaries not found.  Building binaries first..
 	CALL :CmdExe make.cmd bin
 	IF NOT !BUILD_ERRORLEVEL!==0 (
 		ECHO [CheckOrBuildBinaries] Failed.
 		pause
 	)
-
 GOTO :EOF
 
 :CheckPackaging
@@ -823,7 +813,8 @@ GOTO :EOF
 GOTO :EOF
 
 :CreateTempFile
-	SET %1=!DIR_LIBUSB_DDK!tf!RANDOM!.tmp
+	CALL :SafeCreateDir "!BUILD_BASE_DIR!"
+	SET %1=!DIR_LIBUSB_DDK!!BUILD_BASE_DIR!tf!RANDOM!.tmp
 GOTO :EOF
 
 :DestroyTempFile
@@ -838,13 +829,14 @@ GOTO :EOF
 
 :CreateErrorMarker
 	SET _EMARKER=1
-	ECHO !_EMARKER!>"!DIR_LIBUSB_DDK!emarker.tmp"
+	CALL :SafeCreateDir "!BUILD_BASE_DIR!"
+	ECHO !_EMARKER!>"!DIR_LIBUSB_DDK!!BUILD_BASE_DIR!emarker.tmp"
 GOTO :EOF
 
 :DestroyErrorMarker
 	SET _EMARKER=
-	IF EXIST "!DIR_LIBUSB_DDK!emarker.tmp" (
-		DEL /Q "!DIR_LIBUSB_DDK!emarker.tmp"
+	IF EXIST "!DIR_LIBUSB_DDK!!BUILD_BASE_DIR!emarker.tmp" (
+		DEL /Q "!DIR_LIBUSB_DDK!!BUILD_BASE_DIR!emarker.tmp"
 		SET _EMARKER=1
 	)
 GOTO :EOF

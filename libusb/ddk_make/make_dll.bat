@@ -14,5 +14,4 @@ ECHO [%0] WinDDK build failed (%*)
 EXIT /B 1
 
 :BUILD_SUCCESS
-if exist libusb0.lib move /Y libusb0.lib libusb.lib >NUL
 :BUILD_DONE

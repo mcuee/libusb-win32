@@ -1,3 +1,3 @@
 @echo off
 
-if exist .\output rmdir /s /q .\output
+if exist .\build rmdir /s /q .\build
