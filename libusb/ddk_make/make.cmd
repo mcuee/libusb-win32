@@ -260,9 +260,6 @@ GOTO :EOF
 	
 	ECHO.
 	ECHO libusb-win32 v!VERSION! binaries built at '!PACKAGE_BIN_DIR!'
-
-	IF /I "!LIBUSB_DIST_BUILD!" EQU "true" (
-		SET /P __DUMMY=[Sign these files now and/or press 'Enter' to continue] || cd .
 	)
 	ECHO.
 
