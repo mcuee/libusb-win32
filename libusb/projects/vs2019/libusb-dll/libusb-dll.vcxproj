@@ -42,6 +42,9 @@
     <ClCompile Include="..\..\..\src\usb.c" />
     <ClCompile Include="..\..\..\src\windows.c" />
   </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="..\..\..\src\resource.rc" />
+  </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>16.0</VCProjectVersion>
     <Keyword>Win32Proj</Keyword>
