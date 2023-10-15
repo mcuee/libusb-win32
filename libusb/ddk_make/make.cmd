@@ -83,24 +83,6 @@ IF /I "!_PACKAGE_TYPE_!" EQU "makever" (
 	GOTO CMDEXIT
 )
 
-IF /I "%~1" EQU "packagebin" (
-	CALL :Build_Binaries %*
-	IF !BUILD_ERRORLEVEL! NEQ 0 GOTO CMDERROR
-	CALL :Package_Bin %*
-	IF !BUILD_ERRORLEVEL! NEQ 0 GOTO CMDERROR
-	GOTO CMDEXIT
-)
-
-IF /I "%~1" EQU "packagesrc" (
-	CALL :PrepForPackaging %*
-	CALL :CheckOrBuildBinaries
-	IF !BUILD_ERRORLEVEL! NEQ 0 GOTO CMDERROR
-
-	CALL :Package_Src
-	IF "!BUILD_ERRORLEVEL!" NEQ 0 GOTO CMDERROR
-	GOTO CMDEXIT
-)
-
 IF /I "%~1" EQU "packagesetup" (
 	CALL :PrepForPackaging %*
 	CALL :CheckOrBuildBinaries
@@ -222,13 +204,6 @@ GOTO CMDEXIT
 GOTO :EOF
 
 :Build_Binaries
-	CALL :PrepForPackaging %*
-	CALL :CheckPackaging
-	IF !BUILD_ERRORLEVEL! NEQ 0 GOTO CMDERROR
-
-	CALL :SafeCleanDir "!PACKAGE_BIN_DIR!"
-	IF !ERRORLEVEL! NEQ 0 GOTO :EOF
-	
 	CALL :Build_PackageBinaries x86 msvc x86
 	IF !BUILD_ERRORLEVEL! NEQ 0 GOTO CMDERROR
 	
@@ -250,11 +225,14 @@ GOTO :EOF
 	IF !BUILD_ERRORLEVEL! NEQ 0 GOTO CMDERROR
 
 	CALL :SafeCopy "..\src\libusb_dyn.c" "!PACKAGE_LIB_DIR!dynamic\"
+	IF !BUILD_ERRORLEVEL! NEQ 0 GOTO CMDERROR
 	
 	CALL :SafeCopy "!PACKAGE_ROOT_DIR!gcc\libusb.a" "!PACKAGE_LIB_DIR!gcc\libusb.a" false
-	CALL :SafeMove "!PACKAGE_BIN_DIR!x86\libusb0.dll" "!PACKAGE_BIN_DIR!x86\libusb0_x86.dll"
+	IF !BUILD_ERRORLEVEL! NEQ 0 GOTO CMDERROR
 	
 	
+	CALL :SafeMove "!PACKAGE_BIN_DIR!!_RELEASE_OR_DEBUG_!\x86\libusb0.dll" "!PACKAGE_BIN_DIR!!_RELEASE_OR_DEBUG_!\x86\libusb0_x86.dll"
+	IF !BUILD_ERRORLEVEL! NEQ 0 GOTO CMDERROR
 	CALL :SafeCopy "!DIR_LIBUSB_DDK!..\installer_license.txt" "!PACKAGE_ROOT_DIR!installer_license.txt"
 	CALL :TagEnv "!DIR_LIBUSB_DDK!..\!PACKAGE_BIN_NAME!-README.txt.in" "!PACKAGE_BIN_DIR!!PACKAGE_BIN_NAME!-README.txt"
 	
@@ -269,13 +247,29 @@ GOTO :EOF
 :: Packaging functions 
 :: 
 :Build_PackageBinaries
-	SET _OUTDIR_=!PACKAGE_BIN_DIR!%3\
+	SET _OUTDIR_=!PACKAGE_BIN_DIR!!_RELEASE_OR_DEBUG_!\%3\
 	CALL :SafeCreateDir "!_OUTDIR_!"
 	CALL :CmdExe make.cmd !_ARG_LINE! "arch=%1" "app=all" "outdir=!_OUTDIR_!"
 	IF !BUILD_ERRORLEVEL! NEQ 0 GOTO :EOF
 	
 	CALL :SafeCreateDir "!PACKAGE_LIB_DIR!%2\"
 	CALL :SafeMove "!_OUTDIR_!\libusb.lib" "!PACKAGE_LIB_DIR!%2\"
+
+	:: Pre-sign everything
+	IF /I "!CMDVAR_SIGNFILE!" EQU "true" (
+		CALL :SignFile !_OUTDIR_!libusb0.dll sha256
+		IF !BUILD_ERRORLEVEL! NEQ 0 GOTO :EOF
+		CALL :SignFile !_OUTDIR_!libusb0.sys sha256
+		IF !BUILD_ERRORLEVEL! NEQ 0 GOTO :EOF
+		CALL :SignFile !_OUTDIR_!install-filter.exe sha256
+		IF !BUILD_ERRORLEVEL! NEQ 0 GOTO :EOF
+		CALL :SignFile !_OUTDIR_!libusb0.sys sha256
+		IF !BUILD_ERRORLEVEL! NEQ 0 GOTO :EOF
+		CALL :SignFile !_OUTDIR_!testlibusb.exe sha256
+		IF !BUILD_ERRORLEVEL! NEQ 0 GOTO :EOF
+		CALL :SignFile !_OUTDIR_!testlibusb-win.exe sha256
+		IF !BUILD_ERRORLEVEL! NEQ 0 GOTO :EOF
+	)
 GOTO :EOF
 
 
@@ -311,16 +305,67 @@ GOTO :EOF
 	CALL :PrepForPackaging %*
 	CALL :CheckPackaging
 	IF !BUILD_ERRORLEVEL! NEQ 0 GOTO CMDERROR
+
+	CALL :SafeCleanDir "!PACKAGE_BIN_DIR!"
+	IF !ERRORLEVEL! NEQ 0 GOTO :EOF
 	
-	:: Make debug binaries	
-	CALL :CmdExe make.cmd packagebin "debugmode=true"
+	:: Make debug binaries
+	SET CMDVAR_DEBUGMODE=true
+	SET _RELEASE_OR_DEBUG_=Debug
+	CALL :Build_Binaries %*
 	IF !BUILD_ERRORLEVEL! NEQ 0 GOTO CMDERROR
 
 	:: Make release binaries
-	CALL :CmdExe make.cmd packagebin "debugmode=false"
+	SET CMDVAR_DEBUGMODE=false
+	SET _RELEASE_OR_DEBUG_=Release
+	CALL :Build_Binaries %*
 	IF !BUILD_ERRORLEVEL! NEQ 0 GOTO CMDERROR
-	
-	CALL :Package_Src
+
+	:: Make package for microsoft upload
+	IF /I "!CMDVAR_SIGNFILE!" EQU "true" (
+		makecab /f libusb0.ddf
+		IF !ERRORLEVEL! NEQ 0 SET BUILD_ERRORLEVEL=1
+		IF !BUILD_ERRORLEVEL! NEQ 0 GOTO CMDERROR
+
+		ECHO Submit package to microsoft and place result in package folder
+		PAUSE
+
+		:: Post-sign everything with SHA1 to allow win7 to work
+		CALL :SignFile !PACKAGE_BIN_DIR!Debug\x86\libusb0.sys sha1
+		IF !BUILD_ERRORLEVEL! NEQ 0 GOTO :EOF
+		CALL :SignFile !PACKAGE_BIN_DIR!Debug\x86\libusb0_x86.dll sha1
+		IF !BUILD_ERRORLEVEL! NEQ 0 GOTO :EOF
+		CALL :SignFile !PACKAGE_BIN_DIR!Debug\amd64\libusb0.sys sha1
+		IF !BUILD_ERRORLEVEL! NEQ 0 GOTO :EOF
+		CALL :SignFile !PACKAGE_BIN_DIR!Debug\amd64\libusb0.dll sha1
+		IF !BUILD_ERRORLEVEL! NEQ 0 GOTO :EOF
+		CALL :SignFile !PACKAGE_BIN_DIR!Debug\arm64\libusb0.sys sha1
+		IF !BUILD_ERRORLEVEL! NEQ 0 GOTO :EOF
+		CALL :SignFile !PACKAGE_BIN_DIR!Debug\arm64\libusb0.dll sha1
+		IF !BUILD_ERRORLEVEL! NEQ 0 GOTO :EOF
+
+		CALL :SignFile !PACKAGE_BIN_DIR!Release\x86\libusb0.sys sha1
+		IF !BUILD_ERRORLEVEL! NEQ 0 GOTO :EOF
+		CALL :SignFile !PACKAGE_BIN_DIR!Release\x86\libusb0_x86.dll sha1
+		IF !BUILD_ERRORLEVEL! NEQ 0 GOTO :EOF
+		CALL :SignFile !PACKAGE_BIN_DIR!Release\amd64\libusb0.sys sha1
+		IF !BUILD_ERRORLEVEL! NEQ 0 GOTO :EOF
+		CALL :SignFile !PACKAGE_BIN_DIR!Release\amd64\libusb0.dll sha1
+		IF !BUILD_ERRORLEVEL! NEQ 0 GOTO :EOF
+		CALL :SignFile !PACKAGE_BIN_DIR!Release\arm64\libusb0.sys sha1
+		IF !BUILD_ERRORLEVEL! NEQ 0 GOTO :EOF
+		CALL :SignFile !PACKAGE_BIN_DIR!Release\arm64\libusb0.dll sha1
+		IF !BUILD_ERRORLEVEL! NEQ 0 GOTO :EOF
+	)
+
+	SET CMDVAR_DEBUGMODE=true
+	SET _RELEASE_OR_DEBUG_=Debug
+	CALL :Package_Bin %*
+	IF !BUILD_ERRORLEVEL! NEQ 0 GOTO CMDERROR
+
+	SET CMDVAR_DEBUGMODE=false
+	SET _RELEASE_OR_DEBUG_=Release
+	CALL :Package_Bin %*
 	IF !BUILD_ERRORLEVEL! NEQ 0 GOTO CMDERROR
 	
 	CALL :Package_Setup
@@ -335,13 +380,17 @@ GOTO :EOF
 	SET _WORKING_DIR=!PACKAGE_WORKING!!CMDVAR_PCKGNAME!\
 	
 	CALL :SafeReCreateDir "!_WORKING_DIR!"
-		
-	CALL :SafeCopyDir "!PACKAGE_BIN_DIR!" "!_WORKING_DIR!bin\"
+
+	CALL :SafeCopyDir "!PACKAGE_BIN_DIR!!_RELEASE_OR_DEBUG_!" "!_WORKING_DIR!bin\"
+	IF !BUILD_ERRORLEVEL! NEQ 0 GOTO CMDERROR
+
 	CALL :SafeCopyDir "!PACKAGE_LIB_DIR!" "!_WORKING_DIR!lib\"
+	IF !BUILD_ERRORLEVEL! NEQ 0 GOTO CMDERROR
 	
-	CALL :SafeCopyDir "..\examples\" "!_WORKING_DIR!examples\"
-	
-	CALL :SafeCopy "..\src\lusb0_usb.h" "!_WORKING_DIR!include\"
+	CALL :SafeCopyDir "%CD%\..\examples" "!_WORKING_DIR!examples\"
+	IF !BUILD_ERRORLEVEL! NEQ 0 GOTO CMDERROR
+
+	CALL :SafeCopy "%CD%\..\src\lusb0_usb.h" "!_WORKING_DIR!include\"
 
 	CALL :SafeCopy "!PACKAGE_ROOT_DIR!gcc\*" "!_WORKING_DIR!lib\gcc\"
 
@@ -354,24 +403,6 @@ GOTO :EOF
 	CALL :SafeDeleteDir ".\!CMDVAR_PCKGNAME!"
 	POPD
 	
-GOTO :EOF
-
-:Package_Src
-	CALL make_super_clean.bat
-	CALL :SetPackage "!PACKAGE_SRC_NAME!"
-	SET _WORKING_DIR=!PACKAGE_WORKING!!CMDVAR_PCKGNAME!\
-	CALL :SafeReCreateDir "!_WORKING_DIR!"
-	
-	CALL :SafeCopyDir "..\" "!_WORKING_DIR!"
-	
-	CALL :PackageText src "!_WORKING_DIR!"
-
-	PUSHD "!CD!"
-	CD /D "!PACKAGE_WORKING!"
-	
-	"!ZIP!" -tzip a -r "!PACKAGE_SAVE_DIR!!CMDVAR_PCKGNAME!.zip" ".\!CMDVAR_PCKGNAME!"
-	CALL :SafeDeleteDir ".\!CMDVAR_PCKGNAME!\"
-	POPD
 GOTO :EOF
 
 :Package_Setup
@@ -423,7 +454,7 @@ GOTO :EOF
 GOTO :EOF
 
 :SafeCopyDir
-	SET __SafeCopyDir_Src=%~dp1
+	SET __SafeCopyDir_Src=%~f1
 	SET __SafeCopyDir_Dst=%~dp2
 	IF NOT EXIST "!__SafeCopyDir_Src!" (
 		ECHO [SafeCopyDir] %~1 does not exists.
@@ -711,21 +742,18 @@ GOTO :EOF
 	ECHO [SignFile] NOTE - remember to type 'bcdedit -set testsigning on' to use
 	ECHO                   test certificates on x64 machines.
 	ECHO.
-	CALL :SafeCopy "!PACKAGE_ROOT_DIR!cert\!CMDVAR_CERT_FILE!" "!CD!"
 	IF NOT EXIST "!CMDVAR_CERT_FILE!" (
-	
 		ECHO [SignFile] clearing LibusbCertStore
 		"!CERT-MGR!" -del -all -s LibusbCertStore
 		
 		ECHO [SignFile] making !CMDVAR_CERT_FILE! test certificate
-		"!MAKE-CERT!" -r -pe -ss LibusbCertStore -n "CN=Libusb-Win32 Testing" !CMDVAR_CERT_FILE!
+		"!MAKE-CERT!" -a sha256 -r -pe -ss LibusbCertStore -n "CN=Libusb-Win32 Testing" !CMDVAR_CERT_FILE!
 		IF "!ERRORLEVEL!" NEQ "0" (
 			SET BUILD_ERRORLEVEL=1
 			ECHO [SignFile] failed creating certificate !CMDVAR_CERT_FILE!
 			GOTO :EOF
 		)
 		
-		CALL :SafeCopy !CMDVAR_CERT_FILE! "!PACKAGE_ROOT_DIR!cert\"
 		
 		ECHO [SignFile] adding !CMDVAR_CERT_FILE! to root
 		"!CERT-MGR!" -add !CMDVAR_CERT_FILE! -s -r localMachine root
@@ -745,12 +773,11 @@ GOTO :EOF
 		
 	)
 	
-	"!SIGN-TOOL!" sign /s LibusbCertStore %1
+	"!SIGN-TOOL!" sign /f !CMDVAR_CERT_FILE! /as /v /fd %2 /tr http://timestamp.globalsign.com/tsa/r6advanced1 /td sha256 %1
 	IF "!ERRORLEVEL!" NEQ "0" (
 		SET BUILD_ERRORLEVEL=1
 		GOTO :EOF
 	)
-	DEL /Q !CMDVAR_CERT_FILE!
 GOTO :EOF
 
 :: searches the directories listed in the PATH
@@ -887,6 +914,8 @@ ECHO              [Default = false]
 ECHO TESTSIGNING  Setting this option to 'on' signs te dll and driver with a
 ECHO              test certifcate.
 ECHO              [Default = off]
+ECHO SIGNFILE     Sign the resulting binaries with a signature
+ECHO		  [Default = false]
 ECHO LOG_OUTPUT   Changes the log output type.  By default, console apps send log
 ECHO              messages to stderr, dlls and windows apps send log messages to 
 ECHO              OutputDebugString and kernel drivers send messages to 
@@ -915,7 +944,6 @@ ECHO.
 ECHO Additional Commands:
 ECHO CLEAN        Cleans all temporary files.
 ECHO CLEANPACKAGE Cleans root package directory.
-ECHO SIGNFILE     Signs a dll or sys file with a test certificate.
 ECHO MAKEVER      Re/creates libusb-win32_version.h from the template.
 ECHO.
 ECHO [Note: See make.cfg for options that can be used when packaging]

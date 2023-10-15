@@ -1,0 +1,45 @@
+; Libusb0 DDF file for driver signing submission
+;
+.OPTION EXPLICIT     ; Generate errors
+.Set CabinetFileCountThreshold=0
+.Set FolderFileCountThreshold=0
+.Set FolderSizeThreshold=0
+.Set MaxCabinetSize=0
+.Set MaxDiskFileCount=0
+.Set MaxDiskSize=0
+.Set CompressionType=MSZIP
+.Set Cabinet=on
+.Set Compress=on
+;Specify file name for new cab file
+.Set CabinetNameTemplate=libusb0.cab
+; Specify the subdirectory for the files.  
+; Your cab file should not have files at the root level,
+; and each driver package must be in a separate subfolder.
+; Specify files to be included in cab file
+
+.Set DestinationDir=libusb0/Debug
+libusb0.inf
+libusb0.cat
+.Set DestinationDir=libusb0/Debug/x86
+packages/bin/Debug/x86/libusb0.sys
+packages/bin/Debug/x86/libusb0_x86.dll
+.Set DestinationDir=libusb0/Debug/amd64
+packages/bin/Debug/amd64/libusb0.sys
+packages/bin/Debug/amd64/libusb0.dll
+.Set DestinationDir=libusb0/Debug/arm64
+packages/bin/Debug/arm64/libusb0.sys
+packages/bin/Debug/arm64/libusb0.dll
+
+.Set DestinationDir=libusb0/Release
+libusb0.inf
+libusb0.cat
+.Set DestinationDir=libusb0/Release/x86
+packages/bin/Release/x86/libusb0.sys
+packages/bin/Release/x86/libusb0_x86.dll
+.Set DestinationDir=libusb0/Release/amd64
+packages/bin/Release/amd64/libusb0.sys
+packages/bin/Release/amd64/libusb0.dll
+.Set DestinationDir=libusb0/Release/arm64
+packages/bin/Release/arm64/libusb0.sys
+packages/bin/Release/arm64/libusb0.dll
+

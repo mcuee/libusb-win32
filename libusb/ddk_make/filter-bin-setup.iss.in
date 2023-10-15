@@ -50,6 +50,11 @@ begin
   Result := Is64BitInstallMode and (ProcessorArchitecture = paX64);
 end;
 
+function IsArm64: Boolean;
+begin
+  Result := Is64BitInstallMode and (ProcessorArchitecture = paARM64);
+end;
+
 function IsX86: Boolean;
 begin
   Result := not IsX64;
@@ -66,28 +71,36 @@ begin
 end;
 
 [Files]
-; LibUsb-win32 x86 (Windows XP and greater)
-Source: @PACKAGE_BIN_DIR@x86\libusb0_x86.dll; DestName: libusb0.dll; DestDir: {sys}; Flags: uninsneveruninstall replacesameversion restartreplace promptifolder; Check: IsX86;
-Source: @PACKAGE_BIN_DIR@x86\libusb0.sys; DestDir: {sys}\drivers; Flags: uninsneveruninstall replacesameversion restartreplace promptifolder; Check: IsX86;
-Source: @PACKAGE_BIN_DIR@x86\install-filter.exe; DestDir: {app}\bin; Flags: ignoreversion; Check: IsX86;
-Source: @PACKAGE_BIN_DIR@x86\install-filter-win.exe; DestDir: {app}\bin; Flags: ignoreversion; Check: IsX86;
-Source: @PACKAGE_BIN_DIR@x86\testlibusb-win.exe; DestDir: {app}\bin; Flags: ignoreversion; Check: IsX86;
-Source: @PACKAGE_BIN_DIR@x86\testlibusb.exe; DestDir: {app}\bin; Flags: ignoreversion; Check: IsX86;
+; LibUsb-win32 x86 (Windows 7 and greater)
+Source: @PACKAGE_BIN_DIR@Release\x86\libusb0_x86.dll; DestName: libusb0.dll; DestDir: {sys}; Flags: uninsneveruninstall replacesameversion restartreplace promptifolder; Check: IsX86;
+Source: @PACKAGE_BIN_DIR@Release\x86\libusb0.sys; DestDir: {sys}\drivers; Flags: uninsneveruninstall replacesameversion restartreplace promptifolder; Check: IsX86;
+Source: @PACKAGE_BIN_DIR@Release\x86\install-filter.exe; DestDir: {app}\bin; Flags: ignoreversion; Check: IsX86;
+Source: @PACKAGE_BIN_DIR@Release\x86\install-filter-win.exe; DestDir: {app}\bin; Flags: ignoreversion; Check: IsX86;
+Source: @PACKAGE_BIN_DIR@Release\x86\testlibusb-win.exe; DestDir: {app}\bin; Flags: ignoreversion; Check: IsX86;
+Source: @PACKAGE_BIN_DIR@Release\x86\testlibusb.exe; DestDir: {app}\bin; Flags: ignoreversion; Check: IsX86;
 
 ; LibUsb-win32 AMD 64bit
-Source: @PACKAGE_BIN_DIR@x86\libusb0_x86.dll; DestName: libusb0.dll; DestDir: {syswow64}; Flags: uninsneveruninstall replacesameversion restartreplace promptifolder; Check: IsX64;
-Source: @PACKAGE_BIN_DIR@amd64\libusb0.sys; DestDir: {sys}\drivers; Flags: uninsneveruninstall replacesameversion restartreplace promptifolder; Check: IsX64;
-Source: @PACKAGE_BIN_DIR@amd64\libusb0.dll; DestDir: {sys}; Flags: uninsneveruninstall replacesameversion restartreplace promptifolder; Check: IsX64;
-Source: @PACKAGE_BIN_DIR@amd64\install-filter.exe; DestDir: {app}\bin; Flags: ignoreversion; Check: IsX64;
-Source: @PACKAGE_BIN_DIR@amd64\install-filter-win.exe; DestDir: {app}\bin; Flags: ignoreversion; Check: IsX64;
-Source: @PACKAGE_BIN_DIR@amd64\testlibusb-win.exe; DestDir: {app}\bin; Flags: ignoreversion; Check: IsX64;
-Source: @PACKAGE_BIN_DIR@amd64\testlibusb.exe; DestDir: {app}\bin; Flags: ignoreversion; Check: IsX64;
+Source: @PACKAGE_BIN_DIR@Release\x86\libusb0_x86.dll; DestName: libusb0.dll; DestDir: {syswow64}; Flags: uninsneveruninstall replacesameversion restartreplace promptifolder; Check: IsX64;
+Source: @PACKAGE_BIN_DIR@Release\amd64\libusb0.sys; DestDir: {sys}\drivers; Flags: uninsneveruninstall replacesameversion restartreplace promptifolder; Check: IsX64;
+Source: @PACKAGE_BIN_DIR@Release\amd64\libusb0.dll; DestDir: {sys}; Flags: uninsneveruninstall replacesameversion restartreplace promptifolder; Check: IsX64;
+Source: @PACKAGE_BIN_DIR@Release\amd64\install-filter.exe; DestDir: {app}\bin; Flags: ignoreversion; Check: IsX64;
+Source: @PACKAGE_BIN_DIR@Release\amd64\install-filter-win.exe; DestDir: {app}\bin; Flags: ignoreversion; Check: IsX64;
+Source: @PACKAGE_BIN_DIR@Release\amd64\testlibusb-win.exe; DestDir: {app}\bin; Flags: ignoreversion; Check: IsX64;
+Source: @PACKAGE_BIN_DIR@Release\amd64\testlibusb.exe; DestDir: {app}\bin; Flags: ignoreversion; Check: IsX64;
+
+; LibUsb-win32 ARM 64bit
+Source: @PACKAGE_BIN_DIR@Release\arm64\libusb0.sys; DestDir: {sys}\drivers; Flags: uninsneveruninstall replacesameversion restartreplace promptifolder; Check: IsArm64;
+Source: @PACKAGE_BIN_DIR@Release\arm64\libusb0.dll; DestDir: {sys}; Flags: uninsneveruninstall replacesameversion restartreplace promptifolder; Check: IsArm64;
+Source: @PACKAGE_BIN_DIR@Release\arm64\install-filter.exe; DestDir: {app}\bin; Flags: ignoreversion; Check: IsArm64;
+Source: @PACKAGE_BIN_DIR@Release\arm64\install-filter-win.exe; DestDir: {app}\bin; Flags: ignoreversion; Check: IsArm64;
+Source: @PACKAGE_BIN_DIR@Release\arm64\testlibusb-win.exe; DestDir: {app}\bin; Flags: ignoreversion; Check: IsArm64;
+Source: @PACKAGE_BIN_DIR@Release\arm64\testlibusb.exe; DestDir: {app}\bin; Flags: ignoreversion; Check: IsArm64;
 
 Source: @LIBUSB_DIR@src\install-filter-help.txt; DestDir: {app}; Flags: ignoreversion;
 
 ; test applications(x86 runtimes for 64bit machines)
-Source: @PACKAGE_BIN_DIR@x86\testlibusb-win.exe; DestDir: {app}\bin\x86; Flags: ignoreversion; Check: Is64;
-Source: @PACKAGE_BIN_DIR@x86\testlibusb.exe; DestDir: {app}\bin\x86; Flags: ignoreversion; Check: Is64;
+Source: @PACKAGE_BIN_DIR@Release\x86\testlibusb-win.exe; DestDir: {app}\bin\x86; Flags: ignoreversion; Check: Is64;
+Source: @PACKAGE_BIN_DIR@Release\x86\testlibusb.exe; DestDir: {app}\bin\x86; Flags: ignoreversion; Check: Is64;
 
 ; Text, Licenses
 Source: *.txt; DestDir: {app}; Flags: ignoreversion;
