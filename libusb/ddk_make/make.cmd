@@ -306,7 +306,7 @@ GOTO :EOF
 	CALL :CheckPackaging
 	IF !BUILD_ERRORLEVEL! NEQ 0 GOTO CMDERROR
 
-	CALL :SafeCleanDir "!PACKAGE_BIN_DIR!"
+	CALL :SafeCleanDir "!PACKAGE_ROOT_DIR!"
 	IF !ERRORLEVEL! NEQ 0 GOTO :EOF
 	
 	:: Make debug binaries
@@ -323,9 +323,29 @@ GOTO :EOF
 
 	:: Make package for microsoft upload
 	IF /I "!CMDVAR_SIGNFILE!" EQU "true" (
-		makecab /f libusb0.ddf
+		CALL :TagEnv "libusb0.inf.in" "!PACKAGE_BIN_DIR!Debug\libusb0.inf"
+		IF !BUILD_ERRORLEVEL! NEQ 0 GOTO CMDERROR
+		CALL :SafeCopy "!PACKAGE_BIN_DIR!Debug\libusb0.inf" "!PACKAGE_BIN_DIR!Release\libusb0.inf"
+		IF !BUILD_ERRORLEVEL! NEQ 0 GOTO CMDERROR
+
+		:: Create CAT file for submission
+		inf2cat /os:7_X86,7_X64,8_X86,8_X64,10_X86,10_X64 /driver:!PACKAGE_BIN_DIR!Debug
 		IF !ERRORLEVEL! NEQ 0 SET BUILD_ERRORLEVEL=1
 		IF !BUILD_ERRORLEVEL! NEQ 0 GOTO CMDERROR
+		inf2cat /os:7_X86,7_X64,8_X86,8_X64,10_X86,10_X64 /driver:!PACKAGE_BIN_DIR!Release
+		IF !ERRORLEVEL! NEQ 0 SET BUILD_ERRORLEVEL=1
+		IF !BUILD_ERRORLEVEL! NEQ 0 GOTO CMDERROR
+
+		:: Create CAB file for submission
+		CALL :TagEnv "libusb0.ddf.in" "!PACKAGE_ROOT_DIR!libusb0.ddf"
+		IF !BUILD_ERRORLEVEL! NEQ 0 GOTO CMDERROR
+		makecab /f !PACKAGE_ROOT_DIR!libusb0.ddf
+		IF !ERRORLEVEL! NEQ 0 SET BUILD_ERRORLEVEL=1
+		IF !BUILD_ERRORLEVEL! NEQ 0 GOTO CMDERROR
+
+		:: Sign cab file
+		CALL :SignFile !PACKAGE_ROOT_DIR!libusb0.cab sha256
+		IF !BUILD_ERRORLEVEL! NEQ 0 GOTO :EOF
 
 		ECHO Submit package to microsoft and place result in package folder
 		PAUSE
@@ -621,6 +641,9 @@ GOTO :EOF
 	SET _MM_=!LOCALTIME:~4,2!
 	SET _DD_=!LOCALTIME:~6,2!
 	SET _YYYY_=!LOCALTIME:~0,4!
+
+	:: setup date variable to match US formatted dates for e.g. drivers
+	SET DATE_US=!_MM_!/!_DD_!/!_YYYY_!
 
 	FOR /F "eol=; tokens=1,2* usebackq delims==" %%I IN (!MAKE_CFG!) DO (
 		IF NOT "%%~I" EQU "" (

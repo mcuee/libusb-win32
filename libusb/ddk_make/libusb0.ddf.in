@@ -12,34 +12,35 @@
 .Set Compress=on
 ;Specify file name for new cab file
 .Set CabinetNameTemplate=libusb0.cab
+.Set DiskDirectoryTemplate="packages"
 ; Specify the subdirectory for the files.  
 ; Your cab file should not have files at the root level,
 ; and each driver package must be in a separate subfolder.
 ; Specify files to be included in cab file
 
-.Set DestinationDir=libusb0/Debug
-libusb0.inf
-libusb0.cat
-.Set DestinationDir=libusb0/Debug/x86
+.Set DestinationDir=Debug
+packages/bin/Debug/libusb0.inf
+packages/bin/Debug/libusb0.cat
+.Set DestinationDir=Debug/x86
 packages/bin/Debug/x86/libusb0.sys
 packages/bin/Debug/x86/libusb0_x86.dll
-.Set DestinationDir=libusb0/Debug/amd64
+.Set DestinationDir=Debug/amd64
 packages/bin/Debug/amd64/libusb0.sys
 packages/bin/Debug/amd64/libusb0.dll
-.Set DestinationDir=libusb0/Debug/arm64
+.Set DestinationDir=Debug/arm64
 packages/bin/Debug/arm64/libusb0.sys
 packages/bin/Debug/arm64/libusb0.dll
 
-.Set DestinationDir=libusb0/Release
-libusb0.inf
-libusb0.cat
-.Set DestinationDir=libusb0/Release/x86
+.Set DestinationDir=Release
+packages/bin/Release/libusb0.inf
+packages/bin/Release/libusb0.cat
+.Set DestinationDir=Release/x86
 packages/bin/Release/x86/libusb0.sys
 packages/bin/Release/x86/libusb0_x86.dll
-.Set DestinationDir=libusb0/Release/amd64
+.Set DestinationDir=Release/amd64
 packages/bin/Release/amd64/libusb0.sys
 packages/bin/Release/amd64/libusb0.dll
-.Set DestinationDir=libusb0/Release/arm64
+.Set DestinationDir=Release/arm64
 packages/bin/Release/arm64/libusb0.sys
 packages/bin/Release/arm64/libusb0.dll
 
