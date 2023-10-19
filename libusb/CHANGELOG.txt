@@ -1,0 +1,274 @@
+V1.3.0.1 (10/20/2023) - SNAPSHOT RELEASE
+==============================================
+* Automate the driver signing process more
+* Sign all executables
+* Fix changelog in build system
+
+V1.3.0.0 (10/03/2023) - SNAPSHOT RELEASE
+==============================================
+* Convert to EWDK WIN11 version 2200
+* Much smaller binaries due to newer compiler
+
+V1.2.7.4 (9/20/2023) - SNAPSHOT RELEASE
+==============================================
+* driver: fix various hang issues: https://github.com/mcuee/libusb-win32/pull/38
+
+V1.2.7.3 (11/13/2021) - SNAPSHOT RELEASE --> promoted as RELEASE later
+==============================================
+* driver: sign the drivers using SHA1 as well as SHA256
+
+* driver: sign the drivers after microsoft and not before (win7 fix)
+
+V1.2.7.2 (10/25/2021) - SNAPSHOT RELEASE
+==============================================
+* driver: sign the drivers using EV certificate: https://github.com/mcuee/libusb-win32/issues/24
+
+* driver: fix possible stack corruption: https://github.com/mcuee/libusb-win32/issues/19
+
+* lib: fix missing check for failed CloseHandle(): https://github.com/mcuee/libusb-win32/issues/12
+
+V1.2.7.1 (09/18/2019) - SNAPSHOT RELEASE
+==============================================
+* Removed support for IA64
+
+* Removed support for W2K
+
+* Properly allocate NX pool memory on Win8+
+
+V1.2.6.0 (01/17/2012)
+==============================================
+* Official release.
+
+* Removed ISO maximum transfer size restrictions/transfer spltting.
+
+* Fixed inf-wizard device notification issue.
+
+V1.2.5.0 (07/23/2011)
+==============================================
+* Official release.
+
+V1.2.4.9 (07/13/2011) - SNAPSHOT RELEASE
+==============================================
+* Updated GCC lib file 'libusb.a'
+
+V1.2.4.8 (07/12/2011) - SNAPSHOT RELEASE
+==============================================
+* Added new public api function 'usb_reset_ex'. This is an extended 
+  device reset function which allows developers to specify a port reset, a 
+  port cycle, or both. 
+
+* Added new public defines 'USB_RESET_TYPE_XXX' for 'usb_reset_ex' 
+  function. 
+
+V1.2.4.7 (07/02/2011) - SNAPSHOT RELEASE
+==============================================
+* Sync transfers which specify a zero (0) timeout are now considered to be 
+  INFINITE. 
+
+V1.2.4.6 (05/12/2011) - SNAPSHOT RELEASE
+==============================================
+* Added device interface registration. This provides identical 
+  functionality to the "DeviceInterfaceGUIDs" supported by WinUSB and 
+  libusbK. A device interface guid can be specified in the .inf file. They 
+  can be used to quickly locate a usb device or set of USB devices using 
+  the setup api as well as device notification registration. 
+
+* New IOCTL codes added to for native libusbK/WinUSB compatibility.
+  NOTE: These IOCTLs are currently used only by libusbK.dll.
+  o LIBUSB_IOCTL_QUERY_DEVICE_INFORMATION
+  o LIBUSB_IOCTL_SET_PIPE_POLICY
+  o LIBUSB_IOCTL_GET_PIPE_POLICY
+  o LIBUSB_IOCTL_SET_POWER_POLICY
+  o LIBUSB_IOCTL_GET_POWER_POLICY
+  o LIBUSB_IOCTL_CONTROL_WRITE
+  o LIBUSB_IOCTL_CONTROL_READ
+  o LIBUSB_IOCTL_FLUSH_PIPE
+  o LIBUSBK_IOCTL_CLAIM_INTERFACE
+  o LIBUSBK_IOCTL_RELEASE_INTERFACE
+  o LIBUSBK_IOCTL_RELEASE_ALL_INTERFACES
+  o LIBUSBK_IOCTL_SET_INTERFACE
+  o LIBUSBK_IOCTL_GET_INTERFACE
+
+* Renamed main header file (usb.h) to lusb0_usb.h. This eliminates 
+  conflicts with the main WDK usb include as well as making the 
+  libusb-win32 header more distinguishable from other usb library header 
+  files. 
+
+* Added device descriptor caching and active/first config descriptor 
+  caching. Descriptor caching prevents unnecessary control requests from 
+  interrupting devices that could potentially be in-use. It also makes 
+  libusb0.sys more compliant with usb libraries targeting platform where 
+  descriptor caching is done automatically. (linux/mac)
+  
+* Upgraded to libwdi v1.1.1
+  o Zadig UI improvements
+  o wdi-simple now handles certificate related operations
+  o New NSIS (Nullsoft Scriptable Install System) script sample
+  o improved INNO Setup script sample
+  o libusbK support
+  o autogeneration and self-signing of a .cat file, to prevent further security
+    prompts during driver installation on Vista and later.
+    for more information, see http://libwdi-cps.akeo.ie
+  o disable restore point creation during installation
+  o Visual Studio 2010 support and overall MS file cleanup
+  o use of the Kerberos/e2fsprogs parser in Zadig instead of libconfig
+
+V1.2.4.0 (04/11/2011)
+=======================
+* Removed get configuration request from the core driver 
+  set_configuration function.  This caused problems with
+  some non-compliant usb devices.
+
+* Added device descriptor dump to test applications.
+
+V1.2.3.0 (03/16/2011)
+=======================
+* Fixed bug-id 3117686 reported by Tim Schuerewegen.
+
+* Added LIBUSB_IOCTL_GET_OBJECT_NAME.  This new IOCTL code retrieves object
+  from the driver.  The only valid object name index is 0.  Index 0 is
+  returns the devices plug and play registry key pathname.
+
+* Removed maximum timeout restriction for vendor class requests.
+
+V1.2.2.0 (10/02/2010)
+=======================
+* Added install-filter-win.exe.  A gui installer for device filters.
+
+* Added new libusb0.dll function usb_install_np_rundll().  This function
+  is designed for rundll32.exe and takes the same parameters as
+  install-filter.exe.
+
+* Updated install-filter.exe.  This application has several new features.
+  Type "install-filter --help" for more details.
+
+* Updated libusb-win32-devel-filter package.  This package is once again
+  available for download as a setup.exe.
+
+* Updated libusb-win32 "bin" package format.  inf-wizard.exe has been moved
+  up one directory.
+
+* Updated driver_installer_template.iss example. This is an Inno Setup
+  Script showing how to create your own setup.exe for installing your
+  application and driver.
+
+* Fixed missing byte order marker in inf-wizard.exe .inf files. (libwdi)
+
+* Fixed auto-configuration issue when there is more than one driver in the
+  stack.
+
+* Fixed BSOD when using the filter driver with devices that are auto
+  suspended by other drivers in the stack.
+  
+* Fixed BSOD for devices with endpoints that have '0' for wMaxPacketSize.
+
+* Fixed BSOD when cancelling large transfers on high speed devices.
+
+  
+V1.2.1.0 (07/28/2010)
+=======================
+* Updated bulk.c to include async i/o example code.
+
+* Fixed usb_install_driver_np() issue with inf-wizard generated infs.
+
+* Fixed inf2cat.exe issue with inf-wizard generated infs.
+  
+* Added 'Install Now' feature to inf-wizard. (libwdi)
+
+* Added embedded libusb-win32 binaries to inf-wizard. (libwdi)
+
+* Added libwdi (http://www.libusb.org/wiki/libwdi) to inf-wizard. 
+
+* Added get cached configuration request to usb_open(). This is a new
+  control code that involves no device i/o and allows 
+  usb_set_configuration() to be omitted if the driver has already
+  configured it.
+
+* Fixed set_configuration() failure for devices that do not properly
+  support get_configuration().
+
+V1.2.0.0 (07/07/2010)
+=======================
+* First signed driver release! The libusb-win32 kernel driver (libusb0.sys)
+  can now be used on x64 Windows machines that require signed drivers. 
+
+* Fixed 2128187 reported by Tim Green. usb_get_descriptor() can fail
+  because the given buffer of 8 bytes is too small.
+
+* Fixed 2928293 reported by Tim Green. Sometimes the call to 
+  usb_fetch_and_parse_descriptors() in usb_find_devices() can fail. This 
+  patch moves the LIST_ADD to after a successful read of the device's 
+  configuration descriptors.
+
+* Fixed issue causing libusb-win32 to not act as power policy owner
+  when it should.
+
+* Fixed issue in which on rare occasion, a libusb-win32 filter device could
+  run as a "normal" device.
+  
+* Fixed filter driver issue for device using wudfr.sys.
+
+* Added large transfer splitting to driver (bulk, int, iso). NOTE:
+  The dll continues to break transfers in the same manner it always has.
+
+
+V1.1.14.3 (06/12/2010)
+=======================
+* Remove get_configuration() request from usb_open().  This caused claim
+  interface to fail when used as a filter driver.
+  
+V1.1.14.0 (06/01/2010)
+=======================
+* Updated logging functions and standardized log message display format.
+
+* Updated inf-wizard to use the new directory format for the libusb-win32
+  binaries.
+
+* Updated package directories to reflect the winddk BUILDARCH env variable.
+  (i64 := ia64, x64 := amd64)
+  
+* Added request to get the current configuration in usb_open().
+
+* Fixed 2960644 (reported by farthen) crash on shutdown with x64 based
+  systems while using inf files for each libusb device.
+
+* Added additional log message only included in debug/chk builds.
+  
+* Updated default log levels to highest verbose level for debug builds.
+
+* Added test signing support to the libusb-win32 make.cmd. This allows
+  libusb0.sys and libusb0.dll to be signed with a digital signature.
+  (see make.cmd for mmore details)
+
+* Added MSVC 2008 project files
+
+* Moved version defines to an include file (libusb_version.h)
+  This file is generated from libusb_version_h.in with "make.cmd makever"
+
+* Removed all "dist" commands from cyg/mingw makefile.  Instead use "make.cmd"
+  in the "ddk_make" directory.
+
+* Fixed filter setup not running in 64bit mode
+
+* Fixed 64bit inf-wizard, testlibusb-win builds
+
+* Added set initial config value #1 when the driver is not a filter.
+  optionally, the initial configuration value can be specified in the inf
+  file: HKR,,"InitialConfigValue",0x00010001,<your config value>
+
+* Added support for querying device registry keys 
+ (LIBUSB_IOCTL_GET_CUSTOM_REG_PROPERTY)
+
+* Added support for querying device properties 
+ (LIBUSB_IOCTL_GET_DEVICE_PROPERTY)
+
+* Fixed possible race condition in kernel add_device()
+
+* Updated default ddk build version number to 1.1.14.0 to facilitate
+  Microsoft WHQL submission.
+
+* Added DDK build distribution system.  Official libusb-win32 releases 
+ (after 0.1.12.2) are built using Microsoft's WinDDK.  (see make.cmd)
+
+* Fixed 2658937 (reported by Tim Roberts) The libusb-win32 driver always
+  acts as a power policy owner.

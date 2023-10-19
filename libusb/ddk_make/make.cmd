@@ -71,12 +71,6 @@ IF /I "!_PACKAGE_TYPE_!" EQU "dist" (
 	GOTO CMDEXIT
 )
 
-IF /I "!_PACKAGE_TYPE_!" EQU "snapshot" (
-	CALL :Package_Distributables %*
-	IF "!BUILD_ERRORLEVEL!" NEQ 0 GOTO CMDERROR
-	GOTO CMDEXIT
-)
-
 IF /I "!_PACKAGE_TYPE_!" EQU "makever" (
 	CALL :TokenizeLibusbVersionH %*
 	IF "!BUILD_ERRORLEVEL!" NEQ 0 GOTO CMDERROR
@@ -272,15 +266,9 @@ GOTO :EOF
 	)
 GOTO :EOF
 
-
 :PackageText
 	CALL :TagEnv "..\README.in" "%~2\README.txt"
 	COPY /Y "..\*.txt" "%~2"
-	IF EXIST "!PACKAGE_ROOT_DIR!libusb-win32-changelog-!CMDVAR_VERSION!.txt" (
-		COPY /Y "!PACKAGE_ROOT_DIR!libusb-win32-changelog-!CMDVAR_VERSION!.txt"  "%~2\"
-	) ELSE (
-		ECHO No change log.>"%~2\libusb-win32-changelog-!CMDVAR_VERSION!.txt"
-	)
 
 GOTO :EOF
 
@@ -293,11 +281,7 @@ GOTO :EOF
 :SetPackage
 	SET _PACKAGE_DEBUG_=
 	IF /I "!CMDVAR_DEBUGMODE!" equ "true" SET _PACKAGE_DEBUG_=debug-
-	IF /I "!_PACKAGE_TYPE_!" EQU "snapshot" (
-		SET CMDVAR_PCKGNAME=%~1-!_PACKAGE_DEBUG_!!CMDVAR_SNAPSHOT_ID!
-	) ELSE (
-		SET CMDVAR_PCKGNAME=%~1-!_PACKAGE_DEBUG_!!CMDVAR_VERSION!
-	)
+	SET CMDVAR_PCKGNAME=%~1-!_PACKAGE_DEBUG_!!CMDVAR_VERSION!
 GOTO :EOF
 
 :Package_Distributables
@@ -570,15 +554,13 @@ GOTO :EOF
 :SetDDK
 	PUSHD !CD!
 	SET SELECTED_DDK=%~1
-	SHIFT /1
-	IF /I "%~1" EQU "forceoacr" SET WINDDK_AUTOCODEREVIEW=
-	SHIFT /1
+
 	IF NOT EXIST "!SELECTED_DDK!\BuildEnv\SetupBuildEnv.cmd" (
 		ECHO Failed locating WinDDK SetupBuildEnv.cmd at '!SELECTED_DDK!\BuildEnv\SetupBuildEnv.cmd'
 		SET BUILD_ERRORLEVEL=1
 		GOTO :EOF
 	)
-	CALL "!SELECTED_DDK!\BuildEnv\SetupBuildEnv.cmd" %1
+	CALL "!SELECTED_DDK!\BuildEnv\SetupBuildEnv.cmd"
 
 	:: EWDK turns ECHO back on, so turn it off
 	@ECHO OFF
@@ -653,8 +635,6 @@ GOTO :EOF
 				CALL :ToShortName _PVALUE "%%~J"
 			) ELSE IF /I "!_PNAME!" EQU "ISCC" (
 				CALL :ToShortName _PVALUE "%%~J"
-			) ELSE IF /I "!_PNAME!" EQU "IMPLIB" (
-				CALL :ToShortName _PVALUE "%%~J"
 			) ELSE IF /I "!_PNAME!" EQU "DLLTOOL" (
 				CALL :ToShortName _PVALUE "%%~J"
 			) ELSE (
@@ -666,12 +646,6 @@ GOTO :EOF
 	)
 	SET LIBUSB0_DIR=!PACKAGE_ROOT_DIR:\=/!
 	IF "!LIBUSB0_DIR:~-1!" EQU "/" SET LIBUSB0_DIR=!LIBUSB0_DIR:~0,-1!
-	
-	IF /I "!WINDDK_AUTOCODEREVIEW!" EQU "false" (
-		SET WINDDK_AUTOCODEREVIEW=no_oacr
-	) ELSE (
-		SET WINDDK_AUTOCODEREVIEW=
-	)
 GOTO :EOF
 
 :LoadArguments
@@ -962,7 +936,6 @@ ECHO PACKAGE USAGE: make.cmd PackageCommand "Option=Value"
 ECHO Package Commands:
 ECHO ALL       Build binaries for all architectures.
 ECHO DIST      Creates libusb-win32 dist packages.
-ECHO SNAPSHOT  Creates libusb-win32 snapshot packages.
 ECHO.
 ECHO Additional Commands:
 ECHO CLEAN        Cleans all temporary files.
