@@ -7,7 +7,6 @@ V1.3.0.1 (10/20/2023) - SNAPSHOT RELEASE
 V1.3.0.0 (10/03/2023) - SNAPSHOT RELEASE
 ==============================================
 * Convert to EWDK WIN11 version 2200
-* Much smaller binaries due to newer compiler
 
 V1.2.7.4 (9/20/2023) - SNAPSHOT RELEASE
 ==============================================
