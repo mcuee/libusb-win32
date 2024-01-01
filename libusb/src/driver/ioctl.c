@@ -72,17 +72,16 @@
 // calls the transfer function and returns NTSTATUS
 #define TRANSFER_IOCTL_EXECUTE()										\
 	if (transfer_buffer_length > (ULONG)(maxTransferSize))				\
-	/* split large transfers */											\
-	return large_transfer(dev, irp,					\
+	/* capped transfer */							\
+	return transfer(dev, irp,						\
 	usbdDirection,									\
 	urbFunction,									\
 	pipe_info,										\
 	request->endpoint.packet_size,					\
-	maxTransferSize,								\
 	request->endpoint.transfer_flags,				\
 	request->endpoint.iso_start_frame_latency,		\
 	transfer_buffer_mdl,							\
-	transfer_buffer_length);						\
+	maxTransferSize);					\
 	else											\
 	/* normal transfer */							\
 	return transfer(dev, irp,						\
