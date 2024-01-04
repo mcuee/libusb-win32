@@ -24,6 +24,13 @@ typedef struct
 {
 	URB *urb;
 	int sequence;
+	int transferFlags;
+	int isoLatency;
+	int totalLength;
+	int information;
+	int maximum_packet_size;
+	IN PMDL mdlAddress;
+	PMDL subMdl;
 } context_t;
 
 static LONG sequence = 0;
@@ -52,6 +59,27 @@ void set_urb_transfer_flags(libusb_device_t* dev,
 							int transfer_flags,
 							int isoLatency);
 
+static NTSTATUS transfer_next(libusb_device_t* dev,
+	IN PIRP irp,
+	context_t* context)
+{
+	IO_STACK_LOCATION* stack_location = NULL;
+	stack_location = IoGetNextIrpStackLocation(irp);
+
+	stack_location->MajorFunction = IRP_MJ_INTERNAL_DEVICE_CONTROL;
+	stack_location->Parameters.Others.Argument1 = context->urb;
+	stack_location->Parameters.DeviceIoControl.IoControlCode = IOCTL_INTERNAL_USB_SUBMIT_URB;
+
+	IoSetCompletionRoutine(irp, transfer_complete, context, TRUE, TRUE, TRUE);
+
+	// Set the transfer flags just before we call the irp down.
+	// If this is an iso transfer, set_urb_transfer_flags() might need
+	// to get the start frame and set latency.
+	//
+	set_urb_transfer_flags(dev, irp, context->urb, context->transferFlags, context->isoLatency);
+
+	return IoCallDriver(dev->target_device, irp);
+}
 NTSTATUS transfer(libusb_device_t* dev,
 				  IN PIRP irp,
 				  IN int direction,
@@ -63,7 +91,6 @@ NTSTATUS transfer(libusb_device_t* dev,
 				  IN PMDL mdlAddress,
 				  IN int totalLength)
 {
-	IO_STACK_LOCATION *stack_location = NULL;
 	context_t *context;
 	NTSTATUS status = STATUS_SUCCESS;
 	int sequenceID  = InterlockedIncrement(&sequence);
@@ -93,9 +120,17 @@ NTSTATUS transfer(libusb_device_t* dev,
 		return complete_irp(irp, STATUS_NO_MEMORY, 0);
 	}
 
+	context->isoLatency = isoLatency;
+	context->transferFlags = transferFlags;
+	context->totalLength = totalLength;
+	context->maximum_packet_size = endpoint->maximum_packet_size;
+	context->sequence = sequenceID;
+	context->mdlAddress = mdlAddress;
+	context->subMdl = NULL;
+	context->information = 0;
+
 	status = create_urb(dev, &context->urb, direction, urbFunction,
 		endpoint, packetSize, mdlAddress, totalLength);
-
 	if (!NT_SUCCESS(status))
 	{
 		ExFreePool(context);
@@ -103,30 +138,21 @@ NTSTATUS transfer(libusb_device_t* dev,
 		return complete_irp(irp, status, 0);
 	}
 
+	status = transfer_next(dev, irp, context);
+	if (!NT_SUCCESS(status))
+	{
+		ExFreePool(context->urb);
+		ExFreePool(context);
+		remove_lock_release(dev);
+		return complete_irp(irp, status, 0);
+	}
 
-	context->sequence = sequenceID;
-
-	stack_location = IoGetNextIrpStackLocation(irp);
-
-	stack_location->MajorFunction = IRP_MJ_INTERNAL_DEVICE_CONTROL;
-	stack_location->Parameters.Others.Argument1 = context->urb;
-	stack_location->Parameters.DeviceIoControl.IoControlCode = IOCTL_INTERNAL_USB_SUBMIT_URB;
-
-	IoSetCompletionRoutine(irp, transfer_complete, context, TRUE, TRUE, TRUE);
-
-	// Set the transfer flags just before we call the irp down.
-	// If this is an iso transfer, set_urb_transfer_flags() might need
-	// to get the start frame and set latency.
-	//
-	set_urb_transfer_flags(dev, irp, context->urb, transferFlags, isoLatency);
-
-	return IoCallDriver(dev->target_device, irp);
+	return status;
 }
-
-
 NTSTATUS DDKAPI transfer_complete(DEVICE_OBJECT *device_object, IRP *irp,
 								  void *context)
 {
+	NTSTATUS status = STATUS_SUCCESS;
 	context_t *c = (context_t *)context;
 	int transmitted = 0;
 	libusb_device_t *dev = device_object->DeviceExtension;
@@ -167,16 +193,69 @@ NTSTATUS DDKAPI transfer_complete(DEVICE_OBJECT *device_object, IRP *irp,
 		}
 	}
 
+	/* Calculate size remaining */
+	c->totalLength = (transmitted < c->totalLength) ? (c->totalLength - transmitted) : 0;
+
+	/* Update transferred size */
+	c->information += transmitted;
+
+	/* If this is a success, and there is more data to be transferred, then lets go again */
+	if(NT_SUCCESS(irp->IoStatus.Status)
+		&& USBD_SUCCESS(c->urb->UrbHeader.Status)
+		&& (c->urb->UrbHeader.Function == URB_FUNCTION_BULK_OR_INTERRUPT_TRANSFER)
+		&& (c->urb->UrbBulkOrInterruptTransfer.TransferFlags & USBD_TRANSFER_DIRECTION_IN)
+		&& (transmitted == c->maximum_packet_size)
+		&& c->totalLength)
+	{
+		PUCHAR virtualAddress = (PUCHAR)MmGetMdlVirtualAddress(c->mdlAddress);
+		if(!virtualAddress)
+		{
+			USBERR("[#%d] MmGetMdlVirtualAddress failed\n", c->sequence);
+			status = STATUS_INSUFFICIENT_RESOURCES;
+			goto transfer_free;
+		}
+
+		/* Skip used address space */
+		virtualAddress += c->information;
+
+		c->subMdl = IoAllocateMdl((PVOID)(virtualAddress),
+			c->totalLength, FALSE, FALSE, NULL);
+		if(c->subMdl == NULL)
+		{
+			USBERR("[#%d] failed allocating subMdl\n", c->sequence);
+			status = STATUS_INSUFFICIENT_RESOURCES;
+			goto transfer_free;
+		}
+
+		IoBuildPartialMdl(irp->MdlAddress, c->subMdl, (PVOID)virtualAddress, c->totalLength);
+
+		/* Re-use URB for another reception */
+		c->urb->UrbBulkOrInterruptTransfer.TransferBufferLength = c->totalLength;
+		c->urb->UrbBulkOrInterruptTransfer.TransferBufferMDL = c->subMdl;
+
+		status = transfer_next(dev, irp, c);
+		if(!NT_SUCCESS(status))
+		{
+			goto transfer_free;
+		}
+
+		return STATUS_MORE_PROCESSING_REQUIRED;
+	}
+
+transfer_free:
+
+	irp->IoStatus.Information = c->information;
+	if(c->subMdl)
+	{
+		IoFreeMdl(c->subMdl);
+	}
 	ExFreePool(c->urb);
 	ExFreePool(c);
 
-	irp->IoStatus.Information = transmitted;
-
 	remove_lock_release(dev);
 
-	return STATUS_SUCCESS;
+	return status;
 }
-
 
 static NTSTATUS create_urb(libusb_device_t *dev, URB **urb, int direction,
 						   int urbFunction, libusb_endpoint_t* endpoint, int packetSize,
