@@ -156,12 +156,6 @@ int usb_os_open(usb_dev_handle *dev)
 	dev->interface = -1;
 	dev->altsetting = -1;
 
-	if (!dev->device->filename)
-	{
-		USBERR0("invalid file name\n");
-		return -ENOENT;
-	}
-
 	/* build the Windows file name from the unique device name */
 	strcpy(dev_name, dev->device->filename);
 

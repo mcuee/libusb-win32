@@ -85,8 +85,6 @@ bool_t usb_registry_get_property(DWORD which, HDEVINFO dev_info,
 {
 	DWORD reg_type;
 	DWORD length = size;
-	char *p = NULL;
-	HKEY reg_key = NULL;
 
 	memset(buf, 0, size);
 
@@ -562,14 +560,11 @@ bool_t usb_registry_insert_device_filters(filter_context_t* filter_context)
 	SP_DEVINFO_DATA dev_info_data;
 	int dev_index = 0;
 	char hwid[MAX_PATH];
-	const char *driver_name;
 	filter_device_t* found;
 	bool_t is_libusb_service;
 
 	if (!filter_context->device_filters)
 		return TRUE;
-
-	driver_name = USB_GET_DRIVER_NAME();
 
 	dev_info_data.cbSize = sizeof(SP_DEVINFO_DATA);
 	dev_index = 0;
@@ -866,7 +861,7 @@ bool_t usb_registry_get_mz_value(const char *key, const char *value,
 		== ERROR_SUCCESS)
 	{
 		if (RegQueryValueEx(reg_key, value, NULL, &reg_type,
-			buf, &reg_length) == ERROR_SUCCESS)
+			(LPBYTE)buf, &reg_length) == ERROR_SUCCESS)
 		{
 			if (reg_type == REG_SZ)
 			{
@@ -923,7 +918,7 @@ bool_t usb_registry_set_mz_value(const char *key, const char *value,
 		{
 			if (usb_registry_is_nt())
 			{
-				if (RegSetValueEx(reg_key, value, 0, REG_MULTI_SZ, buf, size)
+				if (RegSetValueEx(reg_key, value, 0, REG_MULTI_SZ, (LPBYTE)buf, size)
 					== ERROR_SUCCESS)
 				{
 					ret = TRUE;
@@ -931,7 +926,7 @@ bool_t usb_registry_set_mz_value(const char *key, const char *value,
 			}
 			else
 			{
-				if (RegSetValueEx(reg_key, value, 0, REG_SZ, buf, size)
+				if (RegSetValueEx(reg_key, value, 0, REG_SZ, (LPBYTE)buf, size)
 					== ERROR_SUCCESS)
 				{
 					ret = TRUE;
@@ -1029,7 +1024,6 @@ bool_t usb_registry_mz_string_insert(char *src, const char *str)
 bool_t usb_registry_mz_string_remove(char *src, const char *str, bool_t no_case)
 {
 	char *p;
-	bool_t ret = FALSE;
 	int size;
 
 	do
@@ -1039,10 +1033,6 @@ bool_t usb_registry_mz_string_remove(char *src, const char *str, bool_t no_case)
 		if (!src)
 		{
 			break;
-		}
-		else
-		{
-			ret = TRUE;
 		}
 
 		p = src;
@@ -1281,7 +1271,6 @@ bool_t usb_registry_get_usb_class_keys(filter_context_t* filter_context, bool_t 
 	char class[MAX_PATH];
 	char class_name[MAX_PATH];
 	char tmp[MAX_PATH];
-	DWORD class_property;
 	const char *class_path;
 	const char **default_class_keys;
 	filter_class_t* found = NULL;
@@ -1290,7 +1279,6 @@ bool_t usb_registry_get_usb_class_keys(filter_context_t* filter_context, bool_t 
 	bool_t add_device_classes = FALSE;
 	bool_t success;
 
-	class_property = SPDRP_CLASSGUID;
 	class_path = CLASS_KEY_PATH_NT;
 	default_class_keys = default_class_keys_nt;
 	i = 0;
@@ -1427,7 +1415,7 @@ bool_t usb_registry_get_all_class_keys(filter_context_t* filter_context, bool_t 
 					if (RegOpenKeyEx(HKEY_LOCAL_MACHINE, tmp, 0, KEY_ALL_ACCESS, &reg_class_key) == ERROR_SUCCESS)
 					{
 						size = sizeof(class_name);
-						RegQueryValueExA(reg_class_key, "Class", NULL, &reg_type, class_name, &size);
+						RegQueryValueExA(reg_class_key, "Class", NULL, &reg_type, (LPBYTE)class_name, &size);
 
 						usb_registry_add_class_key(&filter_context->class_filters, tmp, class_name, class, &found,
 							(add_all_classes) ? FALSE : refresh_only);
@@ -1490,7 +1478,7 @@ bool_t usb_registry_lookup_class_keys_by_name(filter_class_t** head)
 				if (RegOpenKeyEx(HKEY_LOCAL_MACHINE, tmp, 0, KEY_ALL_ACCESS, &reg_class_key) == ERROR_SUCCESS)
 				{
 					size = sizeof(class_name);
-					RegQueryValueExA(reg_class_key, "Class", NULL, &reg_type, class_name, &size);
+					RegQueryValueExA(reg_class_key, "Class", NULL, &reg_type, (LPBYTE)class_name, &size);
 					RegCloseKey(reg_class_key);
 
 					usb_registry_add_class_key(head, tmp, class_name, class, &found, TRUE);
@@ -1632,13 +1620,13 @@ static bool_t usb_registry_get_class_filter_keys(filter_class_t* filter_class, H
 
 	// Get the class filters. A non-existent key means no filters
 	size = sizeof(filter_class->class_uppers) - 1;
-	if (RegQueryValueExA(reg_class_hkey, "UpperFilters", NULL, &reg_type, filter_class->class_uppers, &size) != ERROR_SUCCESS)
+	if (RegQueryValueExA(reg_class_hkey, "UpperFilters", NULL, &reg_type, (LPBYTE)filter_class->class_uppers, &size) != ERROR_SUCCESS)
 	{
 		memset(filter_class->class_uppers, 0, sizeof(filter_class->class_uppers));
 	}
 
 	size = sizeof(filter_class->class_lowers) - 1;
-	if (RegQueryValueExA(reg_class_hkey, "LowerFilters", NULL, &reg_type, filter_class->class_lowers, &size) != ERROR_SUCCESS)
+	if (RegQueryValueExA(reg_class_hkey, "LowerFilters", NULL, &reg_type, (LPBYTE)filter_class->class_lowers, &size) != ERROR_SUCCESS)
 	{
 		memset(filter_class->class_lowers, 0, sizeof(filter_class->class_lowers));
 	}

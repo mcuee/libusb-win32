@@ -311,7 +311,6 @@ typedef BOOL (WINAPI * control_service_t)(SC_HANDLE, DWORD, LPSERVICE_STATUS);
 static HINSTANCE riched32_dll = NULL;
 static HINSTANCE shell32_dll = NULL;
 static HINSTANCE msimg32_dll = NULL;
-static HINSTANCE gdi32_dll = NULL;
 
 static HINSTANCE advapi32_dll = NULL;
 
@@ -1182,8 +1181,6 @@ int usb_touch_inf_file_np(const char *inf_file)
 {
 	const char inf_comment[] = ";added by libusb to break this file's digital "
 	                           "signature";
-	const wchar_t inf_comment_uni[] = L";added by libusb to break this file's "
-	                                  L"digital signature";
 
 	char buf[1024];
 	int found = 0;

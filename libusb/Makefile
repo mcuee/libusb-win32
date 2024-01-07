@@ -82,7 +82,7 @@ DRIVER_OBJECTS = abort_endpoint.o claim_interface.o clear_feature.o \
 INCLUDES = -I./src -I./src/driver -I.
 driver: INCLUDES += $(DDK_INCLUDE)
 
-CFLAGS = -O2 -Wall -DWINVER=0x500 $(DBG_DEFINE)
+CFLAGS = -O2 -Wall -DWINVER=0x500 $(DBG_DEFINE) -Werror
 CFLAGS += -Wno-unknown-pragmas -Wno-multichar
 WIN_CFLAGS = $(CFLAGS) -mwindows
 
