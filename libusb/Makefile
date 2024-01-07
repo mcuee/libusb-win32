@@ -183,7 +183,7 @@ $(DRIVER_TARGET): libusbd.a $(DRIVER_OBJECTS)
 	$(CC) -o $@ $(DRIVER_OBJECTS) $(DLL_TARGET)_drv.def $(DRIVER_LDFLAGS)
 
 libusbd.a:
-	$(DLLTOOL) --dllname usbd.sys --add-underscore --def ./src/driver/usbd.def --output-lib libusbd.a
+	$(DLLTOOL) --dllname usbd.sys --def ./src/driver/usbd.def --output-lib libusbd.a
 
 %.o: %.c libusb_driver.h driver_api.h error.h
 	$(CC) -c $< -o $@ $(DRIVER_CFLAGS) $(CPPFLAGS) $(INCLUDES) 
