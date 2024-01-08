@@ -350,18 +350,6 @@ NTSTATUS transfer(libusb_device_t* dev,
 				  IN PMDL mdlAddress,
 				  IN int totalLength);
 
-NTSTATUS large_transfer(IN libusb_device_t* dev,
-						IN PIRP irp,
-						IN int direction,
-						IN int urbFunction,
-						IN libusb_endpoint_t* endpoint,
-						IN int packetSize,
-						IN int maxTransferSize,
-						IN int transferFlags,
-						IN int isoLatency,
-						IN PMDL mdlAddress,
-						IN int totalLength);
-
 ULONG get_current_frame(IN PDEVICE_EXTENSION dev, IN PIRP Irp);
 
 PVOID allocate_pool(SIZE_T bytes);
