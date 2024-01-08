@@ -152,7 +152,7 @@
     </DriverSign>
     <ClCompile>
       <AdditionalIncludeDirectories>..\..\..\src;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <PreprocessorDefinitions>TARGETTYPE=DRIVER;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>TARGETTYPE=DRIVER;LOG_APPNAME="libusb0-sys";%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
     <ResourceCompile>
       <AdditionalIncludeDirectories>..\..\..\src;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
@@ -170,7 +170,7 @@
     </DriverSign>
     <ClCompile>
       <AdditionalIncludeDirectories>..\..\..\src;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <PreprocessorDefinitions>TARGETTYPE=DRIVER;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>TARGETTYPE=DRIVER;LOG_APPNAME="libusb0-sys";%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
     <ResourceCompile>
       <AdditionalIncludeDirectories>..\..\..\src;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
@@ -188,7 +188,7 @@
     </DriverSign>
     <ClCompile>
       <AdditionalIncludeDirectories>..\..\..\src;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <PreprocessorDefinitions>TARGETTYPE=DRIVER;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>TARGETTYPE=DRIVER;LOG_APPNAME="libusb0-sys";%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
     <ResourceCompile>
       <AdditionalIncludeDirectories>..\..\..\src;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
@@ -206,7 +206,7 @@
     </DriverSign>
     <ClCompile>
       <AdditionalIncludeDirectories>..\..\..\src;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <PreprocessorDefinitions>TARGETTYPE=DRIVER;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>TARGETTYPE=DRIVER;LOG_APPNAME="libusb0-sys";%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
     <ResourceCompile>
       <AdditionalIncludeDirectories>..\..\..\src;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
@@ -221,7 +221,7 @@
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|ARM'">
     <ClCompile>
       <AdditionalIncludeDirectories>..\..\..\src;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <PreprocessorDefinitions>TARGETTYPE=DRIVER;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>TARGETTYPE=DRIVER;LOG_APPNAME="libusb0-sys";%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
     <ResourceCompile>
       <AdditionalIncludeDirectories>..\..\..\src;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
@@ -236,7 +236,7 @@
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64'">
     <ClCompile>
       <AdditionalIncludeDirectories>..\..\..\src;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <PreprocessorDefinitions>TARGETTYPE=DRIVER;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>TARGETTYPE=DRIVER;LOG_APPNAME="libusb0-sys";%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
     <ResourceCompile>
       <AdditionalIncludeDirectories>..\..\..\src;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
@@ -251,7 +251,7 @@
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|ARM'">
     <ClCompile>
       <AdditionalIncludeDirectories>..\..\..\src;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <PreprocessorDefinitions>TARGETTYPE=DRIVER;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>TARGETTYPE=DRIVER;LOG_APPNAME="libusb0-sys";%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
     <ResourceCompile>
       <AdditionalIncludeDirectories>..\..\..\src;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
@@ -266,7 +266,7 @@
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|ARM64'">
     <ClCompile>
       <AdditionalIncludeDirectories>..\..\..\src;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <PreprocessorDefinitions>TARGETTYPE=DRIVER;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>TARGETTYPE=DRIVER;LOG_APPNAME="libusb0-sys";%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
     <ResourceCompile>
       <AdditionalIncludeDirectories>..\..\..\src;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>

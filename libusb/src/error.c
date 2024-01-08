@@ -35,7 +35,7 @@
 #define USB_ERROR_BEGIN			500000
 
 #ifndef LOG_APPNAME
-#define LOG_APPNAME "LOG_APPNAME define missing"
+#error "LOG_APPNAME define missing"
 #endif
 
 #define GetLogLevel(UsbLogLevel) ((UsbLogLevel & LOG_LEVEL_MASK)>LOG_LEVEL_MAX?LOG_LEVEL_MAX:UsbLogLevel & LOG_LEVEL_MASK)
