@@ -80,7 +80,8 @@
 	request->endpoint.transfer_flags,				\
 	request->endpoint.iso_start_frame_latency,		\
 	transfer_buffer_mdl,							\
-	transfer_buffer_length);
+	transfer_buffer_length,						\
+	maxTransferSize);
 
 NTSTATUS dispatch_ioctl(libusb_device_t *dev, IRP *irp)
 {

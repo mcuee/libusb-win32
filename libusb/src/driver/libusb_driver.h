@@ -348,7 +348,8 @@ NTSTATUS transfer(libusb_device_t* dev,
 				  IN int transferFlags,
 				  IN int isoLatency,
 				  IN PMDL mdlAddress,
-				  IN int totalLength);
+				  IN int totalLength,
+				  IN int maxTransferSize);
 
 ULONG get_current_frame(IN PDEVICE_EXTENSION dev, IN PIRP Irp);
 
