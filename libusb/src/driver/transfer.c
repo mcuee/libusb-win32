@@ -29,6 +29,7 @@ typedef struct
 	int totalLength;
 	int information;
 	int maximum_packet_size;
+	int maxTransferSize;
 	IN PMDL mdlAddress;
 	PMDL subMdl;
 } context_t;
@@ -89,12 +90,14 @@ NTSTATUS transfer(libusb_device_t* dev,
 				  IN int transferFlags,
 				  IN int isoLatency,
 				  IN PMDL mdlAddress,
-				  IN int totalLength)
+				  IN int totalLength,
+				  IN int maxTransferSize)
 {
 	context_t *context;
 	NTSTATUS status = STATUS_SUCCESS;
 	int sequenceID  = InterlockedIncrement(&sequence);
 	const char* dispTransfer = GetPipeDisplayName(endpoint);
+	int first_size;
 
 	// TODO: reset pipe flag 
 	// status = reset_endpoint(dev,endpoint->address, LIBUSB_DEFAULT_TIMEOUT);
@@ -109,8 +112,8 @@ NTSTATUS transfer(libusb_device_t* dev,
 	}
 	else
 	{
-		USBMSG("[%s #%d] EP%02Xh length %d\n",
-			dispTransfer, sequenceID, endpoint->address, totalLength);
+		USBMSG("[%s #%d] EP%02Xh length=%d, packetSize=%d, maxTransferSize=%d\n",
+			dispTransfer, sequenceID, endpoint->address, totalLength, packetSize, maxTransferSize);
 	}
 	context = allocate_pool(sizeof(context_t));
 
@@ -128,9 +131,12 @@ NTSTATUS transfer(libusb_device_t* dev,
 	context->mdlAddress = mdlAddress;
 	context->subMdl = NULL;
 	context->information = 0;
+	context->maxTransferSize = maxTransferSize;
+
+	first_size = (totalLength > context->maxTransferSize) ? context->maxTransferSize : totalLength;
 
 	status = create_urb(dev, &context->urb, direction, urbFunction,
-		endpoint, packetSize, mdlAddress, totalLength);
+		endpoint, packetSize, mdlAddress, first_size);
 	if (!NT_SUCCESS(status))
 	{
 		ExFreePool(context);
@@ -175,8 +181,8 @@ NTSTATUS DDKAPI transfer_complete(DEVICE_OBJECT *device_object, IRP *irp,
 				= c->urb->UrbBulkOrInterruptTransfer.TransferBufferLength;
 		}
 
-		USBMSG("sequence %d: %d bytes transmitted\n",
-			c->sequence, transmitted);
+		USBMSG("sequence %d: %d bytes transmitted, maximum_packet_size=%d, totalLength=%d\n",
+			c->sequence, transmitted, c->maximum_packet_size, c->totalLength);
 	}
 	else
 	{
@@ -203,10 +209,10 @@ NTSTATUS DDKAPI transfer_complete(DEVICE_OBJECT *device_object, IRP *irp,
 	if(NT_SUCCESS(irp->IoStatus.Status)
 		&& USBD_SUCCESS(c->urb->UrbHeader.Status)
 		&& (c->urb->UrbHeader.Function == URB_FUNCTION_BULK_OR_INTERRUPT_TRANSFER)
-		&& (c->urb->UrbBulkOrInterruptTransfer.TransferFlags & USBD_TRANSFER_DIRECTION_IN)
-		&& (transmitted == c->maximum_packet_size)
+		&& !(transmitted % c->maximum_packet_size)
 		&& c->totalLength)
 	{
+		int next_size = (c->totalLength > c->maxTransferSize) ? c->maxTransferSize : c->totalLength;
 		PUCHAR virtualAddress = (PUCHAR)MmGetMdlVirtualAddress(c->mdlAddress);
 		if(!virtualAddress)
 		{
@@ -219,7 +225,7 @@ NTSTATUS DDKAPI transfer_complete(DEVICE_OBJECT *device_object, IRP *irp,
 		virtualAddress += c->information;
 
 		c->subMdl = IoAllocateMdl((PVOID)(virtualAddress),
-			c->totalLength, FALSE, FALSE, NULL);
+			next_size, FALSE, FALSE, NULL);
 		if(c->subMdl == NULL)
 		{
 			USBERR("[#%d] failed allocating subMdl\n", c->sequence);
@@ -227,10 +233,10 @@ NTSTATUS DDKAPI transfer_complete(DEVICE_OBJECT *device_object, IRP *irp,
 			goto transfer_free;
 		}
 
-		IoBuildPartialMdl(irp->MdlAddress, c->subMdl, (PVOID)virtualAddress, c->totalLength);
+		IoBuildPartialMdl(irp->MdlAddress, c->subMdl, (PVOID)virtualAddress, next_size);
 
 		/* Re-use URB for another reception */
-		c->urb->UrbBulkOrInterruptTransfer.TransferBufferLength = c->totalLength;
+		c->urb->UrbBulkOrInterruptTransfer.TransferBufferLength = next_size;
 		c->urb->UrbBulkOrInterruptTransfer.TransferBufferMDL = c->subMdl;
 
 		status = transfer_next(dev, irp, c);

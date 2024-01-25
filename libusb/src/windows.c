@@ -35,8 +35,6 @@
 #include "registry.h"
 #include "libusb-win32_version.h"
 
-#define LIBUSB_WIN32_DLL_LARGE_TRANSFER_SUPPORT
-
 #define LIBUSB_DEFAULT_TIMEOUT 5000
 #define LIBUSB_DEVICE_NAME "\\\\.\\libusb0-"
 #define LIBUSB_BUS_NAME "bus-0"
@@ -562,7 +560,6 @@ static int _usb_transfer_sync(usb_dev_handle *dev, int control_code,
     void *context = NULL;
     int transmitted = 0;
     int ret;
-    int requested;
 
 	if (!timeout) timeout=INFINITE;
     ret = _usb_setup_async(dev, &context, control_code, (unsigned char )ep,
@@ -573,34 +570,12 @@ static int _usb_transfer_sync(usb_dev_handle *dev, int control_code,
         return ret;
     }
 
-    do
+    ret = usb_submit_async(context, bytes, size);
+    if(ret >= 0)
     {
-#ifdef LIBUSB_WIN32_DLL_LARGE_TRANSFER_SUPPORT
-        requested = size > LIBUSB_MAX_READ_WRITE ? LIBUSB_MAX_READ_WRITE : size;
-#else
-        requested = size;
-#endif
-        ret = usb_submit_async(context, bytes, requested);
-
-        if (ret < 0)
-        {
-            transmitted = ret;
-            break;
-        }
-
-        ret = usb_reap_async(context, timeout);
-
-        if (ret < 0)
-        {
-            transmitted = ret;
-            break;
-        }
-
-        transmitted += ret;
-        bytes += ret;
-        size -= ret;
+      ret = usb_reap_async(context, timeout);
+      transmitted = ret;
     }
-    while (size > 0 && ret == requested);
 
     usb_free_async(&context);
 
