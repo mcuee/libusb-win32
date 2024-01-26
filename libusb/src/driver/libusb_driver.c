@@ -320,6 +320,9 @@ NTSTATUS DDKAPI add_device(DRIVER_OBJECT *driver_object,
 	clear_pipe_info(dev);
 
 	remove_lock_initialize(dev);
+
+  /* Initialize the pending lock */
+  KeInitializeSpinLock(&dev->pending_lock);
 	
 	if (dev->device_interface_in_use)
 	{
@@ -778,7 +781,6 @@ void remove_lock_release_and_wait(libusb_device_t *dev)
     KeWaitForSingleObject(&dev->remove_lock.event, Executive, KernelMode,
                           FALSE, NULL);
 }
-
 
 USB_INTERFACE_DESCRIPTOR *
 find_interface_desc(USB_CONFIGURATION_DESCRIPTOR *config_desc,

@@ -23,6 +23,7 @@
 typedef struct
 {
 	URB *urb;
+	int address;
 	int sequence;
 	int transferFlags;
 	int isoLatency;
@@ -60,10 +61,23 @@ void set_urb_transfer_flags(libusb_device_t* dev,
 							int transfer_flags,
 							int isoLatency);
 
+static KIRQL pending_lock_acquire(libusb_device_t* dev)
+{
+	KIRQL old;
+	KeAcquireSpinLock(&dev->pending_lock, &old);
+	return old;
+}
+
+static void pending_lock_release(libusb_device_t* dev, KIRQL old)
+{
+	KeReleaseSpinLock(&dev->pending_lock, old);
+}
+
 static NTSTATUS transfer_next(libusb_device_t* dev,
 	IN PIRP irp,
 	context_t* context)
 {
+	NTSTATUS status;
 	IO_STACK_LOCATION* stack_location = NULL;
 	stack_location = IoGetNextIrpStackLocation(irp);
 
@@ -79,8 +93,14 @@ static NTSTATUS transfer_next(libusb_device_t* dev,
 	//
 	set_urb_transfer_flags(dev, irp, context->urb, context->transferFlags, context->isoLatency);
 
-	return IoCallDriver(dev->target_device, irp);
+	status = IoCallDriver(dev->target_device, irp);
+	if (!NT_SUCCESS(status))
+	{
+		USBERR("xfer failed. sequence %d\n", context->sequence);
+	}
+	return status;
 }
+
 NTSTATUS transfer(libusb_device_t* dev,
 				  IN PIRP irp,
 				  IN int direction,
@@ -132,6 +152,7 @@ NTSTATUS transfer(libusb_device_t* dev,
 	context->subMdl = NULL;
 	context->information = 0;
 	context->maxTransferSize = maxTransferSize;
+	context->address = endpoint->address;
 
 	first_size = (totalLength > context->maxTransferSize) ? context->maxTransferSize : totalLength;
 
@@ -144,15 +165,23 @@ NTSTATUS transfer(libusb_device_t* dev,
 		return complete_irp(irp, status, 0);
 	}
 
+	/* Grab the pending lock. This makes sure a DPC does not arrive
+		 while we are sending the next sequence */
+	KIRQL old = pending_lock_acquire(dev);
+	dev->pending_sequence[context->address] = sequenceID;
+
 	status = transfer_next(dev, irp, context);
 	if (!NT_SUCCESS(status))
 	{
+		pending_lock_release(dev, old);
+
 		ExFreePool(context->urb);
 		ExFreePool(context);
 		remove_lock_release(dev);
 		return complete_irp(irp, status, 0);
 	}
 
+	pending_lock_release(dev, old);
 	return status;
 }
 NTSTATUS DDKAPI transfer_complete(DEVICE_OBJECT *device_object, IRP *irp,
@@ -205,8 +234,15 @@ NTSTATUS DDKAPI transfer_complete(DEVICE_OBJECT *device_object, IRP *irp,
 	/* Update transferred size */
 	c->information += transmitted;
 
-	/* If this is a success, and there is more data to be transferred, then lets go again */
+	USBERR("sequence %d: pending seq %i\n", c->sequence, dev->pending_sequence[c->address]);
+
+	/* If this is a success, and there is more data to be transferred, then lets go again
+   *
+	 * Note 1: We do not do this if other requests are already pending on the endpoint,
+	 * as this could change the order of the arrival of data
+	 */
 	if(NT_SUCCESS(irp->IoStatus.Status)
+		&& (dev->pending_sequence[c->address] == c->sequence)
 		&& USBD_SUCCESS(c->urb->UrbHeader.Status)
 		&& (c->urb->UrbHeader.Function == URB_FUNCTION_BULK_OR_INTERRUPT_TRANSFER)
 		&& !(transmitted % c->maximum_packet_size)
