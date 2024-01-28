@@ -24,7 +24,7 @@ typedef struct
 {
 	URB *urb;
 	int address;
-	int sequence;
+	LONG sequence;
 	int transferFlags;
 	int isoLatency;
 	int totalLength;
@@ -60,19 +60,6 @@ void set_urb_transfer_flags(libusb_device_t* dev,
 							PURB subUrb,
 							int transfer_flags,
 							int isoLatency);
-
-static KIRQL pending_lock_acquire(libusb_device_t* dev)
-{
-	KIRQL old;
-	KeAcquireSpinLock(&dev->pending_lock, &old);
-	return old;
-}
-
-static void pending_lock_release(libusb_device_t* dev, KIRQL old)
-{
-	KeReleaseSpinLock(&dev->pending_lock, old);
-}
-
 static NTSTATUS transfer_next(libusb_device_t* dev,
 	IN PIRP irp,
 	context_t* context)
@@ -113,11 +100,12 @@ NTSTATUS transfer(libusb_device_t* dev,
 				  IN int totalLength,
 				  IN int maxTransferSize)
 {
-	context_t *context;
+	context_t *context = NULL;
 	NTSTATUS status = STATUS_SUCCESS;
 	int sequenceID  = InterlockedIncrement(&sequence);
 	const char* dispTransfer = GetPipeDisplayName(endpoint);
 	int first_size;
+	LONG pending_busy_taken = FALSE, pending_busy = FALSE;
 
 	// TODO: reset pipe flag 
 	// status = reset_endpoint(dev,endpoint->address, LIBUSB_DEFAULT_TIMEOUT);
@@ -135,12 +123,25 @@ NTSTATUS transfer(libusb_device_t* dev,
 		USBMSG("[%s #%d] EP%02Xh length=%d, packetSize=%d, maxTransferSize=%d\n",
 			dispTransfer, sequenceID, endpoint->address, totalLength, packetSize, maxTransferSize);
 	}
-	context = allocate_pool(sizeof(context_t));
 
+	/* Check if another transfer is on-going on same endpoint */
+	pending_busy = InterlockedCompareExchange(&dev->pending_busy[endpoint->address], 1, 0);
+	if(pending_busy)
+	{
+		USBMSG("sequence %d send aborted due to pending conflict\n", sequenceID);
+		goto transfer_free;
+	}
+	pending_busy_taken = TRUE;
+
+	/* Save the pending sequence, so that transfer_complete() for older requests do not
+		 order new transfers after this one */
+	InterlockedExchange(&dev->pending_sequence[endpoint->address], sequenceID);
+
+	context = allocate_pool(sizeof(context_t));
 	if (!context)
 	{
-		remove_lock_release(dev);
-		return complete_irp(irp, STATUS_NO_MEMORY, 0);
+		status = STATUS_NO_MEMORY;
+		goto transfer_free;
 	}
 
 	context->isoLatency = isoLatency;
@@ -160,30 +161,35 @@ NTSTATUS transfer(libusb_device_t* dev,
 		endpoint, packetSize, mdlAddress, first_size);
 	if (!NT_SUCCESS(status))
 	{
-		ExFreePool(context);
-		remove_lock_release(dev);
-		return complete_irp(irp, status, 0);
+		goto transfer_free;
 	}
 
-	/* Grab the pending lock. This makes sure a DPC does not arrive
-		 while we are sending the next sequence */
-	KIRQL old = pending_lock_acquire(dev);
-	dev->pending_sequence[context->address] = sequenceID;
-
-	status = transfer_next(dev, irp, context);
+  status = transfer_next(dev, irp, context);
 	if (!NT_SUCCESS(status))
 	{
-		pending_lock_release(dev, old);
-
-		ExFreePool(context->urb);
-		ExFreePool(context);
-		remove_lock_release(dev);
-		return complete_irp(irp, status, 0);
+		goto transfer_free;
 	}
 
-	pending_lock_release(dev, old);
+	InterlockedExchange(&dev->pending_busy[endpoint->address], 0);
 	return status;
+
+transfer_free:
+	if(pending_busy_taken)
+	{
+		InterlockedExchange(&dev->pending_busy[endpoint->address], 0);
+	}
+	if(context)
+	{
+		if(context->urb)
+		{
+			ExFreePool(context->urb);
+		}
+		ExFreePool(context);
+	}
+	remove_lock_release(dev);
+	return complete_irp(irp, status, 0);
 }
+
 NTSTATUS DDKAPI transfer_complete(DEVICE_OBJECT *device_object, IRP *irp,
 								  void *context)
 {
@@ -191,6 +197,7 @@ NTSTATUS DDKAPI transfer_complete(DEVICE_OBJECT *device_object, IRP *irp,
 	context_t *c = (context_t *)context;
 	int transmitted = 0;
 	libusb_device_t *dev = device_object->DeviceExtension;
+	LONG pending_busy_taken = FALSE, pending_busy = FALSE;
 
 	if (irp->PendingReturned)
 	{
@@ -234,22 +241,37 @@ NTSTATUS DDKAPI transfer_complete(DEVICE_OBJECT *device_object, IRP *irp,
 	/* Update transferred size */
 	c->information += transmitted;
 
-	USBERR("sequence %d: pending seq %i\n", c->sequence, dev->pending_sequence[c->address]);
-
 	/* If this is a success, and there is more data to be transferred, then lets go again
    *
-	 * Note 1: We do not do this if other requests are already pending on the endpoint,
+	 * Note 1: We do not do this if a newer request is already pending on the endpoint,
 	 * as this could change the order of the arrival of data
 	 */
 	if(NT_SUCCESS(irp->IoStatus.Status)
-		&& (dev->pending_sequence[c->address] == c->sequence)
 		&& USBD_SUCCESS(c->urb->UrbHeader.Status)
 		&& (c->urb->UrbHeader.Function == URB_FUNCTION_BULK_OR_INTERRUPT_TRANSFER)
 		&& !(transmitted % c->maximum_packet_size)
 		&& c->totalLength)
 	{
+		PUCHAR virtualAddress;
 		int next_size = (c->totalLength > c->maxTransferSize) ? c->maxTransferSize : c->totalLength;
-		PUCHAR virtualAddress = (PUCHAR)MmGetMdlVirtualAddress(c->mdlAddress);
+
+		/* Check if another transfer is on-going on same endpoint */
+		pending_busy = InterlockedCompareExchange(&dev->pending_busy[c->address], 1, 0);
+		if(pending_busy)
+		{
+			USBMSG("sequence %d resend aborted due to pending conflict\n", c->sequence);
+			goto transfer_free;
+		}
+		pending_busy_taken = TRUE;
+
+		/* Check if a newer sequence is pending */
+		if(InterlockedAdd(&dev->pending_sequence[c->address], 0) != c->sequence)
+		{
+			USBMSG("sequence %d resend aborted due to newer pending\n", c->sequence);
+			goto transfer_free;
+		}
+
+		virtualAddress = (PUCHAR)MmGetMdlVirtualAddress(c->mdlAddress);
 		if(!virtualAddress)
 		{
 			USBERR("[#%d] MmGetMdlVirtualAddress failed\n", c->sequence);
@@ -281,11 +303,16 @@ NTSTATUS DDKAPI transfer_complete(DEVICE_OBJECT *device_object, IRP *irp,
 			goto transfer_free;
 		}
 
+		InterlockedExchange(&dev->pending_busy[c->address], 0);
 		return STATUS_MORE_PROCESSING_REQUIRED;
 	}
 
 transfer_free:
 
+	if(pending_busy_taken)
+	{
+		InterlockedExchange(&dev->pending_busy[c->address], 0);
+	}
 	irp->IoStatus.Information = c->information;
 	if(c->subMdl)
 	{
