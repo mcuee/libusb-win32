@@ -80,7 +80,7 @@ void print_device_descriptor(struct usb_device_descriptor *desc, int indent)
 int print_device(struct usb_device *dev, int level)
 {
     usb_dev_handle *udev;
-    char description[256];
+    char description[256+4];
     char string[256];
     int ret, i;
 
