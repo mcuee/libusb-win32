@@ -124,6 +124,7 @@ typedef int bool_t;
 #define LowSpeed                0x01
 #define FullSpeed               0x02
 #define HighSpeed               0x03
+#define SuperSpeed              0x04
 
 #endif
 
@@ -184,6 +185,7 @@ typedef struct
     DEVICE_OBJECT	*physical_device_object;
     DEVICE_OBJECT	*next_stack_device;
     DEVICE_OBJECT	*target_device;
+	USBD_HANDLE handle;
     libusb_remove_lock_t remove_lock;
     bool_t is_filter;
     bool_t is_started;
@@ -210,6 +212,7 @@ typedef struct
 	UNICODE_STRING device_interface_name;
 	int control_read_timeout;
 	int control_write_timeout;
+	int speed;
 
 	/* Keep track of head pending request sequences on all endpoints
 	 * This housekeeping is here to make sure we do not sumbit read/writes out of order
