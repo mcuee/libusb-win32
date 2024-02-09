@@ -227,7 +227,7 @@
       <AdditionalIncludeDirectories>..\..\..\src;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ResourceCompile>
     <Link>
-      <AdditionalDependencies>usbd.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>usbd.lib;usbdex.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <Inf>
       <SpecifyArchitecture>true</SpecifyArchitecture>
@@ -242,7 +242,7 @@
       <AdditionalIncludeDirectories>..\..\..\src;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ResourceCompile>
     <Link>
-      <AdditionalDependencies>usbd.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>usbd.lib;usbdex.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <Inf>
       <SpecifyArchitecture>true</SpecifyArchitecture>
@@ -257,7 +257,7 @@
       <AdditionalIncludeDirectories>..\..\..\src;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ResourceCompile>
     <Link>
-      <AdditionalDependencies>usbd.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>usbd.lib;usbdex.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <Inf>
       <SpecifyArchitecture>true</SpecifyArchitecture>
@@ -272,7 +272,7 @@
       <AdditionalIncludeDirectories>..\..\..\src;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ResourceCompile>
     <Link>
-      <AdditionalDependencies>usbd.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>usbd.lib;usbdex.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <Inf>
       <SpecifyArchitecture>true</SpecifyArchitecture>
