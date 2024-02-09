@@ -59,6 +59,7 @@
 
 #define LIBUSB_MAX_NUMBER_OF_ENDPOINTS  32
 #define LIBUSB_MAX_NUMBER_OF_INTERFACES 32
+#define LIBUSB_MAX_ENDPOINT_NO          0x100
 
 
 #define LIBUSB_DEFAULT_TIMEOUT 5000
@@ -212,6 +213,12 @@ typedef struct
 	int control_read_timeout;
 	int control_write_timeout;
 	int speed;
+
+	/* Keep track of head pending request sequences on all endpoints
+	 * This housekeeping is here to make sure we do not sumbit read/writes out of order
+	 */
+	LONG pending_sequence[LIBUSB_MAX_ENDPOINT_NO];
+	LONG pending_busy[LIBUSB_MAX_ENDPOINT_NO];
 } libusb_device_t, DEVICE_EXTENSION, *PDEVICE_EXTENSION;
 
 
