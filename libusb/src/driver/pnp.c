@@ -73,6 +73,9 @@ NTSTATUS dispatch_pnp(libusb_device_t *dev, IRP *irp)
 		/* wait until all outstanding requests are finished */
         remove_lock_release_and_wait(dev);
 
+		/* Close handle to USBD */
+		USBD_CloseHandle(dev->handle);
+
         status = pass_irp_down(dev, irp, NULL, NULL);
 
 		USBMSG("deleting device #%d %s\n", dev->id, dev->device_id);

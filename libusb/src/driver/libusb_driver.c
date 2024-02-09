@@ -386,10 +386,53 @@ NTSTATUS DDKAPI add_device(DRIVER_OBJECT *driver_object,
         return STATUS_NO_SUCH_DEVICE;
     }
 
+    status = USBD_CreateHandle(device_object,
+      dev->next_stack_device,
+      USBD_CLIENT_CONTRACT_VERSION_602,
+      POOL_TAG,
+      &dev->handle);
+    if (!NT_SUCCESS(status))
+    {
+      USBERR("failed to create USBD handle\n");
+      IoDeleteSymbolicLink(&symbolic_link_name);
+      IoDeleteDevice(device_object);
+      remove_lock_release(dev); // always release acquired locks
+      return status;
+    }
+
+    /* Detect super speed */
+    status = USBD_QueryUsbCapability(dev->handle,
+      (GUID*)&GUID_USB_CAPABILITY_DEVICE_CONNECTION_SUPER_SPEED_COMPATIBLE,
+      0, NULL, NULL);
+    if(NT_SUCCESS(status))
+    {
+        dev->speed = SuperSpeed;
+    }
+    else
+    {
+        /* Detect high speed */
+        status = USBD_QueryUsbCapability(dev->handle,
+            (GUID*)&GUID_USB_CAPABILITY_DEVICE_CONNECTION_HIGH_SPEED_COMPATIBLE,
+            0, NULL, NULL);
+        if(NT_SUCCESS(status))
+        {
+            dev->speed = HighSpeed;
+        }
+        else
+        {
+            /* Default to full speed. At this point we really do not know if it is
+             * really full speed or low speed
+             * Todo: detect low speed
+             */
+            dev->speed = FullSpeed;
+            status = STATUS_SUCCESS;
+        }
+    }
+
+    USBDBG("[%s] id=#%d %s, speed=%d\n", dev->is_filter ? "filter_mode" : "normal-mode", dev->id, dev->device_id, dev->speed);
+
 	if (dev->is_filter)
     {
-		USBDBG("[filter-mode] id=#%d %s\n",dev->id, dev->device_id);
-
         /* send all USB requests to the PDO in filter driver mode */
         dev->target_device = dev->physical_device_object;
 
@@ -405,8 +448,6 @@ NTSTATUS DDKAPI add_device(DRIVER_OBJECT *driver_object,
     }
     else
     {
-		USBDBG("[normal-mode] id=#%d %s\n",dev->id, dev->device_id);
-
 		 /* send all USB requests to the lower object in device driver mode */
         dev->target_device = dev->next_stack_device;
         device_object->Flags |= DO_DIRECT_IO | DO_POWER_PAGABLE;
@@ -690,11 +731,6 @@ bool_t update_pipe_info(libusb_device_t *dev,
 			maxPacketSize = interface_info->Pipes[i].MaximumPacketSize;
 			maxTransferSize = interface_info->Pipes[i].MaximumTransferSize;
 
-			USBMSG("EP%02Xh maximum-packet-size=%d maximum-transfer-size=%d\n",
-				interface_info->Pipes[i].EndpointAddress,
-				maxPacketSize,
-				maxTransferSize);
-
 			dev->config.interfaces[number].endpoints[i].handle  = interface_info->Pipes[i].PipeHandle;
             dev->config.interfaces[number].endpoints[i].address = interface_info->Pipes[i].EndpointAddress;
             dev->config.interfaces[number].endpoints[i].maximum_packet_size = maxPacketSize;
@@ -702,35 +738,55 @@ bool_t update_pipe_info(libusb_device_t *dev,
             dev->config.interfaces[number].endpoints[i].pipe_type = interface_info->Pipes[i].PipeType;
  			dev->config.interfaces[number].endpoints[i].pipe_flags = interface_info->Pipes[i].PipeFlags;
           
-			if (maxPacketSize)
-			{
-				// set max the maximum transfer size default to an interval of max packet size.
-				maxTransferSize = maxTransferSize - (maxTransferSize % maxPacketSize);
-				if (maxTransferSize < maxPacketSize) 
-				{
-					maxTransferSize = LIBUSB_MAX_READ_WRITE;
-				}
-				else if (maxTransferSize > LIBUSB_MAX_READ_WRITE)
-				{
-					maxTransferSize = LIBUSB_MAX_READ_WRITE - (LIBUSB_MAX_READ_WRITE % maxPacketSize);
-				}
+      /* These are Windows new rules for max transfer sizes
+       * Currently we take the speed into account but not the controller type
+       *
+       * https://learn.microsoft.com/en-us/windows-hardware/drivers/usbcon/usb-bandwidth-allocation
+       *
+       */
+      switch (interface_info->Pipes[i].PipeType)
+      {
+          case UsbdPipeTypeControl:
+              switch(dev->speed)
+              {
+                  case SuperSpeed:
+                      maxTransferSize = 64 * 1024;
+                      break;
+                  default:
+                      maxTransferSize = 4 * 1024;
+                      break;
+              }
+              break;
 
-				if (maxTransferSize != interface_info->Pipes[i].MaximumTransferSize)
-				{
-					USBWRN("overriding EP%02Xh maximum-transfer-size=%d\n",
-						dev->config.interfaces[number].endpoints[i].address,
-						maxTransferSize);
-				}
-			}
-			else
-			{
-				if (!maxTransferSize)
-				{
-					// use the libusb-win32 default
-					maxTransferSize = LIBUSB_MAX_READ_WRITE;
-				}
-			}
-			dev->config.interfaces[number].endpoints[i].maximum_transfer_size = maxTransferSize;
+          case UsbdPipeTypeInterrupt:
+              maxTransferSize = 4 * 1024 * 1024;
+              break;
+
+          case UsbdPipeTypeBulk:
+              switch (dev->speed)
+              {
+                  case SuperSpeed:
+                      maxTransferSize = 32 * 1024 * 1024;
+                      break;
+                  case HighSpeed:
+                      maxTransferSize = 4 * 1024 * 1024;
+                      break;
+                  default:
+                      maxTransferSize = 256 * 1024;
+                      break;
+              }
+              break;
+        }
+
+        // set max the maximum transfer size default to an interval of max packet size.
+        maxTransferSize = maxTransferSize - (maxTransferSize % maxPacketSize);
+
+        USBMSG("EP%02Xh maximum-packet-size=%d maximum-transfer-size=%d\n",
+          interface_info->Pipes[i].EndpointAddress,
+          maxPacketSize,
+          maxTransferSize);
+
+        dev->config.interfaces[number].endpoints[i].maximum_transfer_size = maxTransferSize;
 		}
 	}
     return TRUE;
