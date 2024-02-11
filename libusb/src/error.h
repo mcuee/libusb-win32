@@ -99,7 +99,7 @@ enum USB_LOG_LEVEL
 	#define DEF_LOG_OUTPUT_TYPE LOG_OUTPUT_TYPE_STDERR
 #endif
 
-#define _usb_log_do_nothing() while(0)
+#define _usb_log_do_nothing() do {} while(0)
 // Default logging output
 #ifdef LOG_OUTPUT_TYPE
 	// all log messages (except errors) are stripped
