@@ -185,7 +185,9 @@ typedef struct
     DEVICE_OBJECT	*physical_device_object;
     DEVICE_OBJECT	*next_stack_device;
     DEVICE_OBJECT	*target_device;
-	USBD_HANDLE handle;
+#if (NTDDI_VERSION >= NTDDI_WIN8)
+    USBD_HANDLE handle;
+#endif
     libusb_remove_lock_t remove_lock;
     bool_t is_filter;
     bool_t is_started;

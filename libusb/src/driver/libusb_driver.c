@@ -386,6 +386,7 @@ NTSTATUS DDKAPI add_device(DRIVER_OBJECT *driver_object,
         return STATUS_NO_SUCH_DEVICE;
     }
 
+#if (NTDDI_VERSION >= NTDDI_WIN8)
     status = USBD_CreateHandle(device_object,
       dev->next_stack_device,
       USBD_CLIENT_CONTRACT_VERSION_602,
@@ -428,6 +429,10 @@ NTSTATUS DDKAPI add_device(DRIVER_OBJECT *driver_object,
             status = STATUS_SUCCESS;
         }
     }
+#else
+    dev->speed = FullSpeed;
+    status = STATUS_SUCCESS;
+#endif
 
     USBDBG("[%s] id=#%d %s, speed=%d\n", dev->is_filter ? "filter_mode" : "normal-mode", dev->id, dev->device_id, dev->speed);
 
