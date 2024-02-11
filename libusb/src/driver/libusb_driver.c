@@ -762,6 +762,20 @@ bool_t update_pipe_info(libusb_device_t *dev,
               maxTransferSize = 4 * 1024 * 1024;
               break;
 
+          case UsbdPipeTypeIsochronous:
+              switch (dev->speed)
+              {
+                  case SuperSpeed:
+                      // TODO: 1024 * wBytesPerInterval from USB_SUPERSPEED_ENDPOINT_COMPANION_DESCRIPTOR
+                  case HighSpeed:
+                      maxTransferSize = 1024 * interface_info->Pipes[i].MaximumPacketSize;
+                      break;
+                  default:
+                      maxTransferSize = 256 * interface_info->Pipes[i].MaximumPacketSize;
+                      break;
+              }
+              break;
+
           case UsbdPipeTypeBulk:
               switch (dev->speed)
               {
