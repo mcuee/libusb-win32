@@ -393,7 +393,7 @@ NTSTATUS DDKAPI add_device(DRIVER_OBJECT *driver_object,
       &dev->handle);
     if (!NT_SUCCESS(status))
     {
-      USBERR("failed to create USBD handle\n");
+      USBERR0("failed to create USBD handle\n");
       IoDeleteSymbolicLink(&symbolic_link_name);
       IoDeleteDevice(device_object);
       remove_lock_release(dev); // always release acquired locks
