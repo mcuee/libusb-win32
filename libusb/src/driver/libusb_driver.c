@@ -386,6 +386,7 @@ NTSTATUS DDKAPI add_device(DRIVER_OBJECT *driver_object,
         return STATUS_NO_SUCH_DEVICE;
     }
 
+#if (NTDDI_VERSION >= NTDDI_WIN8)
     status = USBD_CreateHandle(device_object,
       dev->next_stack_device,
       USBD_CLIENT_CONTRACT_VERSION_602,
@@ -393,7 +394,7 @@ NTSTATUS DDKAPI add_device(DRIVER_OBJECT *driver_object,
       &dev->handle);
     if (!NT_SUCCESS(status))
     {
-      USBERR("failed to create USBD handle\n");
+      USBERR0("failed to create USBD handle\n");
       IoDeleteSymbolicLink(&symbolic_link_name);
       IoDeleteDevice(device_object);
       remove_lock_release(dev); // always release acquired locks
@@ -428,6 +429,10 @@ NTSTATUS DDKAPI add_device(DRIVER_OBJECT *driver_object,
             status = STATUS_SUCCESS;
         }
     }
+#else
+    dev->speed = FullSpeed;
+    status = STATUS_SUCCESS;
+#endif
 
     USBDBG("[%s] id=#%d %s, speed=%d\n", dev->is_filter ? "filter_mode" : "normal-mode", dev->id, dev->device_id, dev->speed);
 
@@ -760,6 +765,20 @@ bool_t update_pipe_info(libusb_device_t *dev,
 
           case UsbdPipeTypeInterrupt:
               maxTransferSize = 4 * 1024 * 1024;
+              break;
+
+          case UsbdPipeTypeIsochronous:
+              switch (dev->speed)
+              {
+                  case SuperSpeed:
+                      // TODO: 1024 * wBytesPerInterval from USB_SUPERSPEED_ENDPOINT_COMPANION_DESCRIPTOR
+                  case HighSpeed:
+                      maxTransferSize = 1024 * interface_info->Pipes[i].MaximumPacketSize;
+                      break;
+                  default:
+                      maxTransferSize = 256 * interface_info->Pipes[i].MaximumPacketSize;
+                      break;
+              }
               break;
 
           case UsbdPipeTypeBulk:
