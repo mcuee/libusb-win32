@@ -164,11 +164,9 @@ NTSTATUS transfer(libusb_device_t* dev,
 		goto transfer_free;
 	}
 
+	/* Do not check this status code, as the request might complete during call,
+     so we do *not* want to free anything here as that would lead to double-free */
   status = transfer_next(dev, irp, context);
-	if (!NT_SUCCESS(status))
-	{
-		goto transfer_free;
-	}
 
 	InterlockedExchange(&dev->pending_busy[endpoint->address], 0);
 	return status;
