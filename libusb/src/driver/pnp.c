@@ -73,10 +73,10 @@ NTSTATUS dispatch_pnp(libusb_device_t *dev, IRP *irp)
 		/* wait until all outstanding requests are finished */
         remove_lock_release_and_wait(dev);
 
-#if (NTDDI_VERSION >= NTDDI_WIN8)
+#ifdef LIBUSB_ENABLE_CONTRACT_VERSION_602
 		/* Close handle to USBD */
 		USBD_CloseHandle(dev->handle);
-#endif
+#endif /* LIBUSB_ENABLE_CONTRACT_VERSION_602 */
 
         status = pass_irp_down(dev, irp, NULL, NULL);
 

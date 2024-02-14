@@ -24,6 +24,10 @@
 //#define SKIP_DEVICES_WINUSB
 //#define SKIP_DEVICES_PICOPP
 
+#if (defined(WDK_NTDDI_VERSION) && (WDK_NTDDI_VERSION >= NTDDI_WIN8)) || (defined(NTDDI_VERSION) && (NTDDI_VERSION >= NTDDI_WIN8))
+#define LIBUSB_ENABLE_CONTRACT_VERSION_602
+#endif /* (WDK_NTDDI_VERSION >= NTDDI_WIN8) || (NTDDI_VERSION >= NTDDI_WIN8) */
+
 #include <ntifs.h>
 #ifdef __GNUC__
 #define NTSTATUS LONG
@@ -185,9 +189,9 @@ typedef struct
     DEVICE_OBJECT	*physical_device_object;
     DEVICE_OBJECT	*next_stack_device;
     DEVICE_OBJECT	*target_device;
-#if (NTDDI_VERSION >= NTDDI_WIN8)
+#ifdef LIBUSB_ENABLE_CONTRACT_VERSION_602
     USBD_HANDLE handle;
-#endif
+#endif /* LIBUSB_ENABLE_CONTRACT_VERSION_602 */
     libusb_remove_lock_t remove_lock;
     bool_t is_filter;
     bool_t is_started;
