@@ -37,9 +37,6 @@
   <ItemGroup>
     <ClCompile Include="..\..\..\tests\testlibusb.c" />
   </ItemGroup>
-  <ItemGroup>
-    <ResourceCompile Include="..\..\..\tests\testlibusb_rc.rc" />
-  </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>16.0</VCProjectVersion>
     <Keyword>Win32Proj</Keyword>

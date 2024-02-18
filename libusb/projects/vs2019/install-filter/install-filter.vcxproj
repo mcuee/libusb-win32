@@ -40,9 +40,6 @@
     <ClCompile Include="..\..\..\src\install_filter.c" />
     <ClCompile Include="..\..\..\src\registry.c" />
   </ItemGroup>
-  <ItemGroup>
-    <ResourceCompile Include="..\..\..\src\install_filter_rc.rc" />
-  </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>16.0</VCProjectVersion>
     <Keyword>Win32Proj</Keyword>
