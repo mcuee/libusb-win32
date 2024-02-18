@@ -3,8 +3,10 @@
 #define _WIN32_IE 0x0501
 #endif
 
+#define APSTUDIO_HIDDEN_SYMBOLS
 #include <windows.h>
 #include <commctrl.h>
+#undef APSTUDIO_HIDDEN_SYMBOLS
 
 #define IDR_MAIN_ICON 128
 
@@ -43,6 +45,8 @@
 #define RC_FILE_SUB_TYPE  VFT2_UNKNOWN
 #define RC_PRODUCT_STR    DIALOG_CAPTION
 #define RC_FILE_NAME_STR  "install-filter-win.exe"
+
+#include "libusb-win32_version.rc"
 
 /////////////////////////////////////////////////////////////////////////////
 //
@@ -84,8 +88,6 @@ BEGIN
                     WS_BORDER | WS_TABSTOP | LVS_REPORT | LVS_SINGLESEL 
                     | LVS_SHOWSELALWAYS, 20,60,270,95
 END
-
-ID_MANIFEST RT_MANIFEST "common_controls_admin.manifest"
 
 #endif
 
