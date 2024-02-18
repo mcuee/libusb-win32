@@ -1,3 +1,13 @@
+V1.3.0.2 (02/15/2023) - SNAPSHOT RELEASE
+==============================================
+* Fix Linux build: https://github.com/mcuee/libusb-win32/issues/42
+* Fix missing data in large transfers: https://github.com/mcuee/libusb-win32/issues/45
+* Fix BSOD for large transfers: https://github.com/mcuee/libusb-win32/issues/51
+* Replace pipeinfo transfer size with MS rules: https://github.com/mcuee/libusb-win32/issues/52
+* Fix async API data order: https://github.com/mcuee/libusb-win32/issues/54
+* Fix missing PDB files for release: https://github.com/mcuee/libusb-win32/issues/55
+* Fix MINGW build: https://github.com/mcuee/libusb-win32/issues/58
+
 V1.3.0.1 (10/20/2023) - SNAPSHOT RELEASE
 ==============================================
 * Automate the driver signing process more
