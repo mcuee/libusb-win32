@@ -77,7 +77,8 @@ typedef int (*usb_interrupt_setup_async_t)(usb_dev_handle *dev, void **context,
 typedef int (*usb_submit_async_t)(void *context, char *bytes, int size);
 typedef int (*usb_reap_async_t)(void *context, int timeout);
 typedef int (*usb_free_async_t)(void **context);
-
+typedef int (*usb_cancel_async_t)(void *context);
+typedef int (*usb_reap_async_nocancel_t)(void *context, int timeout);
 
 static usb_open_t _usb_open = NULL;
 static usb_close_t _usb_close = NULL;
@@ -115,8 +116,8 @@ static usb_interrupt_setup_async_t _usb_interrupt_setup_async = NULL;
 static usb_submit_async_t _usb_submit_async = NULL;
 static usb_reap_async_t _usb_reap_async = NULL;
 static usb_free_async_t _usb_free_async = NULL;
-
-
+static usb_cancel_async_t _usb_cancel_async = NULL;
+static usb_reap_async_nocancel_t _usb_reap_async_nocancel = NULL;
 
 
 void usb_init(void)
@@ -198,6 +199,10 @@ void usb_init(void)
                       GetProcAddress(libusb_dll, "usb_reap_async");
     _usb_free_async = (usb_free_async_t)
                       GetProcAddress(libusb_dll, "usb_free_async");
+    _usb_cancel_async = (usb_cancel_async_t)
+                      GetProcAddress(libusb_dll, "usb_cancel_async");
+    _usb_reap_async_nocancel = (usb_reap_async_nocancel_t)
+                    GetProcAddress(libusb_dll, "usb_reap_async_nocancel");
 
     if (_usb_init)
         _usb_init();
@@ -378,7 +383,7 @@ char *usb_strerror(void)
 void usb_set_debug(int level)
 {
     if (_usb_set_debug)
-        return _usb_set_debug(level);
+        _usb_set_debug(level);
 }
 
 int usb_find_busses(void)
@@ -492,6 +497,22 @@ int usb_free_async(void **context)
 {
     if (_usb_free_async)
         return _usb_free_async(context);
+    else
+        return -ENOFILE;
+}
+
+int usb_cancel_async(void *context)
+{
+    if (_usb_cancel_async)
+        return _usb_cancel_async(context);
+    else
+        return -ENOFILE;
+}
+
+int usb_reap_async_nocancel(void *context, int timeout)
+{
+  if (_usb_reap_async_nocancel)
+        return _usb_reap_async_nocancel(context, timeout);
     else
         return -ENOFILE;
 }
