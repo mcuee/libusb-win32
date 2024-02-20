@@ -5,5 +5,9 @@ There are two parts of this project: digital signed kernel driver (libusb0.sys) 
 
 Status: supported
 
-Maintained by Peter Dons Tychsen (developer) and Xiaofan Chen (technical support)
+Maintained by:
+
+Peter Dons Tychsen (pdt@dontech.dk) (developer) 
+
+Xiaofan Chen (technical support)
 
