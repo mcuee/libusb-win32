@@ -7,7 +7,7 @@ Status: supported
 
 Maintained by:
 
-Peter Dons Tychsen (pdt@dontech.dk) (developer) 
-
+Peter Dons Tychsen (developer) 
+mcuee (Project manager)
 Xiaofan Chen (technical support)
 
