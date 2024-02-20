@@ -7,7 +7,9 @@ Status: supported
 
 Maintained by:
 
-Peter Dons Tychsen (developer) 
+Peter Dons Tychsen (developer)
+
 mcuee (Project manager)
+
 Xiaofan Chen (technical support)
 
