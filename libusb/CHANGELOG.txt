@@ -1,4 +1,10 @@
-V1.3.0.2 (02/15/2023) - SNAPSHOT RELEASE
+V1.4.0.0 (02/22/2024) - RELEASE
+==============================================
+* Fix missing functions in libusb_dyn.c: https://github.com/mcuee/libusb-win32/issues/13
+* Fix missing resources in executables: https://github.com/mcuee/libusb-win32/issues/64
+* Fix BSOD for zero endpoint size: https://github.com/mcuee/libusb-win32/issues/65
+
+V1.3.0.2 (02/15/2024) - SNAPSHOT RELEASE
 ==============================================
 * Fix Linux build: https://github.com/mcuee/libusb-win32/issues/42
 * Fix missing data in large transfers: https://github.com/mcuee/libusb-win32/issues/45

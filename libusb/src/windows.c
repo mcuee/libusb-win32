@@ -1,4 +1,5 @@
 /* libusb-win32, Generic Windows USB Library
+ * Copyright (C) 2017-2024 Peter Dons Tychsen <pdt@dontech.dk>
  * Copyright (c) 2002-2005 Stephan Meyer <ste_meyer@web.de>
  * Copyright (c) 2000-2005 Johannes Erdfelt <johannes@erdfelt.com>
  *

@@ -1,7 +1,9 @@
 /* Error & Logging functions
 
+ Copyright (C) 2017-2024 Peter Dons Tychsen <pdt@dontech.dk>
  Copyright (C) 2010 Travis Robinson. <libusbdotnet@gmail.com>
- website: http://sourceforge.net/projects/libusb-win32
+
+ website: https://github.com/mcuee/libusb-win32
  
  This program is free software; you can redistribute it and/or modify it
  under the terms of the GNU Lesser General Public License as published by 
