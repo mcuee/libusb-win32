@@ -798,7 +798,10 @@ bool_t update_pipe_info(libusb_device_t *dev,
         }
 
         // set max the maximum transfer size default to an interval of max packet size.
-        maxTransferSize = maxTransferSize - (maxTransferSize % maxPacketSize);
+        if(maxPacketSize)
+        {
+            maxTransferSize = maxTransferSize - (maxTransferSize % maxPacketSize);
+        }
 
         USBMSG("EP%02Xh maximum-packet-size=%d maximum-transfer-size=%d\n",
           interface_info->Pipes[i].EndpointAddress,
