@@ -29,9 +29,6 @@
 ifdef host_prefix
 	override host_prefix := $(host_prefix)-
 endif
-ifdef host_prefix_x86
-	override host_prefix_x86 := $(host_prefix_x86)-
-endif
 ifdef cflags
 	DBG_DEFINE = $(cflags)
 endif
