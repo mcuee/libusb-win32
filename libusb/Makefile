@@ -29,9 +29,6 @@
 ifdef host_prefix
 	override host_prefix := $(host_prefix)-
 endif
-ifdef host_prefix_x86
-	override host_prefix_x86 := $(host_prefix_x86)-
-endif
 ifdef cflags
 	DBG_DEFINE = $(cflags)
 endif
@@ -39,15 +36,10 @@ ifdef ddk
 	DDK_INCLUDE = -I$(ddk)/include/ddk
 endif
 
-CC = $(host_prefix)gcc
+CC = $(host_prefix)cc
 LD = $(host_prefix)ld
 WINDRES = $(host_prefix)windres
 DLLTOOL = $(host_prefix)dlltool
-
-CC86 = $(host_prefix_x86)gcc
-LD86 = $(host_prefix_x86)ld
-WINDRES86 = windres
-DLLTOOL86 = dlltool
 
 MAKE = make
 CP = cp
