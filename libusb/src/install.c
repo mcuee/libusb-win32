@@ -1636,7 +1636,7 @@ int usb_install_npW(HWND hwnd, HINSTANCE instance, LPCWSTR cmd_line_w, int starg
 			ret = usb_install_console(filter_context);
 			if (safe_strlen(filter_context->wait_string))
 			{
-				printf(filter_context->wait_string);
+				puts(filter_context->wait_string);
 				_getch();
 			}
 
