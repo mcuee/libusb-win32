@@ -9,7 +9,5 @@ Maintained by:
 
 Peter Dons Tychsen (developer)
 
-mcuee (project manager)
-
-Xiaofan Chen (technical support)
+Xiaofan Chen (project manager and technical support)
 
