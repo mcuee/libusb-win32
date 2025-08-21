@@ -244,11 +244,16 @@ NTSTATUS DDKAPI transfer_complete(DEVICE_OBJECT *device_object, IRP *irp,
    *
 	 * Note 1: We do not do this if a newer request is already pending on the endpoint,
 	 * as this could change the order of the arrival of data
+   *
+   * Note 2: If transferred size is smaller than c->maxTransferSize, then we must complete
+   * the transfer as it could be caused by a ZLP (zero length packet), as there is no
+   * other way to detect a ZLP. If not, we could hang forever. This is a usbd API limitation.
 	 */
 	if(NT_SUCCESS(irp->IoStatus.Status)
 		&& USBD_SUCCESS(c->urb->UrbHeader.Status)
 		&& (c->urb->UrbHeader.Function == URB_FUNCTION_BULK_OR_INTERRUPT_TRANSFER)
 		&& !(transmitted % c->maximum_packet_size)
+		&& (transmitted == c->maxTransferSize)
 		&& c->totalLength)
 	{
 		PUCHAR virtualAddress;
