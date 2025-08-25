@@ -1,0 +1,1 @@
+make dist "signfile=true" "cert_file=release.cer"
