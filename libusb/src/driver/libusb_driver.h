@@ -88,7 +88,7 @@ typedef int bool_t;
 
 #define POOL_TAG (ULONG) '0BSU'
 #undef ExAllocatePool
-#define ExAllocatePool(type, size) ExAllocatePoolWithTag(type, size, POOL_TAG)
+#define ExAllocatePool(type, size) ExAllocatePoolZero(type, size, POOL_TAG)
 
 #define IS_PIPE_TYPE(pipeInfo, pipeType) ((((pipeInfo->pipe_type & 3)==pipeType))?TRUE:FALSE)
 
