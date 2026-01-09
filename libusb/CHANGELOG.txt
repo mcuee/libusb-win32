@@ -1,3 +1,7 @@
+V1.4.0.2 (01/09/2026) - RELEASE
+==============================================
+* Fix problems with INF file for win11 certification
+
 V1.4.0.1 (08/22/2025) - SNAPSHOT RELEASE
 ==============================================
 * Fix problems with ZLP during BULK and INT transfer: https://github.com/mcuee/libusb-win32/issues/77

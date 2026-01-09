@@ -313,6 +313,11 @@ GOTO :EOF
 		CALL :SafeCopy "!PACKAGE_BIN_DIR!Debug\libusb0.inf" "!PACKAGE_BIN_DIR!Release\libusb0.inf"
 		IF !BUILD_ERRORLEVEL! NEQ 0 GOTO CMDERROR
 
+		:: Verify INF file
+		infverif /h "!PACKAGE_BIN_DIR!Release\libusb0.inf"
+		IF !ERRORLEVEL! NEQ 0 SET BUILD_ERRORLEVEL=1
+		IF !BUILD_ERRORLEVEL! NEQ 0 GOTO CMDERROR
+
 		:: Create CAT file for submission
 		inf2cat /os:7_X86,7_X64,8_X86,8_X64,10_X86,10_X64 /driver:!PACKAGE_BIN_DIR!Debug
 		IF !ERRORLEVEL! NEQ 0 SET BUILD_ERRORLEVEL=1
