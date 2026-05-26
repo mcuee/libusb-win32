@@ -9,7 +9,7 @@ jobs:
 
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v4
 
       # Download and unpack the real WDK headers/libraries natively into the workspace
       - name: Fetch and Unpack WDK Development Components
@@ -22,6 +22,10 @@ jobs:
           $PackPath = Get-ChildItem -Path "${{ github.workspace }}\wdk_extracted\Microsoft.Windows.WDK.x64.*" | Select-Object -First 1
           Write-Host "Unpacked package location: $($PackPath.FullName)"
           
+          Write-Host "=== DEBUG: Printing actual NuGet internal structure ==="
+          Get-ChildItem -Path $PackPath.FullName -Recurse -Depth 2 | Select-Object FullName
+          Write-Host "======================================================="
+
           # Setup standard legacy structure layouts that make.cmd expects
           $TargetRoot = "${{ github.workspace }}\wdk_root\Program Files\Windows Kits\10"
           New-Item -ItemType Directory -Force -Path "$TargetRoot\Include"
@@ -29,10 +33,23 @@ jobs:
           New-Item -ItemType Directory -Force -Path "$TargetRoot\build"
           
           Write-Host "Mapping verified kernel headers and build tools..."
-          # FIX: Pull directly from the root layout of the unpacked NuGet directory
-          Copy-Item -Path "$($PackPath.FullName)\Include\10.0.26100.0\*" -Destination "$TargetRoot\Include" -Recurse -Force
-          Copy-Item -Path "$($PackPath.FullName)\Lib\10.0.26100.0\*" -Destination "$TargetRoot\Lib" -Recurse -Force
-          Copy-Item -Path "$($PackPath.FullName)\build\*" -Destination "$TargetRoot\build" -Recurse -Force
+          
+          # Flexible fallback copy block: copies 'Include' or 'include' content seamlessly
+          if (Test-Path "$($PackPath.FullName)\Include") {
+              Copy-Item -Path "$($PackPath.FullName)\Include\*" -Destination "$TargetRoot\Include" -Recurse -Force
+          } elseif (Test-Path "$($PackPath.FullName)\include") {
+              Copy-Item -Path "$($PackPath.FullName)\include\*" -Destination "$TargetRoot\Include" -Recurse -Force
+          }
+
+          if (Test-Path "$($PackPath.FullName)\Lib") {
+              Copy-Item -Path "$($PackPath.FullName)\Lib\*" -Destination "$TargetRoot\Lib" -Recurse -Force
+          } elseif (Test-Path "$($PackPath.FullName)\lib") {
+              Copy-Item -Path "$($PackPath.FullName)\lib\*" -Destination "$TargetRoot\Lib" -Recurse -Force
+          }
+
+          if (Test-Path "$($PackPath.FullName)\build") {
+              Copy-Item -Path "$($PackPath.FullName)\build\*" -Destination "$TargetRoot\build" -Recurse -Force
+          }
           
           # Create a fake wmic.exe stub since Windows 11 completely deprecated it
           echo "@echo off" > C:\Windows\wmic.cmd
@@ -62,7 +79,7 @@ jobs:
 
       # Harvest your output distribution artifacts
       - name: Collect and Upload Output Artifacts
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v4
         with:
           name: libusb-win32-wdk-latest-binaries
           path: |
