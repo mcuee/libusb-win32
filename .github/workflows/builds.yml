@@ -11,61 +11,23 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v6
 
-      # Download EWDK 26100.6584 using BITS for deep stream integrity checking
-      - name: Download EWDK 26100 ISO
+      # Installs the precise lightweight matching framework headlessly via package manager
+      - name: Install WDK 10 via Chocolatey
         shell: powershell
         run: |
-          Write-Host "Downloading Enterprise WDK 26100.6584 ISO..."
-          $url = "https://go.microsoft.com/fwlink/?linkid=2273620"
-          
-          # Using BITS ensures file system writing locks and checks bytes continuously
-          Start-BitsTransfer -Source $url -Destination "${{ github.workspace }}\ewdk_26100.iso" -Priority High
-          
-          # Sanity check: Ensure the file size is realistic (~4.5GB - 5GB range)
-          $file = Get-Item "${{ github.workspace }}\ewdk_26100.iso"
-          Write-Host "Downloaded file size: [($($file.Length / 1GB) -as [int])] GB ($($file.Length) bytes)"
+          choco install windows-sdk-10-version-22h2-all -y --no-progress
+          choco install windowsdriverkit11 -y --no-progress
 
-      # Mount the verified image volume
-      - name: Mount EWDK ISO
-        id: mount_iso
-        shell: powershell
-        run: |
-          Write-Host "Mounting EWDK ISO image..."
-          
-          # Add an extra file validation barrier before triggering the OS mount pipeline
-          if (!(Test-Path "${{ github.workspace }}\ewdk_26100.iso")) {
-              throw "ISO download failed entirely; file is non-existent."
-          }
-          
-          $mountResult = Mount-DiskImage -ImagePath "${{ github.workspace }}\ewdk_26100.iso" -PassThru
-          $driveLetter = ($mountResult | Get-Volume).DriveLetter
-          Write-Host "EWDK successfully attached to drive: ${driveLetter}:"
-          
-          echo "EWDK_DRIVE=${driveLetter}:" >> $env:GITHUB_ENV
-
-      # Run your exact make sequence using your verified syntax
+      # Point your build configurations to the freshly prepared global system paths
       - name: Run Native Compilation via make.cmd
         shell: cmd
         env:
-          # Seamlessly intercepts the build.cfg checks to target the mounted virtual drive root
-          WINDDK_DIR: ${{ env.EWDK_DRIVE }}\Program Files\Windows Kits\10
-          WDK_BASE: ${{ env.EWDK_DRIVE }}\Program Files\Windows Kits\10
+          WINDDK_DIR: C:\Program Files (x86)\Windows Kits\10
+          WDK_BASE: C:\Program Files (x86)\Windows Kits\10
         run: |
           cd ddk_make
-          
-          echo === Refreshing Version Header File ===
           call make.cmd MAKEVER
-          
-          echo === Commining Comprehensive Automation Matrix Execution ===
-          :: Executes your comprehensive automation suite passing the exact required key-value path string
-          call make.cmd all "WINDDK=${{ env.EWDK_DRIVE }}\"
-
-      # Always detach the virtual volume to keep the host healthy
-      - name: Dismount EWDK ISO
-        if: always()
-        shell: powershell
-        run: |
-          Dismount-DiskImage -ImagePath "${{ github.workspace }}\ewdk_26100.iso"
+          call make.cmd all "WINDDK=C:\Program Files (x86)\Windows Kits\10\"
 
       - name: Collect Output Binaries
         uses: actions/upload-artifact@v7
