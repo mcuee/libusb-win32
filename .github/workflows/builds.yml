@@ -1,0 +1,68 @@
+name: CI - Build libusb-win32 via EWDK 26100
+
+on: [push, pull_request]
+
+jobs:
+  build-via-ewdk:
+    name: Build via Mounted EWDK 26100
+    runs-on: windows-latest # Perfectly leverages the modern VS2022 runner host base
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v6
+
+      # Download EWDK 26100.6584 (Windows 11 version)
+      - name: Download EWDK 26100 ISO
+        shell: powershell
+        run: |
+          Write-Host "Downloading Enterprise WDK 26100.6584 ISO..."
+          $url = "https://go.microsoft.com/fwlink/?linkid=2273620"
+          Invoke-WebRequest -Uri $url -OutFile "ewdk_26100.iso"
+
+      # Mount the image into the runner virtual file manager allocation slots
+      - name: Mount EWDK ISO
+        id: mount_iso
+        shell: powershell
+        run: |
+          Write-Host "Mounting EWDK ISO image..."
+          $mountResult = Mount-DiskImage -ImagePath "${{ github.workspace }}\ewdk_26100.iso" -PassThru
+          $driveLetter = ($mountResult | Get-Volume).DriveLetter
+          Write-Host "EWDK successfully attached to drive: ${driveLetter}:"
+          
+          # Force the isolated drive variable down into the environment chain
+          echo "EWDK_DRIVE=${driveLetter}:" >> $env:GITHUB_ENV
+
+      # Run your exact make sequence using your verified syntax
+      - name: Run Native Compilation via make.cmd
+        shell: cmd
+        env:
+          # Seamlessly intercepts the build.cfg checks to target the mounted virtual drive root
+          WINDDK_DIR: ${{ env.EWDK_DRIVE }}\Program Files\Windows Kits\10
+          WDK_BASE: ${{ env.EWDK_DRIVE }}\Program Files\Windows Kits\10
+        run: |
+          cd ddk_make
+          
+          echo === Refreshing Version Header File ===
+          call make.cmd MAKEVER
+          
+          echo === Commining Comprehensive Automation Matrix Execution ===
+          :: Executes your comprehensive automation suite passing the exact required key-value path string
+          call make.cmd all "WINDDK=${{ env.EWDK_DRIVE }}\"
+
+      # Always detach the virtual volume to keep the host healthy
+      - name: Dismount EWDK ISO
+        if: always()
+        shell: powershell
+        run: |
+          Dismount-DiskImage -ImagePath "${{ github.workspace }}\ewdk_26100.iso"
+
+      - name: Collect Output Binaries
+        uses: actions/upload-artifact@v7
+        with:
+          name: libusb-win32-ewdk-26100-artifacts
+          path: |
+            **/bin/**/*.dll
+            **/bin/**/*.lib
+            **/bin/**/*.sys
+            **/bin/**/*.inf
+          if-no-files-found: error
