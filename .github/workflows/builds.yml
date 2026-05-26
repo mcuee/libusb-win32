@@ -1,38 +1,63 @@
-name: CI - Build libusb-win32 via Pre-Installed WDK
+name: CI - Build libusb-win32 via Lightweight WDK NuGet
 
 on: [push, pull_request]
 
 jobs:
-  build-via-native-wdk:
-    name: Build via Pre-Installed WDK 26100
+  build-via-wdk-nuget:
+    name: Build via NuGet WDK Components
     runs-on: windows-latest
 
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v6
 
-      # Run the compilation sequence using the explicit versioned tool paths
+      # Download and unpack the real WDK headers/libraries natively into the workspace
+      - name: Fetch and Unpack WDK Development Components
+        shell: powershell
+        run: |
+          Write-Host "Downloading matching 26100 WDK package via NuGet..."
+          # Fetch the official Microsoft kernel-mode compilation package
+          nuget install Microsoft.Windows.WDK.x64 -Version 10.0.26100.2454 -OutputDirectory "${{ github.workspace }}\wdk_extracted"
+          
+          # Setup legacy structure mappings that make.cmd expects
+          $PackPath = Get-ChildItem -Path "${{ github.workspace }}\wdk_extracted\Microsoft.Windows.WDK.x64.*" | Select-Object -First 1
+          
+          # Create a unified root path for the DDK scripts
+          $TargetRoot = "${{ github.workspace }}\wdk_root\Program Files\Windows Kits\10"
+          New-Item -ItemType Directory -Force -Path "$TargetRoot\Include"
+          New-Item -ItemType Directory -Force -Path "$TargetRoot\Lib"
+          
+          Write-Host "Mapping verified kernel header directories..."
+          Copy-Item -Path "$($PackPath.FullName)\windowskits\10\Include\10.0.26100.0\*" -Destination "$TargetRoot\Include" -Recurse -Force
+          Copy-Item -Path "$($PackPath.FullName)\windowskits\10\Lib\10.0.26100.0\*" -Destination "$TargetRoot\Lib" -Recurse -Force
+          
+          # Create a fake wmic.exe stub since Windows 11 completely deprecated it
+          echo "@echo off" > C:\Windows\wmic.cmd
+          echo "echo 20260526000000.000000+000" >> C:\Windows\wmic.cmd
+          
+          # Save path configuration into global environment block
+          echo "LOCAL_WDK_ROOT=${{ github.workspace }}\wdk_root\" | Out-File -FilePath $env:GITHUB_ENV -Append
+
+      # Run your compilation using the clean unpacked files
       - name: Run Native Compilation via make.cmd
         shell: cmd
         working-directory: libusb/ddk_make
         env:
-          WINDDK_DIR: C:\Program Files (x86)\Windows Kits\10\Tools\10.0.26100.0
-          WDK_BASE: C:\Program Files (x86)\Windows Kits\10\Tools\10.0.26100.0
+          WINDDK_DIR: ${{ env.LOCAL_WDK_ROOT }}Program Files\Windows Kits\10
+          WDK_BASE: ${{ env.LOCAL_WDK_ROOT }}Program Files\Windows Kits\10
         run: |
-          echo === Verifying Environment Tree ===
-          if exist "C:\Program Files (x86)\Windows Kits\10\Tools\10.0.26100.0" (
-              echo Found WDK 26100 tooling directory successfully!
-          ) else (
-              echo Warning: Tooling path not found. Checking fallback alternatives.
+          echo === Verifying Localized Target Tree ===
+          if exist "%WINDDK_DIR%\Include" (
+              echo Localized NuGet WDK environment confirmed!
           )
 
           echo === Refreshing Version Header File ===
           call make.cmd MAKEVER
           
-          echo === Compiling All Architectures via Native WDK ===
-          call make.cmd all "WINDDK=C:\Program Files (x86)\Windows Kits\10\Tools\10.0.26100.0\"
+          echo === Compiling All Architectures via NuGet Framework ===
+          call make.cmd all "WINDDK=${{ env.LOCAL_WDK_ROOT }}"
 
-      # Harvest the outputs matching your distribution structure
+      # Harvest your output distribution artifacts
       - name: Collect and Upload Output Artifacts
         uses: actions/upload-artifact@v7
         with:
