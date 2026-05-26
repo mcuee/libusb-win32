@@ -5,40 +5,42 @@ on: [push, pull_request]
 jobs:
   build-via-native-wdk:
     name: Build via Pre-Installed WDK 26100
-    runs-on: windows-latest # Contains the 26100 tools natively
+    runs-on: windows-latest
 
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v6
 
-      # Run compilation using the pre-existing tools on the runner disk
+      # Run the compilation sequence using the explicit versioned tool paths
       - name: Run Native Compilation via make.cmd
         shell: cmd
-        working-directory: ddk_make  # Adjust to 'libusb/ddk_make' if nested
+        working-directory: libusb/ddk_make
         env:
-          WINDDK_DIR: C:\Program Files (x86)\Windows Kits\10
-          WDK_BASE: C:\Program Files (x86)\Windows Kits\10
+          WINDDK_DIR: C:\Program Files (x86)\Windows Kits\10\Tools\10.0.26100.0
+          WDK_BASE: C:\Program Files (x86)\Windows Kits\10\Tools\10.0.26100.0
         run: |
           echo === Verifying Environment Tree ===
-          if exist "C:\Program Files (x86)\Windows Kits\10\Include\10.0.26100.0" (
-              echo Found WDK 26100 headers successfully!
+          if exist "C:\Program Files (x86)\Windows Kits\10\Tools\10.0.26100.0" (
+              echo Found WDK 26100 tooling directory successfully!
           ) else (
-              echo Warning: Target version directory not found, checking fallback versions.
+              echo Warning: Tooling path not found. Checking fallback alternatives.
           )
 
           echo === Refreshing Version Header File ===
           call make.cmd MAKEVER
           
           echo === Compiling All Architectures via Native WDK ===
-          call make.cmd all "WINDDK=C:\Program Files (x86)\Windows Kits\10\"
+          call make.cmd all "WINDDK=C:\Program Files (x86)\Windows Kits\10\Tools\10.0.26100.0\"
 
-      - name: Collect Output Binaries
+      # Harvest the outputs matching your distribution structure
+      - name: Collect and Upload Output Artifacts
         uses: actions/upload-artifact@v7
         with:
-          name: libusb-win32-native-wdk-artifacts
+          name: libusb-win32-wdk-latest-binaries
           path: |
             **/bin/**/*.dll
             **/bin/**/*.lib
             **/bin/**/*.sys
             **/bin/**/*.inf
+            **/bin/**/*.exe
           if-no-files-found: error
