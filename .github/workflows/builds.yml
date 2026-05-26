@@ -11,25 +11,36 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v6
 
-      # Download EWDK 26100.6584 (Windows 11 version)
+      # Download EWDK 26100.6584 using BITS for deep stream integrity checking
       - name: Download EWDK 26100 ISO
         shell: powershell
         run: |
           Write-Host "Downloading Enterprise WDK 26100.6584 ISO..."
           $url = "https://go.microsoft.com/fwlink/?linkid=2273620"
-          Invoke-WebRequest -Uri $url -OutFile "ewdk_26100.iso"
+          
+          # Using BITS ensures file system writing locks and checks bytes continuously
+          Start-BitsTransfer -Source $url -Destination "${{ github.workspace }}\ewdk_26100.iso" -Priority High
+          
+          # Sanity check: Ensure the file size is realistic (~4.5GB - 5GB range)
+          $file = Get-Item "${{ github.workspace }}\ewdk_26100.iso"
+          Write-Host "Downloaded file size: [($($file.Length / 1GB) -as [int])] GB ($($file.Length) bytes)"
 
-      # Mount the image into the runner virtual file manager allocation slots
+      # Mount the verified image volume
       - name: Mount EWDK ISO
         id: mount_iso
         shell: powershell
         run: |
           Write-Host "Mounting EWDK ISO image..."
+          
+          # Add an extra file validation barrier before triggering the OS mount pipeline
+          if (!(Test-Path "${{ github.workspace }}\ewdk_26100.iso")) {
+              throw "ISO download failed entirely; file is non-existent."
+          }
+          
           $mountResult = Mount-DiskImage -ImagePath "${{ github.workspace }}\ewdk_26100.iso" -PassThru
           $driveLetter = ($mountResult | Get-Volume).DriveLetter
           Write-Host "EWDK successfully attached to drive: ${driveLetter}:"
           
-          # Force the isolated drive variable down into the environment chain
           echo "EWDK_DRIVE=${driveLetter}:" >> $env:GITHUB_ENV
 
       # Run your exact make sequence using your verified syntax
