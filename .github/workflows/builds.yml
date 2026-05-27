@@ -9,7 +9,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # Unified matrix handling for all targets
+        # High-level architecture targets
         platform: ["Win32", "x64", "ARM64"]
 
     steps:
@@ -51,12 +51,24 @@ jobs:
           $PropsContent | Out-File -FilePath "libusb\Directory.Build.props" -Encoding utf8
           Write-Output "Successfully generated structural Directory.Build.props file for libusb-win32."
 
-      # Execute multi-threaded compilation on the solution file directly
-      - name: Execute MSBuild Compiler Matrix
+      # Compile step for 32-bit: Maps platform to 'x86' and targets user-space components only
+      - name: Build 32-bit User Space Only
+        if: matrix.platform == 'Win32'
         shell: cmd
         working-directory: libusb/projects/vs2019
         run: |
-          echo === Compiling Solution [Platform=${{ matrix.platform }}] ===
+          echo === Compiling 32-bit User Space Libraries Only ===
+          :: We pass x86 to satisfy the solution mapping, and target specific user projects if needed,
+          :: or let it build libraries while skipping the driver project build settings.
+          msbuild libusb-win32.sln /p:Configuration=Release /p:Platform=x86 /t:libusb0_dll;libusb0_lib /m
+
+      # Compile step for 64-bit & ARM64: Compiles the full solution including drivers
+      - name: Build Full 64-bit/ARM64 Solution
+        if: matrix.platform != 'Win32'
+        shell: cmd
+        working-directory: libusb/projects/vs2019
+        run: |
+          echo === Compiling Full Solution [Platform=${{ matrix.platform }}] ===
           msbuild libusb-win32.sln /p:Configuration=Release /p:Platform=${{ matrix.platform }} /p:DriverTargetPlatform="Desktop" /p:ApiValidatorAnalyze=false /p:InfVerif=false /m
 
       # Harvest all output binaries safely matching your distribution structure
