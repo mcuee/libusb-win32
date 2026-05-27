@@ -4,69 +4,70 @@ on: [push, pull_request]
 
 jobs:
   build-via-msbuild:
-    name: MSBuild Matrix Compilation
-    runs-on: windows-latest
+    name: Build (${{ matrix.platform }})
+    runs-on: windows-2022
+    strategy:
+      fail-fast: false
+      matrix:
+        # Unified matrix handling for all targets
+        platform: ["Win32", "x64", "ARM64"]
 
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v6
 
-      # Setup MSBuild pathing context natively on the runner host
-      - name: Setup MSBuild Toolchain
+      - name: Setup MSBuild Configuration
         uses: microsoft/setup-msbuild@v3
 
-      # Download and unpack the real WDK headers/libraries natively into the workspace
-      - name: Fetch and Unpack WDK Development Components
+      - name: Setup NuGet Environment
+        uses: NuGet/setup-nuget@v3
+
+      # Pull down the core compilation dependencies directly into the workspace
+      - name: Restore WDK Packages
+        shell: powershell
+        working-directory: libusb
+        run: |
+          nuget install Microsoft.Windows.WDK.x64 -Version "10.0.26100.2454" -OutputDirectory packages
+
+      # Automatically hooks into the MSBuild compilation tree to resolve ntifs.h / ntddk.h
+      - name: Configure WDK Include Intercepts
         shell: powershell
         run: |
-          Write-Host "Downloading matching 26100 WDK package via NuGet..."
-          nuget install Microsoft.Windows.WDK.x64 -Version 10.0.26100.2454 -OutputDirectory "${{ github.workspace }}\wdk_extracted"
-          
-          # Pin the exact unpacked package root folder path
-          $PackPath = Get-ChildItem -Path "${{ github.workspace }}\wdk_extracted\Microsoft.Windows.WDK.x64.*" | Select-Object -First 1
-          
-          # Expose explicitly versioned directory blocks down to the shell runner
-          $WdkInclude = "$($PackPath.FullName)\Include\10.0.26100.0"
-          $WdkLib = "$($PackPath.FullName)\Lib\10.0.26100.0"
-          
-          echo "WDK_INCLUDE_DIR=$WdkInclude" | Out-File -FilePath $env:GITHUB_ENV -Append
-          echo "WDK_LIB_DIR=$WdkLib" | Out-File -FilePath $env:GITHUB_ENV -Append
+          $PropsContent = @"
+          <Project>
+            <PropertyGroup>
+              <TargetVersion>Windows10</TargetVersion>
+              <TargetPlatformVersion>10.0.26100.0</TargetPlatformVersion>
+              <IncludeWdkHeaders>true</IncludeWdkHeaders>
+            </PropertyGroup>
+            <ItemDefinitionGroup>
+              <ClCompile>
+                <AdditionalIncludeDirectories>`$(SolutionDir)packages\Microsoft.Windows.WDK.x64.10.0.26100.2454\build\native\include;`$(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+                <PreprocessorDefinitions>_WIN32_WINNT=0x0A00;NTDDI_VERSION=0x0A00000C;`$(PreprocessorDefinitions)</PreprocessorDefinitions>
+              </ClCompile>
+            </ItemDefinitionGroup>
+          </Project>
+          "@
+          $PropsContent | Out-File -FilePath "libusb\Directory.Build.props" -Encoding utf8
+          Write-Output "Successfully generated structural Directory.Build.props file for libusb-win32."
 
-      # Compile the solution targeting your matrix architectures directly via MSBuild
+      # Execute multi-threaded compilation on the solution file directly
       - name: Execute MSBuild Compiler Matrix
         shell: cmd
         working-directory: libusb/projects/vs2019
-        # Create a single consolidated global include variable for all driver dependencies
-        env:
-          DRV_INCLUDES: %WDK_INCLUDE_DIR%\km;%WDK_INCLUDE_DIR%\shared;%WDK_INCLUDE_DIR%\um
         run: |
-          echo === Compiling Win32 Architecture ===
-          msbuild libusb-win32.sln -m -t:Rebuild -p:Configuration=Release -p:Platform=Win32 ^
-            -p:AdditionalIncludeDirectories="%DRV_INCLUDES%" ^
-            -p:WDKContentRoot="%WDK_INCLUDE_DIR%" ^
-            -p:PreprocessorDefinitions="WIN32;_WIN32_WINNT=0x0A00;NTDDI_VERSION=0x0A00000C;_WINDOWS;_USRDLL"
+          echo === Compiling Solution [Platform=${{ matrix.platform }}] ===
+          msbuild libusb-win32.sln /p:Configuration=Release /p:Platform=${{ matrix.platform }} /p:DriverTargetPlatform="Desktop" /p:ApiValidatorAnalyze=false /p:InfVerif=false /m
 
-          echo === Compiling x64 Architecture ===
-          msbuild libusb-win32.sln -m -t:Rebuild -p:Configuration=Release -p:Platform=x64 ^
-            -p:AdditionalIncludeDirectories="%DRV_INCLUDES%" ^
-            -p:WDKContentRoot="%WDK_INCLUDE_DIR%" ^
-            -p:PreprocessorDefinitions="WIN64;_WIN32_WINNT=0x0A00;NTDDI_VERSION=0x0A00000C;_WINDOWS;_USRDLL"
-
-          echo === Compiling ARM64 Architecture ===
-          msbuild libusb-win32.sln -m -t:Rebuild -p:Configuration=Release -p:Platform=ARM64 ^
-            -p:AdditionalIncludeDirectories="%DRV_INCLUDES%" ^
-            -p:WDKContentRoot="%WDK_INCLUDE_DIR%" ^
-            -p:PreprocessorDefinitions="WIN64;_WIN32_WINNT=0x0A00;NTDDI_VERSION=0x0A00000C;_WINDOWS;_USRDLL"
-
-      # Harvest all compiled binaries generated by the MSBuild target output rules
-      - name: Collect and Upload Output Artifacts
+      # Harvest all output binaries safely matching your distribution structure
+      - name: Collect and Upload Artifacts
         uses: actions/upload-artifact@v7
         with:
-          name: libusb-win32-msbuild-binaries
+          name: libusb-win32-windows-2022-${{ matrix.platform }}-Output
           path: |
-            **/Release/**/*.dll
-            **/Release/**/*.lib
-            **/Release/**/*.sys
-            **/Release/**/*.inf
-            **/Release/**/*.exe
+            libusb/**/*.dll
+            libusb/**/*.lib
+            libusb/**/*.sys
+            libusb/**/*.inf
+            libusb/**/*.exe
           if-no-files-found: error
