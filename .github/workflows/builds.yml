@@ -1,0 +1,118 @@
+name: CI - Build libusb-win32 via MSBuild with pre-installed WDK
+
+on: [push, pull_request]
+
+jobs:
+
+  build-via-msbuild:
+    name: Build (${{ matrix.platform }})
+    runs-on: windows-2022   # WDK 10.0.26100.16 pre-installed
+
+    strategy:
+      fail-fast: false
+      matrix:
+        platform: ["Win32", "x64", "ARM64"]
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v6
+
+      - name: Setup MSBuild
+        uses: microsoft/setup-msbuild@v3
+
+      # Locate the pre-installed WDK and expose key tool paths as env vars
+      - name: Locate pre-installed WDK
+        shell: pwsh
+        run: |
+          $reg = Get-ItemProperty "HKLM:\SOFTWARE\Microsoft\Windows Kits\Installed Roots" -ErrorAction Stop
+          $kitRoot = $reg.KitsRoot10
+          Write-Output "WDK root: $kitRoot"
+
+          # Find the highest build number under bin\
+          $wdkBin = Get-ChildItem "$kitRoot\bin" -Directory |
+            Where-Object { $_.Name -match '^\d+\.\d+\.\d+\.\d+$' } |
+            Sort-Object Name -Descending |
+            Select-Object -First 1 -ExpandProperty FullName
+
+          Write-Output "WDK bin: $wdkBin"
+
+          $inf2cat  = "$wdkBin\x86\Inf2Cat.exe"
+          $signtool = "$wdkBin\x64\signtool.exe"
+          $stampinf = "$wdkBin\x64\stampinf.exe"
+
+          # Verify tools exist
+          foreach ($tool in $inf2cat, $signtool, $stampinf) {
+            if (Test-Path $tool) { Write-Output "Found: $tool" }
+            else                  { Write-Warning "NOT found: $tool" }
+          }
+
+          # Expose to subsequent steps
+          echo "WDK_BIN=$wdkBin"   >> $env:GITHUB_ENV
+          echo "INF2CAT=$inf2cat"  >> $env:GITHUB_ENV
+          echo "SIGNTOOL=$signtool" >> $env:GITHUB_ENV
+          echo "STAMPINF=$stampinf" >> $env:GITHUB_ENV
+
+      # Inject WDK include path via Directory.Build.props so MSBuild can
+      # find ntddk.h without a full WDK Visual Studio extension install
+      - name: Configure WDK Include Intercepts
+        shell: pwsh
+        run: |
+          $reg = Get-ItemProperty "HKLM:\SOFTWARE\Microsoft\Windows Kits\Installed Roots"
+          $kitRoot = $reg.KitsRoot10
+
+          $wdkInc = Get-ChildItem "$kitRoot\bin" -Directory |
+            Where-Object { $_.Name -match '^\d+\.\d+\.\d+\.\d+$' } |
+            Sort-Object Name -Descending |
+            Select-Object -First 1 -ExpandProperty Name
+
+          $PropsContent = @"
+          <Project>
+            <PropertyGroup>
+              <TargetVersion>Windows10</TargetVersion>
+              <TargetPlatformVersion>$wdkInc</TargetPlatformVersion>
+              <IncludeWdkHeaders>true</IncludeWdkHeaders>
+            </PropertyGroup>
+            <PropertyGroup Condition="'`$(Platform)' == 'x86' or '`$(Platform)' == 'Win32'">
+              <ConfigurationType Condition="'`$(ConfigurationType)' == 'Driver'">Utility</ConfigurationType>
+              <SkipCompilerTargets Condition="'`$(SkipCompilerTargets)' == ''">true</SkipCompilerTargets>
+            </PropertyGroup>
+          </Project>
+          "@
+          $PropsContent | Out-File -FilePath "libusb\Directory.Build.props" -Encoding utf8BOM
+          Write-Output "Generated Directory.Build.props with TargetPlatformVersion=$wdkInc"
+
+      # Build 32-bit user-space only (driver skipped via props ConfigurationType override)
+      - name: Build 32-bit User Space Only
+        if: matrix.platform == 'Win32'
+        shell: cmd
+        working-directory: libusb/projects/vs2019
+        run: |
+          echo === Compiling 32-bit User Space Libraries ===
+          msbuild libusb-win32.sln /p:Configuration=Release /p:Platform=x86 /m /nologo /v:minimal
+
+      # Build full solution for 64-bit and ARM64 (driver included)
+      - name: Build Full 64-bit/ARM64 Solution
+        if: matrix.platform != 'Win32'
+        shell: cmd
+        working-directory: libusb/projects/vs2019
+        run: |
+          echo === Compiling Full Solution [Platform=${{ matrix.platform }}] ===
+          msbuild libusb-win32.sln ^
+            /p:Configuration=Release ^
+            /p:Platform=${{ matrix.platform }} ^
+            /p:DriverTargetPlatform=Desktop ^
+            /p:ApiValidatorAnalyze=false ^
+            /p:InfVerif=false ^
+            /m /nologo /v:minimal
+
+      - name: Collect and Upload Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: libusb-win32-windows-2022-${{ matrix.platform }}-Output
+          path: |
+            libusb/**/*.dll
+            libusb/**/*.lib
+            libusb/**/*.sys
+            libusb/**/*.inf
+            libusb/**/*.exe
+          if-no-files-found: ignore
